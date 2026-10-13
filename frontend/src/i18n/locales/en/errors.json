@@ -401,5 +401,7 @@
   "APPEARANCE_INVALID_DENSITY": "Pick compact or comfortable spacing.",
   "BATCH_NOT_IN_EXPIRY_WINDOW": "This batch is no longer in that expiry window. Reload the list.",
   "EXPIRY_WINDOW_UNKNOWN": "That expiry window is not in use. Pick one of the windows shown.",
-  "SALES_PERIOD_INVALID": "Pick today, this week or this month."
+  "SALES_PERIOD_INVALID": "Pick today, this week or this month.",
+  "INVALID_SLOW_MOVING_WINDOW": "Pick a sales window between 1 and 365 days.",
+  "INVALID_SLOW_MOVING_LIMIT": "Pick between 1 and 50 products."
 }

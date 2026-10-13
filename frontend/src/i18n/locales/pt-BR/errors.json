@@ -401,5 +401,7 @@
   "APPEARANCE_INVALID_DENSITY": "Escolha espaçamento compacto ou confortável.",
   "BATCH_NOT_IN_EXPIRY_WINDOW": "Este lote não está mais nessa janela de validade. Recarregue a lista.",
   "EXPIRY_WINDOW_UNKNOWN": "Essa janela de validade não está em uso. Escolha uma das janelas exibidas.",
-  "SALES_PERIOD_INVALID": "Escolha hoje, esta semana ou este mês."
+  "SALES_PERIOD_INVALID": "Escolha hoje, esta semana ou este mês.",
+  "INVALID_SLOW_MOVING_WINDOW": "Escolha um período de vendas entre 1 e 365 dias.",
+  "INVALID_SLOW_MOVING_LIMIT": "Escolha entre 1 e 50 produtos."
 }

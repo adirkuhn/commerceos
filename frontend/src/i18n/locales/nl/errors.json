@@ -401,5 +401,7 @@
   "APPEARANCE_INVALID_DENSITY": "Kies compacte of ruime weergave.",
   "BATCH_NOT_IN_EXPIRY_WINDOW": "Deze batch valt niet meer in dat houdbaarheidsvenster. Laad de lijst opnieuw.",
   "EXPIRY_WINDOW_UNKNOWN": "Dat houdbaarheidsvenster wordt niet gebruikt. Kies een van de getoonde vensters.",
-  "SALES_PERIOD_INVALID": "Kies vandaag, deze week of deze maand."
+  "SALES_PERIOD_INVALID": "Kies vandaag, deze week of deze maand.",
+  "INVALID_SLOW_MOVING_WINDOW": "Kies een verkoopperiode van 1 tot 365 dagen.",
+  "INVALID_SLOW_MOVING_LIMIT": "Kies tussen 1 en 50 producten."
 }

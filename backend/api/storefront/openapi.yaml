@@ -588,6 +588,42 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
 
+  /storefront/v1/slow-moving-products:
+    get:
+      operationId: listSlowMovingProducts
+      summary: In-stock SKUs with zero units sold in the trailing `days`, most stock on hand first
+      description: >
+        Feeds a storefront's "needs attention" merchandising block (e.g. the
+        WooCommerce plugin's Elementor widget) -- products whose stock is
+        sitting unsold, surfaced so the shop can push them. A storefront-
+        shaped view over the admin slow-moving-products report (see
+        application/storefront.ListSlowMovingProductsUseCase): sales across
+        every channel count, not just the calling storefront's. Accepts a
+        tenant-wide key (no sales channel scope required), same as
+        getCartRecommendations. An empty list is a normal outcome, not an
+        error.
+      parameters:
+        - name: days
+          in: query
+          required: false
+          description: Length of the trailing sales window, in days, ending now.
+          schema: { type: integer, minimum: 1, maximum: 365, default: 60 }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 50, default: 12 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlowMovingProductsResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /storefront/v1/products/{id}:
     get:
       operationId: getStorefrontProduct
@@ -831,6 +867,31 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/CartRecommendationsReport' }
+        error: { nullable: true }
+
+    SlowMovingProduct:
+      type: object
+      required: [sku_code, product_name, stock_on_hand]
+      properties:
+        sku_code: { type: string }
+        product_name: { type: string }
+        stock_on_hand: { type: integer, format: int64, minimum: 1 }
+
+    SlowMovingProductsList:
+      type: object
+      required: [window_days, products]
+      properties:
+        window_days:
+          type: integer
+          description: The trailing window the zero-sales check covered, echoing the request's `days`.
+        products:
+          type: array
+          items: { $ref: '#/components/schemas/SlowMovingProduct' }
+
+    SlowMovingProductsResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SlowMovingProductsList' }
         error: { nullable: true }
 
     ErrorResponse:

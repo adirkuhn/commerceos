@@ -42,6 +42,8 @@ var shopperErrors = []shopperError{
 	{storefrontDomain.ErrCardPaymentNotSupported, http.StatusUnprocessableEntity, "CARD_PAYMENT_NOT_SUPPORTED"},
 	{storefrontDomain.ErrCardPaymentMismatch, http.StatusUnprocessableEntity, "CARD_PAYMENT_MISMATCH"},
 	{channelsDomain.ErrSignInNotConfigured, http.StatusUnprocessableEntity, "SIGN_IN_NOT_CONFIGURED"},
+	{storefrontDomain.ErrInvalidSlowMovingWindow, http.StatusUnprocessableEntity, "INVALID_SLOW_MOVING_WINDOW"},
+	{storefrontDomain.ErrInvalidSlowMovingLimit, http.StatusUnprocessableEntity, "INVALID_SLOW_MOVING_LIMIT"},
 	{storefrontDomain.ErrCartNotFound, http.StatusNotFound, "CART_NOT_FOUND"},
 	{storefrontDomain.ErrOrderNotFound, http.StatusNotFound, "ORDER_NOT_FOUND"},
 	{storefrontDomain.ErrWishlistNotFound, http.StatusNotFound, "WISHLIST_NOT_FOUND"},

@@ -276,6 +276,15 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL, stor
 		GetProductBySlug:       appstorefront.NewGetProductBySlugUseCase(db, productRepo, getProduct),
 		GetStoreInfo:           appstorefront.NewGetStoreInfoUseCase(db, channelRepo, settingsRepo),
 		GetSitemap:             appstorefront.NewGetSitemapUseCase(db, channelRepo, overrideRepo, productRepo, appcollections.NewListCollectionsUseCase(collectionDeps)),
+		ListSlowMovingProducts: appstorefront.NewListSlowMovingProductsUseCase(
+			appreports.NewGetSlowMovingProductsReportUseCase(
+				db,
+				appinventory.NewListStockLevelsUseCase(db, stockMovementRepo, batchRepo, settingsRepo),
+				appreports.NewGetProductPerformanceReportUseCase(db, salesRepo, settingsRepo, skuRepo),
+				skuRepo, variantRepo, productRepo,
+			),
+			time.Now,
+		),
 	}
 
 	h := NewHandler(

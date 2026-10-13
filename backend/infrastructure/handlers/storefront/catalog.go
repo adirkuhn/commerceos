@@ -37,6 +37,9 @@ type CatalogUseCases struct {
 	GetSitemap interface {
 		Execute(ctx context.Context, salesChannelID string) (*appstorefront.Sitemap, error)
 	}
+	ListSlowMovingProducts interface {
+		Execute(ctx context.Context, days, limit int) (*appstorefront.SlowMovingProductsResult, error)
+	}
 }
 
 // sitemapCache: sitemaps change slowly and crawlers fetch them rarely.

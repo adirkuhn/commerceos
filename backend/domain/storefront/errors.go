@@ -67,4 +67,10 @@ var (
 	// checkout failed at the DB with an invalid-uuid error before this was
 	// checked explicitly.
 	ErrChannelWarehouseNotConfigured = errs.New("STORE_WAREHOUSE_NOT_CONFIGURED", "this sales channel has no default warehouse configured")
+	// ErrInvalidSlowMovingWindow / ErrInvalidSlowMovingLimit guard
+	// ListSlowMovingProductsUseCase's bounds -- the OpenAPI request
+	// validator already enforces the same ranges at the HTTP edge; these
+	// keep the use case honest for any non-HTTP caller.
+	ErrInvalidSlowMovingWindow = errs.New("INVALID_SLOW_MOVING_WINDOW", "days must be between 1 and 365")
+	ErrInvalidSlowMovingLimit  = errs.New("INVALID_SLOW_MOVING_LIMIT", "limit must be between 1 and 50")
 )
