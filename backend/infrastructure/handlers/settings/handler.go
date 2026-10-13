@@ -129,6 +129,7 @@ func (h *Handler) UpdateTenantSettings(c *gin.Context) {
 		PickingMode:                    (*string)(req.PickingMode),
 		ExpiryAlertEnabled:             req.ExpiryAlertEnabled,
 		ExpiryAlertWindows:             expiryWindowsPtr(req.ExpiryAlertWindows),
+		LowStockThreshold:              req.LowStockThreshold,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -204,6 +205,7 @@ func toGenTenantSettings(s settingsDomain.TenantSettings) gensettings.TenantSett
 		PickingMode:                    gensettings.PickingMode(s.PickingMode),
 		ExpiryAlertEnabled:             s.ExpiryAlert.Enabled,
 		ExpiryAlertWindows:             expiryWindowsOut(s.ExpiryAlert.Windows),
+		LowStockThreshold:              s.LowStockThreshold,
 		UpdatedAt:                      s.UpdatedAt,
 	}
 }
@@ -239,7 +241,7 @@ func mapError(c *gin.Context, err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, settingsDomain.ErrInvalidTargetMarkupBasisPoints) || errors.Is(err, settingsDomain.ErrInvalidBundleConfidenceThreshold) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsMinSupport) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsLookbackDays) || errors.Is(err, settingsDomain.ErrInvalidPickingMode) || errors.Is(err, settingsDomain.ErrInvalidExpiryAlertWindow) || errors.Is(err, settingsDomain.ErrExpiryAlertWindowsRequired) || errors.Is(err, settingsDomain.ErrInvalidTimezone) || errors.Is(err, settingsDomain.ErrInvalidDateFormat) || errors.Is(err, locale.ErrUnsupported) || errors.Is(err, apikeysDomain.ErrNameRequired) {
+	if errors.Is(err, settingsDomain.ErrInvalidTargetMarkupBasisPoints) || errors.Is(err, settingsDomain.ErrInvalidBundleConfidenceThreshold) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsMinSupport) || errors.Is(err, settingsDomain.ErrInvalidRecommendationsLookbackDays) || errors.Is(err, settingsDomain.ErrInvalidLowStockThreshold) || errors.Is(err, settingsDomain.ErrInvalidPickingMode) || errors.Is(err, settingsDomain.ErrInvalidExpiryAlertWindow) || errors.Is(err, settingsDomain.ErrExpiryAlertWindowsRequired) || errors.Is(err, settingsDomain.ErrInvalidTimezone) || errors.Is(err, settingsDomain.ErrInvalidDateFormat) || errors.Is(err, locale.ErrUnsupported) || errors.Is(err, apikeysDomain.ErrNameRequired) {
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return err
 	}

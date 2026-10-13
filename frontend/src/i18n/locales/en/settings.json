@@ -108,7 +108,6 @@
     "fefoFlag": "Auto-flag expired stock for disposal",
     "fefoText": "First Expire, First Out — for perishable products",
     "fefoTitle": "FEFO settings",
-    "minStock": "Global minimum stock (units)",
     "overstock": "Overstock threshold (%)",
     "subtitle": "Configure stock management behavior",
     "thresholdsTitle": "Stock thresholds"
@@ -152,6 +151,13 @@
     "subtitle": "Currency, timezone, date formats",
     "timezone": "Timezone",
     "title": "Localization"
+  },
+  "lowStock": {
+    "help": "A product counts as low when its stock is above 0 and at or below this. Weighed products count in grams. A product can set its own value. 0 = never low.",
+    "save": "Save low stock",
+    "saveFailed": "Failed to save low stock threshold",
+    "threshold": "Low stock at or below",
+    "title": "Low stock"
   },
   "markup": {
     "help": "Markup is profit as a % of cost (e.g. 300% markup means selling at 4x cost) -- no upper bound, unlike margin. Used to compute each product's recommended price from its cost price, unless its category has its own target markup set.",

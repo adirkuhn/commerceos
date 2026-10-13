@@ -83,5 +83,11 @@ type TenantSettings struct {
 	// ExpiryAlert configures the daily stock-close-to-expiry report -- see
 	// ExpiryAlert.
 	ExpiryAlert ExpiryAlert
-	UpdatedAt   time.Time
+	// LowStockThreshold is the tenant-wide "low stock" line: a product whose
+	// total stock is above 0 and at or below it is low (a product's own
+	// pms.Product.LowStockThreshold overrides it). Unlike most fields here,
+	// 0 is a real choice (never flag low, only out of stock) -- a
+	// never-saved tenant reads as DefaultLowStockThreshold instead.
+	LowStockThreshold int
+	UpdatedAt         time.Time
 }

@@ -108,7 +108,6 @@
     "fefoFlag": "Verlopen voorraad automatisch markeren voor afvoer",
     "fefoText": "First Expire, First Out — voor bederfelijke producten",
     "fefoTitle": "FEFO-instellingen",
-    "minStock": "Algemene minimale voorraad (stuks)",
     "overstock": "Drempel voor overvoorraad (%)",
     "subtitle": "Stel in hoe de voorraad wordt beheerd",
     "thresholdsTitle": "Voorraaddrempels"
@@ -152,6 +151,13 @@
     "subtitle": "Valuta, tijdzone, datumnotatie",
     "timezone": "Tijdzone",
     "title": "Lokalisatie"
+  },
+  "lowStock": {
+    "help": "Een product telt als lage voorraad als de voorraad boven 0 ligt en hooguit deze waarde is. Gewogen producten tellen in grammen. Een product kan een eigen waarde hebben. 0 = nooit laag.",
+    "save": "Lage voorraad opslaan",
+    "saveFailed": "Opslaan van de lage-voorraaddrempel mislukt",
+    "threshold": "Lage voorraad bij of onder",
+    "title": "Lage voorraad"
   },
   "markup": {
     "help": "Opslag is winst als % van de kostprijs (bijv. 300% opslag betekent verkopen voor 4x de kostprijs) — zonder bovengrens, anders dan marge. Wordt gebruikt om de aanbevolen prijs van elk product uit de kostprijs te berekenen, tenzij de categorie een eigen doelmarge heeft.",

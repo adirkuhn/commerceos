@@ -31,6 +31,7 @@ type tenantSettingsModel struct {
 	PickingMode                    string            `gorm:"column:picking_mode;not null;default:scan"`
 	ExpiryAlertEnabled             bool              `gorm:"column:expiry_alert_enabled;not null;default:false"`
 	ExpiryAlertWindows             jsonbValue[[]int] `gorm:"column:expiry_alert_windows;type:jsonb;not null;default:'[]'"`
+	LowStockThreshold              int               `gorm:"column:low_stock_threshold;not null"` // no default tag: GORM would skip a 0 on insert
 	UpdatedAt                      time.Time
 }
 
@@ -55,7 +56,9 @@ func (r *TenantSettingsRepo) Get(ctx context.Context) (*settingsDomain.TenantSet
 	if err != nil {
 		return nil, err
 	}
-	var m tenantSettingsModel
+	// A never-saved tenant has no row; fields whose zero value is a real
+	// choice start from their documented default instead.
+	m := tenantSettingsModel{LowStockThreshold: settingsDomain.DefaultLowStockThreshold}
 	if err := tx.Limit(1).Find(&m).Error; err != nil {
 		return nil, fmt.Errorf("tenantSettingsRepo.Get: %w", err)
 	}
@@ -81,7 +84,8 @@ func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.Tenan
 		RecommendationsMinSupport:      s.RecommendationsMinSupport,
 		RecommendationsLookbackDays:    s.RecommendationsLookbackDays, PickingMode: string(pickingMode),
 		ExpiryAlertEnabled: s.ExpiryAlert.Enabled, ExpiryAlertWindows: jsonbValue[[]int]{V: nonNilWindows(s.ExpiryAlert.Windows)},
-		UpdatedAt: s.UpdatedAt,
+		LowStockThreshold: s.LowStockThreshold,
+		UpdatedAt:         s.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "tenant_id"}},
@@ -91,7 +95,7 @@ func (r *TenantSettingsRepo) Upsert(ctx context.Context, s *settingsDomain.Tenan
 			"inventory_sync_rules_enabled", "batch_expiry_threshold_days",
 			"default_target_markup_basis_points", "bundle_confidence_threshold",
 			"recommendations_min_support", "recommendations_lookback_days", "picking_mode",
-			"expiry_alert_enabled", "expiry_alert_windows", "updated_at",
+			"expiry_alert_enabled", "expiry_alert_windows", "low_stock_threshold", "updated_at",
 		}),
 	}).Create(&m).Error
 	if err != nil {
@@ -125,7 +129,7 @@ func toTenantSettingsDomain(m tenantSettingsModel) (*settingsDomain.TenantSettin
 		BundleConfidenceThreshold:      m.BundleConfidenceThreshold,
 		RecommendationsMinSupport:      m.RecommendationsMinSupport,
 		RecommendationsLookbackDays:    m.RecommendationsLookbackDays, PickingMode: pickingMode,
-		ExpiryAlert: expiryAlert, UpdatedAt: m.UpdatedAt,
+		ExpiryAlert: expiryAlert, LowStockThreshold: m.LowStockThreshold, UpdatedAt: m.UpdatedAt,
 	}, nil
 }
 

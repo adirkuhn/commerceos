@@ -24,6 +24,10 @@ var ErrInvalidRecommendationsMinSupport = errs.New("SETTINGS_INVALID_MIN_SUPPORT
 // "unset, use the default" -- see the field's own doc comment).
 var ErrInvalidRecommendationsLookbackDays = errs.New("SETTINGS_INVALID_LOOKBACK_DAYS", "recommendations lookback days must be at least 0")
 
+// ErrInvalidLowStockThreshold guards TenantSettings.LowStockThreshold: must
+// be >= 0 (0 means never flag low stock).
+var ErrInvalidLowStockThreshold = errs.New("SETTINGS_INVALID_LOW_STOCK_THRESHOLD", "low stock threshold must be at least 0")
+
 // ErrInvalidPickingMode guards TenantSettings.PickingMode: scan or list.
 var ErrInvalidPickingMode = errs.New("SETTINGS_INVALID_PICKING_MODE", "picking mode must be scan or list")
 

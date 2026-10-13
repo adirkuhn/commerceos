@@ -147,6 +147,35 @@ func TestUpdateTenantSettings_allowsRecommendationsLookbackDaysOfZero(t *testing
 	require.Equal(t, 0, result.RecommendationsLookbackDays)
 }
 
+func TestUpdateTenantSettings_setsLowStockThreshold(t *testing.T) {
+	repo := &stubSettingsRepo{}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
+
+	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", LowStockThreshold: 25})
+
+	require.NoError(t, err)
+	require.Equal(t, 25, result.LowStockThreshold)
+	require.Equal(t, 25, repo.upserted[0].LowStockThreshold)
+}
+
+// 0 is a real choice: never flag a product as low (only out of stock).
+func TestUpdateTenantSettings_allowsLowStockThresholdOfZero(t *testing.T) {
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), &stubSettingsRepo{}, &eventrecordtest.Outbox{})
+
+	result, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", LowStockThreshold: 0})
+
+	require.NoError(t, err)
+	require.Equal(t, 0, result.LowStockThreshold)
+}
+
+func TestUpdateTenantSettings_rejectsNegativeLowStockThreshold(t *testing.T) {
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), &stubSettingsRepo{}, &eventrecordtest.Outbox{})
+
+	_, err := uc.Execute(context.Background(), appsettings.UpdateTenantSettingsInput{DefaultCurrency: "USD", LowStockThreshold: -1})
+
+	require.ErrorIs(t, err, settingsDomain.ErrInvalidLowStockThreshold)
+}
+
 func TestUpdateTenantSettings_allowsMarkupOf100PercentAndAbove(t *testing.T) {
 	// Unlike margin (capped under 100%), markup has no upper bound --
 	// 10000 bps (100% markup, price = 2x cost) and above must be accepted.

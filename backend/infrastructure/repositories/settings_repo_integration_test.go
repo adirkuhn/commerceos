@@ -31,6 +31,26 @@ func TestTenantSettingsRepo_Integration_GetReturnsZeroValueWhenNoRowSaved(t *tes
 	require.Equal(t, 0, found.BatchExpiryThresholdDays)
 	require.Equal(t, settingsDomain.PickingModeScan, found.PickingMode, "a never-saved tenant picks by scanning")
 	require.Equal(t, settingsDomain.DateFormatDayMonthYear, found.DateFormat, "a never-saved tenant reads dates as DD/MM/YYYY")
+	require.Equal(t, settingsDomain.DefaultLowStockThreshold, found.LowStockThreshold, "a never-saved tenant flags low stock at the default")
+}
+
+func TestTenantSettingsRepo_Integration_UpsertRoundTripsLowStockThreshold(t *testing.T) {
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	repo := repositories.NewTenantSettingsRepo(db)
+
+	for _, want := range []int{25, 0} {
+		require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			return repo.Upsert(ctx, &settingsDomain.TenantSettings{TenantID: tenantID, LowStockThreshold: want, UpdatedAt: time.Now()})
+		}))
+		var found *settingsDomain.TenantSettings
+		require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			var err error
+			found, err = repo.Get(ctx)
+			return err
+		}))
+		require.Equal(t, want, found.LowStockThreshold, "0 is stored as 0 (never low), not read back as the default")
+	}
 }
 
 func TestTenantSettingsRepo_Integration_UpsertRoundTripsDateFormat(t *testing.T) {

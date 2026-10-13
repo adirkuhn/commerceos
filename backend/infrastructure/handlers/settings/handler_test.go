@@ -65,6 +65,7 @@ func (s *stubUpdateTenantSettings) Execute(_ context.Context, in appsettings.Pat
 		BundleConfidenceThreshold: val(in.BundleConfidenceThreshold), RecommendationsMinSupport: val(in.RecommendationsMinSupport),
 		RecommendationsLookbackDays: val(in.RecommendationsLookbackDays), PickingMode: val(in.PickingMode),
 		ExpiryAlertEnabled: val(in.ExpiryAlertEnabled), ExpiryAlertWindows: val(in.ExpiryAlertWindows),
+		LowStockThreshold: val(in.LowStockThreshold),
 	}
 	if s.err != nil {
 		return nil, s.err
@@ -169,7 +170,7 @@ func doRequest(rg *gin.Engine, method, path string, body any) *httptest.Response
 }
 
 func TestGetTenantSettingsHandler_returnsSettings(t *testing.T) {
-	h := newTestHandler(&stubGetTenantSettings{out: &settingsDomain.TenantSettings{DefaultCurrency: "USD", BundleConfidenceThreshold: 0.4, RecommendationsMinSupport: 3, RecommendationsLookbackDays: 90, UpdatedAt: time.Now()}}, &stubUpdateTenantSettings{})
+	h := newTestHandler(&stubGetTenantSettings{out: &settingsDomain.TenantSettings{DefaultCurrency: "USD", BundleConfidenceThreshold: 0.4, RecommendationsMinSupport: 3, RecommendationsLookbackDays: 90, LowStockThreshold: 12, UpdatedAt: time.Now()}}, &stubUpdateTenantSettings{})
 	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/settings/tenant", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -177,6 +178,7 @@ func TestGetTenantSettingsHandler_returnsSettings(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "bundle_confidence_threshold")
 	assert.Contains(t, w.Body.String(), "recommendations_min_support")
 	assert.Contains(t, w.Body.String(), "recommendations_lookback_days")
+	assert.Contains(t, w.Body.String(), `"low_stock_threshold":12`)
 }
 
 func TestUpdateTenantSettingsHandler_passesAllFields(t *testing.T) {
@@ -187,7 +189,7 @@ func TestUpdateTenantSettingsHandler_passesAllFields(t *testing.T) {
 		"prices_include_tax": true, "default_tax_country": "NL",
 		"inventory_sync_rules_enabled": true, "batch_expiry_threshold_days": 30,
 		"bundle_confidence_threshold": 0.25, "recommendations_min_support": 3,
-		"recommendations_lookback_days": 90,
+		"recommendations_lookback_days": 90, "low_stock_threshold": 25,
 	}
 	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", body)
 
@@ -203,6 +205,15 @@ func TestUpdateTenantSettingsHandler_passesAllFields(t *testing.T) {
 	require.InDelta(t, 0.25, update.gotInput.BundleConfidenceThreshold, 0.0001)
 	require.Equal(t, 3, update.gotInput.RecommendationsMinSupport)
 	require.Equal(t, 90, update.gotInput.RecommendationsLookbackDays)
+	require.Equal(t, 25, update.gotInput.LowStockThreshold)
+}
+
+func TestUpdateTenantSettingsHandler_rejectsNegativeLowStockThreshold(t *testing.T) {
+	update := &stubUpdateTenantSettings{err: settingsDomain.ErrInvalidLowStockThreshold}
+	h := newTestHandler(&stubGetTenantSettings{}, update)
+	w := doRequest(newTestRouter(h), http.MethodPatch, "/api/v1/settings/tenant", map[string]any{"low_stock_threshold": -1})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
 func TestUpdateTenantSettingsHandler_omittedFieldsAreLeftOut(t *testing.T) {

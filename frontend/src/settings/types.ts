@@ -43,6 +43,11 @@ export interface TenantSettings {
   // bundle_confidence_threshold -- missing means off / no window.
   expiry_alert_enabled?: boolean
   expiry_alert_windows?: ExpiryAlertWindow[]
+  // A product is low on stock when its total is above 0 and at or below
+  // this (a product's own low_stock_threshold overrides it); 0 = never low.
+  // Optional for the same fixture reason as bundle_confidence_threshold --
+  // a real response always includes it.
+  low_stock_threshold?: number
   updated_at: string
 }
 
@@ -62,7 +67,12 @@ export interface TenantSettingsInput {
   picking_mode?: PickingMode
   expiry_alert_enabled?: boolean
   expiry_alert_windows?: ExpiryAlertWindow[]
+  low_stock_threshold?: number
 }
+
+// What a never-saved tenant reads as (backend
+// settings.DefaultLowStockThreshold).
+export const DEFAULT_LOW_STOCK_THRESHOLD = 10
 
 // Days before expiry a stock report covers. Reports never overlap.
 export const EXPIRY_ALERT_WINDOWS = [90, 30, 15, 7] as const

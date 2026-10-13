@@ -17,6 +17,7 @@ import { SETTINGS_PATH } from '../settings/settingsPaths'
 import { IntegrationsSettingsSection } from '../settings/IntegrationsSettingsSection'
 import { InventorySyncRulesSection } from '../settings/InventorySyncRulesSection'
 import { ExpiryAlertSection } from '../settings/ExpiryAlertSection'
+import { LowStockThresholdSection } from '../settings/LowStockThresholdSection'
 import { PricingMarginSection } from '../settings/PricingMarginSection'
 import { LocalizationSettingsSection } from '../settings/LocalizationSettingsSection'
 import { TaxSettingsSection } from '../settings/TaxSettingsSection'
@@ -128,6 +129,7 @@ export default function Settings() {
 
             <InventorySyncRulesSection />
             <ExpiryAlertSection />
+            <LowStockThresholdSection />
 
             <div className="bg-raised rounded-xl border border-line overflow-hidden">
               <div className="px-4 py-3 border-b border-line">
@@ -155,7 +157,6 @@ export default function Settings() {
               </div>
               <div className="p-4 space-y-3">
                 {[
-                  [t('inventory.minStock'), '20'],
                   [t('inventory.critical'), '15'],
                   [t('inventory.overstock'), '200'],
                 ].map(([label, val]) => (

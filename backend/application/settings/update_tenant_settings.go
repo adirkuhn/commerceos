@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/adirkuhn/commerceos/domain/locale"
 	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"github.com/adirkuhn/commerceos/domain/events"
+	"github.com/adirkuhn/commerceos/domain/locale"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
@@ -31,10 +31,12 @@ type UpdateTenantSettingsInput struct {
 	// ExpiryAlertEnabled / ExpiryAlertWindows -- see settings.NewExpiryAlert.
 	ExpiryAlertEnabled bool
 	ExpiryAlertWindows []int
+	// LowStockThreshold -- see settings.TenantSettings.LowStockThreshold.
+	LowStockThreshold int
 }
 
 type UpdateTenantSettingsUseCase struct {
-	db   *gorm.DB
+	db     *gorm.DB
 	repo   settingsDomain.Repository
 	outbox eventrecord.Enqueuer
 }
@@ -55,6 +57,9 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 	}
 	if in.RecommendationsLookbackDays < 0 {
 		return nil, fmt.Errorf("updateTenantSettings: %w", settingsDomain.ErrInvalidRecommendationsLookbackDays)
+	}
+	if in.LowStockThreshold < 0 {
+		return nil, fmt.Errorf("updateTenantSettings: %w", settingsDomain.ErrInvalidLowStockThreshold)
 	}
 
 	if err := settingsDomain.ValidateTimezone(in.Timezone); err != nil {
@@ -102,6 +107,7 @@ func (uc *UpdateTenantSettingsUseCase) Execute(ctx context.Context, in UpdateTen
 			RecommendationsLookbackDays:    in.RecommendationsLookbackDays,
 			PickingMode:                    pickingMode,
 			ExpiryAlert:                    expiryAlert,
+			LowStockThreshold:              in.LowStockThreshold,
 			UpdatedAt:                      time.Now(),
 		}
 		if err := uc.repo.Upsert(ctx, &result); err != nil {
@@ -131,7 +137,8 @@ func tenantSettingsChanges(before, after settingsDomain.TenantSettings) eventrec
 		Set("recommendations_lookback_days", before.RecommendationsLookbackDays, after.RecommendationsLookbackDays).
 		Set("picking_mode", string(before.PickingMode), string(after.PickingMode)).
 		Set("expiry_alert_enabled", before.ExpiryAlert.Enabled, after.ExpiryAlert.Enabled).
-		Set("expiry_alert_windows", nonNilInts(before.ExpiryAlert.Windows), nonNilInts(after.ExpiryAlert.Windows))
+		Set("expiry_alert_windows", nonNilInts(before.ExpiryAlert.Windows), nonNilInts(after.ExpiryAlert.Windows)).
+		Set("low_stock_threshold", before.LowStockThreshold, after.LowStockThreshold)
 }
 
 // nonNilInts makes a never-saved tenant's nil window list compare equal to an

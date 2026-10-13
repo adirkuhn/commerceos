@@ -37,6 +37,7 @@ func storedSettings() *settingsDomain.TenantSettings {
 		PricesIncludeTax: true, DefaultTaxCountry: "NL", InventorySyncRulesEnabled: true, BatchExpiryThresholdDays: 3,
 		DefaultTargetMarkupBasisPoints: 4000, BundleConfidenceThreshold: 0.5, RecommendationsMinSupport: 2, RecommendationsLookbackDays: 90,
 		PickingMode: settingsDomain.PickingModeList, ExpiryAlert: settingsDomain.ExpiryAlert{Enabled: true, Windows: []int{30, 7}},
+		LowStockThreshold: 15,
 	}
 }
 
@@ -48,6 +49,7 @@ func asFullInput(s *settingsDomain.TenantSettings) appsettings.UpdateTenantSetti
 		BundleConfidenceThreshold: s.BundleConfidenceThreshold, RecommendationsMinSupport: s.RecommendationsMinSupport,
 		RecommendationsLookbackDays: s.RecommendationsLookbackDays, PickingMode: string(s.PickingMode),
 		ExpiryAlertEnabled: s.ExpiryAlert.Enabled, ExpiryAlertWindows: s.ExpiryAlert.Windows,
+		LowStockThreshold: s.LowStockThreshold,
 	}
 }
 
@@ -78,6 +80,7 @@ func TestPatchTenantSettings_everyFieldCanBeSet(t *testing.T) {
 		BundleConfidenceThreshold: &full.BundleConfidenceThreshold, RecommendationsMinSupport: &full.RecommendationsMinSupport,
 		RecommendationsLookbackDays: &full.RecommendationsLookbackDays, PickingMode: &full.PickingMode,
 		ExpiryAlertEnabled: &full.ExpiryAlertEnabled, ExpiryAlertWindows: &full.ExpiryAlertWindows,
+		LowStockThreshold: &full.LowStockThreshold,
 	})
 
 	require.NoError(t, err)

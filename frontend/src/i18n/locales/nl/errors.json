@@ -273,6 +273,7 @@
   "SETTINGS_INVALID_DATE_FORMAT": "De datumnotatie moet DD/MM/JJJJ, MM/DD/JJJJ of JJJJ-MM-DD zijn.",
   "SETTINGS_INVALID_EXPIRY_WINDOW": "Rapportvensters moeten 90, 30, 15 of 7 dagen zijn.",
   "SETTINGS_INVALID_LOOKBACK_DAYS": "Het aantal dagen terug moet 0 of meer zijn.",
+  "SETTINGS_INVALID_LOW_STOCK_THRESHOLD": "De drempel voor lage voorraad moet 0 of meer zijn.",
   "SETTINGS_INVALID_MIN_SUPPORT": "Het minimale aantal orders moet 0 of meer zijn.",
   "SETTINGS_INVALID_PICKING_MODE": "De pickmodus moet scannen of lijst zijn.",
   "SETTINGS_INVALID_TARGET_MARKUP": "De doelopslag moet 0 of meer zijn.",

@@ -273,6 +273,7 @@
   "SETTINGS_INVALID_DATE_FORMAT": "The date format must be DD/MM/YYYY, MM/DD/YYYY or YYYY-MM-DD.",
   "SETTINGS_INVALID_EXPIRY_WINDOW": "Expiry report windows must be 90, 30, 15 or 7 days.",
   "SETTINGS_INVALID_LOOKBACK_DAYS": "The number of days to look back must be 0 or more.",
+  "SETTINGS_INVALID_LOW_STOCK_THRESHOLD": "The low stock threshold must be 0 or more.",
   "SETTINGS_INVALID_MIN_SUPPORT": "The minimum number of orders must be 0 or more.",
   "SETTINGS_INVALID_PICKING_MODE": "The picking mode must be scan or list.",
   "SETTINGS_INVALID_TARGET_MARKUP": "The target markup must be 0 or more.",

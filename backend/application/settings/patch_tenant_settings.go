@@ -25,6 +25,7 @@ type PatchTenantSettingsInput struct {
 	PickingMode                    *string
 	ExpiryAlertEnabled             *bool
 	ExpiryAlertWindows             *[]int
+	LowStockThreshold              *int
 }
 
 type tenantSettingsReader interface {
@@ -69,6 +70,7 @@ func (uc *PatchTenantSettingsUseCase) Execute(ctx context.Context, in PatchTenan
 		PickingMode:                    or(in.PickingMode, string(s.PickingMode)),
 		ExpiryAlertEnabled:             or(in.ExpiryAlertEnabled, s.ExpiryAlert.Enabled),
 		ExpiryAlertWindows:             or(in.ExpiryAlertWindows, s.ExpiryAlert.Windows),
+		LowStockThreshold:              or(in.LowStockThreshold, s.LowStockThreshold),
 	}
 	return uc.update.Execute(ctx, full)
 }

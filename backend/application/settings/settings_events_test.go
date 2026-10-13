@@ -17,7 +17,7 @@ import (
 func validSettingsInput() appsettings.UpdateTenantSettingsInput {
 	return appsettings.UpdateTenantSettingsInput{
 		DefaultCurrency: "EUR", Timezone: "Europe/Amsterdam", DateFormat: "DD/MM/YYYY", Language: "en",
-		DefaultTaxCountry: "NL", BatchExpiryThresholdDays: 30,
+		DefaultTaxCountry: "NL", BatchExpiryThresholdDays: 30, LowStockThreshold: 10,
 	}
 }
 
@@ -26,6 +26,7 @@ func TestUpdateTenantSettings_RecordsChangedFields(t *testing.T) {
 	before := &settingsDomain.TenantSettings{
 		TenantID: "tenant-1", DefaultCurrency: "EUR", Timezone: "Europe/Amsterdam", DateFormat: "DD/MM/YYYY",
 		Language: "en", DefaultTaxCountry: "NL", BatchExpiryThresholdDays: 14, PickingMode: settingsDomain.PickingModeScan,
+		LowStockThreshold: 10,
 	}
 	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), &stubSettingsRepo{getResult: before}, outbox)
 
@@ -37,6 +38,25 @@ func TestUpdateTenantSettings_RecordsChangedFields(t *testing.T) {
 	assert.Equal(t, "settings.tenant_settings.updated", e.Subject)
 	assert.Equal(t, "tenant-1", e.Payload["entity_id"])
 	assert.Equal(t, map[string][2]any{"batch_expiry_threshold_days": {float64(14), float64(30)}}, e.Changes())
+}
+
+func TestUpdateTenantSettings_RecordsLowStockThresholdChange(t *testing.T) {
+	outbox := &eventrecordtest.Outbox{}
+	in := validSettingsInput()
+	before := &settingsDomain.TenantSettings{
+		TenantID: "tenant-1", DefaultCurrency: in.DefaultCurrency, Timezone: in.Timezone, DateFormat: settingsDomain.DateFormat(in.DateFormat),
+		Language: "en", DefaultTaxCountry: in.DefaultTaxCountry, BatchExpiryThresholdDays: in.BatchExpiryThresholdDays,
+		PickingMode: settingsDomain.PickingModeScan, LowStockThreshold: 10,
+	}
+	uc := appsettings.NewUpdateTenantSettingsUseCase(newMockGormDB(t), &stubSettingsRepo{getResult: before}, outbox)
+	in.LowStockThreshold = 20
+
+	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), in)
+
+	require.NoError(t, err)
+	e, err := outbox.Only()
+	require.NoError(t, err)
+	assert.Equal(t, map[string][2]any{"low_stock_threshold": {float64(10), float64(20)}}, e.Changes())
 }
 
 func TestUpdateTenantSettings_FailsWhenTheEventCantBeRecorded(t *testing.T) {

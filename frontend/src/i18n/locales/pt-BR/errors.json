@@ -273,6 +273,7 @@
   "SETTINGS_INVALID_DATE_FORMAT": "O formato de data deve ser DD/MM/AAAA, MM/DD/AAAA ou AAAA-MM-DD.",
   "SETTINGS_INVALID_EXPIRY_WINDOW": "As janelas do relatório de vencimento devem ser 90, 30, 15 ou 7 dias.",
   "SETTINGS_INVALID_LOOKBACK_DAYS": "O número de dias de histórico deve ser 0 ou mais.",
+  "SETTINGS_INVALID_LOW_STOCK_THRESHOLD": "O limite de estoque baixo deve ser 0 ou mais.",
   "SETTINGS_INVALID_MIN_SUPPORT": "O número mínimo de pedidos deve ser 0 ou mais.",
   "SETTINGS_INVALID_PICKING_MODE": "O modo de separação deve ser escanear ou lista.",
   "SETTINGS_INVALID_TARGET_MARKUP": "A margem alvo deve ser 0 ou mais.",

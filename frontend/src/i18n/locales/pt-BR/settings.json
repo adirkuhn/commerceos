@@ -108,7 +108,6 @@
     "fefoFlag": "Marcar automaticamente estoque vencido para descarte",
     "fefoText": "Primeiro que vence, primeiro que sai — para produtos perecíveis",
     "fefoTitle": "Configurações de FEFO",
-    "minStock": "Estoque mínimo geral (unidades)",
     "overstock": "Limite de excesso de estoque (%)",
     "subtitle": "Configure como o estoque é gerenciado",
     "thresholdsTitle": "Limites de estoque"
@@ -154,6 +153,13 @@
     "subtitle": "Moeda, fuso horário, formatos de data",
     "timezone": "Fuso horário",
     "title": "Localização"
+  },
+  "lowStock": {
+    "help": "Um produto conta como estoque baixo quando o estoque é maior que 0 e no máximo este valor. Produtos pesados contam em gramas. Cada produto pode ter seu próprio valor. 0 = nunca baixo.",
+    "save": "Salvar estoque baixo",
+    "saveFailed": "Falha ao salvar o limite de estoque baixo",
+    "threshold": "Estoque baixo até",
+    "title": "Estoque baixo"
   },
   "markup": {
     "help": "A margem (markup) é o lucro em % do custo (ex.: 300% significa vender por 4x o custo) — sem limite superior, ao contrário da margem sobre a venda. Usada para calcular o preço recomendado de cada produto a partir do custo, a menos que a categoria tenha uma margem própria.",
