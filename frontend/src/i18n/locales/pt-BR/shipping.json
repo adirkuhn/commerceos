@@ -13,6 +13,7 @@
     "name": "Nome",
     "notFound": "Nenhum resultado para esse CEP/número — preencha manualmente.",
     "number": "Número",
+    "original": "Endereço original do pedido",
     "packageType": "Tipo de pacote",
     "postalCode": "CEP",
     "review": "Revisar etiqueta",

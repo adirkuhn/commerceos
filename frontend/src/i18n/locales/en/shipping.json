@@ -13,6 +13,7 @@
     "name": "Name",
     "notFound": "No match found for that postal code/number — enter manually.",
     "number": "Number",
+    "original": "Original order address",
     "packageType": "Package type",
     "postalCode": "Postal code",
     "review": "Review label",

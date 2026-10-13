@@ -7,6 +7,7 @@ import { CARRIERS, PACKAGE_TYPES } from './types'
 import * as shippingApi from './api'
 import { Dialog } from '../components/common/Dialog'
 import { useMoneyFormat } from '../format/amountVisibility'
+import { OriginalAddress } from './OriginalAddress'
 
 // ESTIMATE_DEBOUNCE_MS: same purpose as the address check's blur-triggered
 // timing, but this one fires on every keystroke-driven state change (no
@@ -259,6 +260,7 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
           <h3 className="text-sm font-semibold text-ink">{t('address.title')}</h3>
           <button onClick={onClose} aria-label={t('common:actions.close')}><X size={14} className="text-ink-4" /></button>
         </div>
+        {initialAddress && <OriginalAddress address={initialAddress} />}
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label htmlFor="addr-person" className={labelClass}>{t('address.name')}</label>

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -172,6 +172,41 @@ describe('AddressConfirmModal', () => {
     render(<AddressConfirmModal token="test-token" initialAddress={addressNoEmail} fallbackEmail="billing@example.com" onNext={vi.fn()} onClose={vi.fn()} />)
 
     expect(screen.getByLabelText('Email')).toHaveValue('billing@example.com')
+  })
+})
+
+describe('AddressConfirmModal — original order address', () => {
+  // The fields are a best-effort split of the order's free-text address
+  // (see splitStreetAndNumber) -- staff need the untouched original next to
+  // them to spot a wrong split (number left in address_2, company dropped).
+  const address: Address = {
+    first_name: 'Jane', last_name: 'Doe', company: 'Acme BV', address_1: 'Fossa Iberica', address_2: '9 bis',
+    postcode: '1012 AB', city: 'Amsterdam', country: 'NL',
+  }
+
+  it('shows the order address exactly as received, above the form', () => {
+    render(<AddressConfirmModal token="test-token" initialAddress={address} onNext={vi.fn()} onClose={vi.fn()} />)
+
+    const original = within(screen.getByRole('group', { name: 'Original order address' }))
+    expect(original.getByText('Jane Doe')).toBeInTheDocument()
+    expect(original.getByText('Acme BV')).toBeInTheDocument()
+    expect(original.getByText('Fossa Iberica')).toBeInTheDocument()
+    expect(original.getByText('9 bis')).toBeInTheDocument()
+    expect(original.getByText('1012 AB Amsterdam')).toBeInTheDocument()
+    expect(original.getByText('NL')).toBeInTheDocument()
+  })
+
+  it('keeps showing the original when returning from the preview with edited fields', () => {
+    const edited = { ...addressToRecipientDraft(address), street: 'Fossa Ibérica', number: '9' }
+    render(<AddressConfirmModal token="test-token" initialAddress={address} initialRecipient={edited} onNext={vi.fn()} onClose={vi.fn()} />)
+
+    expect(within(screen.getByRole('group', { name: 'Original order address' })).getByText('Fossa Iberica')).toBeInTheDocument()
+  })
+
+  it('shows no original block when the order has no shipping address', () => {
+    render(<AddressConfirmModal token="test-token" onNext={vi.fn()} onClose={vi.fn()} />)
+
+    expect(screen.queryByRole('group', { name: 'Original order address' })).not.toBeInTheDocument()
   })
 })
 

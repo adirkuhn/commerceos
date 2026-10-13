@@ -13,6 +13,7 @@
     "name": "Naam",
     "notFound": "Geen resultaat voor die postcode/huisnummer — vul handmatig in.",
     "number": "Huisnummer",
+    "original": "Oorspronkelijk besteladres",
     "packageType": "Pakkettype",
     "postalCode": "Postcode",
     "review": "Label controleren",
