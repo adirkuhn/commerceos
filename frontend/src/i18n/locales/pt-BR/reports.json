@@ -184,6 +184,56 @@
     "summary": "Resumo",
     "vsPrev": "vs. período anterior"
   },
+  "shipments": {
+    "average": {
+      "month": "Média por mês",
+      "quarter": "Média por trimestre",
+      "week": "Média por semana",
+      "year": "Média por ano"
+    },
+    "basis": {
+      "carrier_scan": "Leitura da transportadora",
+      "label_created": "Data da etiqueta"
+    },
+    "basisHint": {
+      "carrier_scan": "Contado no dia em que a transportadora leu o pacote pela primeira vez. Pacotes ainda não lidos ficam de fora.",
+      "label_created": "Contado no dia em que a etiqueta foi criada. Etiquetas canceladas ficam de fora; uma etiqueta substituída conta uma vez."
+    },
+    "byCarrier": "Por transportadora",
+    "byChannel": "Por canal",
+    "byCountry": "Por país",
+    "col": {
+      "change": "vs anterior",
+      "orders": "Pedidos",
+      "period": "Período",
+      "shipments": "Envios"
+    },
+    "countBy": "Contar por",
+    "empty": "Nenhum envio neste período.",
+    "from": "De",
+    "granularity": {
+      "month": "Mês",
+      "quarter": "Trimestre",
+      "week": "Semana",
+      "year": "Ano"
+    },
+    "groupBy": "Agrupar por",
+    "per": {
+      "month": "Envios por mês",
+      "quarter": "Envios por trimestre",
+      "week": "Envios por semana",
+      "year": "Envios por ano"
+    },
+    "quarter": "T{{quarter}} {{year}}",
+    "table": "Por período",
+    "title": "Envios",
+    "to": "Até",
+    "totalOrders": "Pedidos enviados",
+    "totalOrdersDesc": "Um pedido pode ter mais de uma etiqueta.",
+    "totalShipments": "Envios",
+    "unknown": "Desconhecido",
+    "weekOf": "Semana de {{date}}"
+  },
   "slowMoving": {
     "desc": "Em estoque e sem nenhuma unidade vendida no período selecionado",
     "empty": "Nenhum produto de baixo giro neste período",

@@ -1,4 +1,4 @@
-import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, ProfitabilityTrendReport, RevenueByChannelReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, SalesTrendGranularity, ProductLifecycleReport, CustomerCohortsReport, PromotionPerformanceReport, CustomerRFMReport, FrequentlyBoughtTogetherReport, StockoutRiskReport, ProductRecommendationsReport, APIResponse } from './types'
+import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, ProfitabilityTrendReport, RevenueByChannelReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, SalesTrendGranularity, ShipmentsReport, ShipmentGranularity, ShipmentBasis, ProductLifecycleReport, CustomerCohortsReport, PromotionPerformanceReport, CustomerRFMReport, FrequentlyBoughtTogetherReport, StockoutRiskReport, ProductRecommendationsReport, APIResponse } from './types'
 import { CodedApiError } from '../api/codedApiError'
 
 function base(): string {
@@ -71,6 +71,10 @@ export function getRevenueByChannelReport(token: string, from: string, to: strin
 
 export function getBusinessInsights(token: string, from: string, to: string): Promise<BusinessInsightsReport> {
   return request<BusinessInsightsReport>(`${base()}/business-insights?${rangeParams(from, to)}`, { method: 'GET' }, token)
+}
+
+export function getShipmentsReport(token: string, from: string, to: string, granularity: ShipmentGranularity, basis: ShipmentBasis): Promise<ShipmentsReport> {
+  return request<ShipmentsReport>(`${base()}/shipments?${rangeParams(from, to)}&granularity=${granularity}&basis=${basis}`, { method: 'GET' }, token)
 }
 
 export function getSalesTrendsReport(token: string, from: string, to: string, granularity: SalesTrendGranularity): Promise<SalesTrendsReport> {

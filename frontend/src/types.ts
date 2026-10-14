@@ -37,6 +37,7 @@ export type NavItem =
   | 'reports-customer-rfm'
   | 'reports-frequently-bought-together'
   | 'reports-stockout-risk'
+  | 'reports-shipments'
   | 'users'
   | 'settings'
   | 'scheduled-jobs'

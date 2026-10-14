@@ -84,6 +84,7 @@ const R = {
   customerCohorts: link('reports-customer-cohorts', () => i18next.t('layout:nav.reportsCustomerCohorts'), BarChart3),
   customerRfm: link('reports-customer-rfm', () => i18next.t('layout:nav.reportsCustomerRfm'), BarChart3),
   frequentlyBoughtTogether: link('reports-frequently-bought-together', () => i18next.t('layout:nav.reportsFrequentlyBoughtTogether'), BarChart3),
+  shipments: link('reports-shipments', () => i18next.t('layout:nav.reportsShipments'), BarChart3),
 }
 
 const CLASSIC_GROUPS: NavGroup[] = [
@@ -95,7 +96,7 @@ const CLASSIC_GROUPS: NavGroup[] = [
   group('reports', () => i18next.t('layout:group.reports'), [
     R.overview, R.salesTrends, R.productPerformance, R.performanceMatrix, R.productLifecycle,
     R.categoryPerformance, R.slowMoving, R.stockoutRisk, R.inventorySales, R.customerPerformance,
-    R.customerCohorts, R.customerRfm, R.frequentlyBoughtTogether,
+    R.customerCohorts, R.customerRfm, R.frequentlyBoughtTogether, R.shipments,
   ], { collapsedByDefault: true, qualifyTitles: true }),
   group('connect', () => i18next.t('layout:group.connect'), [L.integrations, L.webhooks, L.syncLog]),
 ]
@@ -121,6 +122,7 @@ export const REPORT_SECTIONS: NavGroup[] = [
   group('reportsProducts', () => i18next.t('layout:group.reportsProducts'), [R.productPerformance, R.performanceMatrix, R.productLifecycle, R.categoryPerformance, R.slowMoving, R.frequentlyBoughtTogether]),
   group('reportsCustomers', () => i18next.t('layout:group.reportsCustomers'), [R.customerPerformance, R.customerCohorts, R.customerRfm]),
   group('reportsStock', () => i18next.t('layout:group.reportsStock'), [R.stockoutRisk, R.inventorySales]),
+  group('reportsShipping', () => i18next.t('layout:group.reportsShipping'), [R.shipments]),
 ]
 
 // Team management calls lm2's company-owner endpoints (team/api.ts);

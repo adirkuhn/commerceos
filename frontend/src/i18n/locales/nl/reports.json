@@ -181,6 +181,56 @@
     "summary": "Samenvatting",
     "vsPrev": "t.o.v. vorige periode"
   },
+  "shipments": {
+    "average": {
+      "month": "Gemiddeld per maand",
+      "quarter": "Gemiddeld per kwartaal",
+      "week": "Gemiddeld per week",
+      "year": "Gemiddeld per jaar"
+    },
+    "basis": {
+      "carrier_scan": "Scan vervoerder",
+      "label_created": "Labeldatum"
+    },
+    "basisHint": {
+      "carrier_scan": "Geteld op de dag dat de vervoerder het pakket voor het eerst scande. Nog niet gescande pakketten tellen niet mee.",
+      "label_created": "Geteld op de dag dat het label is gemaakt. Geannuleerde labels tellen niet mee; een vervangen label telt één keer."
+    },
+    "byCarrier": "Per vervoerder",
+    "byChannel": "Per kanaal",
+    "byCountry": "Per land",
+    "col": {
+      "change": "t.o.v. vorige",
+      "orders": "Bestellingen",
+      "period": "Periode",
+      "shipments": "Zendingen"
+    },
+    "countBy": "Tellen op",
+    "empty": "Geen zendingen in deze periode.",
+    "from": "Van",
+    "granularity": {
+      "month": "Maand",
+      "quarter": "Kwartaal",
+      "week": "Week",
+      "year": "Jaar"
+    },
+    "groupBy": "Groeperen per",
+    "per": {
+      "month": "Zendingen per maand",
+      "quarter": "Zendingen per kwartaal",
+      "week": "Zendingen per week",
+      "year": "Zendingen per jaar"
+    },
+    "quarter": "K{{quarter}} {{year}}",
+    "table": "Per periode",
+    "title": "Zendingen",
+    "to": "Tot",
+    "totalOrders": "Verzonden bestellingen",
+    "totalOrdersDesc": "Eén bestelling kan meer dan één label hebben.",
+    "totalShipments": "Zendingen",
+    "unknown": "Onbekend",
+    "weekOf": "Week van {{date}}"
+  },
   "slowMoving": {
     "desc": "Op voorraad maar niets verkocht in de geselecteerde periode",
     "empty": "Geen langzaam lopende producten in deze periode",

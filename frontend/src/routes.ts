@@ -37,6 +37,7 @@ import CategoryPerformancePage from './pages/reports/CategoryPerformancePage'
 import SlowMovingProductsPage from './pages/reports/SlowMovingProductsPage'
 import InventorySalesPage from './pages/reports/InventorySalesPage'
 import SalesTrendsPage from './pages/reports/SalesTrendsPage'
+import ShipmentsPage from './pages/reports/ShipmentsPage'
 import ProductLifecyclePage from './pages/reports/ProductLifecyclePage'
 import CustomerCohortsPage from './pages/reports/CustomerCohortsPage'
 import CustomerRFMPage from './pages/reports/CustomerRFMPage'
@@ -101,6 +102,7 @@ export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'reports-customer-cohorts', path: '/reports/customer-cohorts', Component: inReportsShell(CustomerCohortsPage) },
   { nav: 'reports-customer-rfm', path: '/reports/customer-rfm', Component: inReportsShell(CustomerRFMPage) },
   { nav: 'reports-frequently-bought-together', path: '/reports/frequently-bought-together', Component: inReportsShell(FrequentlyBoughtTogetherPage) },
+  { nav: 'reports-shipments', path: '/reports/shipments', Component: inReportsShell(ShipmentsPage) },
   { nav: 'reports-stockout-risk', path: '/reports/stockout-risk', Component: inReportsShell(StockoutRiskPage) },
   { nav: 'users', path: '/users', Component: Users },
   { nav: 'settings', path: '/settings', Component: Settings },

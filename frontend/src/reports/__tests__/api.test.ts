@@ -174,3 +174,19 @@ describe('getSlowMovingProductsReport', () => {
     )
   })
 })
+
+describe('getShipmentsReport', () => {
+  it('sends range, granularity and basis to /reports/shipments', async () => {
+    mockFetch({ granularity: 'quarter', basis: 'carrier_scan', points: [], total_shipments: 0, total_orders: 0, by_carrier: [], by_channel: [], by_country: [] })
+    await api.getShipmentsReport(TOKEN, '2026-01-01T00:00:00Z', '2026-04-01T00:00:00Z', 'quarter', 'carrier_scan')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      'https://api.commerceos.dev.localhost/api/v1/reports/shipments?from=2026-01-01T00%3A00%3A00Z&to=2026-04-01T00%3A00%3A00Z&granularity=quarter&basis=carrier_scan',
+      expect.objectContaining({ method: 'GET' }),
+    )
+  })
+
+  it('surfaces the coded error', async () => {
+    mockFetchError('REPORT_INVALID_SHIPMENT_BASIS', 'basis must be one of label_created, carrier_scan')
+    await expect(api.getShipmentsReport(TOKEN, 'a', 'b', 'week', 'label_created')).rejects.toMatchObject({ code: 'REPORT_INVALID_SHIPMENT_BASIS' })
+  })
+})

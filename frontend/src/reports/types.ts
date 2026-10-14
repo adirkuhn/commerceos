@@ -206,6 +206,41 @@ export interface SalesTrendsReport {
   by_weekday: WeekdaySales[]
 }
 
+// GET /reports/shipments -- see api/reports/openapi.yaml.
+export type ShipmentGranularity = 'week' | 'month' | 'quarter' | 'year'
+export type ShipmentBasis = 'label_created' | 'carrier_scan'
+
+export interface ShipmentsPoint {
+  period_start: string
+  shipments: number
+  // Distinct orders the period's shipments belong to.
+  orders: number
+}
+
+export interface CarrierShipments {
+  carrier: number
+  name: string
+  shipments: number
+}
+
+export interface ShipmentsShare {
+  key: string
+  shipments: number
+}
+
+export interface ShipmentsReport {
+  granularity: ShipmentGranularity
+  basis: ShipmentBasis
+  points: ShipmentsPoint[]
+  total_shipments: number
+  total_orders: number
+  by_carrier: CarrierShipments[]
+  // Keyed by the order's source (woocommerce, bol, ...).
+  by_channel: ShipmentsShare[]
+  // Keyed by the recipient's ISO country code.
+  by_country: ShipmentsShare[]
+}
+
 export type ProductLifecycleStage = 'new' | 'growing' | 'stable' | 'declining' | 'dormant'
 
 export interface ProductLifecycleRow {

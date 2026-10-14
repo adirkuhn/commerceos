@@ -181,6 +181,56 @@
     "summary": "Summary",
     "vsPrev": "vs prev period"
   },
+  "shipments": {
+    "average": {
+      "month": "Average per month",
+      "quarter": "Average per quarter",
+      "week": "Average per week",
+      "year": "Average per year"
+    },
+    "basis": {
+      "carrier_scan": "Carrier scan",
+      "label_created": "Label date"
+    },
+    "basisHint": {
+      "carrier_scan": "Counted on the day the carrier first scanned the parcel. Parcels not scanned yet are left out.",
+      "label_created": "Counted on the day the label was created. Cancelled labels are left out; a replaced label counts once."
+    },
+    "byCarrier": "By carrier",
+    "byChannel": "By channel",
+    "byCountry": "By country",
+    "col": {
+      "change": "vs previous",
+      "orders": "Orders",
+      "period": "Period",
+      "shipments": "Shipments"
+    },
+    "countBy": "Count by",
+    "empty": "No shipments in this period.",
+    "from": "From",
+    "granularity": {
+      "month": "Month",
+      "quarter": "Quarter",
+      "week": "Week",
+      "year": "Year"
+    },
+    "groupBy": "Group by",
+    "per": {
+      "month": "Shipments per month",
+      "quarter": "Shipments per quarter",
+      "week": "Shipments per week",
+      "year": "Shipments per year"
+    },
+    "quarter": "Q{{quarter}} {{year}}",
+    "table": "Per period",
+    "title": "Shipments",
+    "to": "To",
+    "totalOrders": "Orders shipped",
+    "totalOrdersDesc": "One order can have more than one label.",
+    "totalShipments": "Shipments",
+    "unknown": "Unknown",
+    "weekOf": "Week of {{date}}"
+  },
   "slowMoving": {
     "desc": "In stock with zero units sold in the selected period",
     "empty": "No slow-moving products in this period",
