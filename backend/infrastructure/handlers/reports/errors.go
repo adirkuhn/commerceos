@@ -17,7 +17,8 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, appreports.ErrToBeforeFrom), errors.Is(err, appreports.ErrInvalidGranularity), errors.Is(err, appreports.ErrSKUIDRequired):
+	case errors.Is(err, appreports.ErrToBeforeFrom), errors.Is(err, appreports.ErrInvalidGranularity), errors.Is(err, appreports.ErrSKUIDRequired),
+		errors.Is(err, appreports.ErrInvalidShipmentGranularity), errors.Is(err, appreports.ErrInvalidShipmentBasis):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, promotionsDomain.ErrPromotionNotFound):
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)

@@ -12,6 +12,7 @@ import (
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	appreports "github.com/adirkuhn/commerceos/application/reports"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
 
@@ -72,6 +73,9 @@ type getProfitabilityTrendReportUC interface {
 type getRevenueByChannelReportUC interface {
 	Execute(ctx context.Context, from, to time.Time, granularity omsDomain.SalesTrendGranularity) (*appreports.RevenueByChannelReport, error)
 }
+type getShipmentsReportUC interface {
+	Execute(ctx context.Context, from, to time.Time, granularity shippingDomain.VolumeGranularity, basis shippingDomain.VolumeBasis) (*appreports.ShipmentsReport, error)
+}
 
 type Handler struct {
 	getSalesSummaryReport         getSalesSummaryReportUC
@@ -93,6 +97,7 @@ type Handler struct {
 	getProductRecommendations     getProductRecommendationsUC
 	getProfitabilityTrendReport   getProfitabilityTrendReportUC
 	getRevenueByChannelReport     getRevenueByChannelReportUC
+	getShipmentsReport            getShipmentsReportUC
 }
 
 func NewHandler(
@@ -115,6 +120,7 @@ func NewHandler(
 	getProductRecommendations getProductRecommendationsUC,
 	getProfitabilityTrendReport getProfitabilityTrendReportUC,
 	getRevenueByChannelReport getRevenueByChannelReportUC,
+	getShipmentsReport getShipmentsReportUC,
 ) *Handler {
 	return &Handler{
 		getSalesSummaryReport: getSalesSummaryReport, getProductPerformanceReport: getProductPerformanceReport,
@@ -127,6 +133,7 @@ func NewHandler(
 		getFrequentlyBoughtTogether: getFrequentlyBoughtTogether, getStockoutRiskReport: getStockoutRiskReport,
 		getProductRecommendations:   getProductRecommendations,
 		getProfitabilityTrendReport: getProfitabilityTrendReport, getRevenueByChannelReport: getRevenueByChannelReport,
+		getShipmentsReport: getShipmentsReport,
 	}
 }
 
@@ -170,6 +177,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appreports.NewGetProductRecommendationsUseCase(db, salesRepo, settingsRepo, skuRepo, variantRepo, productRepo),
 		appreports.NewGetProfitabilityTrendReportUseCase(db, salesRepo, settingsRepo),
 		appreports.NewGetRevenueByChannelReportUseCase(db, salesRepo, settingsRepo),
+		appreports.NewGetShipmentsReportUseCase(db, repositories.NewShipmentVolumeRepo(db), settingsRepo),
 	)
 	genreports.RegisterHandlers(rg, h)
 }

@@ -415,6 +415,51 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /reports/shipments:
+    get:
+      operationId: getShipmentsReport
+      summary: Shipments per week/month/quarter/year for [from, to)
+      description: >-
+        Counts shipments (MyParcel labels) that were not cancelled -- a
+        replaced label counts once, as its replacement. basis picks the
+        moment that places a shipment in a period: label_created (default)
+        or carrier_scan (first carrier status past "registered"; shipments
+        not scanned yet are left out). Periods are the tenant's local
+        calendar and weeks start on Sunday. Points lists every period
+        touched by the range, empty ones as zero. by_carrier, by_channel
+        (the order's source) and by_country (recipient ISO code) split the
+        whole range, biggest first.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: granularity
+          in: query
+          required: false
+          description: Defaults to "week" when omitted.
+          schema: { $ref: '#/components/schemas/ShipmentGranularity' }
+        - name: basis
+          in: query
+          required: false
+          description: Defaults to "label_created" when omitted.
+          schema: { $ref: '#/components/schemas/ShipmentBasis' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentsReportResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /reports/business-insights:
     get:
       operationId: getBusinessInsights
@@ -1092,6 +1137,69 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/SalesTrendsReport' }
+        error: { nullable: true }
+
+    ShipmentGranularity:
+      type: string
+      enum: [week, month, quarter, year]
+
+    ShipmentBasis:
+      type: string
+      enum: [label_created, carrier_scan]
+
+    ShipmentsPoint:
+      type: object
+      required: [period_start, shipments, orders]
+      properties:
+        period_start: { type: string, format: date-time }
+        shipments: { type: integer, format: int64 }
+        orders:
+          type: integer
+          format: int64
+          description: Distinct orders the period's shipments belong to.
+
+    CarrierShipments:
+      type: object
+      required: [carrier, name, shipments]
+      properties:
+        carrier: { type: integer, description: MyParcel carrier id }
+        name: { type: string }
+        shipments: { type: integer, format: int64 }
+
+    ShipmentsShare:
+      type: object
+      required: [key, shipments]
+      properties:
+        key: { type: string }
+        shipments: { type: integer, format: int64 }
+
+    ShipmentsReport:
+      type: object
+      required: [granularity, basis, points, total_shipments, total_orders, by_carrier, by_channel, by_country]
+      properties:
+        granularity: { $ref: '#/components/schemas/ShipmentGranularity' }
+        basis: { $ref: '#/components/schemas/ShipmentBasis' }
+        points:
+          type: array
+          items: { $ref: '#/components/schemas/ShipmentsPoint' }
+        total_shipments: { type: integer, format: int64 }
+        total_orders: { type: integer, format: int64 }
+        by_carrier:
+          type: array
+          items: { $ref: '#/components/schemas/CarrierShipments' }
+        by_channel:
+          type: array
+          description: Keyed by the sales order source (woocommerce, bol, manual, ...).
+          items: { $ref: '#/components/schemas/ShipmentsShare' }
+        by_country:
+          type: array
+          description: Keyed by the recipient's ISO 3166-1 alpha-2 country code.
+          items: { $ref: '#/components/schemas/ShipmentsShare' }
+
+    ShipmentsReportResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ShipmentsReport' }
         error: { nullable: true }
 
     InsightSeverity:
