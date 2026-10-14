@@ -220,3 +220,55 @@ func TestScanPackItem_rejectsTypingAPerWeightSKUCode(t *testing.T) {
 
 	assert.ErrorIs(t, err, pmsDomain.ErrWeightRequiredForPerWeightSKU)
 }
+
+// A package whose label is its SKU code (a hand-made "~ 428g" variant, no
+// barcode): the exact code wins over decoding the label, which would point
+// at the bulk per-kilo SKU sharing its scale code and miss the order line.
+func newScanPackForPackageLine(t *testing.T, skuRepo *stubSKURepo) (*appoms.ScanPackItemUseCase, *stubPackScanRepo) {
+	sessionRepo := &stubPackingSessionRepo{findByIDResult: &omsDomain.PackingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PackingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{
+		{ID: "li-pkg", SalesOrderID: "order-1", SKUID: strPtr("sku-pkg"), SKUCode: "2994721004288", Quantity: 1},
+	}}
+	scanRepo := &stubPackScanRepo{}
+	uc := appoms.NewScanPackItemUseCase(newMockGormDB(t), sessionRepo, scanRepo, lineItemRepo, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{}, &eventrecordtest.Outbox{})
+	return uc, scanRepo
+}
+
+func TestScanPackItem_aLabelThatIsAPackageSKUCodeBeatsTheScaleCode(t *testing.T) {
+	uc, _ := newScanPackForPackageLine(t, &stubSKURepo{
+		byScaleCode: map[string]*pmsDomain.SKU{"2994721": {ID: "sku-pool", PricingMode: pmsDomain.SKUPricingModePerWeight}},
+		byCode:      map[string]*pmsDomain.SKU{"2994721004288": {ID: "sku-pkg", PricingMode: pmsDomain.SKUPricingModeFixed}},
+	})
+
+	result, err := uc.Execute(context.Background(), appoms.ScanPackItemInput{SessionID: "session-1", Code: "2994721004288", Quantity: 1})
+
+	require.NoError(t, err)
+	assert.Equal(t, "sku-pkg", result.Scan.SKUID)
+	assert.Equal(t, "li-pkg", *result.Scan.LineItemID)
+}
+
+func TestScanPackItem_aLabelOnTheOrderLineBeatsTheScaleCode(t *testing.T) {
+	uc, _ := newScanPackForPackageLine(t, &stubSKURepo{
+		byScaleCode: map[string]*pmsDomain.SKU{"2994721": {ID: "sku-pool", PricingMode: pmsDomain.SKUPricingModePerWeight}},
+		byID:        map[string]*pmsDomain.SKU{"sku-pkg": {ID: "sku-pkg", PricingMode: pmsDomain.SKUPricingModeFixed}},
+	})
+
+	result, err := uc.Execute(context.Background(), appoms.ScanPackItemInput{SessionID: "session-1", Code: "2994721004288", Quantity: 1})
+
+	require.NoError(t, err)
+	assert.Equal(t, "li-pkg", *result.Scan.LineItemID)
+}
+
+// A per-kilo SKU whose own code happens to be the scanned label still
+// resolves through the label (it needs the weight), not "scan the label".
+func TestScanPackItem_anExactPerWeightMatchStillReadsTheLabel(t *testing.T) {
+	uc, _ := newScanPackForLine(t, &stubSKURepo{
+		byCode:      map[string]*pmsDomain.SKU{"2994721004622": {ID: "sku-1", PricingMode: pmsDomain.SKUPricingModePerWeight}},
+		byScaleCode: map[string]*pmsDomain.SKU{"2994721": {ID: "sku-1", PricingMode: pmsDomain.SKUPricingModePerWeight}},
+	}, &stubScaleCodeAliasRepo{})
+
+	result, err := uc.Execute(context.Background(), appoms.ScanPackItemInput{SessionID: "session-1", Code: "2994721004622", Quantity: 1})
+
+	require.NoError(t, err)
+	assert.Equal(t, "sku-1", result.Scan.SKUID)
+}

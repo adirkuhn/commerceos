@@ -174,10 +174,10 @@ func (uc *ScanPickItemUseCase) Execute(ctx context.Context, in ScanPickItemInput
 // algorithm itself is deliberately duplicated, not composed, across the
 // two).
 //
-// The weight-embedded step is tried before SKU-code/line-item so a
-// per_weight SKU (see ErrWeightRequiredForPerWeightSKU below) gets every
-// chance to resolve via its actual weight first. weightGrams is non-nil
-// only when resolved that way.
+// Exact matches (barcode, alias, SKU code, the order's lines) win over
+// reading the code as a scale label (see exactCodeMatch); a per-weight SKU
+// still resolves only through a label, which gives its weight. weightGrams
+// is non-nil only when resolved that way.
 func (uc *ScanPickItemUseCase) resolveCode(ctx context.Context, salesOrderID, code string) (string, *int64, error) {
 	sku, err := uc.skuRepo.FindByBarcode(ctx, code)
 	if err == nil {
@@ -195,48 +195,27 @@ func (uc *ScanPickItemUseCase) resolveCode(ctx context.Context, salesOrderID, co
 		return "", nil, aerr
 	}
 
-	if decoded, derr := pmsDomain.DecodeWeightEmbeddedBarcode(code); derr == nil {
-		sku, err = uc.skuRepo.FindByScaleCode(ctx, decoded.ScaleCode)
-		if err == nil {
-			return sku.ID, &decoded.WeightGrams, nil
-		}
-		if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
-			return "", nil, err
-		}
-		scaleAlias, saerr := uc.scaleCodeAliasRepo.FindByCode(ctx, decoded.ScaleCode)
-		if saerr == nil {
-			return scaleAlias.SKUID, &decoded.WeightGrams, nil
-		}
-		if !errors.Is(saerr, pmsDomain.ErrScaleCodeAliasNotFound) {
-			return "", nil, saerr
-		}
-	} else if !errors.Is(derr, pmsDomain.ErrNotWeightEmbeddedBarcode) {
-		return "", nil, derr // right shape, bad checksum -- a mis-scan, not "not found"
-	}
-
-	byCode, cerr := uc.skuRepo.FindByCode(ctx, code)
-	if cerr == nil {
-		if byCode.PricingMode == pmsDomain.SKUPricingModePerWeight {
-			return "", nil, pmsDomain.ErrWeightRequiredForPerWeightSKU
-		}
-		return byCode.ID, nil, nil
-	}
-	if !errors.Is(cerr, pmsDomain.ErrSKUNotFound) {
-		return "", nil, cerr
-	}
-
-	liSKUID, lerr := uc.resolveViaLineItem(ctx, salesOrderID, code)
-	if lerr != nil {
-		return "", nil, lerr
-	}
-	liSKU, err := uc.skuRepo.FindByID(ctx, liSKUID)
+	exact, err := exactCodeMatch(ctx, uc.skuRepo, code, func() (string, error) {
+		return uc.resolveViaLineItem(ctx, salesOrderID, code)
+	})
 	if err != nil {
 		return "", nil, err
 	}
-	if liSKU.PricingMode == pmsDomain.SKUPricingModePerWeight {
-		return "", nil, pmsDomain.ErrWeightRequiredForPerWeightSKU
+	if exact != nil && exact.PricingMode != pmsDomain.SKUPricingModePerWeight {
+		return exact.ID, nil, nil
 	}
-	return liSKUID, nil, nil
+
+	label, err := resolveScaleLabel(ctx, uc.skuRepo, uc.scaleCodeAliasRepo, code)
+	if err != nil {
+		return "", nil, err
+	}
+	if label == nil {
+		if exact != nil {
+			return "", nil, pmsDomain.ErrWeightRequiredForPerWeightSKU
+		}
+		return "", nil, pmsDomain.ErrSKUNotFound
+	}
+	return label.skuID, &label.weightGrams, nil
 }
 
 // resolveViaLineItem is the last-resort fallback: when code doesn't match

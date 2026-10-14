@@ -90,9 +90,9 @@ func (uc *ResolvePickScanCodeUseCase) Execute(ctx context.Context, sessionID, co
 }
 
 // scanCodeResolver is the code-resolution chain shared by picking and
-// packing's resolve-scan: barcode, barcode alias, weight-embedded scale
-// barcode (and its scale-code alias), SKU code, then the order's own line
-// items. Runs inside the caller's transaction.
+// packing: barcode, barcode alias, SKU code, the order's own line items,
+// then the weight-embedded scale barcode (and its scale-code alias) --
+// exact matches first. Runs inside the caller's transaction.
 type scanCodeResolver struct {
 	lineItemRepo       omsDomain.SalesOrderLineItemRepository
 	skuRepo            skuResolverRepo
@@ -131,52 +131,90 @@ func (uc scanCodeResolver) resolveInto(ctx context.Context, result *ResolvedScan
 		return aerr
 	}
 
-	if decoded, derr := pmsDomain.DecodeWeightEmbeddedBarcode(code); derr == nil {
-		sku, err = uc.skuRepo.FindByScaleCode(ctx, decoded.ScaleCode)
-		if err == nil {
-			return uc.fillResult(ctx, result, *sku, &decoded.WeightGrams)
-		}
-		if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
-			return err
-		}
-		scaleAlias, saerr := uc.scaleCodeAliasRepo.FindByCode(ctx, decoded.ScaleCode)
-		if saerr == nil {
-			sku, err = uc.skuRepo.FindByID(ctx, scaleAlias.SKUID)
-			if err != nil {
-				return err
-			}
-			return uc.fillResult(ctx, result, *sku, &decoded.WeightGrams)
-		}
-		if !errors.Is(saerr, pmsDomain.ErrScaleCodeAliasNotFound) {
-			return saerr
-		}
-	} else if !errors.Is(derr, pmsDomain.ErrNotWeightEmbeddedBarcode) {
-		return derr // right shape, bad checksum -- a mis-scan, not "not found"
-	}
-
-	byCode, cerr := uc.skuRepo.FindByCode(ctx, code)
-	if cerr == nil {
-		if byCode.PricingMode == pmsDomain.SKUPricingModePerWeight {
-			return pmsDomain.ErrWeightRequiredForPerWeightSKU
-		}
-		return uc.fillResult(ctx, result, *byCode, nil)
-	}
-	if !errors.Is(cerr, pmsDomain.ErrSKUNotFound) {
-		return cerr
-	}
-
-	liSKUID, lerr := uc.resolveViaLineItem(ctx, salesOrderID, code)
-	if lerr != nil {
-		return lerr
-	}
-	bySKU, err := uc.skuRepo.FindByID(ctx, liSKUID)
+	exact, err := exactCodeMatch(ctx, uc.skuRepo, code, func() (string, error) {
+		return uc.resolveViaLineItem(ctx, salesOrderID, code)
+	})
 	if err != nil {
 		return err
 	}
-	if bySKU.PricingMode == pmsDomain.SKUPricingModePerWeight {
-		return pmsDomain.ErrWeightRequiredForPerWeightSKU
+	if exact != nil && exact.PricingMode != pmsDomain.SKUPricingModePerWeight {
+		return uc.fillResult(ctx, result, *exact, nil)
 	}
-	return uc.fillResult(ctx, result, *bySKU, nil)
+
+	label, err := resolveScaleLabel(ctx, uc.skuRepo, uc.scaleCodeAliasRepo, code)
+	if err != nil {
+		return err
+	}
+	if label == nil {
+		if exact != nil {
+			return pmsDomain.ErrWeightRequiredForPerWeightSKU
+		}
+		return pmsDomain.ErrSKUNotFound
+	}
+	sku, err = uc.skuRepo.FindByID(ctx, label.skuID)
+	if err != nil {
+		return err
+	}
+	return uc.fillResult(ctx, result, *sku, &label.weightGrams)
+}
+
+// exactCodeMatch finds the SKU whose code is exactly code: its SKU code,
+// else a line on the order (lineSKUID) -- nil when neither matches. An
+// exact match wins over reading code as a scale label: a package whose
+// label is its SKU code ("~ 428g", no barcode) would otherwise resolve,
+// through the label's scale code, to the bulk per-kilo SKU and miss the
+// order line. A per-weight match is returned too; the caller still needs
+// the label's weight for it.
+func exactCodeMatch(ctx context.Context, skuRepo skuResolverRepo, code string, lineSKUID func() (string, error)) (*pmsDomain.SKU, error) {
+	byCode, err := skuRepo.FindByCode(ctx, code)
+	if err == nil {
+		return byCode, nil
+	}
+	if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
+		return nil, err
+	}
+	id, err := lineSKUID()
+	if errors.Is(err, pmsDomain.ErrSKUNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return skuRepo.FindByID(ctx, id)
+}
+
+type scaleLabelMatch struct {
+	skuID       string
+	weightGrams int64
+}
+
+// resolveScaleLabel reads code as a weight-embedded scale label: the SKU
+// with its scale code (or an additional scale code) and the label's
+// weight. nil when code isn't a scale label or no SKU has its scale code;
+// a label with a bad check digit is an error (a mis-scan, not "not found").
+func resolveScaleLabel(ctx context.Context, skuRepo skuResolverRepo, aliases scaleCodeAliasFinder, code string) (*scaleLabelMatch, error) {
+	decoded, err := pmsDomain.DecodeWeightEmbeddedBarcode(code)
+	if errors.Is(err, pmsDomain.ErrNotWeightEmbeddedBarcode) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	sku, err := skuRepo.FindByScaleCode(ctx, decoded.ScaleCode)
+	if err == nil {
+		return &scaleLabelMatch{skuID: sku.ID, weightGrams: decoded.WeightGrams}, nil
+	}
+	if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
+		return nil, err
+	}
+	alias, err := aliases.FindByCode(ctx, decoded.ScaleCode)
+	if errors.Is(err, pmsDomain.ErrScaleCodeAliasNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &scaleLabelMatch{skuID: alias.SKUID, weightGrams: decoded.WeightGrams}, nil
 }
 
 // resolveViaLineItem mirrors ScanPickItemUseCase.resolveViaLineItem exactly

@@ -274,3 +274,21 @@ func TestScanPickItem_rejectsWhenSessionNotActive(t *testing.T) {
 
 	assert.ErrorIs(t, err, omsDomain.ErrPickingSessionNotActive)
 }
+
+// A package whose label is its SKU code ("~ 428g", no barcode) picks as
+// that package, not as the bulk per-kilo SKU sharing the label's scale code.
+func TestScanPickItem_aLabelThatIsAPackageSKUCodeBeatsTheScaleCode(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-pkg", SalesOrderID: "order-1", SKUID: strPtr("sku-pkg"), SKUCode: "2994721004288", Quantity: 1}}}
+	skuRepo := &stubSKURepo{
+		byScaleCode: map[string]*pmsDomain.SKU{"2994721": {ID: "sku-pool", PricingMode: pmsDomain.SKUPricingModePerWeight}},
+		byCode:      map[string]*pmsDomain.SKU{"2994721004288": {ID: "sku-pkg", PricingMode: pmsDomain.SKUPricingModeFixed}},
+	}
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{}, &eventrecordtest.Outbox{})
+
+	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", Code: "2994721004288", Quantity: 1})
+
+	require.NoError(t, err)
+	assert.Equal(t, "sku-pkg", result.Scan.SKUID)
+}
