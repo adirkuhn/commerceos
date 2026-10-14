@@ -22,8 +22,7 @@ import { PackingExtraItems } from './PackingExtraItems'
 import { ScanSessionOrderBand, StartOverButton } from './ScanSessionOrderBand'
 import { ScanSessionLockBanner } from './ScanSessionLockBanner'
 import { ScanSessionScanForm } from './ScanSessionScanForm'
-import { SCANNER_SOLD_EXPIRY_CLASS, ScanSessionLineRow } from './ScanSessionLines'
-import { SoldExpiryNote } from '../oms/SoldExpiryNote'
+import { PackingLineList } from './PackingLineList'
 import { ScanErrorDialog, StartOverDialog } from './ScanSessionDialogs'
 
 interface PackingScreenProps {
@@ -162,17 +161,12 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
         {session.loading && <p className="text-center text-sm text-gray-400 py-8">{t('common:status.loading')}</p>}
-        {detail?.line_items.map(li => {
-          const packedQty = packedByLineItem.get(li.id) ?? 0
-          return (
-            <ScanSessionLineRow
-              key={li.id} token={token} lineItem={li} doneQty={packedQty} disabled={readOnly}
-              onClick={() => setPackLine({ lineItem: li, packedSoFar: packedQty })}
-            >
-              <SoldExpiryNote date={li.sold_expiry_date} className={SCANNER_SOLD_EXPIRY_CLASS} />
-            </ScanSessionLineRow>
-          )
-        })}
+        {detail && (
+          <PackingLineList
+            token={token} sessionId={sessionId} lineItems={detail.line_items} packedByLineItem={packedByLineItem} readOnly={readOnly}
+            onOpenLine={(lineItem, packedSoFar) => setPackLine({ lineItem, packedSoFar })}
+          />
+        )}
 
         <PackingExtraItems extras={extras} onRemove={session.deleteScan} />
 

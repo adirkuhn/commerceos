@@ -91,9 +91,16 @@ export default {
           '0%, 100%': { top: '4%' },
           '50%': { top: '92%' },
         },
+        // A packing line a scan just touched: a short pop.
+        'pack-flash': {
+          '0%': { transform: 'scale(1)' },
+          '30%': { transform: 'scale(1.025)' },
+          '100%': { transform: 'scale(1)' },
+        },
       },
       animation: {
         'scan-line': 'scan-line 1.8s ease-in-out infinite',
+        'pack-flash': 'pack-flash 0.45s ease-out',
       },
     },
   },

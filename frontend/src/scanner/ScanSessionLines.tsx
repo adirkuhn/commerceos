@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
+import clsx from 'clsx'
 import { Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ProductThumb, SCANNER_THUMB } from '../pms/ProductThumb'
@@ -16,17 +17,21 @@ interface ScanSessionLineRowProps {
   onClick: () => void
   // Extra detail lines under the name/SKU code.
   children?: ReactNode
+  rowRef?: Ref<HTMLButtonElement>
+  // Classes for a short "a scan just touched this line" effect.
+  highlightClass?: string
 }
 
 // One order line on a session screen -- tap to open its sheet.
-export function ScanSessionLineRow({ token, lineItem: li, doneQty, disabled, onClick, children }: ScanSessionLineRowProps) {
+export function ScanSessionLineRow({ token, lineItem: li, doneQty, disabled, onClick, children, rowRef, highlightClass }: ScanSessionLineRowProps) {
   const done = doneQty >= li.quantity
   return (
     <button
+      ref={rowRef}
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="w-full flex items-center gap-3 rounded-xl bg-night-800 border border-night-700 px-3.5 py-3 text-left hover:border-accent transition-colors"
+      className={clsx('w-full flex items-center gap-3 rounded-xl bg-night-800 border border-night-700 px-3.5 py-3 text-left hover:border-accent transition-colors', highlightClass)}
     >
       <ProductThumb token={token} productId={li.product_id} appearance={SCANNER_THUMB} title={li.name} />
       {done && <Check size={16} className="text-green-400 shrink-0" />}

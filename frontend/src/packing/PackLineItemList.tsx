@@ -4,9 +4,13 @@ import { useTranslation } from 'react-i18next'
 import type { PickingSessionLineItem } from '../scanner/types'
 import { ProductThumb, ADMIN_THUMB } from '../pms/ProductThumb'
 import { SoldExpiryNote } from '../oms/SoldExpiryNote'
+import { usePackLineOrder, PACK_LINE_HIGHLIGHT_CLASS } from '../scanner/usePackLineOrder'
+import { useFlipList } from '../fulfillment/useFlipList'
 
 interface PackLineItemListProps {
   token: string
+  // The packing session -- opening another order sorts without effects.
+  sessionId: string
   lineItems: PickingSessionLineItem[]
   packedByLineItem: Map<string, number>
   readOnly: boolean
@@ -15,17 +19,24 @@ interface PackLineItemListProps {
 }
 
 // The order's lines with how much of each is packed; tapping one opens it.
-export function PackLineItemList({ token, lineItems, packedByLineItem, readOnly, onOpenLine }: PackLineItemListProps) {
+// Partly packed lines sit on top, then lines not packed yet, then done
+// ones (see usePackLineOrder).
+export function PackLineItemList({ token, sessionId, lineItems, packedByLineItem, readOnly, onOpenLine }: PackLineItemListProps) {
   const { t } = useTranslation('packing')
+  const { lines, highlight } = usePackLineOrder(sessionId, lineItems, packedByLineItem)
+  const flipRef = useFlipList(lines.map(li => li.id))
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-2">
-      {lineItems.map(li => {
+      {lines.map(li => {
         const packed = packedByLineItem.get(li.id) ?? 0
         const done = packed >= li.quantity
         const partial = packed > 0 && packed < li.quantity
+        const flash = highlight.get(li.id)
         return (
           <div
             key={li.id}
+            ref={flipRef(li.id)}
+            data-testid="pack-line" data-line-id={li.id} data-highlight={flash}
             onClick={() => !readOnly && onOpenLine(li, packed)}
             className={clsx(
               'flex items-center gap-4 p-3 rounded-xl border transition-all',
@@ -33,6 +44,7 @@ export function PackLineItemList({ token, lineItems, packedByLineItem, readOnly,
               done ? 'dark:bg-green-500/5 dark:border-green-500/20 border-green-200 bg-green-50' :
               partial ? 'dark:bg-amber-500/5 dark:border-amber-500/20 border-amber-200 bg-amber-50' :
               'bg-raised border-line',
+              flash && PACK_LINE_HIGHLIGHT_CLASS[flash],
             )}
           >
             {done ? (

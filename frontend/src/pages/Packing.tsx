@@ -149,7 +149,7 @@ export default function Packing() {
             <PackProgressBar packedItems={progress.packedItems} totalItems={progress.totalItems} percent={progress.percent} allPacked={progress.allPacked} />
 
             <PackLineItemList
-              token={token ?? ''} lineItems={session.line_items} packedByLineItem={progress.packedByLineItem}
+              token={token ?? ''} sessionId={session.session.id} lineItems={session.line_items} packedByLineItem={progress.packedByLineItem}
               readOnly={readOnly} onOpenLine={actions.openLine}
             />
 

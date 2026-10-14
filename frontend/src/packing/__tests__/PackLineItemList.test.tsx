@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { PACK_LINE_SETTLE_MS } from '../../scanner/usePackLineOrder'
 import { PackLineItemList } from '../PackLineItemList'
 import type { PickingSessionLineItem } from '../../scanner/types'
 
@@ -11,7 +12,7 @@ function line(overrides: Partial<PickingSessionLineItem> = {}): PickingSessionLi
 }
 
 function renderList(lineItems: PickingSessionLineItem[]) {
-  render(<PackLineItemList token="tok" lineItems={lineItems} packedByLineItem={new Map()} readOnly={false} onOpenLine={vi.fn()} />)
+  render(<PackLineItemList token="tok" sessionId="s1" lineItems={lineItems} packedByLineItem={new Map()} readOnly={false} onOpenLine={vi.fn()} />)
 }
 
 describe('PackLineItemList', () => {
@@ -23,5 +24,32 @@ describe('PackLineItemList', () => {
   it('shows no sold expiry for a line without one', () => {
     renderList([line()])
     expect(screen.queryByText(/Sold exp\./)).not.toBeInTheDocument()
+  })
+
+  it('moves a partly packed line to the top and a finished one to the end, after its flash', () => {
+    vi.useFakeTimers()
+    try {
+      const lines = [
+        line({ id: 'a', name: 'Arroz', quantity: 1 }),
+        line({ id: 'b', name: 'Feijao', quantity: 2 }),
+        line({ id: 'c', name: 'Farofa', quantity: 1 }),
+      ]
+      const props = { token: 'tok', sessionId: 's1', lineItems: lines, readOnly: false, onOpenLine: vi.fn() }
+      const names = () => screen.getAllByTestId('pack-line').map(el => el.dataset.lineId)
+      const { rerender } = render(<PackLineItemList {...props} packedByLineItem={new Map()} />)
+      expect(names()).toEqual(['a', 'b', 'c'])
+
+      rerender(<PackLineItemList {...props} packedByLineItem={new Map([['b', 1]])} />)
+      expect(names()).toEqual(['b', 'a', 'c'])
+
+      rerender(<PackLineItemList {...props} packedByLineItem={new Map([['b', 1], ['a', 1]])} />)
+      expect(names()).toEqual(['b', 'a', 'c'])
+      expect(screen.getAllByTestId('pack-line')[1].dataset.highlight).toBe('done')
+
+      act(() => { vi.advanceTimersByTime(PACK_LINE_SETTLE_MS) })
+      expect(names()).toEqual(['b', 'c', 'a'])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
