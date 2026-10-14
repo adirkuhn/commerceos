@@ -240,6 +240,8 @@
   "REFUND_REQUIRES_LINKED_SKU": "Vincule o item a um SKU antes de reembolsá-lo.",
   "REPORT_END_BEFORE_START": "A data final do relatório deve ser depois da data inicial.",
   "REPORT_INVALID_GRANULARITY": "Agrupe por dia, semana ou mês.",
+  "REPORT_INVALID_SHIPMENT_GRANULARITY": "Agrupe por semana, mês, trimestre ou ano.",
+  "REPORT_INVALID_SHIPMENT_BASIS": "Conte os envios pela data da etiqueta ou pela primeira leitura da transportadora.",
   "REQUIRED_FIELDS_MISSING": "Preencha todos os campos obrigatórios.",
   "REVIEW_BODY_REQUIRED": "Escreva o texto da avaliação.",
   "REVIEW_CUSTOMER_EMAIL_REQUIRED": "Informe o e-mail do cliente.",

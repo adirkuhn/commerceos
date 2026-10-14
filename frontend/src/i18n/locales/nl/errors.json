@@ -240,6 +240,8 @@
   "REFUND_REQUIRES_LINKED_SKU": "Koppel de regel aan een SKU voordat je hem terugbetaalt.",
   "REPORT_END_BEFORE_START": "De einddatum van het rapport moet na de begindatum liggen.",
   "REPORT_INVALID_GRANULARITY": "Groepeer per dag, week of maand.",
+  "REPORT_INVALID_SHIPMENT_GRANULARITY": "Groepeer per week, maand, kwartaal of jaar.",
+  "REPORT_INVALID_SHIPMENT_BASIS": "Tel zendingen op labeldatum of op eerste scan door de vervoerder.",
   "REQUIRED_FIELDS_MISSING": "Vul alle verplichte velden in.",
   "REVIEW_BODY_REQUIRED": "Schrijf de reviewtekst.",
   "REVIEW_CUSTOMER_EMAIL_REQUIRED": "Vul het e-mailadres van de klant in.",

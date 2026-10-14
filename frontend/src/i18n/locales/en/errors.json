@@ -240,6 +240,8 @@
   "REFUND_REQUIRES_LINKED_SKU": "Link the line to a SKU before refunding it.",
   "REPORT_END_BEFORE_START": "The report’s end date must be after its start date.",
   "REPORT_INVALID_GRANULARITY": "Group by day, week or month.",
+  "REPORT_INVALID_SHIPMENT_GRANULARITY": "Group by week, month, quarter or year.",
+  "REPORT_INVALID_SHIPMENT_BASIS": "Count shipments by label date or by first carrier scan.",
   "REQUIRED_FIELDS_MISSING": "Fill in all required fields.",
   "REVIEW_BODY_REQUIRED": "Write the review text.",
   "REVIEW_CUSTOMER_EMAIL_REQUIRED": "Enter the customer’s email address.",
