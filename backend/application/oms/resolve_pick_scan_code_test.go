@@ -137,3 +137,39 @@ func TestResolvePickScanCode_rejectsEmptyCode(t *testing.T) {
 
 	assert.ErrorIs(t, err, omsDomain.ErrPickScanCodeOrSKURequired)
 }
+
+// A package whose label is its SKU code ("~ 428g", no barcode) resolves as
+// that package, not as the bulk per-kilo SKU sharing the label's scale code.
+func TestResolvePickScanCode_aLabelThatIsAPackageSKUCodeBeatsTheScaleCode(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	skuRepo := &stubSKURepo{
+		byScaleCode: map[string]*pmsDomain.SKU{"2994721": {ID: "sku-pool", PricingMode: pmsDomain.SKUPricingModePerWeight}},
+		byCode:      map[string]*pmsDomain.SKU{"2994721004288": {ID: "sku-pkg", PricingMode: pmsDomain.SKUPricingModeFixed}},
+	}
+	uc := appoms.NewResolvePickScanCodeUseCase(db, sessionRepo, &stubSalesOrderLineItemRepo{}, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+
+	result, err := uc.Execute(context.Background(), "session-1", "2994721004288")
+
+	require.NoError(t, err)
+	assert.Equal(t, "sku-pkg", result.SKUID)
+	assert.Nil(t, result.WeightGrams)
+}
+
+// A label for a weight with no package of its own still goes to the per-kilo SKU.
+func TestResolvePickScanCode_aLabelWithoutAPackageGoesToThePerWeightSKU(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	skuRepo := &stubSKURepo{
+		byScaleCode: map[string]*pmsDomain.SKU{"2994721": {ID: "sku-pool", PricingMode: pmsDomain.SKUPricingModePerWeight}},
+		byCode:      map[string]*pmsDomain.SKU{"2994721004288": {ID: "sku-pkg", PricingMode: pmsDomain.SKUPricingModeFixed}},
+	}
+	uc := appoms.NewResolvePickScanCodeUseCase(db, sessionRepo, &stubSalesOrderLineItemRepo{}, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{})
+
+	result, err := uc.Execute(context.Background(), "session-1", "2994721004622")
+
+	require.NoError(t, err)
+	assert.Equal(t, "sku-pool", result.SKUID)
+	require.NotNil(t, result.WeightGrams)
+	assert.Equal(t, int64(462), *result.WeightGrams)
+}

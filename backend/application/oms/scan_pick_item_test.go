@@ -292,3 +292,38 @@ func TestScanPickItem_aLabelThatIsAPackageSKUCodeBeatsTheScaleCode(t *testing.T)
 	require.NoError(t, err)
 	assert.Equal(t, "sku-pkg", result.Scan.SKUID)
 }
+
+func TestScanPickItem_aLabelOnTheOrderLineBeatsTheScaleCode(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-pkg", SalesOrderID: "order-1", SKUID: strPtr("sku-pkg"), SKUCode: "2994721004288", Quantity: 1}}}
+	skuRepo := &stubSKURepo{
+		byScaleCode: map[string]*pmsDomain.SKU{"2994721": {ID: "sku-pool", PricingMode: pmsDomain.SKUPricingModePerWeight}},
+		byID:        map[string]*pmsDomain.SKU{"sku-pkg": {ID: "sku-pkg", PricingMode: pmsDomain.SKUPricingModeFixed}},
+	}
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{}, &eventrecordtest.Outbox{})
+
+	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", Code: "2994721004288", Quantity: 1})
+
+	require.NoError(t, err)
+	assert.Equal(t, "sku-pkg", result.Scan.SKUID)
+	assert.Equal(t, "li-pkg", *result.Scan.LineItemID)
+}
+
+// A per-kilo SKU whose own code happens to be the scanned label still
+// resolves through the label (it needs the weight), not "scan the label".
+func TestScanPickItem_anExactPerWeightMatchStillReadsTheLabel(t *testing.T) {
+	db := newMockGormDB(t)
+	sessionRepo := &stubPickingSessionRepo{findByIDResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SalesOrderID: "order-1", SKUID: strPtr("sku-1")}}}
+	skuRepo := &stubSKURepo{
+		byCode:      map[string]*pmsDomain.SKU{"2994721004622": {ID: "sku-1", PricingMode: pmsDomain.SKUPricingModePerWeight}},
+		byScaleCode: map[string]*pmsDomain.SKU{"2994721": {ID: "sku-1", PricingMode: pmsDomain.SKUPricingModePerWeight}},
+	}
+	uc := appoms.NewScanPickItemUseCase(db, sessionRepo, &stubPickScanRepo{}, lineItemRepo, &stubSalesOrderRepo{}, skuRepo, &stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubVariantRepoForPicking{}, &stubProductRepoForPicking{}, &eventrecordtest.Outbox{})
+
+	result, err := uc.Execute(context.Background(), appoms.ScanPickItemInput{SessionID: "session-1", Code: "2994721004622", Quantity: 1})
+
+	require.NoError(t, err)
+	assert.Equal(t, "sku-1", result.Scan.SKUID)
+}
