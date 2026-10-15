@@ -279,6 +279,11 @@ type SalesOrderLineItem struct {
 	SKUCode      string
 	Barcode      string
 	Quantity     int64
+	// WeightGrams is the total weight of a weighed (per-kilo) line, which is
+	// always one package (Quantity 1). Nil for a unit line. A weight-pool
+	// SKU's stock is counted in grams, so this -- not Quantity -- is what
+	// its sale decrements.
+	WeightGrams *int64
 	// StockStatus tracks whether this line's stock-reducing obligation (if
 	// its order's status owes one at all -- SalesOrderStatus.ReducesStock)
 	// has actually been carried out. Defaults to Decremented, which also

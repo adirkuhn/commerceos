@@ -21,6 +21,7 @@ type salesOrderLineItemModel struct {
 	SKUCode      string `gorm:"column:sku_code"`
 	Barcode      string `gorm:"column:barcode"`
 	Quantity     int64  `gorm:"not null"`
+	WeightGrams  *int64 `gorm:"column:weight_grams"`
 	StockStatus  string `gorm:"column:stock_status;not null;default:decremented"`
 
 	PriceMinorUnits       int64   `gorm:"not null;default:0"`
@@ -70,7 +71,7 @@ func (r *SalesOrderLineItemRepo) Create(ctx context.Context, li *omsDomain.Sales
 	}
 	m := salesOrderLineItemModel{
 		TenantID: li.TenantID, SalesOrderID: li.SalesOrderID, SKUID: li.SKUID,
-		Name: li.Name, SKUCode: li.SKUCode, Barcode: li.Barcode, Quantity: li.Quantity,
+		Name: li.Name, SKUCode: li.SKUCode, Barcode: li.Barcode, Quantity: li.Quantity, WeightGrams: li.WeightGrams,
 		StockStatus:     string(stockStatus),
 		PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
@@ -118,7 +119,7 @@ func (r *SalesOrderLineItemRepo) Update(ctx context.Context, id string, fields m
 func toSalesOrderLineItemDomain(m salesOrderLineItemModel) *omsDomain.SalesOrderLineItem {
 	return &omsDomain.SalesOrderLineItem{
 		ID: m.ID, TenantID: m.TenantID, SalesOrderID: m.SalesOrderID, SKUID: m.SKUID,
-		Name: m.Name, SKUCode: m.SKUCode, Barcode: m.Barcode, Quantity: m.Quantity,
+		Name: m.Name, SKUCode: m.SKUCode, Barcode: m.Barcode, Quantity: m.Quantity, WeightGrams: m.WeightGrams,
 		StockStatus:     omsDomain.StockStatus(m.StockStatus),
 		PriceMinorUnits: m.PriceMinorUnits, SubtotalMinorUnits: m.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: m.SubtotalTaxMinorUnits, TotalMinorUnits: m.TotalMinorUnits,

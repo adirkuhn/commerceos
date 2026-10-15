@@ -121,6 +121,7 @@
   "LANGUAGE_UNSUPPORTED": "Deze taal wordt niet ondersteund.",
   "LINE_ITEM_ALREADY_LINKED": "Deze regel is al aan een SKU gekoppeld.",
   "LINE_ITEM_NAME_REQUIRED": "Geef het artikel een naam.",
+  "WEIGHED_LINE_ITEM_QUANTITY_MUST_BE_ONE": "Een gewogen artikel moet aantal 1 hebben.",
   "LINE_ITEM_NOT_FOUND": "Regel niet gevonden.",
   "LINE_ITEM_NOT_ON_PURCHASE_ORDER": "Deze regel hoort niet bij deze inkooporder.",
   "LINE_ITEM_PRICE_NEGATIVE": "De prijs kan niet negatief zijn.",

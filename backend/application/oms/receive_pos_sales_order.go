@@ -22,6 +22,9 @@ type ReceivePOSSalesOrderLineItemInput struct {
 	Name     string
 	SKUCode  string
 	Quantity int64
+	// WeightGrams is set only for a weighed (per-kilo) line -- see
+	// SalesOrderLineItem.WeightGrams. Quantity must then be 1.
+	WeightGrams *int64
 
 	PriceMinorUnits       int64
 	SubtotalMinorUnits    int64
@@ -128,6 +131,9 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 	if len(in.LineItems) == 0 {
 		return nil, fmt.Errorf("receivePOSSalesOrder: %w", omsDomain.ErrEmptyLineItems)
 	}
+	if err := requireWeighedLinesAreOnePackage(in.LineItems); err != nil {
+		return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)
+	}
 	status := in.Status
 	if status == "" {
 		status = omsDomain.SalesOrderStatusCompleted
@@ -135,7 +141,7 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 
 	var order *omsDomain.SalesOrder
 	var alreadyReceived bool
-	var createdLineItems []omsDomain.SalesOrderLineItem
+	var soldLines []soldLine
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		existing, err := uc.salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourcePOS, in.ExternalOrderID)
 		if err != nil {
@@ -173,6 +179,7 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 		}
 		for _, li := range in.LineItems {
 			var lineItem omsDomain.SalesOrderLineItem
+			var sku *pmsDomain.SKU
 			if li.SKUID == nil || *li.SKUID == "" {
 				// Adhoc item -- no catalog SKU to look up, so Name is the
 				// only identifying data this line carries at all.
@@ -181,20 +188,20 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 				}
 				lineItem = omsDomain.SalesOrderLineItem{
 					TenantID: tenant.IDFromContext(ctx), SalesOrderID: newOrder.ID, SKUID: nil,
-					Name: li.Name, SKUCode: li.SKUCode, Quantity: li.Quantity,
+					Name: li.Name, SKUCode: li.SKUCode, Quantity: li.Quantity, WeightGrams: li.WeightGrams,
 					PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 					SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
 					TotalTaxMinorUnits: li.TotalTaxMinorUnits, CreatedAt: now,
 				}
 			} else {
-				sku, err := uc.skuRepo.FindByID(ctx, *li.SKUID)
+				sku, err = uc.skuRepo.FindByID(ctx, *li.SKUID)
 				if err != nil {
 					return fmt.Errorf("receivePOSSalesOrder: line item sku %s: %w", *li.SKUID, err)
 				}
 				skuID := *li.SKUID
 				lineItem = omsDomain.SalesOrderLineItem{
 					TenantID: tenant.IDFromContext(ctx), SalesOrderID: newOrder.ID, SKUID: &skuID,
-					Name: li.Name, SKUCode: sku.SKUCode, Barcode: sku.Barcode, Quantity: li.Quantity,
+					Name: li.Name, SKUCode: sku.SKUCode, Barcode: sku.Barcode, Quantity: li.Quantity, WeightGrams: li.WeightGrams,
 					PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 					SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
 					TotalTaxMinorUnits: li.TotalTaxMinorUnits, TaxClassID: sku.TaxClassID, CreatedAt: now,
@@ -203,10 +210,10 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 			if err := uc.lineItemRepo.Create(ctx, &lineItem); err != nil {
 				return err
 			}
-			createdLineItems = append(createdLineItems, lineItem)
+			soldLines = append(soldLines, newSoldLine(lineItem, sku))
 		}
 		order = &newOrder
-		return recordSalesOrderCreated(ctx, uc.outbox, newOrder, len(createdLineItems))
+		return recordSalesOrderCreated(ctx, uc.outbox, newOrder, len(soldLines))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)
@@ -215,13 +222,14 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 		return order, nil
 	}
 
-	for _, li := range createdLineItems {
+	for _, sold := range soldLines {
+		li := sold.lineItem
 		if li.SKUID == nil {
 			continue
 		}
 		movements, err := uc.recordMovement.Execute(ctx, invapp.AllocateSaleStockInput{
 			SKUID: *li.SKUID, WarehouseID: in.WarehouseID, Type: invDomain.MovementTypeSale,
-			Quantity: li.Quantity, Reason: fmt.Sprintf("pos sale %s", in.ExternalOrderID),
+			Quantity: sold.stockQuantity, Reason: fmt.Sprintf("pos sale %s", in.ExternalOrderID),
 			OccurredAt: in.OccurredAt,
 			// The POS sale already physically happened -- an untracked
 			// receipt in CommerceOS must not block recording it. See
@@ -236,9 +244,36 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 				return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)
 			}
 		}
-		if err := freezeCostAtSale(ctx, uc.db, uc.lineItemRepo, uc.skuRepo, li.ID, *li.SKUID, li.Quantity); err != nil {
+		if err := freezeCostAtSale(ctx, uc.db, uc.lineItemRepo, uc.skuRepo, li.ID, *li.SKUID, sold.stockQuantity); err != nil {
 			return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)
 		}
 	}
 	return order, nil
+}
+
+// soldLine pairs a created line item with how much of its SKU's stock the
+// sale consumes -- known only while the SKU is at hand.
+type soldLine struct {
+	lineItem      omsDomain.SalesOrderLineItem
+	stockQuantity int64
+}
+
+// newSoldLine takes a weight pool's stock (counted in grams) by the line's
+// weight, and every other SKU's by its quantity. sku is nil for an adhoc
+// line, which has no stock to take.
+func newSoldLine(lineItem omsDomain.SalesOrderLineItem, sku *pmsDomain.SKU) soldLine {
+	isWeightPoolSale := sku != nil && sku.UnitType == pmsDomain.SKUUnitTypeKilo && lineItem.WeightGrams != nil
+	if isWeightPoolSale {
+		return soldLine{lineItem: lineItem, stockQuantity: *lineItem.WeightGrams}
+	}
+	return soldLine{lineItem: lineItem, stockQuantity: lineItem.Quantity}
+}
+
+func requireWeighedLinesAreOnePackage(lineItems []ReceivePOSSalesOrderLineItemInput) error {
+	for _, li := range lineItems {
+		if li.WeightGrams != nil && li.Quantity != 1 {
+			return omsDomain.ErrWeighedLineItemQuantityMustBeOne
+		}
+	}
+	return nil
 }

@@ -16,6 +16,10 @@ var (
 	// carries at all, so an empty one is rejected rather than silently
 	// stored.
 	ErrAdhocLineItemRequiresName = errs.New("LINE_ITEM_NAME_REQUIRED", "adhoc line item requires a name")
+	// ErrWeighedLineItemQuantityMustBeOne guards ReceivePOSSalesOrderUseCase:
+	// a weighed line is one package, so a weight with any other quantity is
+	// ambiguous (per unit or total?) and is rejected rather than guessed.
+	ErrWeighedLineItemQuantityMustBeOne = errs.New("WEIGHED_LINE_ITEM_QUANTITY_MUST_BE_ONE", "a line item with weight_grams must have quantity 1")
 	// ErrDuplicateExternalOrder guards SalesOrder's (TenantID, Source,
 	// ExternalOrderID) unique constraint -- returned instead of a raw DB
 	// error so a caller (ImportWooOrdersUseCase.createOne) can tell "lost

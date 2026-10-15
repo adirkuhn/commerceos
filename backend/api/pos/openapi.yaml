@@ -330,6 +330,16 @@ components:
         name: { type: string, description: Product name snapshot, e.g. from resolveBarcode's product_name -- required for an adhoc item (no sku_id). }
         sku_code: { type: string }
         quantity: { type: integer, format: int64, minimum: 1 }
+        weight_grams:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+          description: >-
+            Total weight of a weighed (per-kilo) line, in grams. Omit for a
+            unit item. A weighed line is one package, so quantity must be 1
+            (422 WEIGHED_LINE_ITEM_QUANTITY_MUST_BE_ONE otherwise). A
+            weight-pool SKU's stock is decremented by this weight.
         price_minor_units: { type: integer, format: int64, minimum: 0, description: Per-unit price. }
         subtotal_minor_units: { type: integer, format: int64, minimum: 0, description: Pre-discount line total. }
         subtotal_tax_minor_units: { type: integer, format: int64, minimum: 0 }

@@ -208,6 +208,7 @@ func (h *Handler) CreatePOSSalesOrder(c *gin.Context) {
 	for i, li := range req.LineItems {
 		lineItems[i] = appoms.ReceivePOSSalesOrderLineItemInput{
 			SKUID: li.SkuId, Name: strOrEmpty(li.Name), SKUCode: strOrEmpty(li.SkuCode), Quantity: li.Quantity,
+			WeightGrams:     li.WeightGrams,
 			PriceMinorUnits: int64OrZero(li.PriceMinorUnits), SubtotalMinorUnits: int64OrZero(li.SubtotalMinorUnits),
 			SubtotalTaxMinorUnits: int64OrZero(li.SubtotalTaxMinorUnits), TotalMinorUnits: int64OrZero(li.TotalMinorUnits),
 			TotalTaxMinorUnits: int64OrZero(li.TotalTaxMinorUnits),
@@ -257,6 +258,7 @@ func mapError(c *gin.Context, err error) error {
 	}
 	switch {
 	case errors.Is(err, omsDomain.ErrEmptyLineItems), errors.Is(err, omsDomain.ErrAdhocLineItemRequiresName),
+		errors.Is(err, omsDomain.ErrWeighedLineItemQuantityMustBeOne),
 		errors.Is(err, pmsDomain.ErrSKUNotFound), errors.Is(err, invDomain.ErrInsufficientStock),
 		errors.Is(err, invDomain.ErrInvalidQuantity):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
