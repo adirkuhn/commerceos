@@ -324,3 +324,50 @@ func TestBookingScanRepo_Integration_Delete(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, scans, "a deleted staged scan no longer appears in the booking's scan list")
 }
+
+// TestBookingRepo_Integration_ListCompletedByPurchaseOrder is the supplier
+// issues list's data source: every completed delivery of one PO, oldest
+// first, never another PO's or an unfinished booking.
+func TestBookingRepo_Integration_ListCompletedByPurchaseOrder(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	bookingRepo := repositories.NewBookingRepo(db)
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	poID := seedPurchaseOrderForBookingDB(t, db, ctx, warehouseID)
+	otherPOID := seedPurchaseOrderForBookingDB(t, db, ctx, warehouseID)
+
+	var firstID, secondID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		create := func(poID string, status procurementDomain.BookingStatus, completedAt *time.Time) (string, error) {
+			b := procurementDomain.Booking{TenantID: tenant.IDFromContext(ctx), PurchaseOrderID: poID, Status: status, StartedAt: time.Now(), CompletedAt: completedAt}
+			err := bookingRepo.Create(ctx, &b)
+			return b.ID, err
+		}
+		earlier, later := time.Now().Add(-48*time.Hour), time.Now().Add(-time.Hour)
+		var err error
+		if secondID, err = create(poID, procurementDomain.BookingStatusCompleted, &later); err != nil {
+			return err
+		}
+		if firstID, err = create(poID, procurementDomain.BookingStatusCompleted, &earlier); err != nil {
+			return err
+		}
+		if _, err = create(poID, procurementDomain.BookingStatusInProgress, nil); err != nil {
+			return err
+		}
+		_, err = create(otherPOID, procurementDomain.BookingStatusCompleted, &later)
+		return err
+	})
+	require.NoError(t, err)
+
+	var got []procurementDomain.Booking
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		got, err = bookingRepo.ListCompletedByPurchaseOrder(ctx, poID)
+		return err
+	})
+	require.NoError(t, err)
+
+	require.Len(t, got, 2)
+	require.Equal(t, firstID, got[0].ID, "oldest delivery first")
+	require.Equal(t, secondID, got[1].ID)
+}

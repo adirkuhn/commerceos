@@ -144,6 +144,9 @@ type BookingRepository interface {
 	// recently completed first -- the discrepancies report's data source
 	// (see application/procurement.ListBookingDiscrepanciesUseCase).
 	ListCompleted(ctx context.Context) ([]Booking, error)
+	// ListCompletedByPurchaseOrder returns every Completed booking (one per
+	// delivery) of the PO, oldest first.
+	ListCompletedByPurchaseOrder(ctx context.Context, purchaseOrderID string) ([]Booking, error)
 }
 
 type BookingScanRepository interface {

@@ -703,6 +703,15 @@ func (s *stubBookingRepo) Update(_ context.Context, b *procurementDomain.Booking
 func (s *stubBookingRepo) ListCompleted(_ context.Context) ([]procurementDomain.Booking, error) {
 	return s.completed, s.completedErr
 }
+func (s *stubBookingRepo) ListCompletedByPurchaseOrder(_ context.Context, purchaseOrderID string) ([]procurementDomain.Booking, error) {
+	var out []procurementDomain.Booking
+	for _, b := range s.completed {
+		if b.PurchaseOrderID == purchaseOrderID {
+			out = append(out, b)
+		}
+	}
+	return out, s.completedErr
+}
 
 type markReplayedCall struct {
 	scanID     string

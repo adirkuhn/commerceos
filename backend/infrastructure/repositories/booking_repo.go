@@ -139,6 +139,23 @@ func (r *BookingRepo) ListCompleted(ctx context.Context) ([]procurementDomain.Bo
 	return out, nil
 }
 
+func (r *BookingRepo) ListCompletedByPurchaseOrder(ctx context.Context, purchaseOrderID string) ([]procurementDomain.Booking, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []bookingModel
+	if err := tx.Where("purchase_order_id = ? AND status = ?", purchaseOrderID, string(procurementDomain.BookingStatusCompleted)).
+		Order("completed_at asc").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("bookingRepo.ListCompletedByPurchaseOrder: %w", err)
+	}
+	out := make([]procurementDomain.Booking, len(rows))
+	for i, m := range rows {
+		out[i] = *toBookingDomain(m)
+	}
+	return out, nil
+}
+
 func toBookingDomain(m bookingModel) *procurementDomain.Booking {
 	return &procurementDomain.Booking{
 		ID: m.ID, TenantID: m.TenantID, PurchaseOrderID: m.PurchaseOrderID, Status: procurementDomain.BookingStatus(m.Status),
