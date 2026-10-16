@@ -48,7 +48,7 @@ docker-compose.yml     local stack (Postgres + MinIO are external networks, not 
 | `scheduler` | Channel sync-schedule poller, cron jobs, and host for all event consumers |
 | `webhook-processor` | Cold path for inbound webhooks (queue group, scalable) |
 | `webhook-forwarder` | Delivers tenant-configured webhook forwards |
-| `backfill-*`, `repair-stock-review-flags` | One-off maintenance tools |
+| `backfill-*`, `repair-stock-review-flags`, `repair-partially-received-pos` | One-off maintenance tools |
 
 Cron jobs (`domain/scheduler`): `expired_sale_prices`, `expired_batches`, `cost_price_recalculation`, `resync_all_products_to_channels`, `promotion_activation`, `reconcile_fulfilled_orders`. Admin can enable/disable, set interval, run now.
 

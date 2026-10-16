@@ -9,7 +9,7 @@ var (
 
 var (
 	PurchaseOrderUpdated = defineAction("procurement.purchase_order.updated",
-		"A purchase order changed (changes: supplier_id, warehouse_id, status, currency_code, expected_date, notes). data.reason is set when the system changed it: line_items_resolved (needs_review -> draft once every product line is linked).")
+		"A purchase order changed (changes: supplier_id, warehouse_id, status, currency_code, expected_date, notes). data.reason is set when the system changed it: line_items_resolved (needs_review -> draft once every product line is linked), deliveries_reconciled (partially_received -> received once all deliveries together brought everything).")
 	PurchaseOrderDeleted = defineAction("procurement.purchase_order.deleted",
 		"A purchase order was deleted with its line items. data: supplier_id, status.")
 	PurchaseOrderLineItemAdded = defineAction("procurement.purchase_order_line_item.added",

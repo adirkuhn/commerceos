@@ -77,6 +77,10 @@ func recordDiscrepancyDetected(ctx context.Context, outbox eventrecord.Enqueuer,
 const (
 	PurchaseOrderChangeReasonBookingStarted   = "booking_started"
 	PurchaseOrderChangeReasonBookingCompleted = "booking_completed"
+	// PurchaseOrderChangeReasonDeliveriesReconciled: a partially_received
+	// PO whose deliveries together brought everything was set received by
+	// ReconcilePartiallyReceivedPurchaseOrdersUseCase.
+	PurchaseOrderChangeReasonDeliveriesReconciled = "deliveries_reconciled"
 )
 
 func recordBooking(ctx context.Context, outbox eventrecord.Enqueuer, action events.ActionType, b procurementDomain.Booking) error {

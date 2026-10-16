@@ -677,6 +677,9 @@ type stubBookingRepo struct {
 	updated      []procurementDomain.Booking
 	completed    []procurementDomain.Booking
 	completedErr error
+	// activeByPO, when set, answers FindActiveByPurchaseOrder per PO --
+	// falls back to activeResult.
+	activeByPO map[string]*procurementDomain.Booking
 }
 
 func (s *stubBookingRepo) Create(_ context.Context, b *procurementDomain.Booking) error {
@@ -690,7 +693,10 @@ func (s *stubBookingRepo) Create(_ context.Context, b *procurementDomain.Booking
 func (s *stubBookingRepo) FindByID(_ context.Context, _ string) (*procurementDomain.Booking, error) {
 	return s.findResult, s.findErr
 }
-func (s *stubBookingRepo) FindActiveByPurchaseOrder(_ context.Context, _ string) (*procurementDomain.Booking, error) {
+func (s *stubBookingRepo) FindActiveByPurchaseOrder(_ context.Context, purchaseOrderID string) (*procurementDomain.Booking, error) {
+	if b, ok := s.activeByPO[purchaseOrderID]; ok {
+		return b, s.activeErr
+	}
 	return s.activeResult, s.activeErr
 }
 func (s *stubBookingRepo) Update(_ context.Context, b *procurementDomain.Booking) error {
