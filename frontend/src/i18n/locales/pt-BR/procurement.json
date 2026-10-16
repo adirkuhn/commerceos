@@ -250,6 +250,90 @@
     "unitsPerItem": "Unidades por item comprado",
     "unitsPerItemTitle": "ex.: 36 se o item comprado desta linha for uma caixa com 36 unidades do produto vinculado"
   },
+  "supplierIssues": {
+    "title": "Problemas com o fornecedor",
+    "subtitle": "Itens faltando, danificados e perdidos de cada entrega concluída — o que reclamar ao fornecedor.",
+    "empty": "Nada a reclamar: todas as entregas concluídas chegaram completas e sem danos.",
+    "noBookingYet": "Os problemas aparecem aqui quando uma entrega deste pedido for registrada.",
+    "bookingInProgress": "Uma entrega está sendo registrada agora — seus itens aparecem aqui quando terminar.",
+    "loadFailed": "Não foi possível carregar os problemas com o fornecedor.",
+    "updateFailed": "Não foi possível salvar o status.",
+    "showResolved": "Mostrar resolvidos ({{count}})",
+    "selectAll": "Selecionar todos",
+    "selectIssue": "Selecionar {{item}}",
+    "selectedCount": "{{count}} selecionados",
+    "kind": {
+      "missing": "Faltando",
+      "damaged": "Danificado",
+      "lost": "Perdido"
+    },
+    "status": {
+      "open": "Aberto",
+      "claimed": "Reclamado",
+      "resolved": "Resolvido"
+    },
+    "statusLabel": "Status de {{item}}",
+    "col": {
+      "kind": "Tipo",
+      "item": "Item do fornecedor",
+      "supplierCode": "Código do fornecedor",
+      "product": "Nosso produto",
+      "sku": "Nosso SKU",
+      "qty": "Quantidade",
+      "ordered": "Pedido",
+      "received": "Recebido",
+      "reason": "Motivo",
+      "date": "Data",
+      "status": "Status",
+      "note": "Observação"
+    },
+    "orderedReceived": "pedido {{expected}}, recebido {{received}}",
+    "reportedBy": "por {{name}}",
+    "note": {
+      "add": "Adicionar observação",
+      "edit": "Editar observação",
+      "label": "Observação de {{item}}",
+      "placeholder": "ex.: número da nota de crédito",
+      "save": "Salvar"
+    },
+    "actions": {
+      "copy": "Copiar para o fornecedor",
+      "copied": "Copiado",
+      "copyFailed": "Não foi possível copiar — selecione o texto no formulário de e-mail.",
+      "csv": "Baixar CSV",
+      "print": "Imprimir / PDF",
+      "email": "Enviar e-mail ao fornecedor"
+    },
+    "message": {
+      "subject": "Problemas com o pedido de compra {{ref}}",
+      "greeting": "Olá {{name}},",
+      "greetingNoName": "Olá,",
+      "intro": "Encontramos estes problemas no pedido de compra {{ref}} de {{date}}:",
+      "line": "- {{qty}} × {{item}}",
+      "yourCode": "(seu código {{code}})",
+      "closing": "Por favor, envie uma nota de crédito ou os itens de reposição.",
+      "signOff": "Atenciosamente"
+    },
+    "email": {
+      "title": "Enviar e-mail ao fornecedor",
+      "to": "Para",
+      "subject": "Assunto",
+      "body": "Mensagem",
+      "noAddress": "Este fornecedor ainda não tem e-mail — digite um.",
+      "claimHint": "Os itens abertos na mensagem passam a “Reclamado” quando ela for enviada.",
+      "send": "Enviar",
+      "sending": "Enviando…",
+      "sent_one": "Enviado para {{to}}. {{count}} item marcado como reclamado.",
+      "sent_other": "Enviado para {{to}}. {{count}} itens marcados como reclamados.",
+      "failed": "Não foi possível enviar o e-mail."
+    },
+    "print": {
+      "title": "Problemas com o fornecedor — pedido de compra {{ref}}",
+      "supplier": "Fornecedor: {{name}}",
+      "orderDate": "Data do pedido: {{date}}",
+      "printedOn": "Impresso em {{date}}"
+    }
+  },
   "upload": {
     "document": "Documento",
     "failed": "Não foi possível enviar o documento",

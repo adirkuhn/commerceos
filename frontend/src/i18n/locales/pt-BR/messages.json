@@ -157,7 +157,8 @@
       "automation": "Regra de automação",
       "notification": "Notificação da equipe",
       "sign_in_link": "Link de acesso à loja",
-      "newsletter": "Newsletter"
+      "newsletter": "Newsletter",
+      "supplier_issues": "Problemas com fornecedor"
     },
     "reason": {
       "noRecipient": "Ninguém para enviar (sem e-mail do cliente e sem destinatários extras)",

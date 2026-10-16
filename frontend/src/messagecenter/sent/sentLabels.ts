@@ -2,7 +2,7 @@ import type { TFunction } from 'i18next'
 import type { SentEmailSource, SentEmailStatus, SentEmailSummary } from '../types'
 
 export const SENT_EMAIL_STATUSES: SentEmailStatus[] = ['sent', 'failed', 'skipped']
-export const SENT_EMAIL_SOURCES: SentEmailSource[] = ['automation', 'notification', 'sign_in_link', 'newsletter']
+export const SENT_EMAIL_SOURCES: SentEmailSource[] = ['automation', 'notification', 'sign_in_link', 'newsletter', 'supplier_issues']
 
 export const sentStatusLabels = (t: TFunction<'messages'>): Record<SentEmailStatus, string> => ({
   sent: t('sent.status.sent'), failed: t('sent.status.failed'), skipped: t('sent.status.skipped'),
@@ -11,6 +11,7 @@ export const sentStatusLabels = (t: TFunction<'messages'>): Record<SentEmailStat
 export const sentSourceLabels = (t: TFunction<'messages'>): Record<SentEmailSource, string> => ({
   automation: t('sent.source.automation'), notification: t('sent.source.notification'),
   sign_in_link: t('sent.source.sign_in_link'), newsletter: t('sent.source.newsletter'),
+  supplier_issues: t('sent.source.supplier_issues'),
 })
 
 // sentReason explains a failed or skipped email: skip codes are translated,

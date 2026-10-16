@@ -6,6 +6,8 @@ import type {
   CreateSupplierAndAssignInput,
   ReceivingParsingJob, ReceivingRecord, ReceivingRecordDetail, ReceivingDiscrepancy,
   BookingDiscrepancyReport,
+  SupplierIssueList, SupplierIssue, SupplierIssueRef, SupplierIssueStatus,
+  EmailSupplierIssuesInput, EmailSupplierIssuesResult,
   APIResponse,
 } from './types'
 import { CodedApiError } from '../api/codedApiError'
@@ -165,4 +167,24 @@ export function flagDamagedLineItem(
 
 export function listBookingDiscrepancies(token: string): Promise<BookingDiscrepancyReport> {
   return request<BookingDiscrepancyReport>(`${base()}/bookings/discrepancies`, { method: 'GET' }, token)
+}
+
+export function listSupplierIssues(token: string, purchaseOrderId: string): Promise<SupplierIssueList> {
+  return request<SupplierIssueList>(`${base()}/purchase-orders/${purchaseOrderId}/supplier-issues`, { method: 'GET' }, token)
+}
+
+export function updateSupplierIssueStatus(
+  token: string, purchaseOrderId: string, ref: SupplierIssueRef, status: SupplierIssueStatus, note: string,
+): Promise<SupplierIssue> {
+  return request<SupplierIssue>(`${base()}/purchase-orders/${purchaseOrderId}/supplier-issues/${ref.source}/${ref.source_id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, note }),
+  }, token)
+}
+
+export function emailSupplierIssues(token: string, purchaseOrderId: string, input: EmailSupplierIssuesInput): Promise<EmailSupplierIssuesResult> {
+  return request<EmailSupplierIssuesResult>(`${base()}/purchase-orders/${purchaseOrderId}/supplier-issues/email`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  }, token)
 }

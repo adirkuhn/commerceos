@@ -250,6 +250,90 @@
     "unitsPerItem": "Units per purchased item",
     "unitsPerItemTitle": "e.g. 36 if this line's purchased item is a box holding 36 of the linked product"
   },
+  "supplierIssues": {
+    "title": "Supplier issues",
+    "subtitle": "Missing, damaged and lost items from every finished delivery — what to claim from the supplier.",
+    "empty": "Nothing to claim: every finished delivery arrived complete and undamaged.",
+    "noBookingYet": "Issues show here once a delivery of this order has been booked.",
+    "bookingInProgress": "A delivery is being booked right now — its items show here once it is finished.",
+    "loadFailed": "Could not load the supplier issues.",
+    "updateFailed": "Could not save the status.",
+    "showResolved": "Show resolved ({{count}})",
+    "selectAll": "Select all",
+    "selectIssue": "Select {{item}}",
+    "selectedCount": "{{count}} selected",
+    "kind": {
+      "missing": "Missing",
+      "damaged": "Damaged",
+      "lost": "Lost"
+    },
+    "status": {
+      "open": "Open",
+      "claimed": "Claimed",
+      "resolved": "Resolved"
+    },
+    "statusLabel": "Status of {{item}}",
+    "col": {
+      "kind": "Type",
+      "item": "Supplier item",
+      "supplierCode": "Supplier code",
+      "product": "Our product",
+      "sku": "Our SKU",
+      "qty": "Quantity",
+      "ordered": "Ordered",
+      "received": "Received",
+      "reason": "Reason",
+      "date": "Date",
+      "status": "Status",
+      "note": "Note"
+    },
+    "orderedReceived": "ordered {{expected}}, received {{received}}",
+    "reportedBy": "by {{name}}",
+    "note": {
+      "add": "Add note",
+      "edit": "Edit note",
+      "label": "Note for {{item}}",
+      "placeholder": "e.g. credit note number",
+      "save": "Save"
+    },
+    "actions": {
+      "copy": "Copy for supplier",
+      "copied": "Copied",
+      "copyFailed": "Could not copy — select the text in the email form instead.",
+      "csv": "Download CSV",
+      "print": "Print / PDF",
+      "email": "Email supplier"
+    },
+    "message": {
+      "subject": "Problems with purchase order {{ref}}",
+      "greeting": "Hello {{name}},",
+      "greetingNoName": "Hello,",
+      "intro": "We found these problems with purchase order {{ref}} of {{date}}:",
+      "line": "- {{qty}} × {{item}}",
+      "yourCode": "(your code {{code}})",
+      "closing": "Please send us a credit note or the replacement items.",
+      "signOff": "Kind regards"
+    },
+    "email": {
+      "title": "Email supplier",
+      "to": "To",
+      "subject": "Subject",
+      "body": "Message",
+      "noAddress": "This supplier has no email address yet — type one.",
+      "claimHint": "Open items in the message become “Claimed” once it is sent.",
+      "send": "Send",
+      "sending": "Sending…",
+      "sent_one": "Sent to {{to}}. {{count}} item marked as claimed.",
+      "sent_other": "Sent to {{to}}. {{count}} items marked as claimed.",
+      "failed": "The email could not be sent."
+    },
+    "print": {
+      "title": "Supplier issues — purchase order {{ref}}",
+      "supplier": "Supplier: {{name}}",
+      "orderDate": "Order date: {{date}}",
+      "printedOn": "Printed {{date}}"
+    }
+  },
   "upload": {
     "document": "Document",
     "failed": "Failed to upload document",

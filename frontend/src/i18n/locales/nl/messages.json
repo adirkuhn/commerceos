@@ -156,7 +156,8 @@
       "automation": "Automatiseringsregel",
       "notification": "Teammelding",
       "sign_in_link": "Inloglink winkel",
-      "newsletter": "Nieuwsbrief"
+      "newsletter": "Nieuwsbrief",
+      "supplier_issues": "Leveranciersproblemen"
     },
     "reason": {
       "noRecipient": "Niemand om naar te sturen (geen e-mail van de klant en geen extra ontvangers)",

@@ -145,7 +145,7 @@ export interface MessageTemplateDefault {
 // Sent-email history (GET /sent-emails). "sent" = accepted by the mail
 // server; "skipped" = an automation rule matched but sent nothing.
 export type SentEmailStatus = 'sent' | 'failed' | 'skipped'
-export type SentEmailSource = 'automation' | 'notification' | 'sign_in_link' | 'newsletter'
+export type SentEmailSource = 'automation' | 'notification' | 'sign_in_link' | 'newsletter' | 'supplier_issues'
 
 export interface SentEmailSummary {
   id: string

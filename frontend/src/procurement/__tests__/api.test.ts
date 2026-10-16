@@ -539,3 +539,45 @@ describe('listBookingDiscrepancies', () => {
     )
   })
 })
+
+describe('supplier issues', () => {
+  const BASE = 'https://api.commerceos.dev.localhost/api/v1/procurement/purchase-orders/po-1/supplier-issues'
+  const issue: import('../types').SupplierIssue = {
+    source: 'booking_scan', source_id: 'scan-1', kind: 'damaged', supplier_sku: 'B-200', supplier_description: 'Guarana 2L',
+    quantity: 2, reason: 'crushed', reported_by: 'ana', occurred_at: '2026-10-01T12:00:00Z', status: 'claimed', status_note: '',
+  }
+
+  it('lists a purchase order’s issues', async () => {
+    const list: import('../types').SupplierIssueList = { purchase_order_id: 'po-1', booking_in_progress: false, issues: [issue] }
+    mockFetch(list)
+
+    expect(await api.listSupplierIssues(TOKEN, 'po-1')).toEqual(list)
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(BASE, expect.objectContaining({ method: 'GET' }))
+  })
+
+  it('updates one issue’s status by its source and id', async () => {
+    mockFetch({ ...issue, status: 'resolved', status_note: 'CN-7' })
+
+    const result = await api.updateSupplierIssueStatus(TOKEN, 'po-1', { source: 'booking_scan', source_id: 'scan-1' }, 'resolved', 'CN-7')
+
+    expect(result.status).toBe('resolved')
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(`${BASE}/booking_scan/scan-1`, expect.objectContaining({
+      method: 'PATCH', body: JSON.stringify({ status: 'resolved', note: 'CN-7' }),
+    }))
+  })
+
+  it('emails the list', async () => {
+    mockFetch({ sent_to: 'orders@bauducco.example', claimed: 1 })
+    const input = { to: 'orders@bauducco.example', subject: 's', body: 'b', issues: [{ source: 'booking_scan' as const, source_id: 'scan-1' }] }
+
+    expect(await api.emailSupplierIssues(TOKEN, 'po-1', input)).toEqual({ sent_to: 'orders@bauducco.example', claimed: 1 })
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(`${BASE}/email`, expect.objectContaining({ method: 'POST', body: JSON.stringify(input) }))
+  })
+
+  it('surfaces the mail server error', async () => {
+    mockFetchError('SUPPLIER_EMAIL_NOT_SENT', 'the email to the supplier could not be sent', 502)
+
+    await expect(api.emailSupplierIssues(TOKEN, 'po-1', { to: 'a@b.example', subject: 's', body: 'b', issues: [] }))
+      .rejects.toThrow()
+  })
+})

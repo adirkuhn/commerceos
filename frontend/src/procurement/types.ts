@@ -263,3 +263,69 @@ export interface APIResponse<T> {
   data: T | null
   error: APIError | null
 }
+
+// ── Supplier issues (api/supplierissues) ────────────────────────────────────
+
+// Where an issue was recorded; with source_id it identifies the issue.
+export type SupplierIssueSource = 'booking_shortfall' | 'booking_scan' | 'receiving_discrepancy'
+export type SupplierIssueKind = 'missing' | 'damaged' | 'lost'
+// open = not reported yet; claimed = reported, waiting on the supplier;
+// resolved = settled (credit note, replacement).
+export type SupplierIssueStatus = 'open' | 'claimed' | 'resolved'
+
+export interface SupplierIssueRef {
+  source: SupplierIssueSource
+  source_id: string
+}
+
+// One missing, damaged or lost item of a purchase order. Quantities are in
+// stock units.
+export interface SupplierIssue extends SupplierIssueRef {
+  kind: SupplierIssueKind
+  line_item_id?: string | null
+  sku_id?: string | null
+  // Our own names; null when unknown.
+  sku_code?: string | null
+  product_name?: string | null
+  // The PO line as the supplier wrote it -- what the supplier recognises.
+  supplier_sku: string
+  supplier_description: string
+  // Missing only.
+  expected_qty?: number | null
+  received_qty?: number | null
+  quantity: number
+  reason: string
+  reported_by: string
+  occurred_at: string
+  status: SupplierIssueStatus
+  status_note: string
+  status_updated_at?: string | null
+}
+
+export interface SupplierContact {
+  id: string
+  name: string
+  email: string
+}
+
+export interface SupplierIssueList {
+  purchase_order_id: string
+  supplier?: SupplierContact | null
+  // A delivery is being booked now; its scans show once it is finished.
+  booking_in_progress: boolean
+  issues: SupplierIssue[]
+}
+
+export interface EmailSupplierIssuesInput {
+  to: string
+  subject: string
+  // Plain text.
+  body: string
+  issues: SupplierIssueRef[]
+}
+
+export interface EmailSupplierIssuesResult {
+  sent_to: string
+  // Issues that went from open to claimed.
+  claimed: number
+}

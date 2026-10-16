@@ -250,6 +250,90 @@
     "unitsPerItem": "Stuks per gekocht artikel",
     "unitsPerItemTitle": "bijv. 36 als het gekochte artikel op deze regel een doos met 36 stuks van het gekoppelde product is"
   },
+  "supplierIssues": {
+    "title": "Leveranciersproblemen",
+    "subtitle": "Ontbrekende, beschadigde en verloren artikelen uit elke afgeronde levering — wat je bij de leverancier claimt.",
+    "empty": "Niets te claimen: elke afgeronde levering kwam compleet en onbeschadigd binnen.",
+    "noBookingYet": "Problemen verschijnen hier zodra een levering van deze order is ingeboekt.",
+    "bookingInProgress": "Er wordt nu een levering ingeboekt — de artikelen verschijnen hier zodra die klaar is.",
+    "loadFailed": "De leveranciersproblemen konden niet worden geladen.",
+    "updateFailed": "De status kon niet worden opgeslagen.",
+    "showResolved": "Opgeloste tonen ({{count}})",
+    "selectAll": "Alles selecteren",
+    "selectIssue": "{{item}} selecteren",
+    "selectedCount": "{{count}} geselecteerd",
+    "kind": {
+      "missing": "Ontbreekt",
+      "damaged": "Beschadigd",
+      "lost": "Verloren"
+    },
+    "status": {
+      "open": "Open",
+      "claimed": "Geclaimd",
+      "resolved": "Opgelost"
+    },
+    "statusLabel": "Status van {{item}}",
+    "col": {
+      "kind": "Type",
+      "item": "Artikel leverancier",
+      "supplierCode": "Code leverancier",
+      "product": "Ons product",
+      "sku": "Onze SKU",
+      "qty": "Aantal",
+      "ordered": "Besteld",
+      "received": "Ontvangen",
+      "reason": "Reden",
+      "date": "Datum",
+      "status": "Status",
+      "note": "Notitie"
+    },
+    "orderedReceived": "besteld {{expected}}, ontvangen {{received}}",
+    "reportedBy": "door {{name}}",
+    "note": {
+      "add": "Notitie toevoegen",
+      "edit": "Notitie bewerken",
+      "label": "Notitie bij {{item}}",
+      "placeholder": "bv. nummer creditnota",
+      "save": "Opslaan"
+    },
+    "actions": {
+      "copy": "Kopiëren voor leverancier",
+      "copied": "Gekopieerd",
+      "copyFailed": "Kopiëren lukte niet — selecteer de tekst in het e-mailformulier.",
+      "csv": "CSV downloaden",
+      "print": "Afdrukken / PDF",
+      "email": "Leverancier mailen"
+    },
+    "message": {
+      "subject": "Problemen met inkooporder {{ref}}",
+      "greeting": "Beste {{name}},",
+      "greetingNoName": "Beste,",
+      "intro": "We vonden deze problemen bij inkooporder {{ref}} van {{date}}:",
+      "line": "- {{qty}} × {{item}}",
+      "yourCode": "(uw code {{code}})",
+      "closing": "Wilt u ons een creditnota of de vervangende artikelen sturen?",
+      "signOff": "Met vriendelijke groet"
+    },
+    "email": {
+      "title": "Leverancier mailen",
+      "to": "Aan",
+      "subject": "Onderwerp",
+      "body": "Bericht",
+      "noAddress": "Deze leverancier heeft nog geen e-mailadres — vul er een in.",
+      "claimHint": "Open artikelen in het bericht worden “Geclaimd” zodra het verzonden is.",
+      "send": "Versturen",
+      "sending": "Versturen…",
+      "sent_one": "Verzonden naar {{to}}. {{count}} artikel als geclaimd gemarkeerd.",
+      "sent_other": "Verzonden naar {{to}}. {{count}} artikelen als geclaimd gemarkeerd.",
+      "failed": "De e-mail kon niet worden verzonden."
+    },
+    "print": {
+      "title": "Leveranciersproblemen — inkooporder {{ref}}",
+      "supplier": "Leverancier: {{name}}",
+      "orderDate": "Orderdatum: {{date}}",
+      "printedOn": "Afgedrukt op {{date}}"
+    }
+  },
   "upload": {
     "document": "Document",
     "failed": "Document kon niet worden geüpload",

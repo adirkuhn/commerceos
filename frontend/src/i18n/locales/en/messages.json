@@ -156,7 +156,8 @@
       "automation": "Automation rule",
       "notification": "Staff notification",
       "sign_in_link": "Shop sign-in link",
-      "newsletter": "Newsletter"
+      "newsletter": "Newsletter",
+      "supplier_issues": "Supplier issues"
     },
     "reason": {
       "noRecipient": "Nobody to send to (no customer email and no extra recipients)",
