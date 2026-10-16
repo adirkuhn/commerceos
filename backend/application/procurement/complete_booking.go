@@ -312,41 +312,14 @@ func (uc *CompleteBookingUseCase) markReplayed(ctx context.Context, scanID strin
 	})
 }
 
+// missingBookingItems is procurementDomain.Shortfalls shaped for the
+// booking finish screen.
 func missingBookingItems(lineItems []procurementDomain.PurchaseOrderLineItem, scans []procurementDomain.BookingScan) []MissingBookingItem {
-	scannedBySKU := make(map[string]int64, len(scans))
-	for _, s := range scans {
-		// WriteOffQuantity counts too -- a damaged/lost unit still arrived
-		// (see BookLineSheet's own copy: "stays counted as received;
-		// written off separately"), it just isn't sellable. Quantity alone
-		// is 0 for damaged/lost rows, so omitting this made every
-		// damaged/lost unit show up as permanently missing even after
-		// Finish, which contradicted that documented intent.
-		scannedBySKU[s.SKUID] += s.Quantity + s.WriteOffQuantity
-	}
-
 	var missing []MissingBookingItem
-	for _, li := range lineItems {
-		// Charge-type rows (shipping/discount/fee/credit_note) have no SKU
-		// and can never be scanned -- without this they'd show up as
-		// permanently "missing" on every booking that has one.
-		if !li.LineType.IsProduct() {
-			continue
-		}
-		var scannedQty int64
-		if li.SKUID != nil {
-			scannedQty = scannedBySKU[*li.SKUID]
-		}
-		// BookingScan.Quantity is already in stock-unit terms (a
-		// case-barcode scan credits UnitsPerScan units at once) --
-		// li.Quantity is purchased-item terms, so it must be scaled by
-		// UnitsPerPurchasedItem before comparing the two (see
-		// PurchaseOrderLineItem's doc comment).
-		expectedQty := li.Quantity * li.EffectiveUnitsPerPurchasedItem()
-		if scannedQty < expectedQty {
-			missing = append(missing, MissingBookingItem{
-				LineItemID: li.ID, RawDescription: li.RawDescription, ExpectedQty: expectedQty, ScannedQty: scannedQty,
-			})
-		}
+	for _, sf := range procurementDomain.Shortfalls(lineItems, scans) {
+		missing = append(missing, MissingBookingItem{
+			LineItemID: sf.LineItem.ID, RawDescription: sf.LineItem.RawDescription, ExpectedQty: sf.ExpectedQty, ScannedQty: sf.ReceivedQty,
+		})
 	}
 	return missing
 }
