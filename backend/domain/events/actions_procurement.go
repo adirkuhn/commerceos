@@ -61,4 +61,8 @@ var (
 		"An item was scanned during stock booking. data: booking_id, sku_id, action_type (receive, correction, damaged, lost), quantity, write_off_quantity, lot_number, expiry_date.")
 	BookingScanDeleted = defineAction("procurement.booking_scan.deleted",
 		"A booking scan was undone. data: booking_id, sku_id, action_type.")
+	SupplierIssueUpdated = defineAction("procurement.supplier_issue.updated",
+		"The claim status of a purchase order's missing, damaged or lost item changed (changes: status -- open, claimed, resolved; note). entity_id is the issue's source_id. data: purchase_order_id, source (booking_shortfall, booking_scan, receiving_discrepancy), kind (missing, damaged, lost).")
+	SupplierIssueReportEmailed = defineAction("procurement.supplier_issue_report.emailed",
+		"A purchase order's list of missing/damaged/lost items was emailed to the supplier; the open ones became claimed (one supplier_issue.updated each). entity_id is the purchase order. data: to, issue_count, claimed_count.")
 )

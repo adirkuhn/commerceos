@@ -143,28 +143,33 @@ func (uc *ListBookingDiscrepanciesUseCase) Execute(ctx context.Context) (*Bookin
 	return report, nil
 }
 
-// displayNames mirrors GetPurchaseOrderUseCase.attachProductDisplayNames --
-// not found at any hop is tolerated (nil pair, row still renders by its raw
-// text/ID) rather than failing the whole report over one stale reference.
 func (uc *ListBookingDiscrepanciesUseCase) displayNames(ctx context.Context, skuID *string) (skuCode, productName *string, err error) {
+	return skuDisplayNames(ctx, uc.skuRepo, uc.variantRepo, uc.productRepo, skuID)
+}
+
+// skuDisplayNames mirrors GetPurchaseOrderUseCase.attachProductDisplayNames --
+// not found at any hop is tolerated (nil pair, row still renders by its raw
+// text/ID) rather than failing a whole report over one stale reference.
+func skuDisplayNames(ctx context.Context, skuRepo pmsDomain.SKURepository, variantRepo pmsDomain.VariantRepository,
+	productRepo pmsDomain.ProductRepository, skuID *string) (skuCode, productName *string, err error) {
 	if skuID == nil {
 		return nil, nil, nil
 	}
-	sku, err := uc.skuRepo.FindByID(ctx, *skuID)
+	sku, err := skuRepo.FindByID(ctx, *skuID)
 	if err != nil {
 		if errors.Is(err, pmsDomain.ErrSKUNotFound) {
 			return nil, nil, nil
 		}
 		return nil, nil, err
 	}
-	variant, err := uc.variantRepo.FindByID(ctx, sku.VariantID)
+	variant, err := variantRepo.FindByID(ctx, sku.VariantID)
 	if err != nil {
 		if errors.Is(err, pmsDomain.ErrVariantNotFound) {
 			return nil, nil, nil
 		}
 		return nil, nil, err
 	}
-	product, err := uc.productRepo.FindByID(ctx, variant.ProductID)
+	product, err := productRepo.FindByID(ctx, variant.ProductID)
 	if err != nil {
 		if errors.Is(err, pmsDomain.ErrProductNotFound) {
 			return nil, nil, nil

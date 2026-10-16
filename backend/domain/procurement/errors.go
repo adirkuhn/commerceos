@@ -73,4 +73,14 @@ var (
 	// ErrInvalidDamagedQuantity guards FlagDamagedLineItemUseCase: must be
 	// positive.
 	ErrInvalidDamagedQuantity = errs.New("RECEIVING_INVALID_DAMAGED_QUANTITY", "damaged quantity must be positive")
+	// Supplier issues (SupplierIssue): the per-PO list of missing, damaged
+	// and lost items to claim from the supplier.
+	ErrSupplierIssueNotFound      = errs.New("SUPPLIER_ISSUE_NOT_FOUND", "supplier issue not found on this purchase order")
+	ErrInvalidSupplierIssueStatus = errs.New("SUPPLIER_ISSUE_INVALID_STATUS", "supplier issue status must be open, claimed or resolved")
+	ErrSupplierIssueNoteTooLong   = errs.New("SUPPLIER_ISSUE_NOTE_TOO_LONG", "supplier issue note is too long")
+	ErrInvalidSupplierEmail       = errs.New("SUPPLIER_EMAIL_INVALID_ADDRESS", "email address is not valid")
+	ErrSupplierEmailIncomplete    = errs.New("SUPPLIER_EMAIL_INCOMPLETE", "email needs a subject and a message")
+	ErrNoSupplierIssuesSelected   = errs.New("SUPPLIER_EMAIL_NO_ISSUES", "pick at least one issue to email")
+	// ErrSupplierEmailNotSent carries the mail server's own reason.
+	ErrSupplierEmailNotSent = errs.NewWithCause("SUPPLIER_EMAIL_NOT_SENT", "the email to the supplier could not be sent")
 )
