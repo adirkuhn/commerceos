@@ -19,7 +19,7 @@ func TestSentEmailStatusAndSource_Valid(t *testing.T) {
 		assert.True(t, s.Valid(), s)
 	}
 	assert.False(t, mc.SentEmailStatus("bounced").Valid())
-	for _, s := range []mc.SentEmailSource{mc.SentEmailSourceAutomation, mc.SentEmailSourceNotification, mc.SentEmailSourceSignInLink, mc.SentEmailSourceNewsletter} {
+	for _, s := range []mc.SentEmailSource{mc.SentEmailSourceAutomation, mc.SentEmailSourceNotification, mc.SentEmailSourceSignInLink, mc.SentEmailSourceNewsletter, mc.SentEmailSourceSupplierIssues} {
 		assert.True(t, s.Valid(), s)
 	}
 	assert.False(t, mc.SentEmailSource("fax").Valid())

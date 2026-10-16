@@ -493,7 +493,7 @@ components:
 
     SentEmailSource:
       type: string
-      enum: [automation, notification, sign_in_link, newsletter]
+      enum: [automation, notification, sign_in_link, newsletter, supplier_issues]
 
     SentEmailSummary:
       type: object

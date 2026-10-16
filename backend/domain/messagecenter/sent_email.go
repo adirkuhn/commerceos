@@ -15,11 +15,14 @@ const (
 	SentEmailSourceNotification SentEmailSource = "notification"
 	SentEmailSourceSignInLink   SentEmailSource = "sign_in_link"
 	SentEmailSourceNewsletter   SentEmailSource = "newsletter"
+	// SentEmailSourceSupplierIssues: a purchase order's missing/damaged
+	// items emailed to the supplier (procurement).
+	SentEmailSourceSupplierIssues SentEmailSource = "supplier_issues"
 )
 
 func (s SentEmailSource) Valid() bool {
 	switch s {
-	case SentEmailSourceAutomation, SentEmailSourceNotification, SentEmailSourceSignInLink, SentEmailSourceNewsletter:
+	case SentEmailSourceAutomation, SentEmailSourceNotification, SentEmailSourceSignInLink, SentEmailSourceNewsletter, SentEmailSourceSupplierIssues:
 		return true
 	}
 	return false

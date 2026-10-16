@@ -1,0 +1,248 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Supplier issues API
+  version: "1.0"
+  description: >-
+    A purchase order's supplier issues: what to claim from the supplier
+    after a delivery. Missing items are ordered units that never arrived,
+    summed over every completed booking (delivery) of the PO -- a later
+    delivery makes up for an earlier short one. Damaged and lost items are
+    write-offs scanned while booking, plus damaged flags from the PO's
+    Receiving section. Issues are derived on demand; only their claim
+    status (open, claimed, resolved) is stored. Quantities are in stock
+    units.
+servers:
+  - url: /api/v1
+
+paths:
+  /procurement/purchase-orders/{id}/supplier-issues:
+    get:
+      operationId: listSupplierIssues
+      summary: The purchase order's missing, damaged and lost items with their claim status
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierIssueListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /procurement/purchase-orders/{id}/supplier-issues/{source}/{sourceId}:
+    patch:
+      operationId: updateSupplierIssueStatus
+      summary: Mark one issue open, claimed or resolved, with an optional note
+      description: Setting the same status and note again changes nothing.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: source
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/SupplierIssueSource' }
+        - name: sourceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSupplierIssueStatusRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierIssueResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /procurement/purchase-orders/{id}/supplier-issues/email:
+    post:
+      operationId: emailSupplierIssues
+      summary: Email the issue list to the supplier; reported open issues become claimed
+      description: >-
+        Sent with the tenant's email connection (else the platform mail
+        server) and kept in Message Center > Sent emails. The body is plain
+        text written in the admin; it is escaped, never sent as HTML.
+        Nothing is claimed when sending fails (502).
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailSupplierIssuesRequest'
+      responses:
+        '200':
+          description: sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSupplierIssuesResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '502':
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      description: Purchase order ID.
+      schema: { type: string, format: uuid }
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    SupplierIssueSource:
+      type: string
+      enum: [booking_shortfall, booking_scan, receiving_discrepancy]
+      description: >-
+        Where the issue was recorded; with source_id it identifies the
+        issue. booking_shortfall: source_id is the short PO line item.
+        booking_scan: a damaged/lost booking scan. receiving_discrepancy: a
+        damaged flag from the Receiving section.
+
+    SupplierIssueKind:
+      type: string
+      enum: [missing, damaged, lost]
+
+    SupplierIssueStatus:
+      type: string
+      enum: [open, claimed, resolved]
+      description: open = not reported yet; claimed = reported, waiting on the supplier; resolved = settled (credit note, replacement).
+
+    SupplierIssue:
+      type: object
+      required: [source, source_id, kind, supplier_sku, supplier_description, quantity, reason, reported_by, occurred_at, status, status_note]
+      properties:
+        source: { $ref: '#/components/schemas/SupplierIssueSource' }
+        source_id: { type: string }
+        kind: { $ref: '#/components/schemas/SupplierIssueKind' }
+        line_item_id: { type: string, nullable: true, description: The PO line; null when the scanned SKU is on no line. }
+        sku_id: { type: string, nullable: true }
+        sku_code: { type: string, nullable: true, description: Our SKU code; null when unknown. }
+        product_name: { type: string, nullable: true, description: Our product name; null when unknown. }
+        supplier_sku: { type: string, description: The line's SKU as the supplier wrote it; may be empty. }
+        supplier_description: { type: string, description: The line's text as the supplier wrote it; may be empty. }
+        expected_qty: { type: integer, format: int64, nullable: true, description: Missing only -- units ordered. }
+        received_qty: { type: integer, format: int64, nullable: true, description: Missing only -- units that arrived. }
+        quantity: { type: integer, format: int64, description: Units missing, damaged or lost. }
+        reason: { type: string, description: The comment given when it was recorded; may be empty. }
+        reported_by: { type: string, description: Who scanned it; empty when unknown. }
+        occurred_at: { type: string, format: date-time }
+        status: { $ref: '#/components/schemas/SupplierIssueStatus' }
+        status_note: { type: string }
+        status_updated_at: { type: string, format: date-time, nullable: true }
+
+    SupplierContact:
+      type: object
+      required: [id, name, email]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string, description: Empty when the supplier has no email address. }
+
+    SupplierIssueList:
+      type: object
+      required: [purchase_order_id, booking_in_progress, issues]
+      properties:
+        purchase_order_id: { type: string }
+        supplier:
+          allOf: [{ $ref: '#/components/schemas/SupplierContact' }]
+          nullable: true
+          description: Null when the PO has no supplier yet.
+        booking_in_progress:
+          type: boolean
+          description: A delivery is being booked now; its scans are listed once it is finished.
+        issues:
+          type: array
+          items: { $ref: '#/components/schemas/SupplierIssue' }
+
+    SupplierIssueListResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/SupplierIssueList' }
+        error: { nullable: true }
+
+    SupplierIssueResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/SupplierIssue' }
+        error: { nullable: true }
+
+    UpdateSupplierIssueStatusRequest:
+      type: object
+      required: [status]
+      additionalProperties: false
+      properties:
+        status: { $ref: '#/components/schemas/SupplierIssueStatus' }
+        note: { type: string, maxLength: 1000, default: '' }
+
+    SupplierIssueRef:
+      type: object
+      required: [source, source_id]
+      additionalProperties: false
+      properties:
+        source: { $ref: '#/components/schemas/SupplierIssueSource' }
+        source_id: { type: string, format: uuid }
+
+    EmailSupplierIssuesRequest:
+      type: object
+      required: [to, subject, body, issues]
+      additionalProperties: false
+      properties:
+        to: { type: string, format: email, maxLength: 320 }
+        subject: { type: string, minLength: 1, maxLength: 200 }
+        body: { type: string, minLength: 1, maxLength: 20000, description: Plain text. }
+        issues:
+          type: array
+          minItems: 1
+          maxItems: 500
+          description: The issues the email reports; the open ones become claimed.
+          items: { $ref: '#/components/schemas/SupplierIssueRef' }
+
+    EmailSupplierIssuesResult:
+      type: object
+      required: [sent_to, claimed]
+      properties:
+        sent_to: { type: string }
+        claimed: { type: integer, description: Issues that went from open to claimed. }
+
+    EmailSupplierIssuesResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/EmailSupplierIssuesResult' }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

@@ -42,6 +42,7 @@ import (
 	genshipping "github.com/adirkuhn/commerceos/api/shipping"
 	genstockexpiry "github.com/adirkuhn/commerceos/api/stockexpiry"
 	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
+	gensupplierissues "github.com/adirkuhn/commerceos/api/supplierissues"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
 	gentheme "github.com/adirkuhn/commerceos/api/theme"
@@ -79,6 +80,7 @@ import (
 	shippinghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/shipping"
 	stockexpiryhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/stockexpiry"
 	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
+	supplierissueshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/supplierissues"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
 	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
 	themehandler "github.com/adirkuhn/commerceos/infrastructure/handlers/theme"
@@ -607,6 +609,20 @@ func main() {
 	newsletterGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(newsletterSpec, &ginmiddleware.Options{SilenceServersWarning: true}))
 	newsletterhandler.Register(newsletterGroup, newsletterhandler.NewHandler(newsletterhandler.NewUseCases(
 		newsletterhandler.NewDeps(db, cfg.IntegrationsEncryptionSecret, emailClient, cfg.StorefrontPublicURL))))
+
+	supplierissuesSpec, err := gensupplierissues.GetSpec()
+	if err != nil {
+		log.Fatalf("supplierissues: load openapi spec: %v", err)
+	}
+	// Own sub-group so the supplierissues-only spec validator never applies
+	// to the other modules' routes — same reasoning as pmsGroup above. No
+	// RequireRole, like procurement: any authenticated role works purchase
+	// orders.
+	supplierissuesGroup := v1.Group("")
+	supplierissuesGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(supplierissuesSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	supplierissueshandler.Register(supplierissuesGroup, db, outboxRepo, cfg.IntegrationsEncryptionSecret, emailClient)
 
 	themeSpec, err := gentheme.GetSpec()
 	if err != nil {
