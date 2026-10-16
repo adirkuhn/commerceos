@@ -153,3 +153,57 @@ func TestListBookingDiscrepancies_aggregatesAcrossMultipleCompletedBookings(t *t
 	bookingIDs := []string{report.MissingItems[0].BookingID, report.MissingItems[1].BookingID}
 	require.ElementsMatch(t, []string{"booking-1", "booking-2"}, bookingIDs)
 }
+
+// A PO delivered in two parts: the first booking brought 4 of 10, the
+// second the other 6. Nothing is missing; reporting each booking on its own
+// listed the first one's 6 as missing forever.
+func TestListBookingDiscrepancies_laterDeliveryOfTheSamePurchaseOrderMakesUpTheShortfall(t *testing.T) {
+	db := newMockGormDB(t)
+	sku1 := "sku-1"
+	first, second := time.Now().Add(-48*time.Hour), time.Now()
+	bookingRepo := &stubBookingRepo{completed: []procurementDomain.Booking{
+		{ID: "booking-2", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusCompleted, CompletedAt: &second},
+		{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusCompleted, CompletedAt: &first},
+	}}
+	lineItemRepo := &stubLineItemRepo{byPOMap: map[string][]procurementDomain.PurchaseOrderLineItem{
+		"po-1": {{ID: "line-1", PurchaseOrderID: "po-1", SKUID: &sku1, Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}},
+	}}
+	scanRepo := &stubBookingScanRepo{byBookingMap: map[string][]procurementDomain.BookingScan{
+		"booking-1": {{ID: "scan-1", SKUID: sku1, Quantity: 4, ActionType: procurementDomain.BookingScanActionReceive}},
+		"booking-2": {{ID: "scan-2", SKUID: sku1, Quantity: 6, ActionType: procurementDomain.BookingScanActionReceive}},
+	}}
+	uc := appprocurement.NewListBookingDiscrepanciesUseCase(db, bookingRepo, lineItemRepo, scanRepo, &stubSKURepo{}, &stubVariantRepo{}, &stubProductRepo{})
+
+	report, err := uc.Execute(context.Background())
+
+	require.NoError(t, err)
+	require.Empty(t, report.MissingItems)
+}
+
+// Still short after both deliveries: listed once, under the latest one.
+func TestListBookingDiscrepancies_stillShortAfterTwoDeliveriesIsListedOnceUnderTheLatest(t *testing.T) {
+	db := newMockGormDB(t)
+	sku1 := "sku-1"
+	first, second := time.Now().Add(-48*time.Hour), time.Now()
+	bookingRepo := &stubBookingRepo{completed: []procurementDomain.Booking{
+		{ID: "booking-2", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusCompleted, CompletedAt: &second},
+		{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusCompleted, CompletedAt: &first},
+	}}
+	lineItemRepo := &stubLineItemRepo{byPOMap: map[string][]procurementDomain.PurchaseOrderLineItem{
+		"po-1": {{ID: "line-1", PurchaseOrderID: "po-1", SKUID: &sku1, Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}},
+	}}
+	scanRepo := &stubBookingScanRepo{byBookingMap: map[string][]procurementDomain.BookingScan{
+		"booking-1": {{ID: "scan-1", SKUID: sku1, Quantity: 4, ActionType: procurementDomain.BookingScanActionReceive}},
+		"booking-2": {{ID: "scan-2", SKUID: sku1, Quantity: 3, ActionType: procurementDomain.BookingScanActionReceive}},
+	}}
+	uc := appprocurement.NewListBookingDiscrepanciesUseCase(db, bookingRepo, lineItemRepo, scanRepo, &stubSKURepo{}, &stubVariantRepo{}, &stubProductRepo{})
+
+	report, err := uc.Execute(context.Background())
+
+	require.NoError(t, err)
+	require.Len(t, report.MissingItems, 1)
+	m := report.MissingItems[0]
+	require.Equal(t, "booking-2", m.BookingID)
+	require.Equal(t, int64(7), m.ScannedQty)
+	require.Equal(t, int64(3), m.MissingQty)
+}

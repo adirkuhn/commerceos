@@ -292,8 +292,8 @@ func TestEmailSupplierIssues_rejectsBadInputBeforeSending(t *testing.T) {
 			in.Body = ""
 			return in
 		}(), procurementDomain.ErrSupplierEmailIncomplete},
-		"no issues":      {emailInput(), procurementDomain.ErrNoSupplierIssuesSelected},
-		"unknown issue":  {emailInput(procurementDomain.SupplierIssueRef{Source: procurementDomain.SupplierIssueSourceBookingScan, SourceID: "scan-1"}), procurementDomain.ErrSupplierIssueNotFound},
+		"no issues":     {emailInput(), procurementDomain.ErrNoSupplierIssuesSelected},
+		"unknown issue": {emailInput(procurementDomain.SupplierIssueRef{Source: procurementDomain.SupplierIssueSourceBookingScan, SourceID: "scan-1"}), procurementDomain.ErrSupplierIssueNotFound},
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := newSupplierIssueFixture()

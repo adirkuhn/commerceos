@@ -91,12 +91,24 @@ func (uc *ListBookingDiscrepanciesUseCase) Execute(ctx context.Context) (*Bookin
 			return err
 		}
 
+		// Shortfalls are per PO, not per booking: a PO delivered in parts
+		// has one booking per delivery, and a later one makes up for an
+		// earlier short one. ListCompleted is newest first, so a PO's
+		// first booking seen is its latest -- the one a shortfall is
+		// listed under.
+		var poOrder []string
+		bookingsByPO := map[string][]procurementDomain.Booking{}
 		for _, b := range bookings {
-			lineItems, err := uc.lineItemRepo.ListByPurchaseOrder(ctx, b.PurchaseOrderID)
-			if err != nil {
-				return err
+			if _, seen := bookingsByPO[b.PurchaseOrderID]; !seen {
+				poOrder = append(poOrder, b.PurchaseOrderID)
 			}
-			scans, err := uc.scanRepo.ListByBooking(ctx, b.ID)
+			bookingsByPO[b.PurchaseOrderID] = append(bookingsByPO[b.PurchaseOrderID], b)
+		}
+
+		for _, poID := range poOrder {
+			poBookings := bookingsByPO[poID]
+			latest := poBookings[0]
+			lineItems, err := uc.lineItemRepo.ListByPurchaseOrder(ctx, poID)
 			if err != nil {
 				return err
 			}
@@ -105,33 +117,29 @@ func (uc *ListBookingDiscrepanciesUseCase) Execute(ctx context.Context) (*Bookin
 				lineItemsByID[li.ID] = li
 			}
 
-			for _, m := range missingBookingItems(lineItems, scans) {
+			var poScans []procurementDomain.BookingScan
+			for _, b := range poBookings {
+				scans, err := uc.scanRepo.ListByBooking(ctx, b.ID)
+				if err != nil {
+					return err
+				}
+				poScans = append(poScans, scans...)
+				if err := uc.appendDamagedLost(ctx, report, b, scans); err != nil {
+					return err
+				}
+			}
+
+			for _, m := range missingBookingItems(lineItems, poScans) {
 				li := lineItemsByID[m.LineItemID]
 				skuCode, productName, err := uc.displayNames(ctx, li.SKUID)
 				if err != nil {
 					return err
 				}
 				report.MissingItems = append(report.MissingItems, MissingBookingItemReport{
-					BookingID: b.ID, PurchaseOrderID: b.PurchaseOrderID, CompletedAt: b.CompletedAt,
+					BookingID: latest.ID, PurchaseOrderID: poID, CompletedAt: latest.CompletedAt,
 					LineItemID: m.LineItemID, SKUCode: skuCode, ProductName: productName,
 					RawDescription: m.RawDescription, ExpectedQty: m.ExpectedQty, ScannedQty: m.ScannedQty,
 					MissingQty: m.ExpectedQty - m.ScannedQty,
-				})
-			}
-
-			for _, s := range scans {
-				if s.ActionType != procurementDomain.BookingScanActionDamaged && s.ActionType != procurementDomain.BookingScanActionLost {
-					continue
-				}
-				skuCode, productName, err := uc.displayNames(ctx, &s.SKUID)
-				if err != nil {
-					return err
-				}
-				report.DamagedLost = append(report.DamagedLost, DamagedLostBookingItemReport{
-					BookingID: b.ID, PurchaseOrderID: b.PurchaseOrderID, CompletedAt: b.CompletedAt,
-					ScanID: s.ID, SKUID: s.SKUID, SKUCode: skuCode, ProductName: productName,
-					ActionType: s.ActionType, Quantity: s.WriteOffQuantity, Reason: s.Reason,
-					ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy,
 				})
 			}
 		}
@@ -141,6 +149,25 @@ func (uc *ListBookingDiscrepanciesUseCase) Execute(ctx context.Context) (*Bookin
 		return nil, fmt.Errorf("listBookingDiscrepancies: %w", err)
 	}
 	return report, nil
+}
+
+func (uc *ListBookingDiscrepanciesUseCase) appendDamagedLost(ctx context.Context, report *BookingDiscrepancyReport, b procurementDomain.Booking, scans []procurementDomain.BookingScan) error {
+	for _, s := range scans {
+		if s.ActionType != procurementDomain.BookingScanActionDamaged && s.ActionType != procurementDomain.BookingScanActionLost {
+			continue
+		}
+		skuCode, productName, err := uc.displayNames(ctx, &s.SKUID)
+		if err != nil {
+			return err
+		}
+		report.DamagedLost = append(report.DamagedLost, DamagedLostBookingItemReport{
+			BookingID: b.ID, PurchaseOrderID: b.PurchaseOrderID, CompletedAt: b.CompletedAt,
+			ScanID: s.ID, SKUID: s.SKUID, SKUCode: skuCode, ProductName: productName,
+			ActionType: s.ActionType, Quantity: s.WriteOffQuantity, Reason: s.Reason,
+			ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy,
+		})
+	}
+	return nil
 }
 
 func (uc *ListBookingDiscrepanciesUseCase) displayNames(ctx context.Context, skuID *string) (skuCode, productName *string, err error) {
