@@ -111,6 +111,9 @@ func (uc *CompleteBookingUseCase) Execute(ctx context.Context, id string, comple
 	var warehouseID string
 	var lineItems []procurementDomain.PurchaseOrderLineItem
 	var scans []procurementDomain.BookingScan
+	// earlierScans are the PO's earlier, already completed deliveries --
+	// counted for what is missing, never replayed again.
+	var earlierScans []procurementDomain.BookingScan
 
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
@@ -136,6 +139,10 @@ func (uc *CompleteBookingUseCase) Execute(ctx context.Context, id string, comple
 			return err
 		}
 		scans, err = uc.scanRepo.ListByBooking(ctx, id)
+		if err != nil {
+			return err
+		}
+		earlierScans, err = uc.earlierDeliveryScans(ctx, booking)
 		return err
 	})
 	if err != nil {
@@ -147,7 +154,10 @@ func (uc *CompleteBookingUseCase) Execute(ctx context.Context, id string, comple
 	}
 
 	var result CompleteBookingResult
-	result.MissingItems = missingBookingItems(lineItems, scans)
+	// A PO delivered in parts has one booking per delivery: what is missing
+	// is judged over all of them, so a later delivery that brings the rest
+	// makes the PO received.
+	result.MissingItems = missingBookingItems(lineItems, append(earlierScans, scans...))
 
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		now := time.Now()
@@ -300,6 +310,27 @@ func (uc *CompleteBookingUseCase) replay(ctx context.Context, bookingID, warehou
 		}
 	}
 	return nil
+}
+
+// earlierDeliveryScans returns the scans of the PO's other completed
+// bookings. Call inside tenant.WithTenant.
+func (uc *CompleteBookingUseCase) earlierDeliveryScans(ctx context.Context, booking *procurementDomain.Booking) ([]procurementDomain.BookingScan, error) {
+	earlier, err := uc.bookingRepo.ListCompletedByPurchaseOrder(ctx, booking.PurchaseOrderID)
+	if err != nil {
+		return nil, err
+	}
+	var scans []procurementDomain.BookingScan
+	for _, b := range earlier {
+		if b.ID == booking.ID {
+			continue
+		}
+		bookingScans, err := uc.scanRepo.ListByBooking(ctx, b.ID)
+		if err != nil {
+			return nil, err
+		}
+		scans = append(scans, bookingScans...)
+	}
+	return scans, nil
 }
 
 // markReplayed persists that a row's inventory effect already committed --
