@@ -13,9 +13,13 @@ import { CURRENCIES, poStatusLabel, todayDateString } from './procurementHelpers
 import { DocumentsSection } from './DocumentsSection'
 import { LineItemsSection } from './LineItemsSection'
 import { ReceivingSection } from './ReceivingSection'
+import { SupplierIssuesSection } from './supplierIssues/SupplierIssuesSection'
 import { apiErrorText } from '../api/apiErrorText'
 
 // ── Purchase Order Edit Page ────────────────────────────────────────────────
+
+// Supplier issues come from deliveries: only shown once the PO went out.
+const SUPPLIER_ISSUE_STATUSES: PurchaseOrderStatus[] = ['sent', 'partially_received', 'received']
 
 interface PurchaseOrderEditPageProps {
   purchaseOrderId: string | null
@@ -308,6 +312,14 @@ export function PurchaseOrderEditPage({ purchaseOrderId, initialParsingJobId, on
               warehouses={warehouses}
               onAssignWarehouse={handleAssignWarehouse}
               lineItems={detail?.line_items ?? []}
+            />
+          )}
+
+          {!isNew && effectiveId && po && SUPPLIER_ISSUE_STATUSES.includes(po.status) && (
+            <SupplierIssuesSection
+              purchaseOrderId={effectiveId}
+              orderDate={po.created_at}
+              hasCompletedBooking={po.status !== 'sent'}
             />
           )}
         </div>
