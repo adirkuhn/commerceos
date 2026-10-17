@@ -22,8 +22,8 @@ function randomEAN(): string {
 
 // The Bol connection gets a per-parcel shipping cost; a product's Bol tab
 // shows the automatic price (ending .49/.99), bulk discount starts with
-// 2/4/6/8 levels, a level that isn't 5% cheaper is refused, and the levels
-// survive a save + reload. The product stays a draft, so nothing is ever
+// 2/4/6 levels (Bol's max of 3), a level not cheaper than the one before is
+// refused, and the levels survive a save + reload. The product stays a draft, so nothing is ever
 // pushed to the real Bol; a typed fee % avoids Bol's live fee lookup.
 test('bol pricing: shipping cost, automatic price and bulk discount levels', async ({ page, request, token }) => {
   const connections = await api<Connection[]>(request, token, '/integrations/connections', { method: 'GET' })
@@ -54,22 +54,23 @@ test('bol pricing: shipping cost, automatic price and bulk discount levels', asy
     await expect(firstPrice).toContainText(/\d+\.(49|99)/)
 
     await page.getByLabel('Bulk discount').check()
-    await expect(page.getByLabel(/^From units/)).toHaveCount(4)
-    await expect(table.getByRole('row')).toHaveCount(6)
+    await expect(page.getByLabel(/^From units/)).toHaveCount(3)
+    await expect(table.getByRole('row')).toHaveCount(5)
+    await expect(page.getByRole('button', { name: 'Add level' })).toHaveCount(0)
 
     const firstLevel = Number((await firstPrice.innerText()).match(/\d+\.\d{2}/)?.[0])
     await page.getByLabel('Price each 1').fill(firstLevel.toFixed(2))
-    await expect(page.getByText(/at least 5%/)).toBeVisible()
+    await expect(page.getByText(/lower than the price before/)).toBeVisible()
 
     await page.getByLabel('Price each 1').fill('')
-    await page.getByLabel('From units 4').fill('10')
+    await page.getByLabel('From units 3').fill('10')
     await expect(table.getByRole('row').last()).toContainText('10+')
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled()
 
     await page.reload()
     await expect(page.getByLabel('Bulk discount')).toBeChecked()
-    await expect(page.getByLabel('From units 4')).toHaveValue('10')
+    await expect(page.getByLabel('From units 3')).toHaveValue('10')
     await expect(page.getByLabel('Bol fee %')).toHaveValue('15.00')
   } finally {
     await api(request, token, `/integrations/connections/${bol.id}/settings`, {

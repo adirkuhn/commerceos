@@ -105,7 +105,7 @@
       "priceEach": "Prijs per stuk",
       "removeLevel": "Staffel verwijderen",
       "addLevel": "Staffel toevoegen",
-      "levelsHint": "Lege prijs: automatisch. Elke staffel moet minstens 5% goedkoper zijn dan de vorige.",
+      "levelsHint": "Lege prijs: automatisch. Elke staffel moet goedkoper zijn dan de vorige. Bol staat maximaal 3 staffels toe, vanaf maximaal 24 stuks.",
       "calculating": "Bol-prijzen berekenen…",
       "previewFailed": "De Bol-prijzen konden niet worden berekend.",
       "colQuantity": "Aantal",

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { BolProductOverride } from '../../../integrations/types'
-import { addTierRow, bolPricingDraft, bolPricingFormFrom, bolPricingPayload, emptyBolPricingForm, setBundleEnabled } from '../bolPricingForm'
+import { addTierRow, canAddTierRow, bolPricingDraft, bolPricingFormFrom, bolPricingPayload, emptyBolPricingForm, setBundleEnabled } from '../bolPricingForm'
 
 const override: BolProductOverride = {
   product_id: 'p', connection_id: 'c', condition_category: 'NEW', fulfilment_method: 'FBR',
@@ -22,11 +22,11 @@ describe('bolPricingFormFrom', () => {
 })
 
 describe('setBundleEnabled', () => {
-  it('switching on with no tiers starts with automatic 2/4/6/8', () => {
+  it('switching on with no tiers starts with automatic 2/4/6 (Bol allows 3 bulk levels)', () => {
     const form = setBundleEnabled(emptyBolPricingForm(), true)
     expect(form.bundleEnabled).toBe(true)
     expect(form.tiers).toEqual([
-      { quantity: '2', price: '' }, { quantity: '4', price: '' }, { quantity: '6', price: '' }, { quantity: '8', price: '' },
+      { quantity: '2', price: '' }, { quantity: '4', price: '' }, { quantity: '6', price: '' },
     ])
   })
 
@@ -40,6 +40,14 @@ describe('addTierRow', () => {
   it('adds the next quantity after the last tier', () => {
     expect(addTierRow({ ...emptyBolPricingForm(), tiers: [{ quantity: '4', price: '' }] }).tiers[1]).toEqual({ quantity: '6', price: '' })
     expect(addTierRow(emptyBolPricingForm()).tiers).toEqual([{ quantity: '2', price: '' }])
+  })
+})
+
+describe('canAddTierRow', () => {
+  it('stops at Bol’s 3 bulk levels', () => {
+    const rows = (n: number) => ({ ...emptyBolPricingForm(), tiers: Array.from({ length: n }, (_, i) => ({ quantity: String(i + 2), price: '' })) })
+    expect(canAddTierRow(rows(2))).toBe(true)
+    expect(canAddTierRow(rows(3))).toBe(false)
   })
 })
 

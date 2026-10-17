@@ -48,13 +48,13 @@ describe('useBolPricingPreview', () => {
   })
 
   it('shows the server error and drops stale prices', async () => {
-    vi.mocked(integrationsApi.previewBolPricing).mockRejectedValue(new Error('each Bol bulk price must be at least 5% below the price before it'))
+    vi.mocked(integrationsApi.previewBolPricing).mockRejectedValue(new Error('each Bol bulk price must be lower than the price before it'))
     const { result } = renderHook(() => useBolPricingPreview('tok', 'conn-1', 'prod-1', 'sku-1', draft))
 
     await flush(400)
 
     expect(result.current.preview).toBeNull()
-    expect(result.current.error).toContain('5%')
+    expect(result.current.error).toContain('lower than')
   })
 
   it('does nothing without a SKU', async () => {

@@ -3,7 +3,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import type { BolPricingLevel } from '../../integrations/types'
 import { inputClass, labelClass } from '../BolContentFields'
-import { addTierRow, setBundleEnabled, type BolPricingForm, type BolTierRow } from './bolPricingForm'
+import { addTierRow, canAddTierRow, setBundleEnabled, type BolPricingForm, type BolTierRow } from './bolPricingForm'
 import type { BolPricingPreviewState } from './useBolPricingPreview'
 
 function money(minor: number): string {
@@ -106,12 +106,14 @@ export function BolPricingSection({ form, onChange, preview }: {
               </div>
             )
           })}
-          <button
-            type="button" onClick={() => onChange(addTierRow(form))}
-            className="inline-flex items-center gap-1 text-2xs text-accent hover:underline"
-          >
-            <Plus size={12} /> {t('bol.pricing.addLevel')}
-          </button>
+          {canAddTierRow(form) && (
+            <button
+              type="button" onClick={() => onChange(addTierRow(form))}
+              className="inline-flex items-center gap-1 text-2xs text-accent hover:underline"
+            >
+              <Plus size={12} /> {t('bol.pricing.addLevel')}
+            </button>
+          )}
           <p className="text-2xs text-ink-4">{t('bol.pricing.levelsHint')}</p>
         </div>
       )}

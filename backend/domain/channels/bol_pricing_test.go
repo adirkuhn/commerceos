@@ -70,7 +70,7 @@ func constFee(f BolFee) func(int64) (BolFee, error) {
 	return func(int64) (BolFee, error) { return f, nil }
 }
 
-func TestResolveBolPrices_autoTiersBreakEvenThenKeepTheFivePercentStep(t *testing.T) {
+func TestResolveBolPrices_autoTiersBreakEvenWithSharedShipping(t *testing.T) {
 	in := BolPriceInputs{RegularPriceMinorUnits: 2500, ProductVATBasisPoints: 900, ShippingMinorUnits: 495}
 	tiers := []BolBundleTier{{Quantity: 2}, {Quantity: 4}, {Quantity: 6}}
 
@@ -82,12 +82,23 @@ func TestResolveBolPrices_autoTiersBreakEvenThenKeepTheFivePercentStep(t *testin
 	assert.Equal(t, int64(3849), prices[0].UnitPriceMinorUnits, "break-even 38.39, rounded up to .49/.99")
 	assert.Equal(t, int64(3549), prices[1].UnitPriceMinorUnits, "shared parcel: break-even 35.03")
 	assert.Equal(t, int64(3349), prices[2].UnitPriceMinorUnits)
-	assert.Equal(t, int64(3149), prices[3].UnitPriceMinorUnits, "break-even 32.99 is not 5% below 33.49, so 5% below it")
+	assert.Equal(t, int64(3299), prices[3].UnitPriceMinorUnits, "break-even 32.78")
 	for _, p := range prices {
 		assert.True(t, p.Auto)
+		assert.False(t, p.BelowRegular())
 	}
-	assert.False(t, prices[2].BelowRegular())
-	assert.True(t, prices[3].BelowRegular(), "the 5% step costs margin on this tier")
+}
+
+// Without shipping to share, every quantity breaks even at the same price;
+// Bol needs each level lower than the one before, so an automatic level
+// drops to the next lower .49/.99 ending.
+func TestResolveBolPrices_autoTierIsAlwaysLowerThanTheLevelBefore(t *testing.T) {
+	prices, err := ResolveBolPrices(BolPriceInputs{RegularPriceMinorUnits: 2500}, nil, []BolBundleTier{{Quantity: 2}, {Quantity: 3}}, constFee(BolFee{}))
+
+	require.NoError(t, err)
+	assert.Equal(t, []int64{2549, 2499, 2449}, []int64{prices[0].UnitPriceMinorUnits, prices[1].UnitPriceMinorUnits, prices[2].UnitPriceMinorUnits})
+	assert.False(t, prices[0].BelowRegular())
+	assert.True(t, prices[2].BelowRegular(), "staying lower than the level before costs margin here")
 }
 
 func TestResolveBolPrices_manualPricesWin(t *testing.T) {
@@ -103,9 +114,9 @@ func TestResolveBolPrices_manualPricesWin(t *testing.T) {
 	assert.False(t, prices[1].Auto)
 }
 
-func TestResolveBolPrices_manualTierNotFivePercentLowerFails(t *testing.T) {
+func TestResolveBolPrices_manualTierNotLowerThanTheLevelBeforeFails(t *testing.T) {
 	custom := int64(3000)
-	manual := int64(2900) // 3.3% lower
+	manual := int64(3000)
 	_, err := ResolveBolPrices(BolPriceInputs{RegularPriceMinorUnits: 2500}, &custom, []BolBundleTier{{Quantity: 2, UnitPriceMinorUnits: &manual}}, constFee(BolFee{}))
 
 	assert.ErrorIs(t, err, ErrBolBundlePriceStep)
@@ -149,13 +160,17 @@ func TestValidateBolBundleTiers(t *testing.T) {
 	assert.ErrorIs(t, ValidateBolBundleTiers([]BolBundleTier{{Quantity: 4}, {Quantity: 2}}), ErrBolInvalidBundleTiers, "increasing quantities")
 	assert.ErrorIs(t, ValidateBolBundleTiers([]BolBundleTier{{Quantity: 2}, {Quantity: 2}}), ErrBolInvalidBundleTiers)
 	assert.ErrorIs(t, ValidateBolBundleTiers([]BolBundleTier{{Quantity: 2, UnitPriceMinorUnits: p(99)}}), ErrBolInvalidBundleTiers, "Bol's €1 minimum")
-	assert.ErrorIs(t, ValidateBolBundleTiers([]BolBundleTier{{Quantity: 2, UnitPriceMinorUnits: p(2500)}, {Quantity: 3, UnitPriceMinorUnits: p(2400)}}), ErrBolInvalidBundleTiers, "4% step")
+	assert.NoError(t, ValidateBolBundleTiers([]BolBundleTier{{Quantity: 2, UnitPriceMinorUnits: p(2500)}, {Quantity: 3, UnitPriceMinorUnits: p(2499)}}), "any lower price will do")
+	assert.ErrorIs(t, ValidateBolBundleTiers([]BolBundleTier{{Quantity: 2, UnitPriceMinorUnits: p(2500)}, {Quantity: 3, UnitPriceMinorUnits: p(2500)}}), ErrBolInvalidBundleTiers, "prices must go down")
+	assert.ErrorIs(t, ValidateBolBundleTiers([]BolBundleTier{{Quantity: 2}, {Quantity: 3}, {Quantity: 4}, {Quantity: 5}}), ErrBolInvalidBundleTiers, "Bol allows 4 levels including quantity 1")
+	assert.ErrorIs(t, ValidateBolBundleTiers([]BolBundleTier{{Quantity: 25}}), ErrBolInvalidBundleTiers, "Bol's maximum quantity is 24")
+	assert.NoError(t, ValidateBolBundleTiers([]BolBundleTier{{Quantity: 24}}))
 }
 
 func TestDefaultBolBundleTiers(t *testing.T) {
 	tiers := DefaultBolBundleTiers()
-	require.Len(t, tiers, 4)
-	for i, q := range []int{2, 4, 6, 8} {
+	require.Len(t, tiers, 3)
+	for i, q := range []int{2, 4, 6} {
 		assert.Equal(t, q, tiers[i].Quantity)
 		assert.Nil(t, tiers[i].UnitPriceMinorUnits, "automatic price")
 	}

@@ -16,7 +16,9 @@ export interface BolPricingForm {
   tiers: BolTierRow[]
 }
 
-const DEFAULT_TIER_QUANTITIES = [2, 4, 6, 8]
+const DEFAULT_TIER_QUANTITIES = [2, 4, 6]
+// Bol takes at most four bundle prices, quantity 1 included.
+export const BOL_MAX_TIERS = 3
 const TIER_QUANTITY_STEP = 2
 
 export function emptyBolPricingForm(): BolPricingForm {
@@ -36,13 +38,17 @@ export function bolPricingFormFrom(o: BolProductOverride | null): BolPricingForm
   }
 }
 
-// Switching bulk prices on with no tiers starts with automatic 2/4/6/8;
+// Switching bulk prices on with no tiers starts with automatic 2/4/6;
 // switching off keeps the tiers for later.
 export function setBundleEnabled(form: BolPricingForm, enabled: boolean): BolPricingForm {
   const tiers = enabled && form.tiers.length === 0
     ? DEFAULT_TIER_QUANTITIES.map(q => ({ quantity: String(q), price: '' }))
     : form.tiers
   return { ...form, bundleEnabled: enabled, tiers }
+}
+
+export function canAddTierRow(form: BolPricingForm): boolean {
+  return form.tiers.length < BOL_MAX_TIERS
 }
 
 export function addTierRow(form: BolPricingForm): BolPricingForm {

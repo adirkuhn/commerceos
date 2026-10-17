@@ -88,10 +88,10 @@ var (
 	ErrBolInvalidEAN = errs.New("BOL_INVALID_EAN", "product's barcode/EAN is not a valid 13-digit EAN (a 12-digit UPC is accepted), required by Bol")
 	// ErrBolInvalidBundleTiers guards saving a product's Bol bulk prices
 	// (see ValidateBolBundleTiers); the detail names the tier.
-	ErrBolInvalidBundleTiers = errs.NewWithCause("BOL_BUNDLE_TIERS_INVALID", "Bol bulk prices need quantities from 2 up in increasing order, prices between 1.00 and 9999.00, each at least 5% below the tier before")
-	// ErrBolBundlePriceStep: a resolved Bol price level is not at least 5%
-	// below the level before it (see ResolveBolPrices).
-	ErrBolBundlePriceStep = errs.NewWithCause("BOL_BUNDLE_PRICE_STEP", "each Bol bulk price must be at least 5% below the price before it")
+	ErrBolInvalidBundleTiers = errs.NewWithCause("BOL_BUNDLE_TIERS_INVALID", "Bol bulk prices allow at most 3 tiers, quantities from 2 to 24 in increasing order, prices between 1.00 and 9999.00, each lower than the tier before")
+	// ErrBolBundlePriceStep: a resolved Bol price level is not lower than
+	// the level before it (see ResolveBolPrices).
+	ErrBolBundlePriceStep = errs.NewWithCause("BOL_BUNDLE_PRICE_STEP", "each Bol bulk price must be lower than the price before it")
 	// ErrBolPriceOutOfRange: a resolved Bol unit price is outside Bol's
 	// 1.00-9999.00 limits.
 	ErrBolPriceOutOfRange = errs.NewWithCause("BOL_PRICE_OUT_OF_RANGE", "Bol prices must be between 1.00 and 9999.00")

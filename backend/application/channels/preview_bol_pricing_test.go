@@ -76,7 +76,7 @@ func TestPreviewBolPricing_draftReplacesTheSavedSettings(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Len(t, res.Levels, 5, "switching bulk prices on without tiers previews the 2/4/6/8 defaults")
+	require.Len(t, res.Levels, 4, "switching bulk prices on without tiers previews the 2/4/6 defaults")
 	assert.Equal(t, int64(3000), res.Levels[0].UnitPriceMinorUnits)
 	assert.False(t, res.Levels[0].Auto)
 	assert.True(t, res.Levels[1].Auto)
@@ -103,9 +103,9 @@ func TestPreviewBolPricing_invalidDraftTiers(t *testing.T) {
 	assert.ErrorIs(t, err, channelsDomain.ErrBolInvalidBundleTiers)
 }
 
-func TestPreviewBolPricing_pricesBreakingTheFivePercentStep(t *testing.T) {
+func TestPreviewBolPricing_tierPriceNotLowerThanTheLevelBefore(t *testing.T) {
 	h := newPreviewHarness()
-	custom, tier := int64(3000), int64(2900)
+	custom, tier := int64(3000), int64(3000)
 
 	_, err := h.useCase(t, 1).Execute(context.Background(), appchannels.PreviewBolPricingInput{
 		ProductID: "prod-1", ConnectionID: "conn-1", SKUID: "sku-1",

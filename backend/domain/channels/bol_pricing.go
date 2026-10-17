@@ -13,9 +13,12 @@ import (
 const (
 	// BolFeeVATBasisPoints is the VAT Bol adds to its own fee (21%).
 	BolFeeVATBasisPoints = 2100
-	// BolBundleMinStepBasisPoints: each bundle tier's unit price is at
-	// least 5% below the tier before it.
-	BolBundleMinStepBasisPoints = 500
+	// BolMaxBundleTiers: Bol takes at most four bundle prices per offer,
+	// quantity 1 included, so at most three bulk tiers.
+	BolMaxBundleTiers = 3
+	// BolMaxBundleQuantity is the highest quantity a bundle price can start
+	// at.
+	BolMaxBundleQuantity = 24
 	// BolMinUnitPriceMinorUnits / BolMaxUnitPriceMinorUnits are the unit
 	// price limits of Bol's Offers API (unitPrice minimum 1, maximum 9999).
 	BolMinUnitPriceMinorUnits = 100
@@ -23,8 +26,8 @@ const (
 )
 
 // defaultBolBundleQuantities are the tiers a product starts with when bulk
-// prices are switched on.
-var defaultBolBundleQuantities = []int{2, 4, 6, 8}
+// prices are switched on (BolMaxBundleTiers of them).
+var defaultBolBundleQuantities = []int{2, 4, 6}
 
 // BolBundleTier is one bulk price level of a product's Bol offer: from
 // Quantity units on, each unit costs UnitPriceMinorUnits. A nil price is
@@ -44,15 +47,22 @@ func DefaultBolBundleTiers() []BolBundleTier {
 	return tiers
 }
 
-// ValidateBolBundleTiers checks what can be checked before any price is
-// resolved: quantities from 2 up, strictly increasing; typed prices within
-// Bol's range and each at least 5% below the previous typed price.
+// ValidateBolBundleTiers checks Bol's bundle rules that hold before any
+// price is resolved: at most BolMaxBundleTiers tiers, quantities from 2 to
+// BolMaxBundleQuantity, strictly increasing; typed prices within Bol's
+// range, each lower than the previous typed price.
 func ValidateBolBundleTiers(tiers []BolBundleTier) error {
+	if len(tiers) > BolMaxBundleTiers {
+		return fmt.Errorf("%w: at most %d tiers", ErrBolInvalidBundleTiers, BolMaxBundleTiers)
+	}
 	prevQty := 1
 	var prevPrice *int64
 	for _, t := range tiers {
 		if t.Quantity <= prevQty {
 			return fmt.Errorf("%w: quantity %d must be above %d", ErrBolInvalidBundleTiers, t.Quantity, prevQty)
+		}
+		if t.Quantity > BolMaxBundleQuantity {
+			return fmt.Errorf("%w: quantity %d is above %d", ErrBolInvalidBundleTiers, t.Quantity, BolMaxBundleQuantity)
 		}
 		prevQty = t.Quantity
 		if t.UnitPriceMinorUnits == nil {
@@ -62,8 +72,8 @@ func ValidateBolBundleTiers(tiers []BolBundleTier) error {
 		if p < BolMinUnitPriceMinorUnits || p > BolMaxUnitPriceMinorUnits {
 			return fmt.Errorf("%w: quantity %d: price must be between 1.00 and 9999.00", ErrBolInvalidBundleTiers, t.Quantity)
 		}
-		if prevPrice != nil && !isBundleStep(*prevPrice, p) {
-			return fmt.Errorf("%w: quantity %d: price must be at least 5%% below the tier before", ErrBolInvalidBundleTiers, t.Quantity)
+		if prevPrice != nil && p >= *prevPrice {
+			return fmt.Errorf("%w: quantity %d: price must be lower than the tier before", ErrBolInvalidBundleTiers, t.Quantity)
 		}
 		prevPrice = &p
 	}
@@ -156,9 +166,10 @@ const maxFeeRounds = 5
 // ResolveBolPrices prices quantity 1 and each tier. customPrice (quantity
 // 1) and typed tier prices are used as they are. An automatic level is the
 // break-even price for its quantity -- tiers share one parcel's shipping --
-// rounded up to a .49/.99 ending; an automatic tier is also capped at 5%
-// below the tier before it (rounded down to an ending), which can leave it
-// below break-even (BelowRegular). feeAt returns Bol's fee at a unit
+// rounded up to a .49/.99 ending. Bol needs every level lower than the one
+// before, so an automatic tier is also capped at the next lower ending
+// below the tier before it, which can leave it below break-even
+// (BelowRegular) -- e.g. with no shipping to share. feeAt returns Bol's fee at a unit
 // price -- it depends on the price bracket.
 func ResolveBolPrices(in BolPriceInputs, customPrice *int64, tiers []BolBundleTier, feeAt func(price int64) (BolFee, error)) ([]BolResolvedPrice, error) {
 	levels := append([]BolBundleTier{{Quantity: 1, UnitPriceMinorUnits: customPrice}}, tiers...)
@@ -180,8 +191,8 @@ func ResolveBolPrices(in BolPriceInputs, customPrice *int64, tiers []BolBundleTi
 		if price < BolMinUnitPriceMinorUnits || price > BolMaxUnitPriceMinorUnits {
 			return nil, fmt.Errorf("%w: quantity %d: %s", ErrBolPriceOutOfRange, level.Quantity, formatMinor(price))
 		}
-		if i > 0 && !isBundleStep(out[i-1].UnitPriceMinorUnits, price) {
-			return nil, fmt.Errorf("%w: quantity %d: %s is not 5%% below %s", ErrBolBundlePriceStep,
+		if i > 0 && price >= out[i-1].UnitPriceMinorUnits {
+			return nil, fmt.Errorf("%w: quantity %d: %s is not lower than %s", ErrBolBundlePriceStep,
 				level.Quantity, formatMinor(price), formatMinor(out[i-1].UnitPriceMinorUnits))
 		}
 		fee, err := feeAt(price)
@@ -247,11 +258,7 @@ func RoundDownToPriceEnding(minor int64) int64 {
 }
 
 func maxNextBundlePrice(prev int64) int64 {
-	return RoundDownToPriceEnding(prev * (10000 - BolBundleMinStepBasisPoints) / 10000)
-}
-
-func isBundleStep(prev, next int64) bool {
-	return next*10000 <= prev*(10000-BolBundleMinStepBasisPoints)
+	return RoundDownToPriceEnding(prev - 1)
 }
 
 func bp(basisPoints int64) float64 { return float64(basisPoints) / 10000 }

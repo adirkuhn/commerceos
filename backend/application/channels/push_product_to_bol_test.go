@@ -1000,7 +1000,7 @@ func TestPushProductToBol_commissionOverrideIsUsedInsteadOfBolsFee(t *testing.T)
 
 func TestPushProductToBol_invalidBulkPrices_failWithoutCallingBolAndShowInSyncHistory(t *testing.T) {
 	h := bolPricingHarness(t)
-	custom, tier := int64(3000), int64(2900)
+	custom, tier := int64(3000), int64(3000)
 	h.overrideRepo.override = &channelsDomain.BolProductOverride{
 		ProductID: "prod-1", ConnectionID: "conn-1", CustomPriceMinorUnits: &custom, BundlePricingEnabled: true,
 		BundleTiers: []channelsDomain.BolBundleTier{{Quantity: 2, UnitPriceMinorUnits: &tier}},

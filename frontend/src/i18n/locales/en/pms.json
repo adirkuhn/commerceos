@@ -105,7 +105,7 @@
       "priceEach": "Price each",
       "removeLevel": "Remove level",
       "addLevel": "Add level",
-      "levelsHint": "Empty price: automatic. Each level must be at least 5% cheaper than the one before.",
+      "levelsHint": "Empty price: automatic. Each level must be cheaper than the one before. Bol allows up to 3 levels, from at most 24 units.",
       "calculating": "Calculating Bol prices…",
       "previewFailed": "Couldn’t calculate the Bol prices.",
       "colQuantity": "Units",

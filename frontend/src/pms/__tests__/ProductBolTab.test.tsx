@@ -179,7 +179,7 @@ describe('ProductBolTab', () => {
         bundlePricingEnabled: true,
         bundleTiers: [
           { quantity: 2, unit_price_minor_units: 1800 }, { quantity: 4, unit_price_minor_units: null },
-          { quantity: 6, unit_price_minor_units: null }, { quantity: 8, unit_price_minor_units: null },
+          { quantity: 6, unit_price_minor_units: null },
         ],
       }),
     ))

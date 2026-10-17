@@ -60,12 +60,12 @@ describe('BolPricingSection', () => {
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ customPrice: '30' }))
   })
 
-  it('switching bulk discount on shows the 2/4/6/8 levels to customise', async () => {
+  it('switching bulk discount on shows the 2/4/6 levels to customise', async () => {
     render(<Harness initial={emptyBolPricingForm()} state={ready} />)
     await userEvent.click(screen.getByLabelText('Bulk discount'))
 
     const quantities = screen.getAllByLabelText(/^From units/)
-    expect(quantities.map(i => (i as HTMLInputElement).value)).toEqual(['2', '4', '6', '8'])
+    expect(quantities.map(i => (i as HTMLInputElement).value)).toEqual(['2', '4', '6'])
     expect(screen.getAllByLabelText(/^Price each/)[0]).toHaveAttribute('placeholder', '35.49')
   })
 
@@ -80,13 +80,16 @@ describe('BolPricingSection', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add level' }))
     expect(screen.getAllByLabelText(/^From units/)).toHaveLength(3)
 
+    expect(screen.queryByRole('button', { name: 'Add level' }), 'Bol allows 3 bulk levels').not.toBeInTheDocument()
+
     await userEvent.click(screen.getAllByRole('button', { name: 'Remove level' })[0])
     expect(screen.getAllByLabelText(/^From units/).map(i => (i as HTMLInputElement).value)).toEqual(['4', '6'])
+    expect(screen.getByRole('button', { name: 'Add level' })).toBeInTheDocument()
   })
 
   it('shows the server error instead of prices', () => {
-    render(<Harness initial={emptyBolPricingForm()} state={{ preview: null, loading: false, error: 'Each Bol bulk price must be at least 5% below the price before it.' }} />)
-    expect(screen.getByText('Each Bol bulk price must be at least 5% below the price before it.')).toBeInTheDocument()
+    render(<Harness initial={emptyBolPricingForm()} state={{ preview: null, loading: false, error: 'Each Bol bulk price must be lower than the price before it.' }} />)
+    expect(screen.getByText('Each Bol bulk price must be lower than the price before it.')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 })

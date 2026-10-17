@@ -2030,6 +2030,7 @@ components:
           description: Whether the bulk prices in bundle_tiers are sent to Bol.
         bundle_tiers:
           type: array
+          maxItems: 3
           items: { $ref: '#/components/schemas/BolBundleTier' }
 
     BolBundleTier:
@@ -2039,14 +2040,15 @@ components:
         quantity:
           type: integer
           minimum: 2
-          description: From this many units on, each unit costs the tier's price. Quantities increase from tier to tier.
+          maximum: 24
+          description: From this many units on, each unit costs the tier's price. Quantities increase from tier to tier; Bol's maximum is 24.
         unit_price_minor_units:
           type: integer
           format: int64
           nullable: true
           minimum: 100
           maximum: 999900
-          description: Unit price incl. VAT in minor units; null = automatic (break-even with this many units sharing one parcel, at least 5% below the tier before).
+          description: Unit price incl. VAT in minor units; null = automatic (break-even with this many units sharing one parcel, always lower than the tier before). Each price must be lower than the tier before.
 
     BolProductOverrideResponse:
       type: object
@@ -2069,11 +2071,12 @@ components:
         name_override: { type: string, nullable: true, description: "Bol-only product title override -- falls back to the product's real name when unset." }
         bundle_pricing_enabled:
           type: boolean
-          description: Switch Bol bulk prices on. On with no bundle_tiers starts with automatic 2/4/6/8 tiers.
+          description: Switch Bol bulk prices on. On with no bundle_tiers starts with automatic 2/4/6 tiers.
         bundle_tiers:
           type: array
+          maxItems: 3
           items: { $ref: '#/components/schemas/BolBundleTier' }
-          description: Kept while bundle_pricing_enabled is off. Invalid tiers are rejected with 422 BOL_BUNDLE_TIERS_INVALID.
+          description: At most 3 tiers (Bol allows 4 bundle prices including quantity 1). Kept while bundle_pricing_enabled is off. Invalid tiers are rejected with 422 BOL_BUNDLE_TIERS_INVALID.
 
     BolProductContent:
       type: object
@@ -2201,6 +2204,7 @@ components:
         bundle_pricing_enabled: { type: boolean }
         bundle_tiers:
           type: array
+          maxItems: 3
           items: { $ref: '#/components/schemas/BolBundleTier' }
         commission_override_basis_points: { type: integer, nullable: true }
 

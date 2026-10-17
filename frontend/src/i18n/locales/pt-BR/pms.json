@@ -105,7 +105,7 @@
       "priceEach": "Preço cada",
       "removeLevel": "Remover nível",
       "addLevel": "Adicionar nível",
-      "levelsHint": "Preço vazio: automático. Cada nível precisa ser pelo menos 5% mais barato que o anterior.",
+      "levelsHint": "Preço vazio: automático. Cada nível precisa ser mais barato que o anterior. O Bol permite até 3 níveis, a partir de no máximo 24 unidades.",
       "calculating": "Calculando preços do Bol…",
       "previewFailed": "Não foi possível calcular os preços do Bol.",
       "colQuantity": "Unidades",
