@@ -97,7 +97,7 @@ export function SupplierIssuesSection({ purchaseOrderId, orderDate, hasCompleted
   const nothingChosen = chosen.length === 0
 
   return (
-    <div className="rounded-xl border border-line overflow-hidden">
+    <div className="relative rounded-xl border border-line overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 dark:bg-night-900/50 bg-gray-50 border-b border-line">
         <div className="min-w-0">
           <h3 className="text-xs font-semibold text-ink">{t('supplierIssues.title')}</h3>

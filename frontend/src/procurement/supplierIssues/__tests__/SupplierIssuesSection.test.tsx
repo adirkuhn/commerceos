@@ -61,6 +61,16 @@ describe('SupplierIssuesSection', () => {
     expect(screen.getByRole('row', { name: /Farofa/ })).toBeTruthy()
   })
 
+  // The hidden table header is position:absolute; without a positioned
+  // section it escapes the page's scroll area and stretches the whole page
+  // with empty space.
+  it('keeps its visually hidden table header inside the section', async () => {
+    const { container } = renderSection()
+    await screen.findByRole('row', { name: /Pao de queijo 1kg/ })
+
+    expect((container.firstElementChild as HTMLElement).className).toMatch(/\brelative\b/)
+  })
+
   it('says when there is nothing to claim', async () => {
     vi.mocked(api.listSupplierIssues).mockResolvedValue(listOf([]))
     renderSection()

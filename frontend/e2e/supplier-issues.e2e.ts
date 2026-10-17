@@ -51,6 +51,8 @@ test('supplier issues: list a delivery’s missing and damaged items, note one, 
     await expect(missing).toContainText('ordered 10, received 6')
     await expect(missing).toContainText('4')
     await expect(damaged).toContainText('arrived crushed')
+    // The section's hidden table header must not stretch the page with empty space.
+    expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true)
 
     await damaged.getByRole('button', { name: 'Add note' }).click()
     await damaged.getByRole('textbox').fill('photo sent')
