@@ -86,6 +86,18 @@ var (
 	// check digit (see pms.ToGTIN13). Caught before calling Bol, which would
 	// only answer a bare 400.
 	ErrBolInvalidEAN = errs.New("BOL_INVALID_EAN", "product's barcode/EAN is not a valid 13-digit EAN (a 12-digit UPC is accepted), required by Bol")
+	// ErrBolInvalidBundleTiers guards saving a product's Bol bulk prices
+	// (see ValidateBolBundleTiers); the detail names the tier.
+	ErrBolInvalidBundleTiers = errs.NewWithCause("BOL_BUNDLE_TIERS_INVALID", "Bol bulk prices need quantities from 2 up in increasing order, prices between 1.00 and 9999.00, each at least 5% below the tier before")
+	// ErrBolBundlePriceStep: a resolved Bol price level is not at least 5%
+	// below the level before it (see ResolveBolPrices).
+	ErrBolBundlePriceStep = errs.NewWithCause("BOL_BUNDLE_PRICE_STEP", "each Bol bulk price must be at least 5% below the price before it")
+	// ErrBolPriceOutOfRange: a resolved Bol unit price is outside Bol's
+	// 1.00-9999.00 limits.
+	ErrBolPriceOutOfRange = errs.NewWithCause("BOL_PRICE_OUT_OF_RANGE", "Bol prices must be between 1.00 and 9999.00")
+	// ErrBolFeeTooHigh: with this fee percentage no price leaves the
+	// regular price (see BolBreakEvenPrice).
+	ErrBolFeeTooHigh = errs.New("BOL_FEE_TOO_HIGH", "Bol's fee is too high to reach the regular price at any price")
 	// ErrBolCommissionRequestFailed wraps a live call to Bol's Commissions
 	// API that failed (network error, non-2xx, auth failure) -- mapped to
 	// 502 UPSTREAM_ERROR, same treatment as
