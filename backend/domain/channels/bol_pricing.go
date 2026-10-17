@@ -125,6 +125,10 @@ type BolUnitEconomics struct {
 	// RegularNetMinorUnits is what the webshop leaves (regular price minus
 	// its VAT) -- the target.
 	RegularNetMinorUnits int64
+	// TotalPriceMinorUnits / TotalNetMinorUnits are for all Quantity units:
+	// what the customer pays and what is left in total.
+	TotalPriceMinorUnits int64
+	TotalNetMinorUnits   int64
 }
 
 func BolUnitEconomicsAt(in BolPriceInputs, fee BolFee, qty int, price int64) BolUnitEconomics {
@@ -133,14 +137,17 @@ func BolUnitEconomicsAt(in BolPriceInputs, fee BolFee, qty int, price int64) Bol
 	vat := p - p/v
 	feeInclVAT := (float64(fee.FixedMinorUnits) + p*bp(fee.PercentBasisPoints)) * (1 + bp(BolFeeVATBasisPoints))
 	shipping := float64(in.ShippingMinorUnits) / float64(qty)
+	net := p - vat - feeInclVAT - shipping
 	return BolUnitEconomics{
 		Quantity:                qty,
 		UnitPriceMinorUnits:     price,
 		ProductVATMinorUnits:    round(vat),
 		BolFeeInclVATMinorUnits: round(feeInclVAT),
 		ShippingShareMinorUnits: round(shipping),
-		NetMinorUnits:           round(p - vat - feeInclVAT - shipping),
+		NetMinorUnits:           round(net),
 		RegularNetMinorUnits:    round(float64(in.RegularPriceMinorUnits) / v),
+		TotalPriceMinorUnits:    price * int64(qty),
+		TotalNetMinorUnits:      round(net * float64(qty)),
 	}
 }
 

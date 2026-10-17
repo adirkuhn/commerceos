@@ -64,6 +64,8 @@ func TestPreviewBolPricing_savedSettings(t *testing.T) {
 	assert.Equal(t, int64(3549), res.Levels[1].UnitPriceMinorUnits)
 	require.NotNil(t, res.Levels[0].ProfitMinorUnits)
 	assert.Equal(t, res.Levels[0].Economics.NetMinorUnits-1200, *res.Levels[0].ProfitMinorUnits, "what is left minus the cost price")
+	require.NotNil(t, res.Levels[1].TotalProfitMinorUnits)
+	assert.Equal(t, res.Levels[1].Economics.TotalNetMinorUnits-2*1200, *res.Levels[1].TotalProfitMinorUnits, "the level's 2 units minus 2 cost prices")
 }
 
 func TestPreviewBolPricing_draftReplacesTheSavedSettings(t *testing.T) {
@@ -90,6 +92,7 @@ func TestPreviewBolPricing_noCostPriceMeansNoProfit(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Nil(t, res.Levels[0].ProfitMinorUnits)
+	assert.Nil(t, res.Levels[0].TotalProfitMinorUnits)
 }
 
 func TestPreviewBolPricing_invalidDraftTiers(t *testing.T) {

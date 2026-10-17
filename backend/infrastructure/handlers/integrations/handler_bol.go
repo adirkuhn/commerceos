@@ -248,6 +248,7 @@ func toGenBolPricingPreview(p appchannels.BolPricingPreview) genintegrations.Bol
 			ProductVatMinorUnits: e.ProductVATMinorUnits, BolFeeInclVatMinorUnits: e.BolFeeInclVATMinorUnits,
 			ShippingShareMinorUnits: e.ShippingShareMinorUnits, NetMinorUnits: e.NetMinorUnits,
 			RegularNetMinorUnits: e.RegularNetMinorUnits, BelowRegular: l.BelowRegular(), ProfitMinorUnits: l.ProfitMinorUnits,
+			TotalPriceMinorUnits: e.TotalPriceMinorUnits, TotalNetMinorUnits: e.TotalNetMinorUnits, TotalProfitMinorUnits: l.TotalProfitMinorUnits,
 		}
 	}
 	return genintegrations.BolPricingPreview{

@@ -130,13 +130,17 @@ function PriceLevelsTable({ levels }: { levels: BolPricingLevel[] }) {
   const headers = [
     t('bol.pricing.colQuantity'), t('bol.pricing.colPrice'), t('bol.pricing.colVat'), t('bol.pricing.colFee'),
     t('bol.pricing.colShipping'), t('bol.pricing.colYouReceive'), t('bol.pricing.colShop'), t('bol.pricing.colProfit'),
+    t('bol.pricing.colCustomerPays'), t('bol.pricing.colTotalReceive'), t('bol.pricing.colTotalProfit'),
   ]
+  const totalsFrom = headers.length - 3
   return (
     <div className="overflow-x-auto rounded-lg bg-sunken">
       <table className="w-full text-2xs tabular-nums">
         <thead>
           <tr className="text-ink-4 text-left">
-            {headers.map(h => <th key={h} className="px-2 py-1.5 font-medium whitespace-nowrap">{h}</th>)}
+            {headers.map((h, i) => (
+              <th key={h} className={clsx('px-2 py-1.5 font-medium whitespace-nowrap', i === totalsFrom && 'border-l border-line')}>{h}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -156,6 +160,9 @@ function PriceLevelsTable({ levels }: { levels: BolPricingLevel[] }) {
               </td>
               <td className="px-2 py-1.5">{money(l.regular_net_minor_units)}</td>
               <td className="px-2 py-1.5">{l.profit_minor_units != null ? money(l.profit_minor_units) : '–'}</td>
+              <td className="px-2 py-1.5 border-l border-line">{money(l.total_price_minor_units)}</td>
+              <td className={clsx('px-2 py-1.5 font-semibold', l.below_regular ? 'text-warning' : 'text-success')}>{money(l.total_net_minor_units)}</td>
+              <td className="px-2 py-1.5">{l.total_profit_minor_units != null ? money(l.total_profit_minor_units) : '–'}</td>
             </tr>
           ))}
         </tbody>

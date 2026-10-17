@@ -12,7 +12,8 @@ function level(quantity: number, price: number, extra: Partial<BolPricingLevel> 
   return {
     quantity, unit_price_minor_units: price, auto: true, fee_fixed_minor_units: 30, fee_percent_basis_points: 1500,
     product_vat_minor_units: 318, bol_fee_incl_vat_minor_units: 735, shipping_share_minor_units: 495,
-    net_minor_units: 2301, regular_net_minor_units: 2294, below_regular: false, profit_minor_units: 1101, ...extra,
+    net_minor_units: 2301, regular_net_minor_units: 2294, below_regular: false, profit_minor_units: 1101,
+    total_price_minor_units: quantity * price, total_net_minor_units: 2301 * quantity, total_profit_minor_units: 1101 * quantity, ...extra,
   }
 }
 
@@ -35,10 +36,19 @@ describe('BolPricingSection', () => {
     expect(screen.getByLabelText('Bol price')).toHaveAttribute('placeholder', '38.49')
     const rows = screen.getAllByRole('row').slice(1)
     expect(rows).toHaveLength(3)
-    expect(within(rows[0]).getByText('38.49')).toBeInTheDocument()
-    expect(within(rows[0]).getByText('7.35')).toBeInTheDocument()
-    expect(within(rows[0]).getByText('23.01')).toBeInTheDocument()
-    expect(within(rows[0]).getByText('11.01')).toBeInTheDocument()
+    const cells = within(rows[0]).getAllByRole('cell').map(c => c.textContent)
+    expect(cells.slice(0, 8)).toEqual(['1', '38.49auto', '3.18', '7.35', '4.95', '23.01', '22.94', '11.01'])
+  })
+
+  it('shows each level’s totals for its quantity: what the customer pays, what you receive, the profit', () => {
+    render(<Harness initial={emptyBolPricingForm()} state={ready} />)
+    const headers = screen.getAllByRole('columnheader').map(h => h.textContent)
+    expect(headers.slice(-3)).toEqual(['Customer pays', 'You receive (total)', 'Profit (total)'])
+
+    const row = screen.getAllByRole('row')[2]
+    expect(within(row).getByText('70.98')).toBeInTheDocument()
+    expect(within(row).getByText('46.02')).toBeInTheDocument()
+    expect(within(row).getByText('22.02')).toBeInTheDocument()
   })
 
   it('flags a level that leaves less than the shop', () => {

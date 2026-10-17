@@ -3301,9 +3301,9 @@ func TestPreviewBolPricingHandler_returnsLevels(t *testing.T) {
 		Levels: []appchannels.BolPricingLevel{{
 			BolResolvedPrice: channelsDomain.BolResolvedPrice{
 				Quantity: 1, UnitPriceMinorUnits: 3849, Auto: true, Fee: channelsDomain.BolFee{FixedMinorUnits: 30, PercentBasisPoints: 1500},
-				Economics: channelsDomain.BolUnitEconomics{Quantity: 1, UnitPriceMinorUnits: 3849, ProductVATMinorUnits: 318, BolFeeInclVATMinorUnits: 735, ShippingShareMinorUnits: 495, NetMinorUnits: 2301, RegularNetMinorUnits: 2294},
+				Economics: channelsDomain.BolUnitEconomics{Quantity: 1, UnitPriceMinorUnits: 3849, ProductVATMinorUnits: 318, BolFeeInclVATMinorUnits: 735, ShippingShareMinorUnits: 495, NetMinorUnits: 2301, RegularNetMinorUnits: 2294, TotalPriceMinorUnits: 3849, TotalNetMinorUnits: 2301},
 			},
-			ProfitMinorUnits: &profit,
+			ProfitMinorUnits: &profit, TotalProfitMinorUnits: &profit,
 		}},
 	}}
 	r := gin.New()
@@ -3317,7 +3317,8 @@ func TestPreviewBolPricingHandler_returnsLevels(t *testing.T) {
 	body := w.Body.String()
 	for _, want := range []string{`"unit_price_minor_units":3849`, `"auto":true`, `"fee_fixed_minor_units":30`, `"fee_percent_basis_points":1500`,
 		`"bol_fee_incl_vat_minor_units":735`, `"net_minor_units":2301`, `"regular_net_minor_units":2294`, `"below_regular":false`, `"profit_minor_units":1101`,
-		`"product_vat_basis_points":900`, `"shipping_minor_units":495`} {
+		`"product_vat_basis_points":900`, `"shipping_minor_units":495`,
+		`"total_price_minor_units":3849`, `"total_net_minor_units":2301`, `"total_profit_minor_units":1101`} {
 		assert.Contains(t, body, want)
 	}
 }

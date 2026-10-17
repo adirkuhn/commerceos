@@ -117,7 +117,10 @@
       "colShop": "Na loja",
       "colProfit": "Lucro",
       "auto": "auto",
-      "belowShop": "Menos que na loja"
+      "belowShop": "Menos que na loja",
+      "colCustomerPays": "Cliente paga",
+      "colTotalReceive": "Você recebe (total)",
+      "colTotalProfit": "Lucro (total)"
     }
   },
   "bolField": {

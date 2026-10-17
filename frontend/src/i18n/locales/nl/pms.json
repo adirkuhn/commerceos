@@ -117,7 +117,10 @@
       "colShop": "Winkel levert",
       "colProfit": "Winst",
       "auto": "auto",
-      "belowShop": "Minder dan de winkel"
+      "belowShop": "Minder dan de winkel",
+      "colCustomerPays": "Klant betaalt",
+      "colTotalReceive": "Je ontvangt (totaal)",
+      "colTotalProfit": "Winst (totaal)"
     }
   },
   "bolField": {

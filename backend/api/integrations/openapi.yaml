@@ -2223,7 +2223,7 @@ components:
 
     BolPricingLevel:
       type: object
-      required: [quantity, unit_price_minor_units, auto, fee_fixed_minor_units, fee_percent_basis_points, product_vat_minor_units, bol_fee_incl_vat_minor_units, shipping_share_minor_units, net_minor_units, regular_net_minor_units, below_regular]
+      required: [quantity, unit_price_minor_units, auto, fee_fixed_minor_units, fee_percent_basis_points, product_vat_minor_units, bol_fee_incl_vat_minor_units, shipping_share_minor_units, net_minor_units, regular_net_minor_units, below_regular, total_price_minor_units, total_net_minor_units]
       properties:
         quantity: { type: integer, description: 1 for the offer price, else a bulk tier. }
         unit_price_minor_units: { type: integer, format: int64 }
@@ -2237,6 +2237,9 @@ components:
         regular_net_minor_units: { type: integer, format: int64, description: What one unit leaves in the webshop (regular price minus VAT) -- the target. }
         below_regular: { type: boolean, description: net_minor_units is below regular_net_minor_units. }
         profit_minor_units: { type: integer, format: int64, nullable: true, description: net_minor_units minus the cost price; null without a cost price. }
+        total_price_minor_units: { type: integer, format: int64, description: What the customer pays for this level's quantity (quantity × unit price). }
+        total_net_minor_units: { type: integer, format: int64, description: What all of this level's units leave together after VAT, Bol's fee and one parcel's shipping. }
+        total_profit_minor_units: { type: integer, format: int64, nullable: true, description: total_net_minor_units minus quantity × cost price; null without a cost price. }
 
     BolPricingPreviewResponse:
       type: object

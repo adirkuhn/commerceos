@@ -94,6 +94,10 @@ export interface BolPricingLevel {
   regular_net_minor_units: number
   below_regular: boolean
   profit_minor_units?: number | null
+  // For all of the level's units (its minimum quantity) in one parcel.
+  total_price_minor_units: number
+  total_net_minor_units: number
+  total_profit_minor_units?: number | null
 }
 
 export interface BolPricingPreview {

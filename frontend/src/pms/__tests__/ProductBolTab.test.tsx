@@ -46,6 +46,7 @@ const preview: BolPricingPreview = {
     quantity: 1, unit_price_minor_units: 3149, auto: true, fee_fixed_minor_units: 30, fee_percent_basis_points: 1500,
     product_vat_minor_units: 260, bol_fee_incl_vat_minor_units: 608, shipping_share_minor_units: 495,
     net_minor_units: 1836, regular_net_minor_units: 1834, below_regular: false, profit_minor_units: 1036,
+    total_price_minor_units: 3149, total_net_minor_units: 1836, total_profit_minor_units: 1036,
   }],
 }
 
@@ -68,7 +69,7 @@ describe('ProductBolTab', () => {
   it('shows the Bol prices the backend calculated', async () => {
     await renderLoaded()
 
-    expect(await screen.findByText('31.49')).toBeInTheDocument()
+    expect((await screen.findAllByText('31.49')).length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Bol price')).toHaveAttribute('placeholder', '31.49')
     expect(integrationsApi.previewBolPricing).toHaveBeenCalledWith('test-token', 'conn-1', 'prod-1', 'sku-1', {
       custom_price_minor_units: null, commission_override_basis_points: null, bundle_pricing_enabled: false, bundle_tiers: [],

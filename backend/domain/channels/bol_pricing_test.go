@@ -64,6 +64,18 @@ func TestBolUnitEconomicsAt(t *testing.T) {
 	assert.Equal(t, int64(495), e.ShippingShareMinorUnits)
 	assert.Equal(t, int64(2301), e.NetMinorUnits)
 	assert.Equal(t, int64(2294), e.RegularNetMinorUnits) // 25.00 × 100/109
+	assert.Equal(t, int64(3849), e.TotalPriceMinorUnits)
+	assert.Equal(t, int64(2301), e.TotalNetMinorUnits)
+}
+
+// A bulk level's totals are for its minimum quantity in one parcel.
+func TestBolUnitEconomicsAt_totalsForTheLevelsQuantity(t *testing.T) {
+	in := BolPriceInputs{RegularPriceMinorUnits: 2500, ProductVATBasisPoints: 900, ShippingMinorUnits: 495}
+	e := BolUnitEconomicsAt(in, BolFee{FixedMinorUnits: 30, PercentBasisPoints: 1500}, 6, 3299)
+
+	assert.Equal(t, int64(2309), e.NetMinorUnits)
+	assert.Equal(t, int64(19794), e.TotalPriceMinorUnits, "6 × 32.99")
+	assert.Equal(t, int64(13854), e.TotalNetMinorUnits, "6 × 23.0904, rounded once")
 }
 
 func constFee(f BolFee) func(int64) (BolFee, error) {

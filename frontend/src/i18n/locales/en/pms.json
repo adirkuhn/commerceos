@@ -117,7 +117,10 @@
       "colShop": "Shop gives",
       "colProfit": "Profit",
       "auto": "auto",
-      "belowShop": "Less than the shop"
+      "belowShop": "Less than the shop",
+      "colCustomerPays": "Customer pays",
+      "colTotalReceive": "You receive (total)",
+      "colTotalProfit": "Profit (total)"
     }
   },
   "bolField": {

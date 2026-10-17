@@ -35,6 +35,8 @@ type BolPricingLevel struct {
 	// ProfitMinorUnits is what one unit leaves minus its cost price; nil
 	// when the SKU has no cost price yet.
 	ProfitMinorUnits *int64
+	// TotalProfitMinorUnits is the same for all of the level's units.
+	TotalProfitMinorUnits *int64
 }
 
 type BolPricingPreview struct {
@@ -139,7 +141,8 @@ func (uc *PreviewBolPricingUseCase) Execute(ctx context.Context, in PreviewBolPr
 		levels[i] = BolPricingLevel{BolResolvedPrice: r}
 		if sku.CostPriceMinorUnits != nil {
 			profit := r.Economics.NetMinorUnits - *sku.CostPriceMinorUnits
-			levels[i].ProfitMinorUnits = &profit
+			total := r.Economics.TotalNetMinorUnits - *sku.CostPriceMinorUnits*int64(r.Quantity)
+			levels[i].ProfitMinorUnits, levels[i].TotalProfitMinorUnits = &profit, &total
 		}
 	}
 	return &BolPricingPreview{
