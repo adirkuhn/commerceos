@@ -48,6 +48,9 @@ var (
 	// checked against ValidBolDeliveryCodes so a typo is caught at save
 	// time instead of surfacing as an opaque Bol 400 on the next push.
 	ErrInvalidBolDeliveryCode = errs.New("BOL_INVALID_DELIVERY_CODE", "invalid bol delivery code")
+	// ErrInvalidBolShippingCost guards UpdateConnectionSettingsUseCase: the
+	// per-parcel shipping cost can't be negative.
+	ErrInvalidBolShippingCost = errs.New("BOL_INVALID_SHIPPING_COST", "bol shipping cost can't be negative")
 	// ErrBolEconomicOperatorsRequestFailed wraps a live call to Bol's
 	// Economic Operator API -- handlers map it to 502, not 500. Commonly a
 	// 403 because the connection's app registration lacks the

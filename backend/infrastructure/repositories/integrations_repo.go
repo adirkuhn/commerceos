@@ -13,20 +13,21 @@ import (
 )
 
 type integrationConnectionModel struct {
-	ID                      string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID                string  `gorm:"not null;type:uuid"`
-	Provider                string  `gorm:"not null"`
-	StoreURL                string  `gorm:"not null"`
-	ConsumerKey             string  `gorm:"not null"`
-	ConsumerSecretEncrypted string  `gorm:"not null"`
-	WebhookSecretEncrypted  string  `gorm:"not null"`
-	Status                  string  `gorm:"not null"`
-	DefaultCurrency         string  `gorm:"not null"`
-	DefaultWarehouseID      *string `gorm:"type:uuid"`
-	BolEconomicOperatorID   *string
-	BolDeliveryCode         *string
-	SMTPPort                *string
-	EmailFrom               *string
+	ID                        string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID                  string  `gorm:"not null;type:uuid"`
+	Provider                  string  `gorm:"not null"`
+	StoreURL                  string  `gorm:"not null"`
+	ConsumerKey               string  `gorm:"not null"`
+	ConsumerSecretEncrypted   string  `gorm:"not null"`
+	WebhookSecretEncrypted    string  `gorm:"not null"`
+	Status                    string  `gorm:"not null"`
+	DefaultCurrency           string  `gorm:"not null"`
+	DefaultWarehouseID        *string `gorm:"type:uuid"`
+	BolEconomicOperatorID     *string
+	BolDeliveryCode           *string
+	BolShippingCostMinorUnits int64 `gorm:"not null"`
+	SMTPPort                  *string
+	EmailFrom                 *string
 	// Explicit column names: GORM's default snake_case conversion splits
 	// "WhatsApp" into "whats_app" (not a recognized single word/acronym to
 	// it), which doesn't match what migration 172 actually created --
@@ -59,24 +60,25 @@ func (r *ConnectionRepo) Create(ctx context.Context, c *integrationsDomain.Conne
 		return err
 	}
 	m := integrationConnectionModel{
-		TenantID:                 c.TenantID,
-		Provider:                 string(c.Provider),
-		StoreURL:                 c.StoreURL.String(),
-		ConsumerKey:              c.ConsumerKey,
-		ConsumerSecretEncrypted:  c.ConsumerSecretEncrypted,
-		WebhookSecretEncrypted:   c.WebhookSecretEncrypted,
-		Status:                   string(c.Status),
-		DefaultCurrency:          c.DefaultCurrency,
-		DefaultWarehouseID:       c.DefaultWarehouseID,
-		BolEconomicOperatorID:    c.BolEconomicOperatorID,
-		BolDeliveryCode:          c.BolDeliveryCode,
-		SMTPPort:                 c.SMTPPort,
-		EmailFrom:                c.EmailFrom,
-		WhatsAppTestModeEnabled:  c.WhatsAppTestModeEnabled,
-		WhatsAppTestPhoneE164:    c.WhatsAppTestPhoneE164,
-		WhatsAppAIParsingEnabled: c.WhatsAppAIParsingEnabled,
-		CreatedAt:                c.CreatedAt,
-		UpdatedAt:                c.UpdatedAt,
+		TenantID:                  c.TenantID,
+		Provider:                  string(c.Provider),
+		StoreURL:                  c.StoreURL.String(),
+		ConsumerKey:               c.ConsumerKey,
+		ConsumerSecretEncrypted:   c.ConsumerSecretEncrypted,
+		WebhookSecretEncrypted:    c.WebhookSecretEncrypted,
+		Status:                    string(c.Status),
+		DefaultCurrency:           c.DefaultCurrency,
+		DefaultWarehouseID:        c.DefaultWarehouseID,
+		BolEconomicOperatorID:     c.BolEconomicOperatorID,
+		BolDeliveryCode:           c.BolDeliveryCode,
+		BolShippingCostMinorUnits: c.BolShippingCostMinorUnits,
+		SMTPPort:                  c.SMTPPort,
+		EmailFrom:                 c.EmailFrom,
+		WhatsAppTestModeEnabled:   c.WhatsAppTestModeEnabled,
+		WhatsAppTestPhoneE164:     c.WhatsAppTestPhoneE164,
+		WhatsAppAIParsingEnabled:  c.WhatsAppAIParsingEnabled,
+		CreatedAt:                 c.CreatedAt,
+		UpdatedAt:                 c.UpdatedAt,
 	}
 	if err := tx.Create(&m).Error; err != nil {
 		return fmt.Errorf("connectionRepo.Create: %w", err)
@@ -123,19 +125,20 @@ func (r *ConnectionRepo) Update(ctx context.Context, c *integrationsDomain.Conne
 	}
 	if err := tx.Model(&integrationConnectionModel{}).Where("id = ?", c.ID).
 		Updates(map[string]any{
-			"status":                      string(c.Status),
-			"default_currency":            c.DefaultCurrency,
-			"default_warehouse_id":        c.DefaultWarehouseID,
-			"store_url":                   c.StoreURL.String(),
-			"consumer_key":                c.ConsumerKey,
-			"consumer_secret_encrypted":   c.ConsumerSecretEncrypted,
-			"webhook_secret_encrypted":    c.WebhookSecretEncrypted,
-			"bol_economic_operator_id":    c.BolEconomicOperatorID,
-			"bol_delivery_code":           c.BolDeliveryCode,
-			"whatsapp_test_mode_enabled":  c.WhatsAppTestModeEnabled,
-			"whatsapp_test_phone_e164":    c.WhatsAppTestPhoneE164,
-			"whatsapp_ai_parsing_enabled": c.WhatsAppAIParsingEnabled,
-			"updated_at":                  c.UpdatedAt,
+			"status":                        string(c.Status),
+			"default_currency":              c.DefaultCurrency,
+			"default_warehouse_id":          c.DefaultWarehouseID,
+			"store_url":                     c.StoreURL.String(),
+			"consumer_key":                  c.ConsumerKey,
+			"consumer_secret_encrypted":     c.ConsumerSecretEncrypted,
+			"webhook_secret_encrypted":      c.WebhookSecretEncrypted,
+			"bol_economic_operator_id":      c.BolEconomicOperatorID,
+			"bol_delivery_code":             c.BolDeliveryCode,
+			"bol_shipping_cost_minor_units": c.BolShippingCostMinorUnits,
+			"whatsapp_test_mode_enabled":    c.WhatsAppTestModeEnabled,
+			"whatsapp_test_phone_e164":      c.WhatsAppTestPhoneE164,
+			"whatsapp_ai_parsing_enabled":   c.WhatsAppAIParsingEnabled,
+			"updated_at":                    c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("connectionRepo.Update: %w", err)
 	}
@@ -155,24 +158,25 @@ func (r *ConnectionRepo) Delete(ctx context.Context, id string) error {
 
 func toConnectionDomain(m integrationConnectionModel) *integrationsDomain.Connection {
 	return &integrationsDomain.Connection{
-		ID:                       m.ID,
-		TenantID:                 m.TenantID,
-		Provider:                 integrationsDomain.Provider(m.Provider),
-		StoreURL:                 integrationsDomain.StoreURL(m.StoreURL),
-		ConsumerKey:              m.ConsumerKey,
-		ConsumerSecretEncrypted:  m.ConsumerSecretEncrypted,
-		WebhookSecretEncrypted:   m.WebhookSecretEncrypted,
-		Status:                   integrationsDomain.Status(m.Status),
-		DefaultCurrency:          m.DefaultCurrency,
-		DefaultWarehouseID:       m.DefaultWarehouseID,
-		BolEconomicOperatorID:    m.BolEconomicOperatorID,
-		BolDeliveryCode:          m.BolDeliveryCode,
-		SMTPPort:                 m.SMTPPort,
-		EmailFrom:                m.EmailFrom,
-		WhatsAppTestModeEnabled:  m.WhatsAppTestModeEnabled,
-		WhatsAppTestPhoneE164:    m.WhatsAppTestPhoneE164,
-		WhatsAppAIParsingEnabled: m.WhatsAppAIParsingEnabled,
-		CreatedAt:                m.CreatedAt,
-		UpdatedAt:                m.UpdatedAt,
+		ID:                        m.ID,
+		TenantID:                  m.TenantID,
+		Provider:                  integrationsDomain.Provider(m.Provider),
+		StoreURL:                  integrationsDomain.StoreURL(m.StoreURL),
+		ConsumerKey:               m.ConsumerKey,
+		ConsumerSecretEncrypted:   m.ConsumerSecretEncrypted,
+		WebhookSecretEncrypted:    m.WebhookSecretEncrypted,
+		Status:                    integrationsDomain.Status(m.Status),
+		DefaultCurrency:           m.DefaultCurrency,
+		DefaultWarehouseID:        m.DefaultWarehouseID,
+		BolEconomicOperatorID:     m.BolEconomicOperatorID,
+		BolDeliveryCode:           m.BolDeliveryCode,
+		BolShippingCostMinorUnits: m.BolShippingCostMinorUnits,
+		SMTPPort:                  m.SMTPPort,
+		EmailFrom:                 m.EmailFrom,
+		WhatsAppTestModeEnabled:   m.WhatsAppTestModeEnabled,
+		WhatsAppTestPhoneE164:     m.WhatsAppTestPhoneE164,
+		WhatsAppAIParsingEnabled:  m.WhatsAppAIParsingEnabled,
+		CreatedAt:                 m.CreatedAt,
+		UpdatedAt:                 m.UpdatedAt,
 	}
 }

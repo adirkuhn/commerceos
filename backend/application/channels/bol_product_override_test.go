@@ -121,3 +121,58 @@ func TestUpsertBolProductOverride_defaultsConditionAndFulfilmentWhenEmpty(t *tes
 	assert.Equal(t, channelsDomain.BolConditionNew, result.ConditionCategory)
 	assert.Equal(t, channelsDomain.BolFulfilmentFBR, result.FulfilmentMethod)
 }
+
+func TestUpsertBolProductOverride_enablingBulkPricesWithoutTiersStartsWithTheDefaults(t *testing.T) {
+	repo := &fakeBolOverrideRepo{}
+	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 1), repo, &fakeOutboxRepo{})
+
+	result, err := uc.Execute(context.Background(), appchannels.UpsertBolProductOverrideInput{
+		ProductID: "prod-1", ConnectionID: "conn-1", BundlePricingEnabled: true,
+	})
+
+	require.NoError(t, err)
+	assert.True(t, result.BundlePricingEnabled)
+	assert.Equal(t, channelsDomain.DefaultBolBundleTiers(), result.BundleTiers)
+	assert.Equal(t, channelsDomain.DefaultBolBundleTiers(), repo.upserted[0].BundleTiers)
+}
+
+func TestUpsertBolProductOverride_savesCustomTiers(t *testing.T) {
+	repo := &fakeBolOverrideRepo{}
+	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 1), repo, &fakeOutboxRepo{})
+	price := int64(2500)
+	tiers := []channelsDomain.BolBundleTier{{Quantity: 2, UnitPriceMinorUnits: &price}, {Quantity: 3}}
+
+	result, err := uc.Execute(context.Background(), appchannels.UpsertBolProductOverrideInput{
+		ProductID: "prod-1", ConnectionID: "conn-1", BundlePricingEnabled: true, BundleTiers: tiers,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, tiers, result.BundleTiers)
+}
+
+func TestUpsertBolProductOverride_disabledKeepsTheTiersForLater(t *testing.T) {
+	repo := &fakeBolOverrideRepo{}
+	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 1), repo, &fakeOutboxRepo{})
+	tiers := []channelsDomain.BolBundleTier{{Quantity: 3}}
+
+	result, err := uc.Execute(context.Background(), appchannels.UpsertBolProductOverrideInput{
+		ProductID: "prod-1", ConnectionID: "conn-1", BundlePricingEnabled: false, BundleTiers: tiers,
+	})
+
+	require.NoError(t, err)
+	assert.False(t, result.BundlePricingEnabled)
+	assert.Equal(t, tiers, result.BundleTiers)
+}
+
+func TestUpsertBolProductOverride_rejectsInvalidTiers(t *testing.T) {
+	repo := &fakeBolOverrideRepo{}
+	uc := appchannels.NewUpsertBolProductOverrideUseCase(newMockGormDB(t, 0), repo, &fakeOutboxRepo{})
+
+	_, err := uc.Execute(context.Background(), appchannels.UpsertBolProductOverrideInput{
+		ProductID: "prod-1", ConnectionID: "conn-1", BundlePricingEnabled: true,
+		BundleTiers: []channelsDomain.BolBundleTier{{Quantity: 4}, {Quantity: 2}},
+	})
+
+	assert.ErrorIs(t, err, channelsDomain.ErrBolInvalidBundleTiers)
+	assert.Empty(t, repo.upserted)
+}

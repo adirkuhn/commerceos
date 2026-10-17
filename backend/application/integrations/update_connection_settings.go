@@ -24,6 +24,9 @@ type UpdateConnectionSettingsInput struct {
 	// validated against ValidBolDeliveryCodes when non-empty.
 	BolEconomicOperatorID *string
 	BolDeliveryCode       *string
+	// BolShippingCostMinorUnits is what one parcel costs (>= 0); nil keeps
+	// the current value.
+	BolShippingCostMinorUnits *int64
 }
 
 // UpdateConnectionSettingsUseCase persists connection-level defaults —
@@ -45,6 +48,10 @@ func (uc *UpdateConnectionSettingsUseCase) Execute(ctx context.Context, in Updat
 		if code != "" && !integrationsDomain.ValidBolDeliveryCodes[code] {
 			return nil, fmt.Errorf("updateConnectionSettings: %w: %q", integrationsDomain.ErrInvalidBolDeliveryCode, code)
 		}
+	}
+
+	if in.BolShippingCostMinorUnits != nil && *in.BolShippingCostMinorUnits < 0 {
+		return nil, fmt.Errorf("updateConnectionSettings: %w", integrationsDomain.ErrInvalidBolShippingCost)
 	}
 
 	var conn integrationsDomain.Connection
@@ -77,6 +84,9 @@ func (uc *UpdateConnectionSettingsUseCase) Execute(ctx context.Context, in Updat
 		} else if in.BolDeliveryCode != nil {
 			existing.BolDeliveryCode = nil
 		}
+		if in.BolShippingCostMinorUnits != nil {
+			existing.BolShippingCostMinorUnits = *in.BolShippingCostMinorUnits
+		}
 		existing.UpdatedAt = time.Now()
 		if err := uc.connRepo.Update(ctx, existing); err != nil {
 			return err
@@ -86,7 +96,8 @@ func (uc *UpdateConnectionSettingsUseCase) Execute(ctx context.Context, in Updat
 			Set("default_currency", before.DefaultCurrency, conn.DefaultCurrency).
 			Set("default_warehouse_id", before.DefaultWarehouseID, conn.DefaultWarehouseID).
 			Set("bol_economic_operator_id", before.BolEconomicOperatorID, conn.BolEconomicOperatorID).
-			Set("bol_delivery_code", before.BolDeliveryCode, conn.BolDeliveryCode))
+			Set("bol_delivery_code", before.BolDeliveryCode, conn.BolDeliveryCode).
+			Set("bol_shipping_cost_minor_units", before.BolShippingCostMinorUnits, conn.BolShippingCostMinorUnits))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("updateConnectionSettings: %w", err)

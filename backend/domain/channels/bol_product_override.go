@@ -69,8 +69,14 @@ type BolProductOverride struct {
 	// different name on Bol without touching the product's real name (which
 	// still feeds Woo and everywhere else in CommerceOS).
 	NameOverride *string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	// BundlePricingEnabled turns on Bol bulk prices (BundleTiers) for this
+	// product; while off only the quantity-1 price is sent.
+	BundlePricingEnabled bool
+	// BundleTiers are the bulk price levels -- see BolBundleTier and
+	// ResolveBolPrices.
+	BundleTiers []BolBundleTier
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type BolProductOverrideRepository interface {

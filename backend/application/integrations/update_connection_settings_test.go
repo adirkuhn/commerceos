@@ -239,3 +239,50 @@ func TestUpdateConnectionSettings_propagatesUpdateError(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorContains(t, err, "db down")
 }
+
+func TestUpdateConnectionSettings_setsBolShippingCost(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "conn-1"}
+	outbox := &eventrecordtest.Outbox{}
+	repo := &mocks.ConnectionRepo{
+		FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil },
+		UpdateFn:   func(_ context.Context, _ *integrationsDomain.Connection) error { return nil },
+	}
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo, outbox)
+	cost := int64(495)
+
+	result, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{
+		ID: "conn-1", DefaultCurrency: "EUR", BolShippingCostMinorUnits: &cost,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(495), result.BolShippingCostMinorUnits)
+}
+
+func TestUpdateConnectionSettings_omittedBolShippingCostIsKept(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "conn-1", BolShippingCostMinorUnits: 495}
+	repo := &mocks.ConnectionRepo{
+		FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil },
+		UpdateFn:   func(_ context.Context, _ *integrationsDomain.Connection) error { return nil },
+	}
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{})
+
+	result, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{ID: "conn-1", DefaultCurrency: "EUR"})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(495), result.BolShippingCostMinorUnits)
+}
+
+func TestUpdateConnectionSettings_rejectsNegativeBolShippingCost(t *testing.T) {
+	repo := &mocks.ConnectionRepo{
+		UpdateFn: func(_ context.Context, _ *integrationsDomain.Connection) error {
+			t.Fatal("must not persist a negative shipping cost")
+			return nil
+		},
+	}
+	uc := appintegrations.NewUpdateConnectionSettingsUseCase(newMockGormDBNoTx(t), repo, &eventrecordtest.Outbox{})
+	cost := int64(-1)
+
+	_, err := uc.Execute(context.Background(), appintegrations.UpdateConnectionSettingsInput{ID: "conn-1", DefaultCurrency: "EUR", BolShippingCostMinorUnits: &cost})
+
+	require.ErrorIs(t, err, integrationsDomain.ErrInvalidBolShippingCost)
+}

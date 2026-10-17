@@ -2,6 +2,8 @@ package repositories
 
 import (
 	"context"
+	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -26,8 +28,38 @@ type bolProductOverrideModel struct {
 	ReferenceOverride             *string
 	CustomPriceMinorUnits         *int64
 	NameOverride                  *string
+	BundlePricingEnabled          bool           `gorm:"not null"`
+	BundleTiers                   bolBundleTiers `gorm:"column:bundle_tiers;type:jsonb;not null;default:'[]'"`
 	CreatedAt                     time.Time
 	UpdatedAt                     time.Time
+}
+
+// bolBundleTiers is the JSONB bundle_tiers column, same whole-document
+// convention as salesChannelQuantityBreaks.
+type bolBundleTiers []channelsDomain.BolBundleTier
+
+func (b bolBundleTiers) Value() (driver.Value, error) {
+	if len(b) == 0 {
+		return "[]", nil
+	}
+	out, err := json.Marshal([]channelsDomain.BolBundleTier(b))
+	return string(out), err
+}
+
+func (b *bolBundleTiers) Scan(value any) error {
+	var raw []byte
+	switch v := value.(type) {
+	case nil:
+		*b = nil
+		return nil
+	case []byte:
+		raw = v
+	case string:
+		raw = []byte(v)
+	default:
+		return fmt.Errorf("bolBundleTiers.Scan: unsupported type %T", value)
+	}
+	return json.Unmarshal(raw, (*[]channelsDomain.BolBundleTier)(b))
 }
 
 func (bolProductOverrideModel) TableName() string { return "bol_product_overrides" }
@@ -75,13 +107,15 @@ func (r *BolProductOverrideRepo) Upsert(ctx context.Context, o *channelsDomain.B
 		ConditionCategory: string(o.ConditionCategory), FulfilmentMethod: string(o.FulfilmentMethod),
 		CommissionOverrideBasisPoints: o.CommissionOverrideBasisPoints, ReferenceOverride: o.ReferenceOverride,
 		CustomPriceMinorUnits: o.CustomPriceMinorUnits, NameOverride: o.NameOverride,
+		BundlePricingEnabled: o.BundlePricingEnabled, BundleTiers: bolBundleTiers(o.BundleTiers),
 		CreatedAt: o.CreatedAt, UpdatedAt: o.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "product_id"}, {Name: "connection_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
 			"ean_override", "gpc_code", "condition_category", "fulfilment_method",
-			"commission_override_basis_points", "reference_override", "custom_price_minor_units", "name_override", "updated_at",
+			"commission_override_basis_points", "reference_override", "custom_price_minor_units", "name_override",
+			"bundle_pricing_enabled", "bundle_tiers", "updated_at",
 		}),
 	}).Create(&m).Error
 	if err != nil {
@@ -101,6 +135,8 @@ func toBolProductOverrideDomain(m bolProductOverrideModel) *channelsDomain.BolPr
 		ReferenceOverride:             m.ReferenceOverride,
 		CustomPriceMinorUnits:         m.CustomPriceMinorUnits,
 		NameOverride:                  m.NameOverride,
+		BundlePricingEnabled:          m.BundlePricingEnabled,
+		BundleTiers:                   []channelsDomain.BolBundleTier(m.BundleTiers),
 		CreatedAt:                     m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }

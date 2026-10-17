@@ -119,6 +119,10 @@ type Connection struct {
 	// no BolProductOverride field for this by design (explicit user choice:
 	// one delivery promise per connection is enough for now).
 	BolDeliveryCode *string
+	// BolShippingCostMinorUnits is what one parcel costs the merchant --
+	// automatic Bol prices add it on top of the regular price (see
+	// channels.ResolveBolPrices). 0 = none. Bol connections only.
+	BolShippingCostMinorUnits int64
 	// SMTPPort/EmailFrom are ProviderEmail-only (nil for every other
 	// provider) -- see that constant's doc comment for the full field
 	// mapping (StoreURL/ConsumerKey/ConsumerSecretEncrypted cover host/

@@ -53,6 +53,11 @@ type UpsertBolProductOverrideInput struct {
 	ReferenceOverride             *string
 	CustomPriceMinorUnits         *int64
 	NameOverride                  *string
+	// BundlePricingEnabled turns Bol bulk prices on; switching it on with
+	// no BundleTiers starts with the 2/4/6/8 defaults. Tiers are kept while
+	// it is off.
+	BundlePricingEnabled bool
+	BundleTiers          []channelsDomain.BolBundleTier
 }
 
 type UpsertBolProductOverrideUseCase struct {
@@ -75,6 +80,14 @@ func (uc *UpsertBolProductOverrideUseCase) Execute(ctx context.Context, in Upser
 		fulfilment = channelsDomain.BolFulfilmentFBR
 	}
 
+	tiers := in.BundleTiers
+	if in.BundlePricingEnabled && len(tiers) == 0 {
+		tiers = channelsDomain.DefaultBolBundleTiers()
+	}
+	if err := channelsDomain.ValidateBolBundleTiers(tiers); err != nil {
+		return nil, fmt.Errorf("upsertBolProductOverride: %w", err)
+	}
+
 	override := channelsDomain.BolProductOverride{
 		ProductID: in.ProductID, ConnectionID: in.ConnectionID,
 		EANOverride: in.EANOverride, GPCCode: in.GPCCode,
@@ -83,6 +96,8 @@ func (uc *UpsertBolProductOverrideUseCase) Execute(ctx context.Context, in Upser
 		ReferenceOverride:             in.ReferenceOverride,
 		CustomPriceMinorUnits:         in.CustomPriceMinorUnits,
 		NameOverride:                  in.NameOverride,
+		BundlePricingEnabled:          in.BundlePricingEnabled,
+		BundleTiers:                   tiers,
 	}
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		override.TenantID = tenant.IDFromContext(ctx)
