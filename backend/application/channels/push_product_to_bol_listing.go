@@ -18,6 +18,7 @@ func (uc *PushProductToBolUseCase) pushOne(
 	ctx context.Context, client integrationsDomain.BolClient, product pmsDomain.Product, pu variantPush,
 	override *channelsDomain.BolProductOverride, content *channelsDomain.BolProductContent, existing channelsDomain.ProductChannelListing,
 	connectionID, economicOperatorID, condition, fulfilment, deliveryCode, gpcCode, reference string,
+	priceIn channelsDomain.BolPriceInputs,
 ) (channelsDomain.ProductChannelListing, error) {
 	// fail records this attempt as a failure in Sync History before
 	// returning the error -- without this, a push failure (e.g. Bol
@@ -56,15 +57,17 @@ func (uc *PushProductToBolUseCase) pushOne(
 		}
 	}
 
-	priceMinorUnits := pu.SKU.PriceMinorUnits
-	if override != nil && override.CustomPriceMinorUnits != nil {
-		priceMinorUnits = *override.CustomPriceMinorUnits
+	// Unless the merchant typed a price, each level leaves what the
+	// webshop leaves at the regular price (see channels.ResolveBolPrices).
+	prices, err := resolveBolPrices(ctx, client, ean, priceIn, bolPricingConfigOf(override))
+	if err != nil {
+		return fail(fmt.Errorf("pushProductToBol: price offer: %w", err), nil)
 	}
 
 	offerIn := integrationsDomain.BolOfferInput{
 		EAN: ean, EconomicOperatorID: economicOperatorID, Reference: reference,
 		ConditionCategory: condition, FulfilmentMethod: fulfilment, DeliveryCode: deliveryCode,
-		UnitPrice:   float64(priceMinorUnits) / 100,
+		Prices:      toBolOfferPrices(prices),
 		StockAmount: stockAmount, StockManagedByRetailer: true,
 	}
 

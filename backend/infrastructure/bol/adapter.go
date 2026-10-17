@@ -80,10 +80,18 @@ func toCreateOfferRequest(in integrationsDomain.BolOfferInput) CreateOfferReques
 		EAN: in.EAN, UnknownProductTitle: in.UnknownProductTitle,
 		EconomicOperatorID: in.EconomicOperatorID, Reference: in.Reference,
 		Condition:  Condition{Category: in.ConditionCategory},
-		Pricing:    Pricing{BundlePrices: []BundlePrice{{Quantity: 1, UnitPrice: in.UnitPrice}}},
+		Pricing:    Pricing{BundlePrices: toBundlePrices(in.Prices)},
 		Fulfilment: toFulfilment(in.FulfilmentMethod, in.DeliveryCode),
 		Stock:      stock,
 	}
+}
+
+func toBundlePrices(prices []integrationsDomain.BolPrice) []BundlePrice {
+	out := make([]BundlePrice, len(prices))
+	for i, p := range prices {
+		out[i] = BundlePrice{Quantity: p.Quantity, UnitPrice: p.UnitPrice}
+	}
+	return out
 }
 
 // toPatchOfferRequest mirrors toCreateOfferRequest for PATCH -- no
@@ -97,7 +105,7 @@ func toPatchOfferRequest(in integrationsDomain.BolOfferInput) PatchOfferRequest 
 	fulfilment := toFulfilment(in.FulfilmentMethod, in.DeliveryCode)
 	return PatchOfferRequest{
 		EconomicOperatorID: in.EconomicOperatorID, Reference: in.Reference,
-		Pricing:    &Pricing{BundlePrices: []BundlePrice{{Quantity: 1, UnitPrice: in.UnitPrice}}},
+		Pricing:    &Pricing{BundlePrices: toBundlePrices(in.Prices)},
 		Fulfilment: &fulfilment,
 		Stock:      stock,
 	}

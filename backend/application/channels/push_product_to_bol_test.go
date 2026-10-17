@@ -221,6 +221,18 @@ type pushHarness struct {
 	contentRepo  *fakeBolContentRepo
 	syncLogRepo  *stubSyncLogRepo
 	stockLevel   *stubStockLevelGetter
+	vatRates     *fakeVATRates
+}
+
+// fakeVATRates answers every tax class with the same rate.
+type fakeVATRates struct {
+	basisPoints int64
+	countries   []string
+}
+
+func (f *fakeVATRates) RateBasisPoints(_ context.Context, _ *string, country string) (int64, error) {
+	f.countries = append(f.countries, country)
+	return f.basisPoints, nil
 }
 
 func newBolPushHarness(product pmsDomain.Product, variants []pmsDomain.Variant, skusByVariant map[string][]pmsDomain.SKU) *pushHarness {
@@ -235,6 +247,7 @@ func newBolPushHarness(product pmsDomain.Product, variants []pmsDomain.Variant, 
 		contentRepo:  &fakeBolContentRepo{},
 		syncLogRepo:  &stubSyncLogRepo{},
 		stockLevel:   &stubStockLevelGetter{},
+		vatRates:     &fakeVATRates{},
 	}
 }
 
@@ -243,7 +256,7 @@ func newBolUseCase(t *testing.T, h *pushHarness, client integrationsDomain.BolCl
 	return appchannels.NewPushProductToBolUseCase(
 		newMockGormDB(t, mockTxCount), h.connRepo, &fakeBolClientFactory{client: client}, testEncryptionSecret,
 		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.overrideRepo, h.contentRepo, h.syncLogRepo, h.stockLevel,
-		&fakeNotifier{}, &eventrecordtest.Outbox{},
+		&fakeNotifier{}, &eventrecordtest.Outbox{}, h.vatRates,
 	)
 }
 
@@ -252,7 +265,7 @@ func newBolUseCaseWithNotifier(t *testing.T, h *pushHarness, client integrations
 	return appchannels.NewPushProductToBolUseCase(
 		newMockGormDB(t, mockTxCount), h.connRepo, &fakeBolClientFactory{client: client}, testEncryptionSecret,
 		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.overrideRepo, h.contentRepo, h.syncLogRepo, h.stockLevel,
-		notifier, &eventrecordtest.Outbox{},
+		notifier, &eventrecordtest.Outbox{}, h.vatRates,
 	)
 }
 
@@ -288,7 +301,7 @@ func TestPushProductToBol_createsOfferForSingleSKUProduct(t *testing.T) {
 		assert.Equal(t, "FBR", in.FulfilmentMethod)
 		assert.Equal(t, "NEW", in.ConditionCategory)
 		assert.Equal(t, "3-5d", in.DeliveryCode, "falls back to DefaultBolDeliveryCode when the connection hasn't set one")
-		assert.InDelta(t, 19.99, in.UnitPrice, 0.001)
+		assert.Equal(t, []integrationsDomain.BolPrice{{Quantity: 1, UnitPrice: 19.99}}, in.Prices, "no fees, no shipping: the regular price")
 		return "offer-1", nil
 	}}
 
@@ -627,7 +640,7 @@ func TestPushProductToBol_usesCustomPriceOverSKUDefaultPrice(t *testing.T) {
 	}
 
 	client := &fakeBolClient{createOfferFn: func(_ context.Context, in integrationsDomain.BolOfferInput) (string, error) {
-		assert.InDelta(t, 25.99, in.UnitPrice, 0.001)
+		assert.Equal(t, []integrationsDomain.BolPrice{{Quantity: 1, UnitPrice: 25.99}}, in.Prices)
 		return "offer-1", nil
 	}}
 
@@ -900,4 +913,117 @@ func TestPushProductToBol_invalidEAN_returnsErrorWithoutCallingBol(t *testing.T)
 	assert.ErrorIs(t, err, channelsDomain.ErrBolInvalidEAN)
 	require.Len(t, h.syncLogRepo.created, 1, "an invalid EAN must also show up in Sync History")
 	assert.Equal(t, channelsDomain.SyncLogStatusError, h.syncLogRepo.created[0].Status)
+}
+
+// Regular €25.00 at 9% VAT, €4.95 shipping, Bol fee €0.30 + 15%: each unit
+// must leave what the webshop leaves at €25.00.
+func bolPricingHarness(t *testing.T) *pushHarness {
+	t.Helper()
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "0630509892495", PriceMinorUnits: 2500}}}
+	h := newBolPushHarness(product, variants, skus)
+	h.connRepo.conn.BolShippingCostMinorUnits = 495
+	h.vatRates.basisPoints = 900
+	return h
+}
+
+func bolFeeClient(onOffer func(integrationsDomain.BolOfferInput)) *fakeBolClient {
+	c := &fakeBolClient{createOfferFn: func(_ context.Context, in integrationsDomain.BolOfferInput) (string, error) {
+		onOffer(in)
+		return "offer-1", nil
+	}}
+	c.getCommissionFn = func(_ context.Context, ean string, _ float64) (integrationsDomain.BolCommission, error) {
+		return integrationsDomain.BolCommission{EAN: ean, FixedAmount: 0.30, Percentage: 15}, nil
+	}
+	return c
+}
+
+func TestPushProductToBol_withoutCustomPrice_addsBolFeeVATAndShipping(t *testing.T) {
+	h := bolPricingHarness(t)
+	var offer integrationsDomain.BolOfferInput
+	uc := newBolUseCase(t, h, bolFeeClient(func(in integrationsDomain.BolOfferInput) { offer = in }), 3)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	assert.Equal(t, []integrationsDomain.BolPrice{{Quantity: 1, UnitPrice: 38.49}}, offer.Prices)
+	assert.Equal(t, []string{"NL"}, h.vatRates.countries, "Bol prices carry Dutch VAT")
+}
+
+func TestPushProductToBol_bulkPricesEnabled_sendsEveryTier(t *testing.T) {
+	h := bolPricingHarness(t)
+	h.overrideRepo.override = &channelsDomain.BolProductOverride{
+		ProductID: "prod-1", ConnectionID: "conn-1", BundlePricingEnabled: true,
+		BundleTiers: []channelsDomain.BolBundleTier{{Quantity: 2}, {Quantity: 4}},
+	}
+	var offer integrationsDomain.BolOfferInput
+	uc := newBolUseCase(t, h, bolFeeClient(func(in integrationsDomain.BolOfferInput) { offer = in }), 3)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	assert.Equal(t, []integrationsDomain.BolPrice{
+		{Quantity: 1, UnitPrice: 38.49}, {Quantity: 2, UnitPrice: 35.49}, {Quantity: 4, UnitPrice: 33.49},
+	}, offer.Prices)
+}
+
+func TestPushProductToBol_bulkPricesDisabled_sendsOnlyQuantityOne(t *testing.T) {
+	h := bolPricingHarness(t)
+	h.overrideRepo.override = &channelsDomain.BolProductOverride{
+		ProductID: "prod-1", ConnectionID: "conn-1", BundlePricingEnabled: false,
+		BundleTiers: []channelsDomain.BolBundleTier{{Quantity: 2}},
+	}
+	var offer integrationsDomain.BolOfferInput
+	uc := newBolUseCase(t, h, bolFeeClient(func(in integrationsDomain.BolOfferInput) { offer = in }), 3)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	assert.Len(t, offer.Prices, 1)
+}
+
+func TestPushProductToBol_commissionOverrideIsUsedInsteadOfBolsFee(t *testing.T) {
+	h := bolPricingHarness(t)
+	bp := int32(1500)
+	h.overrideRepo.override = &channelsDomain.BolProductOverride{ProductID: "prod-1", ConnectionID: "conn-1", CommissionOverrideBasisPoints: &bp}
+	client := bolFeeClient(func(integrationsDomain.BolOfferInput) {})
+	client.getCommissionFn = func(context.Context, string, float64) (integrationsDomain.BolCommission, error) {
+		t.Fatal("the merchant's own commission replaces the live lookup")
+		return integrationsDomain.BolCommission{}, nil
+	}
+	uc := newBolUseCase(t, h, client, 3)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+	require.NoError(t, err)
+}
+
+func TestPushProductToBol_invalidBulkPrices_failWithoutCallingBolAndShowInSyncHistory(t *testing.T) {
+	h := bolPricingHarness(t)
+	custom, tier := int64(3000), int64(2900)
+	h.overrideRepo.override = &channelsDomain.BolProductOverride{
+		ProductID: "prod-1", ConnectionID: "conn-1", CustomPriceMinorUnits: &custom, BundlePricingEnabled: true,
+		BundleTiers: []channelsDomain.BolBundleTier{{Quantity: 2, UnitPriceMinorUnits: &tier}},
+	}
+	client := bolFeeClient(func(integrationsDomain.BolOfferInput) { t.Fatal("must not send prices Bol would reject") })
+	uc := newBolUseCase(t, h, client, 2)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	assert.ErrorIs(t, err, channelsDomain.ErrBolBundlePriceStep)
+	require.Len(t, h.syncLogRepo.created, 1)
+	assert.Equal(t, channelsDomain.SyncLogStatusError, h.syncLogRepo.created[0].Status)
+}
+
+func TestPushProductToBol_commissionLookupFailure_failsThePush(t *testing.T) {
+	h := bolPricingHarness(t)
+	client := bolFeeClient(func(integrationsDomain.BolOfferInput) { t.Fatal("no offer without a price") })
+	client.getCommissionFn = func(context.Context, string, float64) (integrationsDomain.BolCommission, error) {
+		return integrationsDomain.BolCommission{}, errors.New("bol down")
+	}
+	uc := newBolUseCase(t, h, client, 2)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	assert.ErrorIs(t, err, channelsDomain.ErrBolCommissionRequestFailed)
 }

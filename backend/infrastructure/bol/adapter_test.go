@@ -116,3 +116,45 @@ func TestAdapter_UpdateOffer_omitsCondition(t *testing.T) {
 	assert.Equal(t, "BOL_DELIVERY_PROMISE", fulfilment["schedule"])
 	require.NotNil(t, fulfilment["deliveryPromise"])
 }
+
+func TestAdapter_CreateAndUpdateOffer_sendEveryPriceLevelAsBundlePrices(t *testing.T) {
+	var bodies []map[string]any
+	_, client := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/token":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 299})
+		case r.URL.Path == "/offers":
+			var b map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&b)
+			bodies = append(bodies, b)
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]any{"offerId": "offer-1"})
+		case r.URL.Path == "/offers/offer-1":
+			var b map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&b)
+			bodies = append(bodies, b)
+			w.WriteHeader(http.StatusNoContent)
+		}
+	})
+	adapter := bol.NewAdapter(client)
+	in := integrationsDomain.BolOfferInput{
+		EAN: "0630509892495", ConditionCategory: "NEW", FulfilmentMethod: "FBR",
+		Prices: []integrationsDomain.BolPrice{{Quantity: 1, UnitPrice: 38.49}, {Quantity: 2, UnitPrice: 35.49}},
+	}
+
+	_, err := adapter.CreateOffer(t.Context(), in)
+	require.NoError(t, err)
+	require.NoError(t, adapter.UpdateOffer(t.Context(), "offer-1", in))
+
+	want := []any{
+		map[string]any{"quantity": float64(1), "unitPrice": 38.49},
+		map[string]any{"quantity": float64(2), "unitPrice": 35.49},
+	}
+	require.Len(t, bodies, 2)
+	for _, b := range bodies {
+		pricing, _ := b["pricing"].(map[string]any)
+		require.NotNil(t, pricing)
+		assert.Equal(t, want, pricing["bundlePrices"])
+	}
+}

@@ -9,6 +9,7 @@ import (
 	genintegrations "github.com/adirkuhn/commerceos/api/integrations"
 	gencallback "github.com/adirkuhn/commerceos/api/integrationscallback"
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
+	apptax "github.com/adirkuhn/commerceos/application/tax"
 	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
@@ -356,6 +357,7 @@ func Register(
 	pushProductToBolUC := appchannels.NewPushProductToBolUseCase(
 		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC,
 		appnotifications.NewDeliverNotificationUseCase(db, notificationRepo, repositories.NewNotificationPreferencesRepo(db), outboxRepo), repositories.NewOutboxRepository(db),
+		apptax.NewTaxRateResolver(repositories.NewTaxClassRepo(db), repositories.NewTaxRateRepo(db)),
 	)
 	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
 		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret, pushProductToBolUC, repositories.NewOutboxRepository(db),

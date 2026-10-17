@@ -11,6 +11,7 @@ import (
 	"github.com/nats-io/nats.go"
 
 	channelsapp "github.com/adirkuhn/commerceos/application/channels"
+	taxapp "github.com/adirkuhn/commerceos/application/tax"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	messagecenterapp "github.com/adirkuhn/commerceos/application/messagecenter"
 	notificationsapp "github.com/adirkuhn/commerceos/application/notifications"
@@ -193,6 +194,7 @@ func main() {
 	bolContentRepo := repositories.NewBolProductContentRepo(db)
 	pushBolUC := channelsapp.NewPushProductToBolUseCase(
 		db, connRepo, bolinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC, notifyUC, repositories.NewOutboxRepository(db),
+		taxapp.NewTaxRateResolver(taxClassRepo, taxRateRepo),
 	)
 	// syncStockUC is built here (moved up from its stockChangedConsumer
 	// wiring further below) so syncProductUC can use it as its stock

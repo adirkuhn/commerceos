@@ -11,6 +11,7 @@ import (
 
 	genscheduler "github.com/adirkuhn/commerceos/api/scheduler"
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
+	apptax "github.com/adirkuhn/commerceos/application/tax"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
@@ -103,6 +104,7 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 	pushProductToBolUC := appchannels.NewPushProductToBolUseCase(
 		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC,
 		appnotifications.NewDeliverNotificationUseCase(db, notificationRepo, repositories.NewNotificationPreferencesRepo(db), repositories.NewOutboxRepository(db)), repositories.NewOutboxRepository(db),
+		apptax.NewTaxRateResolver(repositories.NewTaxClassRepo(db), repositories.NewTaxRateRepo(db)),
 	)
 	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
 		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret, pushProductToBolUC, repositories.NewOutboxRepository(db),

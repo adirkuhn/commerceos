@@ -46,6 +46,7 @@ type PushProductToBolUseCase struct {
 	stockLevel   stockLevelGetter
 	notifier     notifier
 	outbox       eventrecord.Enqueuer
+	vatRates     vatRateResolver
 }
 
 func NewPushProductToBolUseCase(
@@ -63,13 +64,14 @@ func NewPushProductToBolUseCase(
 	stockLevel stockLevelGetter,
 	notifier notifier,
 	outbox eventrecord.Enqueuer,
+	vatRates vatRateResolver,
 ) *PushProductToBolUseCase {
 	return &PushProductToBolUseCase{
 		db: db, connRepo: connRepo, bolFactory: bolFactory, encSecret: encryptionSecret,
 		productRepo: productRepo, variantRepo: variantRepo, skuRepo: skuRepo,
 		listingRepo: listingRepo, overrideRepo: overrideRepo, contentRepo: contentRepo,
 		syncLogRepo: syncLogRepo, stockLevel: stockLevel, notifier: notifier,
-		outbox: outbox,
+		outbox: outbox, vatRates: vatRates,
 	}
 }
 
@@ -111,6 +113,7 @@ func (uc *PushProductToBolUseCase) Execute(ctx context.Context, in PushProductTo
 	var override *channelsDomain.BolProductOverride
 	var content *channelsDomain.BolProductContent
 	existingByVariant := map[string]channelsDomain.ProductChannelListing{}
+	vatBySKU := map[string]int64{}
 
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		c, err := uc.connRepo.FindByID(ctx, in.ConnectionID)
@@ -170,6 +173,12 @@ func (uc *PushProductToBolUseCase) Execute(ctx context.Context, in PushProductTo
 		}
 
 		for _, pu := range pushes {
+			vat, err := uc.vatRates.RateBasisPoints(ctx, pu.SKU.TaxClassID, bolVATCountry)
+			if err != nil {
+				return err
+			}
+			vatBySKU[pu.SKU.ID] = vat
+
 			variantID := bolListingVariantID(product, pu.Variant.ID)
 			l, err := uc.listingRepo.FindByProductVariantAndConnection(ctx, in.ProductID, variantID, in.ConnectionID)
 			if err == nil {
@@ -221,8 +230,12 @@ func (uc *PushProductToBolUseCase) Execute(ctx context.Context, in PushProductTo
 
 	var result []channelsDomain.ProductChannelListing
 	for _, pu := range pushes {
+		priceIn := channelsDomain.BolPriceInputs{
+			RegularPriceMinorUnits: pu.SKU.PriceMinorUnits, ProductVATBasisPoints: vatBySKU[pu.SKU.ID],
+			ShippingMinorUnits: conn.BolShippingCostMinorUnits,
+		}
 		listing, err := uc.pushOne(ctx, client, product, pu, override, content, existingByVariant[pu.Variant.ID],
-			in.ConnectionID, economicOperatorID, condition, fulfilment, deliveryCode, gpcCode, reference)
+			in.ConnectionID, economicOperatorID, condition, fulfilment, deliveryCode, gpcCode, reference, priceIn)
 		if err != nil {
 			return nil, err
 		}

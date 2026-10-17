@@ -10,16 +10,25 @@ import (
 // own HTTP request struct so domain/application never import infrastructure
 // types (see CLAUDE.md's layering rule).
 type BolOfferInput struct {
-	EAN                    string
-	UnknownProductTitle    string
-	EconomicOperatorID     string
-	Reference              string
-	ConditionCategory      string
-	FulfilmentMethod       string
-	DeliveryCode           string
-	UnitPrice              float64
+	EAN                 string
+	UnknownProductTitle string
+	EconomicOperatorID  string
+	Reference           string
+	ConditionCategory   string
+	FulfilmentMethod    string
+	DeliveryCode        string
+	// Prices are the offer's price levels: quantity 1 first, then any bulk
+	// tiers (see channels.ResolveBolPrices).
+	Prices                 []BolPrice
 	StockAmount            int
 	StockManagedByRetailer bool
+}
+
+// BolPrice is one price level of an offer: from Quantity units on, each
+// unit costs UnitPrice (including VAT).
+type BolPrice struct {
+	Quantity  int
+	UnitPrice float64
 }
 
 // BolProductContentInput is what's needed to submit/update Bol catalog

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -165,9 +166,24 @@ func bolOfferToFields(o integrationsDomain.BolOfferInput) map[string]string {
 		"condition_category": o.ConditionCategory,
 		"fulfilment_method":  o.FulfilmentMethod,
 		"delivery_code":      o.DeliveryCode,
-		"price":              strconv.FormatFloat(o.UnitPrice, 'f', 2, 64),
+		"price":              bolPricesField(o.Prices),
 		"stock_quantity":     strconv.Itoa(o.StockAmount),
 	}
+}
+
+// bolPricesField is "38.49" for one level, "38.49; 2+: 35.49; 4+: 33.49"
+// with bulk tiers.
+func bolPricesField(prices []integrationsDomain.BolPrice) string {
+	parts := make([]string, len(prices))
+	for i, p := range prices {
+		price := strconv.FormatFloat(p.UnitPrice, 'f', 2, 64)
+		if p.Quantity == 1 {
+			parts[i] = price
+		} else {
+			parts[i] = strconv.Itoa(p.Quantity) + "+: " + price
+		}
+	}
+	return strings.Join(parts, "; ")
 }
 
 // wooProductToFields flattens the fields this codebase actually manages
