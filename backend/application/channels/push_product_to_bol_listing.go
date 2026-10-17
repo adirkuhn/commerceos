@@ -35,12 +35,9 @@ func (uc *PushProductToBolUseCase) pushOne(
 		return channelsDomain.ProductChannelListing{}, err
 	}
 
-	ean := pu.SKU.Barcode
-	if override != nil && override.EANOverride != nil && *override.EANOverride != "" {
-		ean = *override.EANOverride
-	}
-	if ean == "" {
-		return fail(fmt.Errorf("pushProductToBol: %w", channelsDomain.ErrBolMissingEAN), nil)
+	ean, err := bolEAN(pu.SKU, override)
+	if err != nil {
+		return fail(fmt.Errorf("pushProductToBol: %w", err), nil)
 	}
 
 	// title wins over product.Name when the merchant set a Bol-only name

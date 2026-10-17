@@ -82,6 +82,7 @@ func mapError(c *gin.Context, err error) error {
 	case errors.Is(err, channelsDomain.ErrImportJobAlreadyActive):
 		middleware.FailErr(c, http.StatusConflict, "IMPORT_ALREADY_RUNNING", err)
 	case errors.Is(err, channelsDomain.ErrBolMissingEAN),
+		errors.Is(err, channelsDomain.ErrBolInvalidEAN),
 		errors.Is(err, channelsDomain.ErrCannotPushBulkPoolSKU):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, channelsDomain.ErrBolCommissionRequestFailed),

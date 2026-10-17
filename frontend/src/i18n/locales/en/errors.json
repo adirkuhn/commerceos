@@ -31,6 +31,7 @@
   "BOL_ECONOMIC_OPERATORS_REQUEST_FAILED": "Couldn’t fetch the economic operators from Bol.",
   "BOL_INVALID_DELIVERY_CODE": "This Bol delivery code isn’t valid.",
   "BOL_MISSING_EAN": "The product’s SKU has no barcode (EAN), which Bol requires.",
+  "BOL_INVALID_EAN": "The product’s barcode is not a valid EAN. Bol needs 13 digits (a 12-digit UPC is accepted) with a correct check digit.",
   "BOL_REQUEST_REJECTED": "Bol rejected the request.",
   "BOL_TRANSPORTER_UNSUPPORTED": "Bol has no transporter code for this carrier.",
   "BOOKING_NOT_ACTIVE": "This booking isn’t active.",

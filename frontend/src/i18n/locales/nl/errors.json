@@ -31,6 +31,7 @@
   "BOL_ECONOMIC_OPERATORS_REQUEST_FAILED": "De economische actoren konden niet bij Bol worden opgehaald.",
   "BOL_INVALID_DELIVERY_CODE": "Deze Bol-levercode is niet geldig.",
   "BOL_MISSING_EAN": "De SKU van het product heeft geen barcode (EAN), die Bol vereist.",
+  "BOL_INVALID_EAN": "De barcode van het product is geen geldige EAN. Bol vereist 13 cijfers (een UPC van 12 cijfers wordt geaccepteerd) met een juist controlecijfer.",
   "BOL_REQUEST_REJECTED": "Bol heeft het verzoek geweigerd.",
   "BOL_TRANSPORTER_UNSUPPORTED": "Bol heeft geen vervoerderscode voor deze vervoerder.",
   "BOOKING_NOT_ACTIVE": "Deze boeking is niet actief.",

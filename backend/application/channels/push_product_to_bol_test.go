@@ -30,6 +30,7 @@ type fakeBolClient struct {
 	getOrderFn              func(ctx context.Context, orderID string) (*integrationsDomain.BolOrder, error)
 	listEconomicOperatorsFn func(ctx context.Context) ([]integrationsDomain.BolEconomicOperator, error)
 	findOfferByEANFn        func(ctx context.Context, ean string) (string, bool, error)
+	findOfferEANs           []string
 	notForSaleReasonsFn     func(ctx context.Context, offerID string) ([]integrationsDomain.BolNotForSaleReason, error)
 	createShipmentFn        func(ctx context.Context, in integrationsDomain.BolShipmentInput) (integrationsDomain.BolProcessStatus, error)
 	createShipmentCalls     []integrationsDomain.BolShipmentInput
@@ -83,6 +84,7 @@ func (f *fakeBolClient) GetOrder(ctx context.Context, orderID string) (*integrat
 	return &integrationsDomain.BolOrder{OrderID: orderID}, nil
 }
 func (f *fakeBolClient) FindOfferByEAN(ctx context.Context, ean string) (string, bool, error) {
+	f.findOfferEANs = append(f.findOfferEANs, ean)
 	if f.findOfferByEANFn != nil {
 		return f.findOfferByEANFn(ctx, ean)
 	}
@@ -322,7 +324,7 @@ func TestPushProductToBol_createsOfferPerVariantForVariableProduct(t *testing.T)
 	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: true, Status: pmsDomain.ProductStatusActive}
 	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}, {ID: "var-2", ProductID: "prod-1"}}
 	skus := map[string][]pmsDomain.SKU{
-		"var-1": {{ID: "sku-1", Barcode: "1111111111111", PriceMinorUnits: 1000}},
+		"var-1": {{ID: "sku-1", Barcode: "1111111111116", PriceMinorUnits: 1000}},
 		"var-2": {{ID: "sku-2", Barcode: "2222222222222", PriceMinorUnits: 2000}},
 	}
 	h := newBolPushHarness(product, variants, skus)
@@ -338,7 +340,7 @@ func TestPushProductToBol_createsOfferPerVariantForVariableProduct(t *testing.T)
 
 	require.NoError(t, err)
 	require.Len(t, result, 2)
-	assert.ElementsMatch(t, []string{"1111111111111", "2222222222222"}, eansSeen)
+	assert.ElementsMatch(t, []string{"1111111111116", "2222222222222"}, eansSeen)
 	for _, l := range result {
 		assert.NotNil(t, l.VariantID)
 	}
@@ -742,11 +744,11 @@ func TestPushProductToBol_appliesOverrideEANAndFields(t *testing.T) {
 	h := newBolPushHarness(product, variants, skus)
 	h.overrideRepo.override = &channelsDomain.BolProductOverride{
 		ProductID: "prod-1", ConnectionID: "conn-1",
-		EANOverride: strPtr("9999999999999"), ConditionCategory: "REFURBISHED", FulfilmentMethod: "FBR",
+		EANOverride: strPtr("9999999999994"), ConditionCategory: "REFURBISHED", FulfilmentMethod: "FBR",
 	}
 
 	client := &fakeBolClient{createOfferFn: func(_ context.Context, in integrationsDomain.BolOfferInput) (string, error) {
-		assert.Equal(t, "9999999999999", in.EAN)
+		assert.Equal(t, "9999999999994", in.EAN)
 		assert.Equal(t, "REFURBISHED", in.ConditionCategory)
 		return "offer-1", nil
 	}}
@@ -859,4 +861,43 @@ func TestPushProductToBol_notForSale_doesNotRenotifyOnUnchangedReason(t *testing
 	require.NoError(t, err)
 
 	assert.Len(t, notifier.calls, 1, "same reason on the second push must not fire a second notification")
+}
+
+func TestPushProductToBol_sendsUPCABarcodeAsEAN13Everywhere(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "875754010311", PriceMinorUnits: 1199}}}
+	h := newBolPushHarness(product, variants, skus)
+
+	var offerEAN string
+	client := &fakeBolClient{createOfferFn: func(_ context.Context, in integrationsDomain.BolOfferInput) (string, error) {
+		offerEAN = in.EAN
+		return "offer-1", nil
+	}}
+
+	uc := newBolUseCase(t, h, client, 3)
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	require.NoError(t, err)
+	assert.Equal(t, "0875754010311", offerEAN)
+	assert.Equal(t, []string{"0875754010311"}, client.findOfferEANs)
+}
+
+func TestPushProductToBol_invalidEAN_returnsErrorWithoutCallingBol(t *testing.T) {
+	product := pmsDomain.Product{ID: "prod-1", Name: "Widget", HasVariants: false, Status: pmsDomain.ProductStatusActive}
+	variants := []pmsDomain.Variant{{ID: "var-1", ProductID: "prod-1"}}
+	skus := map[string][]pmsDomain.SKU{"var-1": {{ID: "sku-1", Barcode: "12345", PriceMinorUnits: 1999}}}
+	h := newBolPushHarness(product, variants, skus)
+
+	client := &fakeBolClient{createOfferFn: func(_ context.Context, _ integrationsDomain.BolOfferInput) (string, error) {
+		t.Fatal("must not call CreateOffer with an invalid EAN")
+		return "", nil
+	}}
+
+	uc := newBolUseCase(t, h, client, 2)
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToBolInput{ProductID: "prod-1", ConnectionID: "conn-1"})
+
+	assert.ErrorIs(t, err, channelsDomain.ErrBolInvalidEAN)
+	require.Len(t, h.syncLogRepo.created, 1, "an invalid EAN must also show up in Sync History")
+	assert.Equal(t, channelsDomain.SyncLogStatusError, h.syncLogRepo.created[0].Status)
 }

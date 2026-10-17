@@ -89,12 +89,9 @@ func (uc *GetBolCommissionUseCase) Execute(ctx context.Context, in GetBolCommiss
 		return nil, fmt.Errorf("getBolCommission: %w", err)
 	}
 
-	ean := sku.Barcode
-	if override != nil && override.EANOverride != nil && *override.EANOverride != "" {
-		ean = *override.EANOverride
-	}
-	if ean == "" {
-		return nil, fmt.Errorf("getBolCommission: %w", channelsDomain.ErrBolMissingEAN)
+	ean, err := bolEAN(sku, override)
+	if err != nil {
+		return nil, fmt.Errorf("getBolCommission: %w", err)
 	}
 
 	if override != nil && override.CommissionOverrideBasisPoints != nil {

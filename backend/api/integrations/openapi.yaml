@@ -1395,7 +1395,14 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
         '422':
-          $ref: '#/components/responses/Error'
+          description: >-
+            BOL_MISSING_EAN (no barcode or EAN override) or BOL_INVALID_EAN
+            (not a 13-digit EAN or 12-digit UPC-A with a valid check digit).
+            Bol is not called.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '502':
           $ref: '#/components/responses/Error'
 
@@ -2085,7 +2092,9 @@ components:
       type: object
       required: [ean, fixed_amount, percentage, overridden]
       properties:
-        ean: { type: string }
+        ean:
+          type: string
+          description: The 13-digit EAN sent to Bol -- a 12-digit UPC-A barcode gets a leading zero.
         fixed_amount: { type: number, format: double }
         percentage: { type: number, format: double }
         overridden:

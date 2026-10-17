@@ -106,3 +106,38 @@ func TestGetBolCommission_appliesOverrideInsteadOfLiveFetch(t *testing.T) {
 	assert.InDelta(t, 15.0, result.Percentage, 0.001)
 	assert.True(t, result.Overridden)
 }
+
+func TestGetBolCommission_sendsUPCABarcodeAsEAN13(t *testing.T) {
+	sku := pmsDomain.SKU{ID: "sku-1", Barcode: "875754010311", PriceMinorUnits: 1199}
+	skuRepo := &fakeSKUByIDRepo{skus: map[string]pmsDomain.SKU{"sku-1": sku}}
+	conn := bolConn()
+	var gotEAN string
+	client := &fakeBolClient{}
+	client.getCommissionFn = func(_ context.Context, ean string, _ float64) (integrationsDomain.BolCommission, error) {
+		gotEAN = ean
+		return integrationsDomain.BolCommission{EAN: ean, FixedAmount: 0.30, Percentage: 12.5}, nil
+	}
+
+	uc := appchannels.NewGetBolCommissionUseCase(newMockGormDB(t, 1), &stubConnectionRepo{conn: &conn}, &fakeBolClientFactory{client: client}, testEncryptionSecret, skuRepo, &fakeBolOverrideRepo{})
+	result, err := uc.Execute(context.Background(), appchannels.GetBolCommissionInput{ProductID: "prod-1", ConnectionID: "conn-1", SKUID: "sku-1"})
+
+	require.NoError(t, err)
+	assert.Equal(t, "0875754010311", gotEAN, "Bol accepts only 13 digits; a UPC-A is the same number with a leading zero")
+	assert.Equal(t, "0875754010311", result.EAN)
+}
+
+func TestGetBolCommission_invalidEAN_failsBeforeCallingBol(t *testing.T) {
+	sku := pmsDomain.SKU{ID: "sku-1", Barcode: "875754010312", PriceMinorUnits: 1199}
+	skuRepo := &fakeSKUByIDRepo{skus: map[string]pmsDomain.SKU{"sku-1": sku}}
+	conn := bolConn()
+	client := &fakeBolClient{}
+	client.getCommissionFn = func(_ context.Context, _ string, _ float64) (integrationsDomain.BolCommission, error) {
+		t.Fatal("must not call Bol with an invalid EAN")
+		return integrationsDomain.BolCommission{}, nil
+	}
+
+	uc := appchannels.NewGetBolCommissionUseCase(newMockGormDB(t, 1), &stubConnectionRepo{conn: &conn}, &fakeBolClientFactory{client: client}, testEncryptionSecret, skuRepo, &fakeBolOverrideRepo{})
+	_, err := uc.Execute(context.Background(), appchannels.GetBolCommissionInput{ProductID: "prod-1", ConnectionID: "conn-1", SKUID: "sku-1"})
+
+	assert.ErrorIs(t, err, channelsDomain.ErrBolInvalidEAN)
+}

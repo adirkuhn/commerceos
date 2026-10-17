@@ -258,7 +258,7 @@ func (uc *ImportBolOrdersUseCase) createOne(ctx context.Context, in ImportBolOrd
 			var skuID *string
 			var taxClassID *string
 			if li.EAN != "" {
-				sku, err := uc.skuRepo.FindByBarcode(ctx, li.EAN)
+				sku, err := uc.findSKUByEAN(ctx, li.EAN)
 				if err != nil && !errors.Is(err, pmsDomain.ErrSKUNotFound) {
 					return err
 				}
@@ -362,4 +362,19 @@ func (uc *ImportBolOrdersUseCase) findExisting(ctx context.Context, externalOrde
 		return err
 	})
 	return existing, err
+}
+
+// findSKUByEAN finds the SKU Bol's EAN belongs to. Bol always sends 13
+// digits, so a SKU whose barcode is stored as the 12-digit UPC-A is looked
+// up by that form when the exact EAN matches nothing.
+func (uc *ImportBolOrdersUseCase) findSKUByEAN(ctx context.Context, ean string) (*pmsDomain.SKU, error) {
+	sku, err := uc.skuRepo.FindByBarcode(ctx, ean)
+	if !errors.Is(err, pmsDomain.ErrSKUNotFound) {
+		return sku, err
+	}
+	upc, ok := pmsDomain.UPCAFromGTIN13(ean)
+	if !ok {
+		return nil, err
+	}
+	return uc.skuRepo.FindByBarcode(ctx, upc)
 }

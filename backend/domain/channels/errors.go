@@ -81,6 +81,11 @@ var (
 	// -- there's no "unknown EAN" path for an offer that has no EAN at
 	// all, only for one whose EAN isn't yet in Bol's catalog.
 	ErrBolMissingEAN = errs.New("BOL_MISSING_EAN", "product's SKU has no barcode/EAN set, required to push to Bol")
+	// ErrBolInvalidEAN: the barcode (or EAN override) can't be turned into
+	// the 13-digit EAN Bol requires -- wrong length, a non-digit or a wrong
+	// check digit (see pms.ToGTIN13). Caught before calling Bol, which would
+	// only answer a bare 400.
+	ErrBolInvalidEAN = errs.New("BOL_INVALID_EAN", "product's barcode/EAN is not a valid 13-digit EAN (a 12-digit UPC is accepted), required by Bol")
 	// ErrBolCommissionRequestFailed wraps a live call to Bol's Commissions
 	// API that failed (network error, non-2xx, auth failure) -- mapped to
 	// 502 UPSTREAM_ERROR, same treatment as

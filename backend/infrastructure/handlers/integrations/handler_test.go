@@ -3180,3 +3180,25 @@ func TestListBolEconomicOperatorsHandler_bolAPIFailure_returns502NotInternal(t *
 	require.Equal(t, http.StatusBadGateway, w.Code)
 	assert.Contains(t, w.Body.String(), `"code":"BOL_ECONOMIC_OPERATORS_REQUEST_FAILED"`)
 }
+
+func TestGetBolCommissionHandler_invalidEAN_returns422(t *testing.T) {
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{err: channelsDomain.ErrBolInvalidEAN}, &stubListBolEconomicOperators{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/bol-commission/prod-1/sku-1", nil)
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), `"code":"BOL_INVALID_EAN"`)
+}
+
+func TestPushProductToBolHandler_invalidEAN_returns422(t *testing.T) {
+	h := newBolTestHandler(&stubConnectBol{}, &stubPushProductToBol{err: channelsDomain.ErrBolInvalidEAN}, &stubGetBolProductOverride{}, &stubUpsertBolProductOverride{}, &stubGetBolProductContent{}, &stubUpsertBolProductContent{}, &stubGetBolCommission{}, &stubListBolEconomicOperators{})
+	r := gin.New()
+	integrationshandler.RegisterRoutes(r.Group("/api/v1"), h)
+
+	w := doRequest(r, http.MethodPost, "/api/v1/integrations/connections/conn-1/push-product-bol", map[string]string{"product_id": "prod-1"})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), `"code":"BOL_INVALID_EAN"`)
+}

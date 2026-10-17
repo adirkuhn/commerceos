@@ -320,3 +320,31 @@ func TestImportBolOrders_storesTheShipByDateDerivedFromBolsDeliveryDate(t *testi
 	require.NotNil(t, h.salesOrderRepo.created[0].ShipByDate)
 	assert.Equal(t, "2026-10-14", h.salesOrderRepo.created[0].ShipByDate.Format(time.DateOnly))
 }
+
+// Bol always sends 13 digits; a SKU whose barcode is stored as the 12-digit
+// UPC-A (the same number without the leading zero) must still be found.
+func TestImportBolOrders_linksALeadingZeroEANToItsUPCABarcode(t *testing.T) {
+	h := newBolOrdersHarness()
+	order := simpleBolOrder()
+	order.OrderItems[0].EAN = "0875754010311"
+	detail := simpleBolOrderDetail()
+	detail.OrderItems[0].EAN = "0875754010311"
+	h.bolClient.listOrdersFn = func(_ context.Context, page int, _ string) ([]integrationsDomain.BolOrder, error) {
+		if page == 1 {
+			return []integrationsDomain.BolOrder{order}, nil
+		}
+		return nil, nil
+	}
+	h.bolClient.getOrderFn = func(_ context.Context, _ string) (*integrationsDomain.BolOrder, error) { return detail, nil }
+	h.skuRepo.byBarcode["875754010311"] = pmsDomain.SKU{ID: "sku-upc", Barcode: "875754010311"}
+	uc := h.newImportUseCase(t, 6)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportBolOrdersInput{ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1"})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Created)
+	require.Len(t, h.lineItemRepo.created, 1)
+	require.NotNil(t, h.lineItemRepo.created[0].SKUID)
+	assert.Equal(t, "sku-upc", *h.lineItemRepo.created[0].SKUID)
+	require.Len(t, h.stock.calls, 1)
+}
