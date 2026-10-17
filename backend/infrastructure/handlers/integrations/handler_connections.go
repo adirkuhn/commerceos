@@ -143,6 +143,7 @@ func (h *Handler) UpdateConnectionSettings(c *gin.Context, id genintegrations.Id
 	conn, err := h.updateConnectionSettings.Execute(c.Request.Context(), appintegrations.UpdateConnectionSettingsInput{
 		ID: id, DefaultCurrency: req.DefaultCurrency, DefaultWarehouseID: req.DefaultWarehouseId,
 		BolEconomicOperatorID: req.BolEconomicOperatorId, BolDeliveryCode: req.BolDeliveryCode,
+		BolShippingCostMinorUnits: req.BolShippingCostMinorUnits,
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -341,19 +342,20 @@ func toGenConnection(c integrationsDomain.Connection) genintegrations.Connection
 		whatsappInstanceName = &c.ConsumerKey
 	}
 	return genintegrations.Connection{
-		Id:                       c.ID,
-		Provider:                 string(c.Provider),
-		StoreUrl:                 c.StoreURL.String(),
-		Status:                   genintegrations.ConnectionStatus(c.Status),
-		DefaultCurrency:          &currency,
-		DefaultWarehouseId:       c.DefaultWarehouseID,
-		BolEconomicOperatorId:    c.BolEconomicOperatorID,
-		BolDeliveryCode:          c.BolDeliveryCode,
-		WhatsappTestModeEnabled:  &c.WhatsAppTestModeEnabled,
-		WhatsappTestPhoneE164:    c.WhatsAppTestPhoneE164,
-		WhatsappAiParsingEnabled: &c.WhatsAppAIParsingEnabled,
-		WhatsappInstanceName:     whatsappInstanceName,
-		CreatedAt:                c.CreatedAt,
+		Id:                        c.ID,
+		Provider:                  string(c.Provider),
+		StoreUrl:                  c.StoreURL.String(),
+		Status:                    genintegrations.ConnectionStatus(c.Status),
+		DefaultCurrency:           &currency,
+		DefaultWarehouseId:        c.DefaultWarehouseID,
+		BolEconomicOperatorId:     c.BolEconomicOperatorID,
+		BolDeliveryCode:           c.BolDeliveryCode,
+		BolShippingCostMinorUnits: c.BolShippingCostMinorUnits,
+		WhatsappTestModeEnabled:   &c.WhatsAppTestModeEnabled,
+		WhatsappTestPhoneE164:     c.WhatsAppTestPhoneE164,
+		WhatsappAiParsingEnabled:  &c.WhatsAppAIParsingEnabled,
+		WhatsappInstanceName:      whatsappInstanceName,
+		CreatedAt:                 c.CreatedAt,
 	}
 }
 

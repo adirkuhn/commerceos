@@ -109,6 +109,8 @@ func (h *Handler) UpsertBolProductOverride(c *gin.Context, id genintegrations.Id
 		ReferenceOverride:             req.ReferenceOverride,
 		CustomPriceMinorUnits:         req.CustomPriceMinorUnits,
 		NameOverride:                  req.NameOverride,
+		BundlePricingEnabled:          req.BundlePricingEnabled != nil && *req.BundlePricingEnabled,
+		BundleTiers:                   fromGenBolBundleTiers(req.BundleTiers),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -126,6 +128,28 @@ func (h *Handler) GetBolCommission(c *gin.Context, id genintegrations.Id, produc
 	middleware.OK(c, genintegrations.BolCommission{
 		Ean: result.EAN, FixedAmount: result.FixedAmount, Percentage: result.Percentage, Overridden: result.Overridden,
 	})
+}
+
+func (h *Handler) PreviewBolPricing(c *gin.Context, id genintegrations.Id, productId genintegrations.ProductId, skuId string) {
+	var req genintegrations.PreviewBolPricingRequest
+	if c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
+			return
+		}
+	}
+	in := appchannels.PreviewBolPricingInput{ProductID: productId, ConnectionID: id, SKUID: skuId}
+	if d := req.Draft; d != nil {
+		in.Draft = &appchannels.BolPricingDraft{
+			CustomPriceMinorUnits: d.CustomPriceMinorUnits, BundlePricingEnabled: d.BundlePricingEnabled,
+			BundleTiers: fromGenBolBundleTiers(d.BundleTiers), CommissionOverrideBasisPoints: intToInt32Ptr(d.CommissionOverrideBasisPoints),
+		}
+	}
+	preview, err := h.previewBolPricing.Execute(c.Request.Context(), in)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	middleware.OK(c, toGenBolPricingPreview(*preview))
 }
 
 func (h *Handler) ListBolEconomicOperators(c *gin.Context, id genintegrations.Id) {
@@ -185,10 +209,49 @@ func toGenBolOverride(o channelsDomain.BolProductOverride) genintegrations.BolPr
 		ReferenceOverride:     o.ReferenceOverride,
 		CustomPriceMinorUnits: o.CustomPriceMinorUnits,
 		NameOverride:          o.NameOverride,
+		BundlePricingEnabled:  o.BundlePricingEnabled,
+		BundleTiers:           toGenBolBundleTiers(o.BundleTiers),
 	}
 	if o.CommissionOverrideBasisPoints != nil {
 		bp := int(*o.CommissionOverrideBasisPoints)
 		resp.CommissionOverrideBasisPoints = &bp
 	}
 	return resp
+}
+
+func fromGenBolBundleTiers(tiers *[]genintegrations.BolBundleTier) []channelsDomain.BolBundleTier {
+	if tiers == nil {
+		return nil
+	}
+	out := make([]channelsDomain.BolBundleTier, len(*tiers))
+	for i, t := range *tiers {
+		out[i] = channelsDomain.BolBundleTier{Quantity: t.Quantity, UnitPriceMinorUnits: t.UnitPriceMinorUnits}
+	}
+	return out
+}
+
+func toGenBolBundleTiers(tiers []channelsDomain.BolBundleTier) []genintegrations.BolBundleTier {
+	out := make([]genintegrations.BolBundleTier, len(tiers))
+	for i, t := range tiers {
+		out[i] = genintegrations.BolBundleTier{Quantity: t.Quantity, UnitPriceMinorUnits: t.UnitPriceMinorUnits}
+	}
+	return out
+}
+
+func toGenBolPricingPreview(p appchannels.BolPricingPreview) genintegrations.BolPricingPreview {
+	levels := make([]genintegrations.BolPricingLevel, len(p.Levels))
+	for i, l := range p.Levels {
+		e := l.Economics
+		levels[i] = genintegrations.BolPricingLevel{
+			Quantity: l.Quantity, UnitPriceMinorUnits: l.UnitPriceMinorUnits, Auto: l.Auto,
+			FeeFixedMinorUnits: l.Fee.FixedMinorUnits, FeePercentBasisPoints: l.Fee.PercentBasisPoints,
+			ProductVatMinorUnits: e.ProductVATMinorUnits, BolFeeInclVatMinorUnits: e.BolFeeInclVATMinorUnits,
+			ShippingShareMinorUnits: e.ShippingShareMinorUnits, NetMinorUnits: e.NetMinorUnits,
+			RegularNetMinorUnits: e.RegularNetMinorUnits, BelowRegular: l.BelowRegular(), ProfitMinorUnits: l.ProfitMinorUnits,
+		}
+	}
+	return genintegrations.BolPricingPreview{
+		Ean: p.EAN, RegularPriceMinorUnits: p.RegularPriceMinorUnits, CostPriceMinorUnits: p.CostPriceMinorUnits,
+		ProductVatBasisPoints: p.ProductVATBasisPoints, ShippingMinorUnits: p.ShippingMinorUnits, Levels: levels,
+	}
 }

@@ -1406,6 +1406,47 @@ paths:
         '502':
           $ref: '#/components/responses/Error'
 
+  /integrations/connections/{id}/bol-pricing/{productId}/{skuId}/preview:
+    post:
+      operationId: previewBolPricing
+      summary: >-
+        The exact price levels a push would send to Bol for this SKU, with
+        what each unit leaves after VAT, Bol's fee and shipping. Uses the
+        saved Bol settings, or the draft in the body when given (nothing is
+        saved).
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/productId'
+        - name: skuId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewBolPricingRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BolPricingPreviewResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          description: >-
+            BOL_MISSING_EAN, BOL_INVALID_EAN, BOL_BUNDLE_TIERS_INVALID,
+            BOL_BUNDLE_PRICE_STEP, BOL_PRICE_OUT_OF_RANGE or BOL_FEE_TOO_HIGH.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          $ref: '#/components/responses/Error'
+
   /integrations/connections/{id}/bol-economic-operators:
     get:
       operationId: listBolEconomicOperators
@@ -1484,7 +1525,7 @@ components:
 
     Connection:
       type: object
-      required: [id, provider, store_url, status, created_at]
+      required: [id, provider, store_url, status, created_at, bol_shipping_cost_minor_units]
       description: Never includes the stored consumer key/secret — credentials must never round-trip to the frontend.
       properties:
         id: { type: string }
@@ -1504,6 +1545,11 @@ components:
           type: string
           nullable: true
           description: Bol's Fulfilment.deliveryCode enum value, sent on every FBR offer this connection pushes. Null falls back to the app default ("3-5d"). Only meaningful for Bol connections.
+        bol_shipping_cost_minor_units:
+          type: integer
+          format: int64
+          minimum: 0
+          description: What one parcel costs, in minor units. Automatic Bol prices add it on top of the regular price, shared across the units of a bulk tier. 0 = none. Only meaningful for Bol connections.
         whatsapp_test_mode_enabled:
           type: boolean
           description: When true, every outbound WhatsApp send from this connection is redirected to whatsapp_test_phone_e164 instead of the real recipient. Only meaningful for WhatsApp connections.
@@ -1544,6 +1590,11 @@ components:
           type: string
           nullable: true
           description: Optional. Omit or send null to clear (falls back to the app default "3-5d"). One of Bol's real deliveryCode enum values, e.g. 3-5d, 1-2d, 2-3d, 4-8d, 1-8d, 24uurs-12..24uurs-23, MijnLeverbelofte, VVB.
+        bol_shipping_cost_minor_units:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Optional. What one parcel costs, in minor units; omit to keep the current value. Negative is rejected (BOL_INVALID_SHIPPING_COST).
 
     StartWooConnectRequest:
       type: object
@@ -1952,7 +2003,7 @@ components:
 
     BolProductOverride:
       type: object
-      required: [product_id, connection_id, condition_category, fulfilment_method]
+      required: [product_id, connection_id, condition_category, fulfilment_method, bundle_pricing_enabled, bundle_tiers]
       properties:
         product_id: { type: string }
         connection_id: { type: string }
@@ -1974,6 +2025,28 @@ components:
           type: string
           nullable: true
           description: Bol-only product title override -- falls back to the product's real name when unset. Never affects any other channel.
+        bundle_pricing_enabled:
+          type: boolean
+          description: Whether the bulk prices in bundle_tiers are sent to Bol.
+        bundle_tiers:
+          type: array
+          items: { $ref: '#/components/schemas/BolBundleTier' }
+
+    BolBundleTier:
+      type: object
+      required: [quantity]
+      properties:
+        quantity:
+          type: integer
+          minimum: 2
+          description: From this many units on, each unit costs the tier's price. Quantities increase from tier to tier.
+        unit_price_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 100
+          maximum: 999900
+          description: Unit price incl. VAT in minor units; null = automatic (break-even with this many units sharing one parcel, at least 5% below the tier before).
 
     BolProductOverrideResponse:
       type: object
@@ -1994,6 +2067,13 @@ components:
         reference_override: { type: string, nullable: true }
         custom_price_minor_units: { type: integer, format: int64, nullable: true }
         name_override: { type: string, nullable: true, description: "Bol-only product title override -- falls back to the product's real name when unset." }
+        bundle_pricing_enabled:
+          type: boolean
+          description: Switch Bol bulk prices on. On with no bundle_tiers starts with automatic 2/4/6/8 tiers.
+        bundle_tiers:
+          type: array
+          items: { $ref: '#/components/schemas/BolBundleTier' }
+          description: Kept while bundle_pricing_enabled is off. Invalid tiers are rejected with 422 BOL_BUNDLE_TIERS_INVALID.
 
     BolProductContent:
       type: object
@@ -2105,6 +2185,59 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/BolCommission' }
+        error: { nullable: true }
+
+    PreviewBolPricingRequest:
+      type: object
+      properties:
+        draft:
+          $ref: '#/components/schemas/BolPricingDraft'
+
+    BolPricingDraft:
+      type: object
+      required: [bundle_pricing_enabled]
+      properties:
+        custom_price_minor_units: { type: integer, format: int64, nullable: true }
+        bundle_pricing_enabled: { type: boolean }
+        bundle_tiers:
+          type: array
+          items: { $ref: '#/components/schemas/BolBundleTier' }
+        commission_override_basis_points: { type: integer, nullable: true }
+
+    BolPricingPreview:
+      type: object
+      required: [ean, regular_price_minor_units, product_vat_basis_points, shipping_minor_units, levels]
+      properties:
+        ean: { type: string, description: The 13-digit EAN the prices were looked up for. }
+        regular_price_minor_units: { type: integer, format: int64, description: Webshop price incl. VAT. }
+        cost_price_minor_units: { type: integer, format: int64, nullable: true }
+        product_vat_basis_points: { type: integer, format: int64, description: Dutch VAT of the SKU's tax class (900 = 9%). }
+        shipping_minor_units: { type: integer, format: int64, description: The connection's per-parcel shipping cost. }
+        levels:
+          type: array
+          items: { $ref: '#/components/schemas/BolPricingLevel' }
+
+    BolPricingLevel:
+      type: object
+      required: [quantity, unit_price_minor_units, auto, fee_fixed_minor_units, fee_percent_basis_points, product_vat_minor_units, bol_fee_incl_vat_minor_units, shipping_share_minor_units, net_minor_units, regular_net_minor_units, below_regular]
+      properties:
+        quantity: { type: integer, description: 1 for the offer price, else a bulk tier. }
+        unit_price_minor_units: { type: integer, format: int64 }
+        auto: { type: boolean, description: Computed rather than typed by the merchant. }
+        fee_fixed_minor_units: { type: integer, format: int64, description: Bol's fixed fee per unit excl. VAT. }
+        fee_percent_basis_points: { type: integer, format: int64, description: Bol's fee percentage (1500 = 15%). }
+        product_vat_minor_units: { type: integer, format: int64 }
+        bol_fee_incl_vat_minor_units: { type: integer, format: int64 }
+        shipping_share_minor_units: { type: integer, format: int64, description: Shipping per unit when this many units share one parcel. }
+        net_minor_units: { type: integer, format: int64, description: What one unit leaves after VAT, Bol's fee and shipping. }
+        regular_net_minor_units: { type: integer, format: int64, description: What one unit leaves in the webshop (regular price minus VAT) -- the target. }
+        below_regular: { type: boolean, description: net_minor_units is below regular_net_minor_units. }
+        profit_minor_units: { type: integer, format: int64, nullable: true, description: net_minor_units minus the cost price; null without a cost price. }
+
+    BolPricingPreviewResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/BolPricingPreview' }
         error: { nullable: true }
 
     BolEconomicOperator:

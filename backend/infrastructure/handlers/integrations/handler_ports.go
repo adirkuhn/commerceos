@@ -281,6 +281,10 @@ type getBolCommissionUC interface {
 	Execute(ctx context.Context, in appchannels.GetBolCommissionInput) (*appchannels.BolCommissionResult, error)
 }
 
+type previewBolPricingUC interface {
+	Execute(ctx context.Context, in appchannels.PreviewBolPricingInput) (*appchannels.BolPricingPreview, error)
+}
+
 type listBolEconomicOperatorsUC interface {
 	Execute(ctx context.Context, connectionID string) ([]integrationsDomain.BolEconomicOperator, error)
 }

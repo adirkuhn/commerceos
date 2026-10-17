@@ -9,7 +9,6 @@ import (
 	genintegrations "github.com/adirkuhn/commerceos/api/integrations"
 	gencallback "github.com/adirkuhn/commerceos/api/integrationscallback"
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
-	apptax "github.com/adirkuhn/commerceos/application/tax"
 	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
@@ -17,6 +16,7 @@ import (
 	apppayments "github.com/adirkuhn/commerceos/application/payments"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
+	apptax "github.com/adirkuhn/commerceos/application/tax"
 	appwebhooks "github.com/adirkuhn/commerceos/application/webhooks"
 	appwhatsapp "github.com/adirkuhn/commerceos/application/whatsapp"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
@@ -98,6 +98,7 @@ type Handler struct {
 	abandonAllWebhookFallbackEvents abandonAllWebhookFallbackEventsUC
 	setWhatsAppTestMode             setWhatsAppTestModeUC
 	updateWhatsAppCredentials       updateWhatsAppCredentialsUC
+	previewBolPricing               previewBolPricingUC
 	setWhatsAppAIParsing            setWhatsAppAIParsingUC
 }
 
@@ -171,6 +172,7 @@ func NewHandler(
 	setWhatsAppTestMode setWhatsAppTestModeUC,
 	setWhatsAppAIParsing setWhatsAppAIParsingUC,
 	updateWhatsAppCredentials updateWhatsAppCredentialsUC,
+	previewBolPricing previewBolPricingUC,
 ) *Handler {
 	return &Handler{
 		listConnections:                 listConnections,
@@ -241,6 +243,7 @@ func NewHandler(
 		setWhatsAppTestMode:             setWhatsAppTestMode,
 		setWhatsAppAIParsing:            setWhatsAppAIParsing,
 		updateWhatsAppCredentials:       updateWhatsAppCredentials,
+		previewBolPricing:               previewBolPricing,
 	}
 }
 
@@ -445,6 +448,8 @@ func Register(
 		appintegrations.NewSetWhatsAppTestModeUseCase(db, connRepo, outboxRepo),
 		appintegrations.NewSetWhatsAppAIParsingUseCase(db, connRepo, aiConnRepo, outboxRepo),
 		appintegrations.NewUpdateWhatsAppCredentialsUseCase(db, connRepo, encryptionSecret, outboxRepo),
+		appchannels.NewPreviewBolPricingUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, skuRepo, bolOverrideRepo,
+			apptax.NewTaxRateResolver(repositories.NewTaxClassRepo(db), repositories.NewTaxRateRepo(db))),
 	)
 	RegisterRoutes(rg, h)
 	RegisterPublicRoutes(root, h)
