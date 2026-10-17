@@ -33,7 +33,9 @@
     "scheduleIntro": "Configure how often each type of data syncs between CommerceOS and Bol.com. Products/stock only push what's enrolled in your Bol sales channel -- configure enrollment under Sales Channels.",
     "selectFromBol": "Select from Bol",
     "selectOperator": "Select an operator…",
-    "stockHint": "Re-pushes every already-linked product's current price and stock -- Bol has no stock-only endpoint, so this runs the same push as Products, just on its own interval."
+    "stockHint": "Re-pushes every already-linked product's current price and stock -- Bol has no stock-only endpoint, so this runs the same push as Products, just on its own interval.",
+    "shippingCostPerParcel": "Shipping cost per parcel",
+    "shippingCostPerParcelHint": "What sending one Bol parcel costs you. Bol prices without a custom price include it, so you still earn the shop price."
   },
   "browse": {
     "email": "Email",

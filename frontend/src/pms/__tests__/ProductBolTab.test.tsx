@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ProductBolTab } from '../ProductBolTab'
-import type { Connection, BolProductOverride, BolCommission } from '../../integrations/types'
+import type { Connection, BolProductOverride, BolPricingPreview } from '../../integrations/types'
 import type { SKU } from '../types'
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -16,7 +16,7 @@ vi.mock('../../auth/AuthContext', () => ({
 
 vi.mock('../../integrations/api', () => ({
   getBolProductOverride: vi.fn(),
-  getBolCommission: vi.fn(),
+  previewBolPricing: vi.fn(),
   upsertBolProductOverride: vi.fn(),
   getBolProductContent: vi.fn(),
   upsertBolProductContent: vi.fn(),
@@ -33,37 +33,56 @@ const sku: SKU = {
   cost_price_minor_units: 800, status: 'active',
 } as unknown as SKU
 
-const commission: BolCommission = { ean: '0630509892495', fixed_amount: 0.30, percentage: 12.5, overridden: false }
+function ov(fields: Partial<BolProductOverride> = {}): BolProductOverride {
+  return {
+    product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
+    bundle_pricing_enabled: false, bundle_tiers: [], ...fields,
+  }
+}
+
+const preview: BolPricingPreview = {
+  ean: '0630509892495', regular_price_minor_units: 1999, cost_price_minor_units: 800, product_vat_basis_points: 900,
+  shipping_minor_units: 495, levels: [{
+    quantity: 1, unit_price_minor_units: 3149, auto: true, fee_fixed_minor_units: 30, fee_percent_basis_points: 1500,
+    product_vat_minor_units: 260, bol_fee_incl_vat_minor_units: 608, shipping_share_minor_units: 495,
+    net_minor_units: 1836, regular_net_minor_units: 1834, below_regular: false, profit_minor_units: 1036,
+  }],
+}
+
+async function renderLoaded(props: Partial<Parameters<typeof ProductBolTab>[0]> = {}) {
+  render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} {...props} />)
+  await screen.findByLabelText('Product title override')
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(integrationsApi.getBolProductOverride).mockResolvedValue(null)
-  vi.mocked(integrationsApi.getBolCommission).mockResolvedValue(commission)
+  vi.mocked(integrationsApi.previewBolPricing).mockResolvedValue(preview)
+  vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue(ov())
   vi.mocked(integrationsApi.getBolProductContent).mockResolvedValue(null)
   vi.mocked(integrationsApi.pushProductToBol).mockResolvedValue([])
   vi.mocked(integrationsApi.getProductChannelListing).mockResolvedValue(null)
 })
 
 describe('ProductBolTab', () => {
-  it('loads and displays live commission + sell/cost price, computes profit breakdown', async () => {
-    render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
+  it('shows the Bol prices the backend calculated', async () => {
+    await renderLoaded()
 
-    await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
-    expect(screen.getByDisplayValue('8.00')).toBeInTheDocument()
-    expect(screen.getByLabelText(/Bol commission %/)).toHaveValue('12.50')
-    expect(screen.getByText('Profit')).toBeInTheDocument()
+    expect(await screen.findByText('31.49')).toBeInTheDocument()
+    expect(screen.getByLabelText('Bol price')).toHaveAttribute('placeholder', '31.49')
+    expect(integrationsApi.previewBolPricing).toHaveBeenCalledWith('test-token', 'conn-1', 'prod-1', 'sku-1', {
+      custom_price_minor_units: null, commission_override_basis_points: null, bundle_pricing_enabled: false, bundle_tiers: [],
+    })
   })
 
   it('prefills fields from an existing override', async () => {
-    const override: BolProductOverride = {
-      product_id: 'prod-1', connection_id: 'conn-1', ean_override: '9999999999999',
-      gpc_code: '80006362', condition_category: 'REFURBISHED', fulfilment_method: 'FBR',
-    }
-    vi.mocked(integrationsApi.getBolProductOverride).mockResolvedValue(override)
+    vi.mocked(integrationsApi.getBolProductOverride).mockResolvedValue(ov({
+      ean_override: '9999999999994', gpc_code: '80006362', condition_category: 'REFURBISHED',
+    }))
 
     render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
 
-    expect(await screen.findByDisplayValue('9999999999999')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('9999999999994')).toBeInTheDocument()
     expect(screen.getByDisplayValue('80006362')).toBeInTheDocument()
   })
 
@@ -71,17 +90,14 @@ describe('ProductBolTab', () => {
   // (backend), never the product's real name -- see push_product_to_bol.go.
   describe('title override', () => {
     it('shows the real product name as a placeholder when no override is set', async () => {
-      render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} productName="Real Product Name" />)
+      await renderLoaded({ productName: 'Real Product Name' })
 
-      expect(await screen.findByPlaceholderText('Real Product Name')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Real Product Name')).toBeInTheDocument()
       expect(screen.getByLabelText('Product title override')).toHaveValue('')
     })
 
     it('prefills the field from an existing name override', async () => {
-      vi.mocked(integrationsApi.getBolProductOverride).mockResolvedValue({
-        product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
-        name_override: 'Custom Bol Title',
-      })
+      vi.mocked(integrationsApi.getBolProductOverride).mockResolvedValue(ov({ name_override: 'Custom Bol Title' }))
 
       render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
 
@@ -89,12 +105,7 @@ describe('ProductBolTab', () => {
     })
 
     it('saving sends the entered title override', async () => {
-      vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
-        product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
-        name_override: 'Custom Bol Title',
-      })
-      render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
-      await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+      await renderLoaded()
 
       await userEvent.type(screen.getByLabelText('Product title override'), 'Custom Bol Title')
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -106,11 +117,7 @@ describe('ProductBolTab', () => {
     })
 
     it('saving with an empty title override sends null (falls back to the real name)', async () => {
-      vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
-        product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
-      })
-      render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
-      await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+      await renderLoaded()
 
       await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
@@ -121,33 +128,25 @@ describe('ProductBolTab', () => {
     })
   })
 
-  it('prefills custom price from an existing override and uses it as the sell price', async () => {
-    const override: BolProductOverride = {
-      product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
-      custom_price_minor_units: 2499,
-    }
-    vi.mocked(integrationsApi.getBolProductOverride).mockResolvedValue(override)
+  it('prefills custom price, fee and bulk levels from an existing override', async () => {
+    vi.mocked(integrationsApi.getBolProductOverride).mockResolvedValue(ov({
+      custom_price_minor_units: 2499, commission_override_basis_points: 1200,
+      bundle_pricing_enabled: true, bundle_tiers: [{ quantity: 3, unit_price_minor_units: 2199 }],
+    }))
 
     render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
 
-    await waitFor(() => expect(screen.getAllByDisplayValue('24.99')).toHaveLength(2))
+    await waitFor(() => expect(screen.getByLabelText('Bol price')).toHaveValue('24.99'))
+    expect(screen.getByLabelText('Bol fee %')).toHaveValue('12.00')
+    expect(screen.getByLabelText('Bulk discount')).toBeChecked()
+    expect(screen.getByLabelText('From units 1')).toHaveValue('3')
+    expect(screen.getByLabelText('Price each 1')).toHaveValue('21.99')
   })
 
-  it('falls back to the default price when no custom price is set', async () => {
-    render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
+  it('saving sends the custom price in minor units', async () => {
+    await renderLoaded()
 
-    await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
-    expect(screen.getByLabelText(/Custom price/)).toHaveValue('')
-  })
-
-  it('saving sends the entered custom price in minor units', async () => {
-    vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
-      product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
-    })
-    render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
-    await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
-
-    await userEvent.type(screen.getByLabelText(/Custom price/), '24.99')
+    await userEvent.type(screen.getByLabelText('Bol price'), '24.99')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(integrationsApi.upsertBolProductOverride).toHaveBeenCalledWith(
@@ -156,42 +155,53 @@ describe('ProductBolTab', () => {
     ))
   })
 
-  it('saving with an empty custom price sends null (falls back to default)', async () => {
-    vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
-      product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
-    })
-    render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
-    await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+  it('saving with an empty custom price sends null (automatic price)', async () => {
+    await renderLoaded()
 
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(integrationsApi.upsertBolProductOverride).toHaveBeenCalledWith(
       'test-token', 'conn-1', 'prod-1',
-      expect.objectContaining({ customPriceMinorUnits: null }),
+      expect.objectContaining({ customPriceMinorUnits: null, commissionOverrideBasisPoints: null }),
     ))
   })
 
-  it('re-fetches commission after saving a new custom price', async () => {
-    vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
-      product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
-      custom_price_minor_units: 2499,
-    })
-    render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
-    await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
-    expect(integrationsApi.getBolCommission).toHaveBeenCalledTimes(1)
+  it('saving sends the bulk levels', async () => {
+    await renderLoaded()
 
-    await userEvent.type(screen.getByLabelText(/Custom price/), '24.99')
+    await userEvent.click(screen.getByLabelText('Bulk discount'))
+    await userEvent.type(screen.getByLabelText('Price each 1'), '18')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    await waitFor(() => expect(integrationsApi.getBolCommission).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(integrationsApi.upsertBolProductOverride).toHaveBeenCalledWith(
+      'test-token', 'conn-1', 'prod-1',
+      expect.objectContaining({
+        bundlePricingEnabled: true,
+        bundleTiers: [
+          { quantity: 2, unit_price_minor_units: 1800 }, { quantity: 4, unit_price_minor_units: null },
+          { quantity: 6, unit_price_minor_units: null }, { quantity: 8, unit_price_minor_units: null },
+        ],
+      }),
+    ))
+  })
+
+  it('saving other fields keeps the saved bulk levels', async () => {
+    vi.mocked(integrationsApi.getBolProductOverride).mockResolvedValue(ov({
+      bundle_pricing_enabled: true, bundle_tiers: [{ quantity: 3, unit_price_minor_units: null }],
+    }))
+    await renderLoaded()
+
+    await userEvent.type(screen.getByLabelText('GPC code'), '80006362')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(integrationsApi.upsertBolProductOverride).toHaveBeenCalledWith(
+      'test-token', 'conn-1', 'prod-1',
+      expect.objectContaining({ bundlePricingEnabled: true, bundleTiers: [{ quantity: 3, unit_price_minor_units: null }] }),
+    ))
   })
 
   it('saving calls upsertBolProductOverride with the edited fields', async () => {
-    vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
-      product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
-    })
-    render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
-    await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+    await renderLoaded()
 
     await userEvent.type(screen.getByLabelText('GPC code'), '80006362')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -209,11 +219,7 @@ describe('ProductBolTab', () => {
   // the pms.product.changed outbox event -> async sync job to push to Bol
   // (see bol_product_content.go / sync_product_to_channels.go).
   it('saving the override does not push the product to Bol', async () => {
-    vi.mocked(integrationsApi.upsertBolProductOverride).mockResolvedValue({
-      product_id: 'prod-1', connection_id: 'conn-1', condition_category: 'NEW', fulfilment_method: 'FBR',
-    })
-    render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
-    await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+    await renderLoaded()
 
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
@@ -221,8 +227,8 @@ describe('ProductBolTab', () => {
     expect(integrationsApi.pushProductToBol).not.toHaveBeenCalled()
   })
 
-  it('surfaces a commission-fetch error instead of swallowing it', async () => {
-    vi.mocked(integrationsApi.getBolCommission).mockRejectedValue(new Error('bol unreachable'))
+  it('surfaces a pricing error instead of swallowing it', async () => {
+    vi.mocked(integrationsApi.previewBolPricing).mockRejectedValue(new Error('bol unreachable'))
     render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
 
     expect(await screen.findByText('bol unreachable')).toBeInTheDocument()
@@ -234,7 +240,7 @@ describe('ProductBolTab', () => {
         product_id: 'prod-1', connection_id: 'conn-1', brand: 'Hipoglós', ingredients: 'Petrolatum, Water',
       })
       render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
-      await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+      await screen.findByLabelText('Product title override')
 
       expect(screen.queryByLabelText('Brand')).not.toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: /Product content/ }))
@@ -248,7 +254,7 @@ describe('ProductBolTab', () => {
         product_id: 'prod-1', connection_id: 'conn-1', brand: 'Hipoglós',
       })
       render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
-      await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+      await screen.findByLabelText('Product title override')
       await userEvent.click(screen.getByRole('button', { name: /Product content/ }))
 
       await userEvent.type(await screen.findByLabelText('Brand'), 'Hipoglós')
@@ -273,7 +279,7 @@ describe('ProductBolTab', () => {
         product_id: 'prod-1', connection_id: 'conn-1', skin_type: 'Droge huid', country_of_origin: 'Nederland',
       })
       render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
-      await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+      await screen.findByLabelText('Product title override')
       await userEvent.click(screen.getByRole('button', { name: /Product content/ }))
 
       const skinType = await screen.findByLabelText('Skin type')
@@ -314,7 +320,7 @@ describe('ProductBolTab', () => {
       external_id: 'offer-1', sync_status: 'synced', created_at: '', updated_at: '',
     })
     render(<ProductBolTab productId="prod-1" connection={connection} sku={sku} />)
-    await waitFor(() => expect(screen.getByDisplayValue('19.99')).toBeInTheDocument())
+    await screen.findByLabelText('Product title override')
 
     expect(screen.queryByText('Not for sale on Bol')).not.toBeInTheDocument()
   })

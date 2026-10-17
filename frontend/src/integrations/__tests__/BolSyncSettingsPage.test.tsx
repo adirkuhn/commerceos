@@ -122,7 +122,7 @@ describe('BolSyncSettingsPage', () => {
         connectionId="conn-bol-1"
         initialConnection={{
           id: 'conn-bol-1', provider: 'bol', store_url: '', status: 'connected', created_at: '',
-          bol_economic_operator_id: 'old-op-id', bol_delivery_code: '2-3d',
+          bol_economic_operator_id: 'old-op-id', bol_delivery_code: '2-3d', bol_shipping_cost_minor_units: 450,
         }}
         onClose={vi.fn()} onConnected={vi.fn()}
       />,
@@ -131,14 +131,17 @@ describe('BolSyncSettingsPage', () => {
     await screen.findByText('Sync schedule')
     expect(screen.getByLabelText('Economic operator ID')).toHaveValue('old-op-id')
     expect(screen.getByLabelText('Delivery promise')).toHaveValue('2-3d')
+    expect(screen.getByLabelText('Shipping cost per parcel')).toHaveValue('4.50')
 
     await userEvent.clear(screen.getByLabelText('Economic operator ID'))
     await userEvent.type(screen.getByLabelText('Economic operator ID'), '3fa85f64-5717-4562-b3fc-2c963f66afa6')
     await userEvent.selectOptions(screen.getByLabelText('Delivery promise'), '1-2d')
+    await userEvent.clear(screen.getByLabelText('Shipping cost per parcel'))
+    await userEvent.type(screen.getByLabelText('Shipping cost per parcel'), '4.95')
     await userEvent.click(screen.getByRole('button', { name: 'Save configuration' }))
 
     await waitFor(() => expect(api.updateConnectionSettings).toHaveBeenCalledWith(
-      'test-token', 'conn-bol-1', '', null, '3fa85f64-5717-4562-b3fc-2c963f66afa6', '1-2d',
+      'test-token', 'conn-bol-1', '', null, '3fa85f64-5717-4562-b3fc-2c963f66afa6', '1-2d', 495,
     ))
     expect(await screen.findByText('Saved')).toBeInTheDocument()
   })

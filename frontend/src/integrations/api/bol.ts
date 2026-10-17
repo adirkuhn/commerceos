@@ -1,4 +1,4 @@
-import type { ProductChannelListing, BolProductOverride, BolProductContent, BolCommission } from '../types'
+import type { ProductChannelListing, BolProductOverride, BolProductContent, BolCommission, BolBundleTier, BolPricingDraft, BolPricingPreview } from '../types'
 import { base, request } from './client'
 
 export function pushProductToBol(token: string, connectionId: string, productId: string): Promise<ProductChannelListing[]> {
@@ -24,6 +24,8 @@ export interface UpsertBolProductOverridePayload {
   referenceOverride?: string | null
   customPriceMinorUnits?: number | null
   nameOverride?: string | null
+  bundlePricingEnabled?: boolean
+  bundleTiers?: BolBundleTier[]
 }
 
 export function upsertBolProductOverride(token: string, connectionId: string, productId: string, payload: UpsertBolProductOverridePayload): Promise<BolProductOverride> {
@@ -40,6 +42,8 @@ export function upsertBolProductOverride(token: string, connectionId: string, pr
         reference_override: payload.referenceOverride ?? undefined,
         custom_price_minor_units: payload.customPriceMinorUnits ?? undefined,
         name_override: payload.nameOverride ?? undefined,
+        bundle_pricing_enabled: payload.bundlePricingEnabled ?? false,
+        bundle_tiers: payload.bundleTiers ?? [],
       }),
     },
     token,
@@ -66,6 +70,16 @@ export function upsertBolProductContent(token: string, connectionId: string, pro
 // merchant's own override when one is saved (see BolCommission.overridden).
 export function getBolCommission(token: string, connectionId: string, productId: string, skuId: string): Promise<BolCommission> {
   return request<BolCommission>(`${base()}/connections/${connectionId}/bol-commission/${productId}/${skuId}`, { method: 'GET' }, token)
+}
+
+// The exact price levels a push would send to Bol, for the saved settings
+// or the given unsaved draft.
+export function previewBolPricing(token: string, connectionId: string, productId: string, skuId: string, draft?: BolPricingDraft): Promise<BolPricingPreview> {
+  return request<BolPricingPreview>(
+    `${base()}/connections/${connectionId}/bol-pricing/${productId}/${skuId}/preview`,
+    { method: 'POST', body: JSON.stringify(draft ? { draft } : {}) },
+    token,
+  )
 }
 
 export interface BolEconomicOperator {

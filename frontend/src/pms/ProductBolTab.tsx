@@ -1,50 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Package } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../auth/AuthContext'
 import * as integrationsApi from '../integrations/api'
-import type { Connection, BolProductOverride, BolCommission } from '../integrations/types'
+import type { Connection, BolProductOverride } from '../integrations/types'
 import type { UpsertBolProductContentPayload } from '../integrations/api'
 import type { SKU } from './types'
 import { skinTypeOptions, shelfLifeClosedOptions, shelfLifeAfterOpeningOptions, countryOfOriginOptions, hazardStatementsOptions, substanceOptions, precautionStatementsOptions } from './bolContentLovs'
 import { ContentCheckField, ContentNumberField, ContentSelectField, ContentTextField, defaultBolProductContent, inputClass, labelClass } from './BolContentFields'
 import { apiErrorText } from '../api/apiErrorText'
+import { BolPricingSection } from './bolPricing/BolPricingSection'
+import { bolPricingDraft, bolPricingFormFrom, bolPricingPayload, emptyBolPricingForm } from './bolPricing/bolPricingForm'
+import { useBolPricingPreview } from './bolPricing/useBolPricingPreview'
 
 // Brand name, not translated.
 const BRAND = 'Bol.com'
-
-// Pure so the arithmetic is unit-testable without rendering the component.
-// All money inputs are major currency units (e.g. 19.99, not minor units) --
-// the caller converts from SKU.price_minor_units/cost_price_minor_units once
-// at the boundary.
-export interface BolProfitInputs {
-  sellPrice: number
-  costPrice: number
-  taxRatePercent: number
-  commissionFixedAmount: number
-  commissionPercent: number
-  shippingCost: number
-}
-
-export interface BolProfitResult {
-  taxAmount: number
-  commissionAmount: number
-  profit: number
-  marginPercent: number
-}
-
-export function computeBolProfit(in_: BolProfitInputs): BolProfitResult {
-  const taxAmount = in_.sellPrice * (in_.taxRatePercent / 100)
-  const commissionAmount = in_.commissionFixedAmount + in_.sellPrice * (in_.commissionPercent / 100)
-  const profit = in_.sellPrice - in_.costPrice - taxAmount - commissionAmount - in_.shippingCost
-  const marginPercent = in_.sellPrice > 0 ? (profit / in_.sellPrice) * 100 : 0
-  return { taxAmount, commissionAmount, profit, marginPercent }
-}
-
-function fmt(n: number): string {
-  return n.toFixed(2)
-}
 
 export function ProductBolTab({
   productId, connection, sku, productName, onSaveBarcode,
@@ -97,14 +68,12 @@ export function ProductBolTab({
   const [gpcCode, setGpcCode] = useState('')
   const [condition, setCondition] = useState<BolProductOverride['condition_category']>('NEW')
   const [referenceOverride, setReferenceOverride] = useState('')
-  const [customPrice, setCustomPrice] = useState('')
 
-  const [commission, setCommission] = useState<BolCommission | null>(null)
-  const [commissionError, setCommissionError] = useState<string | null>(null)
-  const [commissionOverridden, setCommissionOverridden] = useState(false)
-  const [commissionPercentInput, setCommissionPercentInput] = useState('0')
-  const [shippingCost, setShippingCost] = useState('0')
-  const [taxRatePercent, setTaxRatePercent] = useState('0')
+  // Custom price, fee and bulk levels; the prices they lead to come from
+  // the backend preview -- the same calculation a push uses.
+  const [pricing, setPricing] = useState(emptyBolPricingForm())
+  const pricingDraft = useMemo(() => bolPricingDraft(pricing), [pricing])
+  const pricingPreview = useBolPricingPreview(token, connection.id, productId, sku?.id ?? null, pricingDraft)
 
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -122,11 +91,6 @@ export function ProductBolTab({
       .catch(() => { /* non-critical: the rest of the tab still works without this */ })
     return () => { cancelled = true }
   }, [token, connection.id, productId])
-
-  // Bumped after a successful save so the commission effect below re-fetches
-  // -- the live commission is price-bracket dependent, and a saved
-  // CustomPriceMinorUnits changes the price the backend feeds Bol's API.
-  const [commissionRefreshKey, setCommissionRefreshKey] = useState(0)
 
   // Product content -- separate save target from the override fields
   // above (a different endpoint, .../bol-product-content vs
@@ -191,11 +155,7 @@ export function ProductBolTab({
           setGpcCode(result.gpc_code ?? '')
           setCondition(result.condition_category)
           setReferenceOverride(result.reference_override ?? '')
-          setCustomPrice(result.custom_price_minor_units != null ? fmt(result.custom_price_minor_units / 100) : '')
-          if (result.commission_override_basis_points != null) {
-            setCommissionOverridden(true)
-            setCommissionPercentInput(fmt(result.commission_override_basis_points / 100))
-          }
+          setPricing(bolPricingFormFrom(result))
         }
       })
       .catch(err => { if (!cancelled) setLoadError(apiErrorText(err) ?? t('bol.loadFailed')) })
@@ -203,60 +163,27 @@ export function ProductBolTab({
     return () => { cancelled = true }
   }, [token, connection.id, productId])
 
-  useEffect(() => {
-    if (!token || !sku) return
-    let cancelled = false
-    setCommissionError(null)
-    integrationsApi.getBolCommission(token, connection.id, productId, sku.id)
-      .then(result => {
-        if (cancelled) return
-        setCommission(result)
-        if (!commissionOverridden) setCommissionPercentInput(fmt(result.percentage))
-      })
-      .catch(err => { if (!cancelled) setCommissionError(apiErrorText(err) ?? t('bol.commissionFailed')) })
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, connection.id, productId, sku?.id, commissionRefreshKey])
-
   const handleSave = async () => {
     if (!token) return
     setSaveError(null)
     setSaving(true)
     try {
-      const commissionPercent = parseFloat(commissionPercentInput)
-      const parsedCustomPrice = parseFloat(customPrice)
       const result = await integrationsApi.upsertBolProductOverride(token, connection.id, productId, {
         nameOverride: nameOverride || null,
         eanOverride: eanOverride || null,
         gpcCode: gpcCode || null,
         conditionCategory: condition,
         fulfilmentMethod: 'FBR',
-        commissionOverrideBasisPoints: commissionOverridden && !Number.isNaN(commissionPercent) ? Math.round(commissionPercent * 100) : null,
         referenceOverride: referenceOverride || null,
-        customPriceMinorUnits: customPrice.trim() !== '' && !Number.isNaN(parsedCustomPrice) ? Math.round(parsedCustomPrice * 100) : null,
+        ...bolPricingPayload(pricing),
       })
       setOverride(result)
-      setCommissionRefreshKey(k => k + 1)
     } catch (err) {
       setSaveError(apiErrorText(err) ?? t('bol.saveFailed'))
     } finally {
       setSaving(false)
     }
   }
-
-  const defaultPrice = sku ? sku.price_minor_units / 100 : 0
-  const parsedCustomPrice = parseFloat(customPrice)
-  const sellPrice = customPrice.trim() !== '' && !Number.isNaN(parsedCustomPrice) ? parsedCustomPrice : defaultPrice
-  const costPrice = sku?.cost_price_minor_units != null ? sku.cost_price_minor_units / 100 : 0
-  const parsedCommissionPercent = parseFloat(commissionPercentInput) || 0
-  const parsedShipping = parseFloat(shippingCost) || 0
-  const parsedTaxRate = parseFloat(taxRatePercent) || 0
-  const result = computeBolProfit({
-    sellPrice, costPrice, taxRatePercent: parsedTaxRate,
-    commissionFixedAmount: commission?.fixed_amount ?? 0,
-    commissionPercent: parsedCommissionPercent,
-    shippingCost: parsedShipping,
-  })
 
   return (
     <div className="rounded-xl border border-line p-4 space-y-4">
@@ -335,13 +262,9 @@ export function ProductBolTab({
               <label htmlFor="bol-reference" className={labelClass}>{t('bol.reference')}</label>
               <input id="bol-reference" value={referenceOverride} onChange={e => setReferenceOverride(e.target.value)} className={inputClass} />
             </div>
-            <div>
-              <label htmlFor="bol-custom-price" className={labelClass}>{t('bol.customPriceOptional')}</label>
-              <input id="bol-custom-price" value={customPrice} onChange={e => setCustomPrice(e.target.value)}
-                placeholder={fmt(defaultPrice)} className={inputClass} />
-              <p className="text-2xs text-ink-4 mt-1">{t('bol.customPriceHint', { price: fmt(defaultPrice) })}</p>
-            </div>
           </div>
+
+          <BolPricingSection form={pricing} onChange={setPricing} preview={pricingPreview} />
 
           {saveError && <p className="text-2xs text-danger">{saveError}</p>}
           <div className="flex items-center gap-2">
@@ -438,62 +361,6 @@ export function ProductBolTab({
             )}
           </div>
 
-          <div className="pt-3 border-t border-line space-y-3">
-            <h4 className="text-xs font-semibold text-ink">{t('bol.profitCalculator')}</h4>
-            {commissionError && <p className="text-2xs text-danger">{commissionError}</p>}
-
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className={labelClass}>{t('bol.sellPrice')}</label>
-                <input disabled readOnly value={fmt(sellPrice)} className={`${inputClass} cursor-not-allowed opacity-70`} />
-                {customPrice.trim() !== '' && <p className="text-2xs text-accent mt-1">{t('bol.customPrice')}</p>}
-              </div>
-              <div>
-                <label className={labelClass}>{t('bol.costPrice')}</label>
-                <input disabled readOnly value={fmt(costPrice)} className={`${inputClass} cursor-not-allowed opacity-70`} />
-              </div>
-              <div>
-                <label htmlFor="bol-tax-rate" className={labelClass}>{t('bol.taxRate')}</label>
-                <input id="bol-tax-rate" value={taxRatePercent} onChange={e => setTaxRatePercent(e.target.value)} className={inputClass} />
-              </div>
-              <div>
-                <label htmlFor="bol-commission-percent" className={labelClass}>
-                  {t('bol.commission')} {commission && !commissionOverridden && t('bol.live')}
-                </label>
-                <input id="bol-commission-percent" value={commissionPercentInput}
-                  onChange={e => { setCommissionPercentInput(e.target.value); setCommissionOverridden(true) }}
-                  className={inputClass} />
-                {commissionOverridden && (
-                  <button type="button" className="text-2xs text-accent mt-1"
-                    onClick={() => { setCommissionOverridden(false); if (commission) setCommissionPercentInput(fmt(commission.percentage)) }}>
-                    {t('bol.useLive')}
-                  </button>
-                )}
-              </div>
-              <div>
-                <label className={labelClass}>{t('bol.fixedFee')}</label>
-                <input disabled readOnly value={fmt(commission?.fixed_amount ?? 0)} className={`${inputClass} cursor-not-allowed opacity-70`} />
-              </div>
-              <div>
-                <label htmlFor="bol-shipping-cost" className={labelClass}>{t('bol.shippingCost')}</label>
-                <input id="bol-shipping-cost" value={shippingCost} onChange={e => setShippingCost(e.target.value)} className={inputClass} />
-              </div>
-            </div>
-
-            <div className="rounded-lg bg-sunken p-3 space-y-1 text-2xs">
-              <div className="flex justify-between text-ink-3"><span>{t('bol.sellPrice')}</span><span>{fmt(sellPrice)}</span></div>
-              <div className="flex justify-between text-ink-3"><span>{t('bol.minusCost')}</span><span>{fmt(costPrice)}</span></div>
-              <div className="flex justify-between text-ink-3"><span>{t('bol.minusTax')}</span><span>{fmt(result.taxAmount)}</span></div>
-              <div className="flex justify-between text-ink-3"><span>{t('bol.minusCommission')}</span><span>{fmt(result.commissionAmount)}</span></div>
-              <div className="flex justify-between text-ink-3"><span>{t('bol.minusShipping')}</span><span>{fmt(parsedShipping)}</span></div>
-              <div className="flex justify-between font-semibold text-ink pt-1 border-t border-line">
-                <span>{t('bol.profit')}</span><span>{fmt(result.profit)}</span>
-              </div>
-              <div className="flex justify-between text-ink-3">
-                <span>{t('bol.margin')}</span><span>{fmt(result.marginPercent)}%</span>
-              </div>
-            </div>
-          </div>
         </>
       )}
     </div>

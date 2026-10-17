@@ -33,7 +33,9 @@
     "scheduleIntro": "Defina com que frequência cada tipo de dado é sincronizado entre o CommerceOS e o Bol.com. Produtos/estoque só enviam o que está incluído no seu canal de vendas Bol — configure a inclusão de produtos em Canais de vendas.",
     "selectFromBol": "Selecionar do Bol",
     "selectOperator": "Selecione um operador…",
-    "stockHint": "Reenvia o preço e o estoque atuais de cada produto já vinculado — o Bol não tem um endpoint só de estoque, então isto faz o mesmo envio de Produtos, apenas com um intervalo próprio."
+    "stockHint": "Reenvia o preço e o estoque atuais de cada produto já vinculado — o Bol não tem um endpoint só de estoque, então isto faz o mesmo envio de Produtos, apenas com um intervalo próprio.",
+    "shippingCostPerParcel": "Custo de envio por pacote",
+    "shippingCostPerParcelHint": "Quanto custa enviar um pacote do Bol. Os preços do Bol sem preço personalizado o incluem, para você continuar recebendo o preço da loja."
   },
   "browse": {
     "email": "E-mail",

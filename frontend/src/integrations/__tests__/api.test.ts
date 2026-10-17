@@ -274,6 +274,16 @@ describe('updateConnectionSettings', () => {
     })
   })
 
+  it('sends bol_shipping_cost_minor_units only when given', async () => {
+    mockFetch(sampleConnection)
+    await api.updateConnectionSettings(TOKEN, 'conn-1', '', null, 'op-1', '1-2d', 495)
+    const [, opts] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(opts.body as string)).toEqual({
+      default_currency: '', default_warehouse_id: null,
+      bol_economic_operator_id: 'op-1', bol_delivery_code: '1-2d', bol_shipping_cost_minor_units: 495,
+    })
+  })
+
   it('throws on not found', async () => {
     mockFetchError('NOT_FOUND', 'integration connection not found', 404)
     await expect(api.updateConnectionSettings(TOKEN, 'missing', 'USD')).rejects.toThrow('integration connection not found')

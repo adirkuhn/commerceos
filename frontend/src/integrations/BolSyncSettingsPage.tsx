@@ -1,3 +1,4 @@
+import { formatMinorUnitsAsInput, parseOptionalPriceToMinorUnits } from '../pms/productFormat'
 import i18next from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
@@ -98,6 +99,7 @@ export default function BolSyncSettingsPage({
   // own hydration/saving/error state.
   const [configEconomicOperatorId, setConfigEconomicOperatorId] = useState('')
   const [configDeliveryCode, setConfigDeliveryCode] = useState(DELIVERY_CODE_OPTIONS[0].value)
+  const [configShippingCost, setConfigShippingCost] = useState('')
   const [configHydrated, setConfigHydrated] = useState(false)
   const [configSaving, setConfigSaving] = useState(false)
   const [configSaveError, setConfigSaveError] = useState('')
@@ -109,6 +111,7 @@ export default function BolSyncSettingsPage({
   if (!configHydrated && initialConnection) {
     setConfigEconomicOperatorId(initialConnection.bol_economic_operator_id ?? '')
     setConfigDeliveryCode(initialConnection.bol_delivery_code || DELIVERY_CODE_OPTIONS[0].value)
+    setConfigShippingCost(formatMinorUnitsAsInput(initialConnection.bol_shipping_cost_minor_units ?? 0))
     setConfigHydrated(true)
   }
 
@@ -140,7 +143,9 @@ export default function BolSyncSettingsPage({
     setConfigSaveError('')
     setConfigSaved(false)
     try {
-      await api.updateConnectionSettings(token, connectionId, '', null, configEconomicOperatorId || null, configDeliveryCode || null)
+      const shippingCost = parseOptionalPriceToMinorUnits(configShippingCost.replace(',', '.'))
+      await api.updateConnectionSettings(token, connectionId, '', null, configEconomicOperatorId || null, configDeliveryCode || null,
+        shippingCost ?? undefined)
       setConfigSaved(true)
     } catch (err) {
       setConfigSaveError(apiErrorText(err) ?? t('bol.configSaveFailed'))
@@ -332,6 +337,17 @@ export default function BolSyncSettingsPage({
                   >
                     {DELIVERY_CODE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
+                </div>
+                <div>
+                  <label htmlFor="bol-config-shipping-cost" className="block text-xs font-medium text-ink-3 mb-1">
+                    {t('bol.shippingCostPerParcel')}
+                  </label>
+                  <input
+                    id="bol-config-shipping-cost" inputMode="decimal" value={configShippingCost}
+                    onChange={e => setConfigShippingCost(e.target.value)}
+                    className={clsx(inputClass, 'w-full')}
+                  />
+                  <p className="text-2xs text-ink-4 mt-1">{t('bol.shippingCostPerParcelHint')}</p>
                 </div>
               </div>
               {configSaveError && <p className="text-xs text-danger">{configSaveError}</p>}

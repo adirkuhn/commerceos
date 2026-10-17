@@ -28,6 +28,9 @@ export interface Connection {
   default_warehouse_id?: string | null
   bol_economic_operator_id?: string | null
   bol_delivery_code?: string | null
+  // What one parcel costs; automatic Bol prices add it on top of the
+  // regular price. Bol connections only.
+  bol_shipping_cost_minor_units?: number
   whatsapp_test_mode_enabled?: boolean
   whatsapp_test_phone_e164?: string | null
   whatsapp_ai_parsing_enabled?: boolean
@@ -57,6 +60,49 @@ export interface BolProductOverride {
   // Bol-only product title override -- falls back to the product's real
   // name when unset. Never synced to any other channel.
   name_override?: string | null
+  bundle_pricing_enabled: boolean
+  bundle_tiers: BolBundleTier[]
+}
+
+// One Bol bulk price level: from `quantity` units on, each costs
+// unit_price_minor_units; null = automatic.
+export interface BolBundleTier {
+  quantity: number
+  unit_price_minor_units?: number | null
+}
+
+// Unsaved Bol price settings sent to the pricing preview.
+export interface BolPricingDraft {
+  custom_price_minor_units: number | null
+  bundle_pricing_enabled: boolean
+  bundle_tiers: BolBundleTier[]
+  commission_override_basis_points: number | null
+}
+
+export interface BolPricingLevel {
+  quantity: number
+  unit_price_minor_units: number
+  auto: boolean
+  fee_fixed_minor_units: number
+  fee_percent_basis_points: number
+  product_vat_minor_units: number
+  bol_fee_incl_vat_minor_units: number
+  shipping_share_minor_units: number
+  // What one unit leaves after VAT, Bol's fee and shipping.
+  net_minor_units: number
+  // What one unit leaves in the webshop -- the target.
+  regular_net_minor_units: number
+  below_regular: boolean
+  profit_minor_units?: number | null
+}
+
+export interface BolPricingPreview {
+  ean: string
+  regular_price_minor_units: number
+  cost_price_minor_units?: number | null
+  product_vat_basis_points: number
+  shipping_minor_units: number
+  levels: BolPricingLevel[]
 }
 
 // Product-content fields Bol's Product Content API needs to move a

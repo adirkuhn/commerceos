@@ -28,6 +28,7 @@ export function testConnection(token: string, id: string): Promise<Connection> {
 export function updateConnectionSettings(
   token: string, connectionId: string, defaultCurrency: string, defaultWarehouseId: string | null = null,
   bolEconomicOperatorId: string | null = null, bolDeliveryCode: string | null = null,
+  bolShippingCostMinorUnits?: number,
 ): Promise<Connection> {
   return request<Connection>(
     `${base()}/connections/${connectionId}/settings`,
@@ -36,6 +37,7 @@ export function updateConnectionSettings(
       body: JSON.stringify({
         default_currency: defaultCurrency, default_warehouse_id: defaultWarehouseId,
         bol_economic_operator_id: bolEconomicOperatorId, bol_delivery_code: bolDeliveryCode,
+        bol_shipping_cost_minor_units: bolShippingCostMinorUnits,
       }),
     },
     token,

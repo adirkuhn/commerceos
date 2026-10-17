@@ -33,7 +33,9 @@
     "scheduleIntro": "Stel in hoe vaak elk soort gegevens synchroniseert tussen CommerceOS en Bol.com. Producten/voorraad sturen alleen wat in je Bol-verkoopkanaal is opgenomen — stel de productselectie in onder Verkoopkanalen.",
     "selectFromBol": "Kiezen uit Bol",
     "selectOperator": "Kies een operator…",
-    "stockHint": "Stuurt de huidige prijs en voorraad van elk al gekoppeld product opnieuw — Bol heeft geen endpoint voor alleen voorraad, dus dit doet dezelfde push als Producten, alleen met een eigen interval."
+    "stockHint": "Stuurt de huidige prijs en voorraad van elk al gekoppeld product opnieuw — Bol heeft geen endpoint voor alleen voorraad, dus dit doet dezelfde push als Producten, alleen met een eigen interval.",
+    "shippingCostPerParcel": "Verzendkosten per pakket",
+    "shippingCostPerParcelHint": "Wat het verzenden van één Bol-pakket je kost. Bol-prijzen zonder eigen prijs rekenen dit mee, zodat je nog steeds de winkelprijs verdient."
   },
   "browse": {
     "email": "E-mail",
