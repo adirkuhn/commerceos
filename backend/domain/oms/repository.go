@@ -178,6 +178,17 @@ type DashboardSalesReportRepository interface {
 	TopProductsSince(ctx context.Context, since time.Time, currencyCode string, limit int) ([]ProductSales, error)
 }
 
+// SalesOrderPaymentRepository stores a SalesOrder's Payments -- written
+// once, in the same transaction that creates the order, never changed.
+type SalesOrderPaymentRepository interface {
+	// CreateForSalesOrder stores o.Payments for o (its ID and TenantID must
+	// be set), keeping their order.
+	CreateForSalesOrder(ctx context.Context, o *SalesOrder) error
+	// ListBySalesOrder returns the order's payments in the order they were
+	// taken -- empty (not an error) when it has none.
+	ListBySalesOrder(ctx context.Context, salesOrderID string) (SalesOrderPayments, error)
+}
+
 type SalesOrderLineItemRepository interface {
 	Create(ctx context.Context, li *SalesOrderLineItem) error
 	FindByID(ctx context.Context, id string) (*SalesOrderLineItem, error)

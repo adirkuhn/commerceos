@@ -182,8 +182,14 @@ type SalesOrder struct {
 	// SalesOrder.NeedsManualRefundReview for what happens when it isn't.
 	PaymentProvider   string
 	PaymentExternalID string
-	DatePaid          *time.Time
-	DateCompleted     *time.Time
+	// Payments is every part that paid this order (more than one for a
+	// split payment), stored by SalesOrderPaymentRepository. Only loaded
+	// by the use cases that show them (ReceivePOSSalesOrderUseCase,
+	// GetSalesOrderUseCase) -- empty elsewhere, and for an order whose
+	// source reported no breakdown.
+	Payments      SalesOrderPayments
+	DatePaid      *time.Time
+	DateCompleted *time.Time
 	// ShipByDate is the calendar date (UTC midnight; only Y/M/D matter) the
 	// order must be handed to the carrier by -- nil when the source gives
 	// no deadline. Only Bol imports set it today, see
