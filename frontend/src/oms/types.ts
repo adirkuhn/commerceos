@@ -111,9 +111,21 @@ export interface SalesOrderLineItem {
   sold_expiry_date?: string | null
 }
 
+// One part of what paid an order -- an order paid in several parts (a
+// split payment) has one per part, in the order they were taken.
+export interface SalesOrderPayment {
+  method: string
+  amount_minor_units: number
+  // Empty when the payment has none (e.g. cash).
+  transaction_id: string
+}
+
 export interface SalesOrderDetail {
   sales_order: SalesOrder
   line_items: SalesOrderLineItem[]
+  // Empty when the source sent no breakdown. Optional: older fixtures (and
+  // a backend from before split payments) omit it; missing means none.
+  payments?: SalesOrderPayment[]
 }
 
 export interface CreateSalesOrderLineItemInput {

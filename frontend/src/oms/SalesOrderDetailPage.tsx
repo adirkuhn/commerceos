@@ -23,6 +23,7 @@ import { useConfirm } from '../components/common/useConfirm'
 import { STATUS_OPTIONS, addressesEqual, customerName } from './salesOrderDisplay'
 import { salesOrderStatusLabel } from './statusLabel'
 import { OrderPaymentCard } from './OrderPaymentCard'
+import { SalesOrderPaymentsCard } from './SalesOrderPaymentsCard'
 import { ShipmentTrackingSection } from './ShipmentTrackingSection'
 import { BolConfirmationCard } from './BolConfirmationCard'
 import { SoldExpiryNote } from './SoldExpiryNote'
@@ -361,6 +362,8 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                 </div>
 
                 <OrderPaymentCard order={detail.sales_order} />
+
+                <SalesOrderPaymentsCard payments={detail.payments ?? []} currency={detail.sales_order.currency_code} />
 
                 {shipments.length > 0 && token && (
                   <div className="rounded-xl border border-line p-4 space-y-3 text-xs">
