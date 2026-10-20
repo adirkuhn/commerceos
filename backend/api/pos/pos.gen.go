@@ -95,6 +95,17 @@ type CreatePOSSalesOrderLineItem struct {
 	WeightGrams *int64 `json:"weight_grams,omitempty"`
 }
 
+// CreatePOSSalesOrderPayment defines model for CreatePOSSalesOrderPayment.
+type CreatePOSSalesOrderPayment struct {
+	AmountMinorUnits int64 `json:"amount_minor_units"`
+
+	// Method Payment method name as the POS calls it, e.g. Cash, Revolut, Card.
+	Method string `json:"method"`
+
+	// TransactionId The payment processor's reference, if any.
+	TransactionId *string `json:"transaction_id,omitempty"`
+}
+
 // CreatePOSSalesOrderRequest defines model for CreatePOSSalesOrderRequest.
 type CreatePOSSalesOrderRequest struct {
 	Billing      *POSAddress `json:"billing,omitempty"`
@@ -108,13 +119,18 @@ type CreatePOSSalesOrderRequest struct {
 	DiscountTotalMinorUnits *int64     `json:"discount_total_minor_units,omitempty"`
 
 	// ExternalOrderId This sale's ID in the POS's own system -- what makes a retry idempotent.
-	ExternalOrderId         string                        `json:"external_order_id"`
-	LineItems               []CreatePOSSalesOrderLineItem `json:"line_items"`
-	Number                  *string                       `json:"number,omitempty"`
-	OccurredAt              time.Time                     `json:"occurred_at"`
-	OrderKey                *string                       `json:"order_key,omitempty"`
-	PaymentMethod           *string                       `json:"payment_method,omitempty"`
-	PaymentMethodTitle      *string                       `json:"payment_method_title,omitempty"`
+	ExternalOrderId string                        `json:"external_order_id"`
+	LineItems       []CreatePOSSalesOrderLineItem `json:"line_items"`
+	Number          *string                       `json:"number,omitempty"`
+	OccurredAt      time.Time                     `json:"occurred_at"`
+	OrderKey        *string                       `json:"order_key,omitempty"`
+
+	// PaymentMethod Kept as sent. When omitted and payments are given, it becomes the only payment's method, or "split" for several.
+	PaymentMethod      *string `json:"payment_method,omitempty"`
+	PaymentMethodTitle *string `json:"payment_method_title,omitempty"`
+
+	// Payments Every payment that paid this sale; more than one for a split payment. Amounts must add up to total_minor_units (422 PAYMENTS_TOTAL_MISMATCH otherwise). Omit when the POS has no breakdown.
+	Payments                *[]CreatePOSSalesOrderPayment `json:"payments,omitempty"`
 	Shipping                *POSAddress                   `json:"shipping,omitempty"`
 	ShippingTotalMinorUnits *int64                        `json:"shipping_total_minor_units,omitempty"`
 
@@ -123,9 +139,11 @@ type CreatePOSSalesOrderRequest struct {
 	TaxTotalMinorUnits *int64               `json:"tax_total_minor_units,omitempty"`
 
 	// TotalMinorUnits Authoritative -- not re-derived from line items, same as Woo's order.total.
-	TotalMinorUnits int64   `json:"total_minor_units"`
-	TransactionId   *string `json:"transaction_id,omitempty"`
-	WarehouseId     string  `json:"warehouse_id"`
+	TotalMinorUnits int64 `json:"total_minor_units"`
+
+	// TransactionId Kept as sent. When omitted and there is exactly one payment, it becomes that payment's transaction_id.
+	TransactionId *string `json:"transaction_id,omitempty"`
+	WarehouseId   string  `json:"warehouse_id"`
 }
 
 // ErrorResponse defines model for ErrorResponse.
@@ -225,28 +243,40 @@ type POSProductSKUPricingMode string
 
 // POSSalesOrder defines model for POSSalesOrder.
 type POSSalesOrder struct {
-	Billing                 *POSAddress         `json:"billing,omitempty"`
-	CreatedAt               time.Time           `json:"created_at"`
-	CurrencyCode            string              `json:"currency_code"`
-	CustomerId              *string             `json:"customer_id,omitempty"`
-	CustomerNote            *string             `json:"customer_note,omitempty"`
-	DateCompleted           *time.Time          `json:"date_completed,omitempty"`
-	DatePaid                *time.Time          `json:"date_paid,omitempty"`
-	DiscountTotalMinorUnits *int64              `json:"discount_total_minor_units,omitempty"`
-	ExternalOrderId         string              `json:"external_order_id"`
-	Id                      string              `json:"id"`
-	Number                  *string             `json:"number,omitempty"`
-	OccurredAt              time.Time           `json:"occurred_at"`
-	OrderKey                *string             `json:"order_key,omitempty"`
-	PaymentMethod           *string             `json:"payment_method,omitempty"`
-	PaymentMethodTitle      *string             `json:"payment_method_title,omitempty"`
-	Shipping                *POSAddress         `json:"shipping,omitempty"`
-	ShippingTotalMinorUnits *int64              `json:"shipping_total_minor_units,omitempty"`
-	Status                  POSSalesOrderStatus `json:"status"`
-	TaxTotalMinorUnits      *int64              `json:"tax_total_minor_units,omitempty"`
-	TotalMinorUnits         int64               `json:"total_minor_units"`
-	TransactionId           *string             `json:"transaction_id,omitempty"`
-	WarehouseId             string              `json:"warehouse_id"`
+	Billing                 *POSAddress `json:"billing,omitempty"`
+	CreatedAt               time.Time   `json:"created_at"`
+	CurrencyCode            string      `json:"currency_code"`
+	CustomerId              *string     `json:"customer_id,omitempty"`
+	CustomerNote            *string     `json:"customer_note,omitempty"`
+	DateCompleted           *time.Time  `json:"date_completed,omitempty"`
+	DatePaid                *time.Time  `json:"date_paid,omitempty"`
+	DiscountTotalMinorUnits *int64      `json:"discount_total_minor_units,omitempty"`
+	ExternalOrderId         string      `json:"external_order_id"`
+	Id                      string      `json:"id"`
+	Number                  *string     `json:"number,omitempty"`
+	OccurredAt              time.Time   `json:"occurred_at"`
+	OrderKey                *string     `json:"order_key,omitempty"`
+	PaymentMethod           *string     `json:"payment_method,omitempty"`
+	PaymentMethodTitle      *string     `json:"payment_method_title,omitempty"`
+
+	// Payments Every payment that paid this sale, in the order they were taken. Empty when the POS sent no breakdown.
+	Payments                *[]POSSalesOrderPayment `json:"payments,omitempty"`
+	Shipping                *POSAddress             `json:"shipping,omitempty"`
+	ShippingTotalMinorUnits *int64                  `json:"shipping_total_minor_units,omitempty"`
+	Status                  POSSalesOrderStatus     `json:"status"`
+	TaxTotalMinorUnits      *int64                  `json:"tax_total_minor_units,omitempty"`
+	TotalMinorUnits         int64                   `json:"total_minor_units"`
+	TransactionId           *string                 `json:"transaction_id,omitempty"`
+	WarehouseId             string                  `json:"warehouse_id"`
+}
+
+// POSSalesOrderPayment defines model for POSSalesOrderPayment.
+type POSSalesOrderPayment struct {
+	AmountMinorUnits int64  `json:"amount_minor_units"`
+	Method           string `json:"method"`
+
+	// TransactionId Empty when the payment has none (e.g. cash).
+	TransactionId string `json:"transaction_id"`
 }
 
 // POSSalesOrderResponse defines model for POSSalesOrderResponse.
@@ -494,67 +524,76 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"XbZBJzxbS4ZYyeHyInn88vg/AQAA//8=",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

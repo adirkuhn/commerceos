@@ -62,7 +62,7 @@ func TestSalesOrderUseCases_FailWhenTheEventCantBeRecorded(t *testing.T) {
 
 	t.Run("receive POS sales order", func(t *testing.T) {
 		uc := appoms.NewReceivePOSSalesOrderUseCase(newMockGormDBN(t, 3), &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{},
-			&stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, failingOutbox())
+			&stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, &stubSKURepo{}, &stubRecordMovement{}, failingOutbox())
 		_, err := uc.Execute(ctx, appoms.ReceivePOSSalesOrderInput{
 			ExternalOrderID: "pos-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(), TotalMinorUnits: 500,
 			LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{{Name: "Widget", Quantity: 1, PriceMinorUnits: 500, TotalMinorUnits: 500}},

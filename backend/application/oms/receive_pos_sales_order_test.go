@@ -20,7 +20,7 @@ func TestReceivePOSSalesOrder_createsTheOrderAndDecrementsStockPerLine(t *testin
 	lineItemRepo := &stubSalesOrderLineItemRepo{}
 	recordMovement := &stubRecordMovement{}
 	outbox := &eventrecordtest.Outbox{}
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement, outbox)
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, &stubSKURepo{}, recordMovement, outbox)
 	occurredAt := time.Now()
 
 	order, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
@@ -62,7 +62,7 @@ func TestReceivePOSSalesOrder_matchesLineItemsToSKUsByID(t *testing.T) {
 	skuRepo := &stubSKURepo{byID: map[string]*pmsDomain.SKU{
 		"sku-1": {ID: "sku-1", SKUCode: "5601049213991", Barcode: "5601049213991", TaxClassID: &taxClassID},
 	}}
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, skuRepo, &stubRecordMovement{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, skuRepo, &stubRecordMovement{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
@@ -85,7 +85,7 @@ func TestReceivePOSSalesOrder_matchesLineItemsToSKUsByID(t *testing.T) {
 func TestReceivePOSSalesOrder_propagatesASKUNotFoundError(t *testing.T) {
 	db := newMockGormDB(t)
 	skuRepo := &stubSKURepo{findErr: pmsDomain.ErrSKUNotFound}
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, skuRepo, &stubRecordMovement{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, skuRepo, &stubRecordMovement{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
@@ -103,7 +103,7 @@ func TestReceivePOSSalesOrder_propagatesASKUNotFoundError(t *testing.T) {
 func TestReceivePOSSalesOrder_acceptsAnAdhocLineItemWithNoSKU(t *testing.T) {
 	db := newMockGormDBN(t, 2)
 	lineItemRepo := &stubSalesOrderLineItemRepo{}
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
@@ -127,7 +127,7 @@ func TestReceivePOSSalesOrder_acceptsAnAdhocLineItemWithNoSKU(t *testing.T) {
 func TestReceivePOSSalesOrder_adhocLineItemDoesNotRecordAStockMovement(t *testing.T) {
 	db := newMockGormDBN(t, 1)
 	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement, &eventrecordtest.Outbox{})
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, &stubSKURepo{}, recordMovement, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
@@ -143,7 +143,7 @@ func TestReceivePOSSalesOrder_adhocLineItemDoesNotRecordAStockMovement(t *testin
 // identifying data at all.
 func TestReceivePOSSalesOrder_rejectsAdhocLineItemWithNoName(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
@@ -159,7 +159,7 @@ func TestReceivePOSSalesOrder_mixesAdhocAndCatalogLineItemsInOneOrder(t *testing
 	db := newMockGormDBN(t, 3) // order create, link, freezeCostAtSale
 	lineItemRepo := &stubSalesOrderLineItemRepo{}
 	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement, &eventrecordtest.Outbox{})
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, &stubSKURepo{}, recordMovement, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
@@ -182,7 +182,7 @@ func TestReceivePOSSalesOrder_isIdempotentOnExternalOrderID(t *testing.T) {
 	salesOrderRepo := &stubSalesOrderRepo{findByExternalIDResult: existing}
 	lineItemRepo := &stubSalesOrderLineItemRepo{}
 	recordMovement := &stubRecordMovement{}
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement, &eventrecordtest.Outbox{})
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, &stubSKURepo{}, recordMovement, &eventrecordtest.Outbox{})
 
 	order, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
@@ -198,7 +198,7 @@ func TestReceivePOSSalesOrder_isIdempotentOnExternalOrderID(t *testing.T) {
 
 func TestReceivePOSSalesOrder_rejectsEmptyLineItems(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{ExternalOrderID: "pos-order-1"})
 
@@ -208,7 +208,7 @@ func TestReceivePOSSalesOrder_rejectsEmptyLineItems(t *testing.T) {
 func TestReceivePOSSalesOrder_propagatesAStockMovementError(t *testing.T) {
 	db := newMockGormDB(t)
 	recordMovement := &stubRecordMovement{err: invDomain.ErrInsufficientStock}
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement, &eventrecordtest.Outbox{})
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, &stubSKURepo{}, recordMovement, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
@@ -221,7 +221,7 @@ func TestReceivePOSSalesOrder_propagatesAStockMovementError(t *testing.T) {
 func TestReceivePOSSalesOrder_propagatesACreateError(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{createErr: assert.AnError}
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),
@@ -234,7 +234,7 @@ func TestReceivePOSSalesOrder_propagatesACreateError(t *testing.T) {
 func TestReceivePOSSalesOrder_preservesExplicitStatus(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{}
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
 
 	order, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(),

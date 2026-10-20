@@ -135,6 +135,7 @@
   "SUPPLIER_ISSUE_NOTE_TOO_LONG": "The note is too long (1000 characters at most).",
   "SUPPLIER_ISSUE_NOT_FOUND": "This item is not on the purchase order’s supplier issue list.",
   "WEIGHED_LINE_ITEM_QUANTITY_MUST_BE_ONE": "A weighed item must have quantity 1.",
+  "PAYMENTS_TOTAL_MISMATCH": "The payments don’t add up to the order total.",
   "LINE_ITEM_NOT_FOUND": "Line item not found.",
   "LINE_ITEM_NOT_ON_PURCHASE_ORDER": "This line item doesn’t belong to this purchase order.",
   "LINE_ITEM_PRICE_NEGATIVE": "The price can’t be negative.",

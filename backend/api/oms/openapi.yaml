@@ -1210,14 +1210,29 @@ components:
             cost_at_sale_minor_units * quantity -- this line's cost of
             goods sold. Same nullability as cost_at_sale_minor_units.
 
+    SalesOrderPayment:
+      type: object
+      required: [method, amount_minor_units, transaction_id]
+      properties:
+        method: { type: string, description: 'Payment method name as the source calls it, e.g. Cash, Revolut.' }
+        amount_minor_units: { type: integer, format: int64 }
+        transaction_id: { type: string, description: "The payment processor's reference; empty when there is none (e.g. cash)." }
+
     SalesOrderDetail:
       type: object
-      required: [sales_order, line_items]
+      required: [sales_order, line_items, payments]
       properties:
         sales_order: { $ref: '#/components/schemas/SalesOrder' }
         line_items:
           type: array
           items: { $ref: '#/components/schemas/SalesOrderLineItem' }
+        payments:
+          type: array
+          description: >-
+            Every part that paid this order, in the order they were taken --
+            more than one for a split payment. Empty when the source sent no
+            breakdown (sales_order.payment_method is then the only record).
+          items: { $ref: '#/components/schemas/SalesOrderPayment' }
 
     SalesOrderList:
       type: object

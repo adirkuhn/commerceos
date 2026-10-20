@@ -118,7 +118,25 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
         '422':
-          $ref: '#/components/responses/Error'
+          description: >-
+            The sale was rejected; nothing was stored. error.code says why --
+            PAYMENTS_TOTAL_MISMATCH: the payments' amount_minor_units do not
+            add up to total_minor_units. SALES_ORDER_NO_LINE_ITEMS,
+            LINE_ITEM_NAME_REQUIRED (adhoc line without a name),
+            WEIGHED_LINE_ITEM_QUANTITY_MUST_BE_ONE, SKU_NOT_FOUND,
+            VALIDATION_ERROR (body could not be read).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                paymentsTotalMismatch:
+                  summary: Payments do not add up to the order total
+                  value:
+                    data: null
+                    error:
+                      code: PAYMENTS_TOTAL_MISMATCH
+                      message: payments must add up to the order total
 
 components:
   responses:
@@ -346,6 +364,22 @@ components:
         total_minor_units: { type: integer, format: int64, minimum: 0, description: Post-discount line total. }
         total_tax_minor_units: { type: integer, format: int64, minimum: 0 }
 
+    CreatePOSSalesOrderPayment:
+      type: object
+      required: [method, amount_minor_units]
+      properties:
+        method: { type: string, minLength: 1, description: 'Payment method name as the POS calls it, e.g. Cash, Revolut, Card.' }
+        amount_minor_units: { type: integer, format: int64, minimum: 1 }
+        transaction_id: { type: string, description: "The payment processor's reference, if any." }
+
+    POSSalesOrderPayment:
+      type: object
+      required: [method, amount_minor_units, transaction_id]
+      properties:
+        method: { type: string }
+        amount_minor_units: { type: integer, format: int64 }
+        transaction_id: { type: string, description: Empty when the payment has none (e.g. cash). }
+
     CreatePOSSalesOrderRequest:
       type: object
       required: [external_order_id, warehouse_id, currency_code, total_minor_units, occurred_at, line_items]
@@ -372,9 +406,25 @@ components:
           format: int64
           minimum: 0
           description: Authoritative -- not re-derived from line items, same as Woo's order.total.
-        payment_method: { type: string }
+        payment_method:
+          type: string
+          description: >-
+            Kept as sent. When omitted and payments are given, it becomes the
+            only payment's method, or "split" for several.
         payment_method_title: { type: string }
-        transaction_id: { type: string }
+        transaction_id:
+          type: string
+          description: >-
+            Kept as sent. When omitted and there is exactly one payment, it
+            becomes that payment's transaction_id.
+        payments:
+          type: array
+          description: >-
+            Every payment that paid this sale; more than one for a split
+            payment. Amounts must add up to total_minor_units (422
+            PAYMENTS_TOTAL_MISMATCH otherwise). Omit when the POS has no
+            breakdown.
+          items: { $ref: '#/components/schemas/CreatePOSSalesOrderPayment' }
         date_paid: { type: string, format: date-time, nullable: true }
         date_completed: { type: string, format: date-time, nullable: true }
         occurred_at: { type: string, format: date-time }
@@ -405,6 +455,10 @@ components:
         payment_method: { type: string }
         payment_method_title: { type: string }
         transaction_id: { type: string }
+        payments:
+          type: array
+          description: Every payment that paid this sale, in the order they were taken. Empty when the POS sent no breakdown.
+          items: { $ref: '#/components/schemas/POSSalesOrderPayment' }
         date_paid: { type: string, format: date-time, nullable: true }
         date_completed: { type: string, format: date-time, nullable: true }
         occurred_at: { type: string, format: date-time }

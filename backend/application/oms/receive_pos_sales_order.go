@@ -55,11 +55,16 @@ type ReceivePOSSalesOrderInput struct {
 	TaxTotalMinorUnits      int64
 	TotalMinorUnits         int64
 
+	// PaymentMethod/TransactionID default to what Payments add up to (see
+	// SalesOrderPayments.Method/TransactionID) when left empty.
 	PaymentMethod      string
 	PaymentMethodTitle string
 	TransactionID      string
-	DatePaid           *time.Time
-	DateCompleted      *time.Time
+	// Payments is every part that paid the sale -- more than one for a
+	// split payment. Empty from a POS that sends no breakdown.
+	Payments      omsDomain.SalesOrderPayments
+	DatePaid      *time.Time
+	DateCompleted *time.Time
 
 	OccurredAt time.Time
 	LineItems  []ReceivePOSSalesOrderLineItemInput
@@ -119,12 +124,13 @@ type ReceivePOSSalesOrderUseCase struct {
 	salesOrderRepo omsDomain.SalesOrderRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	linkRepo       omsDomain.SalesOrderLineItemStockMovementRepository
+	paymentRepo    omsDomain.SalesOrderPaymentRepository
 	skuRepo        skuLookupRepo
 	recordMovement recordSaleMovementUC
 }
 
-func NewReceivePOSSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, outbox eventrecord.Enqueuer) *ReceivePOSSalesOrderUseCase {
-	return &ReceivePOSSalesOrderUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo, recordMovement: recordMovement}
+func NewReceivePOSSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, paymentRepo omsDomain.SalesOrderPaymentRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, outbox eventrecord.Enqueuer) *ReceivePOSSalesOrderUseCase {
+	return &ReceivePOSSalesOrderUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, paymentRepo: paymentRepo, skuRepo: skuRepo, recordMovement: recordMovement}
 }
 
 func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePOSSalesOrderInput) (*omsDomain.SalesOrder, error) {
@@ -132,6 +138,9 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 		return nil, fmt.Errorf("receivePOSSalesOrder: %w", omsDomain.ErrEmptyLineItems)
 	}
 	if err := requireWeighedLinesAreOnePackage(in.LineItems); err != nil {
+		return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)
+	}
+	if err := in.Payments.RequireTotal(in.TotalMinorUnits); err != nil {
 		return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)
 	}
 	status := in.Status
@@ -148,9 +157,10 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 			return err
 		}
 		if existing != nil {
+			existing.Payments, err = uc.paymentRepo.ListBySalesOrder(ctx, existing.ID)
 			order = existing
 			alreadyReceived = true
-			return nil
+			return err
 		}
 
 		now := time.Now()
@@ -161,7 +171,8 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 			CustomerNote: in.CustomerNote, CurrencyCode: in.CurrencyCode,
 			DiscountTotalMinorUnits: in.DiscountTotalMinorUnits, ShippingTotalMinorUnits: in.ShippingTotalMinorUnits,
 			TaxTotalMinorUnits: in.TaxTotalMinorUnits, TotalMinorUnits: in.TotalMinorUnits,
-			PaymentMethod: in.PaymentMethod, PaymentMethodTitle: in.PaymentMethodTitle, TransactionID: in.TransactionID,
+			PaymentMethod: orDefault(in.PaymentMethod, in.Payments.Method()), PaymentMethodTitle: in.PaymentMethodTitle,
+			TransactionID: orDefault(in.TransactionID, in.Payments.TransactionID()), Payments: in.Payments,
 			DatePaid: in.DatePaid, DateCompleted: in.DateCompleted,
 			OccurredAt: in.OccurredAt, CreatedAt: now, UpdatedAt: now,
 			// See SalesOrderStatus.ReducesStock's doc -- a POS sale defaults
@@ -176,6 +187,11 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 		}
 		if err := uc.salesOrderRepo.Create(ctx, &newOrder); err != nil {
 			return err
+		}
+		if len(newOrder.Payments) > 0 {
+			if err := uc.paymentRepo.CreateForSalesOrder(ctx, &newOrder); err != nil {
+				return err
+			}
 		}
 		for _, li := range in.LineItems {
 			var lineItem omsDomain.SalesOrderLineItem
@@ -276,4 +292,12 @@ func requireWeighedLinesAreOnePackage(lineItems []ReceivePOSSalesOrderLineItemIn
 		}
 	}
 	return nil
+}
+
+// orDefault is value, or fallback when value is empty.
+func orDefault(value, fallback string) string {
+	if value == "" {
+		return fallback
+	}
+	return value
 }

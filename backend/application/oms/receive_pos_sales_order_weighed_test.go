@@ -30,7 +30,7 @@ func weighedLine(skuID string, quantity int64) appoms.ReceivePOSSalesOrderLineIt
 func receiveWeighedOrder(t *testing.T, skuRepo *stubSKURepo, lineItemRepo *stubSalesOrderLineItemRepo, recordMovement *stubRecordMovement, line appoms.ReceivePOSSalesOrderLineItemInput) error {
 	t.Helper()
 	db := newMockGormDBN(t, 3) // order create, link, freezeCostAtSale
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, skuRepo, recordMovement, &eventrecordtest.Outbox{})
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, skuRepo, recordMovement, &eventrecordtest.Outbox{})
 	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "EUR", OccurredAt: time.Now(),
 		TotalMinorUnits: 1225, LineItems: []appoms.ReceivePOSSalesOrderLineItemInput{line},
@@ -88,7 +88,7 @@ func TestReceivePOSSalesOrder_freezesWeightPoolCOGSByTheLineWeight(t *testing.T)
 // quantity would leave it unclear whether the weight is per unit or total.
 func TestReceivePOSSalesOrder_rejectsAWeighedLineWithQuantityOtherThanOne(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.ReceivePOSSalesOrderInput{
 		ExternalOrderID: "pos-order-1", WarehouseID: "warehouse-1", CurrencyCode: "EUR", OccurredAt: time.Now(),

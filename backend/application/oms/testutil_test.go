@@ -176,6 +176,26 @@ func (s *stubSalesOrderRepo) TrySetStockDecremented(_ context.Context, id string
 	return s.trySwapResult, nil
 }
 
+// stubSalesOrderPaymentRepo records CreateForSalesOrder calls and returns
+// byOrder from ListBySalesOrder.
+type stubSalesOrderPaymentRepo struct {
+	created   []omsDomain.SalesOrderPayments
+	createErr error
+	byOrder   omsDomain.SalesOrderPayments
+	listErr   error
+}
+
+func (s *stubSalesOrderPaymentRepo) CreateForSalesOrder(_ context.Context, o *omsDomain.SalesOrder) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	s.created = append(s.created, o.Payments)
+	return nil
+}
+func (s *stubSalesOrderPaymentRepo) ListBySalesOrder(_ context.Context, _ string) (omsDomain.SalesOrderPayments, error) {
+	return s.byOrder, s.listErr
+}
+
 type stubSalesOrderLineItemRepo struct {
 	createErr             error
 	created               []omsDomain.SalesOrderLineItem

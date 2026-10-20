@@ -71,8 +71,16 @@ func (h *Handler) GetSalesOrder(c *gin.Context, id genoms.Id) {
 	for i, li := range result.LineItems {
 		lineItems[i] = toGenSalesOrderLineItem(li)
 	}
-	resp := genoms.SalesOrderDetail{SalesOrder: toGenSalesOrder(result.SalesOrder), LineItems: lineItems}
+	resp := genoms.SalesOrderDetail{SalesOrder: toGenSalesOrder(result.SalesOrder), LineItems: lineItems, Payments: toGenSalesOrderPayments(result.SalesOrder.Payments)}
 	c.JSON(http.StatusOK, genoms.SalesOrderDetailResponse{Data: &resp})
+}
+
+func toGenSalesOrderPayments(payments omsDomain.SalesOrderPayments) []genoms.SalesOrderPayment {
+	out := make([]genoms.SalesOrderPayment, len(payments))
+	for i, p := range payments {
+		out[i] = genoms.SalesOrderPayment{Method: p.Method, AmountMinorUnits: p.AmountMinorUnits, TransactionId: p.TransactionID}
+	}
+	return out
 }
 
 func (h *Handler) CreateSalesOrder(c *gin.Context) {
@@ -114,7 +122,7 @@ func (h *Handler) CreateSalesOrder(c *gin.Context) {
 	for i, li := range result.LineItems {
 		lineItemsResp[i] = toGenSalesOrderLineItem(li)
 	}
-	resp := genoms.SalesOrderDetail{SalesOrder: toGenSalesOrder(result.SalesOrder), LineItems: lineItemsResp}
+	resp := genoms.SalesOrderDetail{SalesOrder: toGenSalesOrder(result.SalesOrder), LineItems: lineItemsResp, Payments: toGenSalesOrderPayments(result.SalesOrder.Payments)}
 	c.JSON(http.StatusCreated, genoms.SalesOrderDetailResponse{Data: &resp})
 }
 

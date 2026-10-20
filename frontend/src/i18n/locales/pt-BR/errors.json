@@ -135,6 +135,7 @@
   "SUPPLIER_ISSUE_NOTE_TOO_LONG": "A observação é longa demais (no máximo 1000 caracteres).",
   "SUPPLIER_ISSUE_NOT_FOUND": "Este item não está na lista de problemas do pedido de compra.",
   "WEIGHED_LINE_ITEM_QUANTITY_MUST_BE_ONE": "Um item pesado deve ter quantidade 1.",
+  "PAYMENTS_TOTAL_MISMATCH": "Os pagamentos não somam o total do pedido.",
   "LINE_ITEM_NOT_FOUND": "Item não encontrado.",
   "LINE_ITEM_NOT_ON_PURCHASE_ORDER": "Este item não pertence a este pedido de compra.",
   "LINE_ITEM_PRICE_NEGATIVE": "O preço não pode ser negativo.",

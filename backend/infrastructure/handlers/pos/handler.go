@@ -66,6 +66,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
 	linkRepo := repositories.NewSalesOrderLineItemStockMovementRepo(db)
+	paymentRepo := repositories.NewSalesOrderPaymentRepo(db)
 	settingsRepo := repositories.NewTenantSettingsRepo(db)
 	warehouseRepo := repositories.NewWarehouseRepo(db)
 	mediaRepo := repositories.NewMediaRepo(db)
@@ -75,7 +76,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	h := NewHandler(
 		apppms.NewListPOSProductCatalogUseCase(db, listProducts, variantRepo, skuRepo, mediaRepo, barcodeAliasRepo, scaleCodeAliasRepo),
 		appinventory.NewListStockLevelsUseCase(db, movementRepo, batchRepo, settingsRepo),
-		appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, outboxRepo),
+		appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, paymentRepo, skuRepo, allocateStock, outboxRepo),
 		appinventory.NewListWarehousesUseCase(db, warehouseRepo),
 	)
 	genpos.RegisterHandlers(rg, h)
@@ -226,6 +227,7 @@ func (h *Handler) CreatePOSSalesOrder(c *gin.Context) {
 		ShippingTotalMinorUnits: int64OrZero(req.ShippingTotalMinorUnits), TaxTotalMinorUnits: int64OrZero(req.TaxTotalMinorUnits),
 		TotalMinorUnits: req.TotalMinorUnits, PaymentMethod: strOrEmpty(req.PaymentMethod),
 		PaymentMethodTitle: strOrEmpty(req.PaymentMethodTitle), TransactionID: strOrEmpty(req.TransactionId),
+		Payments: toOMSPayments(req.Payments),
 		DatePaid: req.DatePaid, DateCompleted: req.DateCompleted,
 		OccurredAt: req.OccurredAt, LineItems: lineItems,
 	})
@@ -247,9 +249,29 @@ func toGenPOSSalesOrder(order *omsDomain.SalesOrder) *genpos.POSSalesOrder {
 		ShippingTotalMinorUnits: &order.ShippingTotalMinorUnits, TaxTotalMinorUnits: &order.TaxTotalMinorUnits,
 		TotalMinorUnits: order.TotalMinorUnits, PaymentMethod: &order.PaymentMethod,
 		PaymentMethodTitle: &order.PaymentMethodTitle, TransactionId: &order.TransactionID,
+		Payments: toGenPOSPayments(order.Payments),
 		DatePaid: order.DatePaid, DateCompleted: order.DateCompleted,
 		OccurredAt: order.OccurredAt, CreatedAt: order.CreatedAt,
 	}
+}
+
+func toOMSPayments(payments *[]genpos.CreatePOSSalesOrderPayment) omsDomain.SalesOrderPayments {
+	if payments == nil {
+		return nil
+	}
+	out := make(omsDomain.SalesOrderPayments, len(*payments))
+	for i, p := range *payments {
+		out[i] = omsDomain.SalesOrderPayment{Method: p.Method, AmountMinorUnits: p.AmountMinorUnits, TransactionID: strOrEmpty(p.TransactionId)}
+	}
+	return out
+}
+
+func toGenPOSPayments(payments omsDomain.SalesOrderPayments) *[]genpos.POSSalesOrderPayment {
+	out := make([]genpos.POSSalesOrderPayment, len(payments))
+	for i, p := range payments {
+		out[i] = genpos.POSSalesOrderPayment{Method: p.Method, AmountMinorUnits: p.AmountMinorUnits, TransactionId: p.TransactionID}
+	}
+	return &out
 }
 
 func mapError(c *gin.Context, err error) error {
@@ -258,7 +280,7 @@ func mapError(c *gin.Context, err error) error {
 	}
 	switch {
 	case errors.Is(err, omsDomain.ErrEmptyLineItems), errors.Is(err, omsDomain.ErrAdhocLineItemRequiresName),
-		errors.Is(err, omsDomain.ErrWeighedLineItemQuantityMustBeOne),
+		errors.Is(err, omsDomain.ErrWeighedLineItemQuantityMustBeOne), errors.Is(err, omsDomain.ErrPaymentsTotalMismatch),
 		errors.Is(err, pmsDomain.ErrSKUNotFound), errors.Is(err, invDomain.ErrInsufficientStock),
 		errors.Is(err, invDomain.ErrInvalidQuantity):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)

@@ -254,7 +254,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 
 	h := NewHandler(
 		appoms.NewListSalesOrdersUseCase(db, salesOrderRepo, repositories.NewTenantSettingsRepo(db)),
-		appoms.NewGetSalesOrderUseCase(db, salesOrderRepo, lineItemRepo),
+		appoms.NewGetSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, repositories.NewSalesOrderPaymentRepo(db)),
 		appoms.NewCreateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, outboxRepo),
 		updateSalesOrder,
 		appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement, outboxRepo),

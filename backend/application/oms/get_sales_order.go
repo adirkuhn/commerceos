@@ -18,10 +18,11 @@ type GetSalesOrderUseCase struct {
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
+	paymentRepo    omsDomain.SalesOrderPaymentRepository
 }
 
-func NewGetSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository) *GetSalesOrderUseCase {
-	return &GetSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo}
+func NewGetSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, paymentRepo omsDomain.SalesOrderPaymentRepository) *GetSalesOrderUseCase {
+	return &GetSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, paymentRepo: paymentRepo}
 }
 
 func (uc *GetSalesOrderUseCase) Execute(ctx context.Context, id string) (*GetSalesOrderResult, error) {
@@ -32,6 +33,10 @@ func (uc *GetSalesOrderUseCase) Execute(ctx context.Context, id string) (*GetSal
 			return err
 		}
 		lineItems, err := uc.lineItemRepo.ListBySalesOrder(ctx, id)
+		if err != nil {
+			return err
+		}
+		order.Payments, err = uc.paymentRepo.ListBySalesOrder(ctx, id)
 		if err != nil {
 			return err
 		}

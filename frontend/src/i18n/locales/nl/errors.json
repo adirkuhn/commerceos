@@ -135,6 +135,7 @@
   "SUPPLIER_ISSUE_NOTE_TOO_LONG": "De notitie is te lang (maximaal 1000 tekens).",
   "SUPPLIER_ISSUE_NOT_FOUND": "Dit artikel staat niet op de probleemlijst van deze inkooporder.",
   "WEIGHED_LINE_ITEM_QUANTITY_MUST_BE_ONE": "Een gewogen artikel moet aantal 1 hebben.",
+  "PAYMENTS_TOTAL_MISMATCH": "De betalingen komen niet uit op het ordertotaal.",
   "LINE_ITEM_NOT_FOUND": "Regel niet gevonden.",
   "LINE_ITEM_NOT_ON_PURCHASE_ORDER": "Deze regel hoort niet bij deze inkooporder.",
   "LINE_ITEM_PRICE_NEGATIVE": "De prijs kan niet negatief zijn.",
