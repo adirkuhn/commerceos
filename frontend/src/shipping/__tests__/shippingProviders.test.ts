@@ -6,12 +6,12 @@ const conn = (id: string, provider: string, created_at = '2026-01-01T00:00:00Z')
   ({ id, provider, status: 'active', created_at, is_default: false })
 
 describe('shippingProviderCapabilities', () => {
-  it('MyParcel has a carrier choice and exports orders', () => {
-    expect(shippingProviderCapabilities(SHIPPING_PROVIDERS.myparcel)).toEqual({ hasCarrierChoice: true, exportsOrders: true })
+  it('MyParcel has a carrier choice, exports orders and offers every package type', () => {
+    expect(shippingProviderCapabilities(SHIPPING_PROVIDERS.myparcel)).toEqual({ hasCarrierChoice: true, exportsOrders: true, packageTypeIds: [1, 2, 4, 5, 6, 7] })
   })
 
-  it('PostNL is its own carrier', () => {
-    expect(shippingProviderCapabilities(SHIPPING_PROVIDERS.postnl)).toEqual({ hasCarrierChoice: false, exportsOrders: false })
+  it('PostNL is its own carrier and has no digital stamp or pallet', () => {
+    expect(shippingProviderCapabilities(SHIPPING_PROVIDERS.postnl)).toEqual({ hasCarrierChoice: false, exportsOrders: false, packageTypeIds: [1, 2, 6, 7] })
   })
 
   it('an unknown or missing provider gets the plain flow', () => {

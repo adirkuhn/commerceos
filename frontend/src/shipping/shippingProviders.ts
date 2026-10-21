@@ -1,5 +1,5 @@
 import { providerLabel } from '../webhooks/providerLabel'
-import type { ShippingConnection } from './types'
+import { PACKAGE_TYPES, type ShippingConnection } from './types'
 
 // The shipping providers the label flow knows -- the backend's connection
 // provider strings.
@@ -19,15 +19,20 @@ export interface ShippingProviderCapabilities {
   // before the label is made (MyParcel's Orders API, on the sales order
   // page).
   exportsOrders: boolean
+  // The PACKAGE_TYPES ids staff may pick. PostNL has no digital stamp or
+  // pallet (its API rejects them).
+  packageTypeIds: readonly number[]
 }
 
+const ALL_PACKAGE_TYPE_IDS = PACKAGE_TYPES.map(p => p.id)
+
 const CAPABILITIES: Record<string, ShippingProviderCapabilities> = {
-  [SHIPPING_PROVIDERS.myparcel]: { hasCarrierChoice: true, exportsOrders: true },
-  [SHIPPING_PROVIDERS.postnl]: { hasCarrierChoice: false, exportsOrders: false },
+  [SHIPPING_PROVIDERS.myparcel]: { hasCarrierChoice: true, exportsOrders: true, packageTypeIds: ALL_PACKAGE_TYPE_IDS },
+  [SHIPPING_PROVIDERS.postnl]: { hasCarrierChoice: false, exportsOrders: false, packageTypeIds: [1, 2, 6, 7] },
 }
 
 // A provider this frontend doesn't know yet gets the plain label flow.
-const UNKNOWN_PROVIDER: ShippingProviderCapabilities = { hasCarrierChoice: false, exportsOrders: false }
+const UNKNOWN_PROVIDER: ShippingProviderCapabilities = { hasCarrierChoice: false, exportsOrders: false, packageTypeIds: ALL_PACKAGE_TYPE_IDS }
 
 export function shippingProviderCapabilities(provider: string | undefined): ShippingProviderCapabilities {
   return (provider && CAPABILITIES[provider]) || UNKNOWN_PROVIDER

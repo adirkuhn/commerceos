@@ -100,6 +100,8 @@ interface AddressConfirmModalProps {
   // False for a provider that is its own carrier (PostNL) -- no carrier
   // dropdown then. Defaults to true.
   showCarrier?: boolean
+  // PACKAGE_TYPES ids the provider supports; all when omitted.
+  packageTypeIds?: readonly number[]
 }
 
 function normalize(s: string): string {
@@ -117,7 +119,7 @@ function normalize(s: string): string {
 // whatever staff already entered, with a one-click fix. Real MyParcel-side
 // validation still only happens when the create-shipment call itself
 // accepts/rejects it, surfaced on LabelPreviewModal's Print step.
-export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defaultCarrier, defaultPackageType, connectionId, initialRecipient, initialCarrier, initialPackageType, onNext, onClose, providerPicker, showCarrier = true }: AddressConfirmModalProps) {
+export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defaultCarrier, defaultPackageType, connectionId, initialRecipient, initialCarrier, initialPackageType, onNext, onClose, providerPicker, showCarrier = true, packageTypeIds }: AddressConfirmModalProps) {
   const [recipient, setRecipient] = useState<RecipientAddress>(() => initialRecipient ?? addressToRecipientDraft(initialAddress, fallbackEmail))
   const { t } = useTranslation(['shipping', 'common'])
   const formatMoney = useMoneyFormat()
@@ -355,7 +357,7 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
             <div>
               <label htmlFor="ship-package-type" className={labelClass}>{t('address.packageType')}</label>
               <select id="ship-package-type" value={packageType} onChange={e => setPackageType(Number(e.target.value))} className={inputClass}>
-                {PACKAGE_TYPES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                {PACKAGE_TYPES.filter(p => !packageTypeIds || packageTypeIds.includes(p.id)).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
               </select>
             </div>
           </div>

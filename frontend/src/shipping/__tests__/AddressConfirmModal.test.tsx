@@ -426,4 +426,10 @@ describe('AddressConfirmModal provider', () => {
     expect(screen.queryByLabelText('Carrier')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Package type')).toBeInTheDocument()
   })
+
+  it('offers only the package types the provider supports', () => {
+    render(<AddressConfirmModal token="t" initialAddress={address} packageTypeIds={[1, 2]} onNext={vi.fn()} onClose={vi.fn()} />)
+    const options = Array.from((screen.getByLabelText('Package type') as HTMLSelectElement).options).map(o => Number(o.value))
+    expect(options).toEqual([1, 2])
+  })
 })

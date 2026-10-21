@@ -19,7 +19,7 @@ interface PackingLabelModalsProps {
 // "label opened" notice, or the already-has-a-shipment confirm.
 export function PackingLabelModals({ token, order, label }: PackingLabelModalsProps) {
   const { labelStep, pendingRecipient, pendingCarrier, pendingPackageType, labelTab, existingShipment, shipping } = label
-  const { hasCarrierChoice } = shipping.capabilities
+  const { hasCarrierChoice, packageTypeIds } = shipping.capabilities
   return (
     <>
       {labelStep === 'address' && (
@@ -37,6 +37,7 @@ export function PackingLabelModals({ token, order, label }: PackingLabelModalsPr
           onClose={() => label.setLabelStep(null)}
           providerPicker={<LabelConnectionPicker shipping={shipping} />}
           showCarrier={hasCarrierChoice}
+          packageTypeIds={packageTypeIds}
         />
       )}
       {labelStep === 'preview' && pendingRecipient && (

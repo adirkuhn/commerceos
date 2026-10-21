@@ -18,7 +18,7 @@ interface ShippingLabelFlowProps {
 // the "label opened" notice, and the "label already exists" prompt.
 export function ShippingLabelFlow({ token, activeOrder, label }: ShippingLabelFlowProps) {
   const { labelStep, pendingRecipient, pendingCarrier, pendingPackageType, labelTab, existingShipment, shipping } = label
-  const { hasCarrierChoice } = shipping.capabilities
+  const { hasCarrierChoice, packageTypeIds } = shipping.capabilities
   return (
     <>
       {labelStep === 'address' && activeOrder && (
@@ -36,6 +36,7 @@ export function ShippingLabelFlow({ token, activeOrder, label }: ShippingLabelFl
           onClose={label.closeFlow}
           providerPicker={<LabelConnectionPicker shipping={shipping} />}
           showCarrier={hasCarrierChoice}
+          packageTypeIds={packageTypeIds}
         />
       )}
       {labelStep === 'preview' && pendingRecipient && (

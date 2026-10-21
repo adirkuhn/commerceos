@@ -84,7 +84,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
   // address in hand from the same modal -- before the actual shipment.
   const shipping = useLabelConnection(token ?? '')
   const { connection: shippingConnection, labelSize, setLabelSize, autoPrintEnabled } = shipping
-  const { hasCarrierChoice } = shipping.capabilities
+  const { hasCarrierChoice, packageTypeIds } = shipping.capabilities
   // Label creation is a 3-step flow: 'address' (AddressConfirmModal, no API
   // call) -> 'preview' (LabelPreviewModal, still no API call) -> Print
   // label actually creates the shipment (see handlePrintLabel). Same shape
@@ -486,6 +486,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
           onClose={() => setLabelStep(null)}
           providerPicker={<LabelConnectionPicker shipping={shipping} />}
           showCarrier={hasCarrierChoice}
+          packageTypeIds={packageTypeIds}
         />
       )}
       {labelStep === 'preview' && pendingRecipient && (
