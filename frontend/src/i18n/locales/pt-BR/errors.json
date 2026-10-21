@@ -428,5 +428,8 @@
   "SHIPPING_PREFERENCES_FORBIDDEN": "Somente um proprietário ou administrador pode alterar o provedor de envio padrão.",
   "POSTNL_ACCOUNT_INVALID": "A PostNL precisa de uma chave de API, um código de cliente de até 4 caracteres e um número de cliente de até 10 caracteres.",
   "CARRIER_OPERATION_NOT_SUPPORTED": "Esta transportadora não oferece suporte a isso.",
-  "CARRIER_SENDER_ADDRESS_MISSING": "Preencha o endereço da empresa no perfil da empresa antes de criar etiquetas com esta transportadora."
+  "CARRIER_SENDER_ADDRESS_MISSING": "Preencha o endereço da empresa no perfil da empresa antes de criar etiquetas com esta transportadora.",
+  "CARRIER_DESTINATION_NOT_SUPPORTED": "Esta integração de transportadora ainda não envia para este país.",
+  "NOT_POSTNL_CONNECTION": "Esta não é uma conexão PostNL.",
+  "SHIPPING_ADDRESS_INVALID": "Um endereço de envio precisa de nome da empresa, rua, número, código postal, cidade e um código de país de 2 letras."
 }

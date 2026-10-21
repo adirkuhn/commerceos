@@ -2,6 +2,7 @@ package shipping
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"log"
@@ -33,7 +34,9 @@ type CancelShipmentInput struct {
 type CancelShipmentResult struct {
 	DeletedOnMyParcel bool
 	CarrierError      string
-	Message           string
+	// LabelKept: see shippingDomain.CancelOutcome.LabelKept.
+	LabelKept bool
+	Message   string
 }
 
 // CancelShipmentUseCase is the "wrong carrier, start over" action: attempts
@@ -109,10 +112,15 @@ func (uc *CancelShipmentUseCase) Execute(ctx context.Context, in CancelShipmentI
 
 	deleteErr := client.CancelShipment(ctx, shipment.ExternalShipmentID)
 	outcome := shippingDomain.CancelOutcome{DeletedOnCarrier: deleteErr == nil}
-	if deleteErr != nil {
+	switch {
+	case errors.Is(deleteErr, integrationsDomain.ErrCarrierLabelNotDeletable):
+		outcome.LabelKept = true
+	case deleteErr != nil:
 		outcome.CarrierError = deleteErr.Error()
 	}
-	result := &CancelShipmentResult{DeletedOnMyParcel: outcome.DeletedOnCarrier, CarrierError: outcome.CarrierError, Message: outcome.Note()}
+	result := &CancelShipmentResult{
+		DeletedOnMyParcel: outcome.DeletedOnCarrier, CarrierError: outcome.CarrierError, LabelKept: outcome.LabelKept, Message: outcome.Note(),
+	}
 
 	cancelledAt := uc.now()
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {

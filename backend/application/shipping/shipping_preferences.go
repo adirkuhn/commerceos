@@ -21,10 +21,21 @@ type shippingProviderSupport interface {
 	Supports(provider integrationsDomain.Provider) bool
 }
 
+// MissingSenderAddress: the connection's carrier needs a sender address
+// and the tenant has none (no shipping sender, no company address).
+const MissingSenderAddress = "sender_address"
+
+// ShippingConnection is a shipping connection plus what's still missing
+// before it can create labels (empty = ready).
+type ShippingConnection struct {
+	integrationsDomain.Connection
+	Missing []string
+}
+
 // ShippingConnections is every connection packing can create a label
 // through, oldest first, plus which one it uses by default.
 type ShippingConnections struct {
-	Connections []integrationsDomain.Connection
+	Connections []ShippingConnection
 	// DefaultConnectionID is the one packing preselects -- "" only when
 	// there are no shipping connections at all.
 	DefaultConnectionID string
@@ -38,10 +49,11 @@ type ListShippingConnectionsUseCase struct {
 	connRepo  integrationsDomain.ConnectionRepository
 	prefsRepo shippingDomain.ShippingPreferencesRepository
 	support   shippingProviderSupport
+	addresses shipmentAddressSource
 }
 
-func NewListShippingConnectionsUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, prefsRepo shippingDomain.ShippingPreferencesRepository, support shippingProviderSupport) *ListShippingConnectionsUseCase {
-	return &ListShippingConnectionsUseCase{db: db, connRepo: connRepo, prefsRepo: prefsRepo, support: support}
+func NewListShippingConnectionsUseCase(db *gorm.DB, connRepo integrationsDomain.ConnectionRepository, prefsRepo shippingDomain.ShippingPreferencesRepository, support shippingProviderSupport, addresses shipmentAddressSource) *ListShippingConnectionsUseCase {
+	return &ListShippingConnectionsUseCase{db: db, connRepo: connRepo, prefsRepo: prefsRepo, support: support, addresses: addresses}
 }
 
 func (uc *ListShippingConnectionsUseCase) Execute(ctx context.Context) (*ShippingConnections, error) {
@@ -58,7 +70,13 @@ func (uc *ListShippingConnectionsUseCase) Execute(ctx context.Context) (*Shippin
 		if prefs != nil {
 			result.ConfiguredConnectionID = prefs.DefaultConnectionID
 		}
-		result.Connections = shippingConnectionsOf(all, uc.support)
+		addresses, err := uc.addresses.Resolve(ctx)
+		if err != nil {
+			return err
+		}
+		for _, c := range shippingConnectionsOf(all, uc.support) {
+			result.Connections = append(result.Connections, ShippingConnection{Connection: c, Missing: missingFor(c, addresses)})
+		}
 		return nil
 	})
 	if err != nil {
@@ -70,6 +88,13 @@ func (uc *ListShippingConnectionsUseCase) Execute(ctx context.Context) (*Shippin
 	}
 	result.DefaultConnectionID = shippingDomain.ResolveDefaultConnection(candidates, result.ConfiguredConnectionID)
 	return &result, nil
+}
+
+func missingFor(c integrationsDomain.Connection, addresses ShipmentAddresses) []string {
+	if c.Provider.RequiresSenderAddress() && addresses.Sender == nil {
+		return []string{MissingSenderAddress}
+	}
+	return nil
 }
 
 func shippingConnectionsOf(all []integrationsDomain.Connection, support shippingProviderSupport) []integrationsDomain.Connection {
@@ -120,12 +145,14 @@ func (uc *SetDefaultShippingConnectionUseCase) Execute(ctx context.Context, conn
 		if err != nil {
 			return err
 		}
-		var beforeID *string
+		next := shippingDomain.ShippingPreferences{}
 		if before != nil {
-			beforeID = before.DefaultConnectionID
+			next = *before
 		}
+		beforeID := next.DefaultConnectionID
 		tenantID := tenant.IDFromContext(ctx)
-		if err := uc.prefsRepo.Upsert(ctx, &shippingDomain.ShippingPreferences{TenantID: tenantID, DefaultConnectionID: connectionID, UpdatedAt: time.Now()}); err != nil {
+		next.TenantID, next.DefaultConnectionID, next.UpdatedAt = tenantID, connectionID, time.Now()
+		if err := uc.prefsRepo.Upsert(ctx, &next); err != nil {
 			return err
 		}
 		return eventrecord.Record(ctx, uc.outbox, events.ShippingPreferencesUpdated, tenantID,

@@ -7,7 +7,7 @@ var (
 	ConnectionDisconnected = defineAction("integrations.connection.disconnected",
 		"A third-party connection (WooCommerce, Bol, MyParcel, WhatsApp, ...) was removed. data: provider.")
 	ConnectionUpdated = defineAction("integrations.connection.updated",
-		"A connection's settings changed (changes: default_currency, default_warehouse_id, bol_economic_operator_id, bol_delivery_code, bol_shipping_cost_minor_units, whatsapp_test_mode_enabled, whatsapp_test_phone, whatsapp_ai_parsing_enabled, base_url, instance_name, api_key -- \"changed\" only, never the key). data: provider.")
+		"A connection's settings changed (changes: default_currency, default_warehouse_id, bol_economic_operator_id, bol_delivery_code, bol_shipping_cost_minor_units, whatsapp_test_mode_enabled, whatsapp_test_phone, whatsapp_ai_parsing_enabled, base_url, instance_name, customer_code, customer_number, sandbox, api_key -- \"changed\" only, never the key). data: provider.")
 	ConnectionTested = defineAction("integrations.connection.tested",
 		"A connection's credentials were tested against the provider (changes: status). data: provider, succeeded.")
 	ConnectionWebhookSecretSet = defineAction("integrations.connection.webhook_secret_set",

@@ -428,5 +428,8 @@
   "SHIPPING_PREFERENCES_FORBIDDEN": "Alleen een eigenaar of beheerder kan de standaard verzendpartij wijzigen.",
   "POSTNL_ACCOUNT_INVALID": "PostNL heeft een API-sleutel, een klantcode van maximaal 4 tekens en een klantnummer van maximaal 10 tekens nodig.",
   "CARRIER_OPERATION_NOT_SUPPORTED": "Deze vervoerder ondersteunt dit niet.",
-  "CARRIER_SENDER_ADDRESS_MISSING": "Vul je bedrijfsadres in het bedrijfsprofiel in voordat je labels maakt met deze vervoerder."
+  "CARRIER_SENDER_ADDRESS_MISSING": "Vul je bedrijfsadres in het bedrijfsprofiel in voordat je labels maakt met deze vervoerder.",
+  "CARRIER_DESTINATION_NOT_SUPPORTED": "Met deze vervoerderskoppeling kun je nog niet naar dit land verzenden.",
+  "NOT_POSTNL_CONNECTION": "Dit is geen PostNL-koppeling.",
+  "SHIPPING_ADDRESS_INVALID": "Een verzendadres heeft een bedrijfsnaam, straat, huisnummer, postcode, plaats en een landcode van 2 letters nodig."
 }

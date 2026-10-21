@@ -14,6 +14,8 @@ var (
 		"A carrier's per-connection option overrides were set. entity_id is the connection id. data: carrier. changes: package_type, signature_required, only_recipient, insure_by_default, tracking_url_template.")
 	ShippingPreferencesUpdated = defineAction("shipping.preferences.updated",
 		"The tenant's default shipping connection (used by packing) changed. entity_id is the tenant id. changes: default_connection_id (null = not chosen, the oldest shipping connection is used).")
+	ShippingAddressesUpdated = defineAction("shipping.addresses.updated",
+		"The tenant's label sender address or return address changed. entity_id is the tenant id. changes: sender_address, return_address (null = not set: the sender falls back to the company profile address, returns go to the sender).")
 	WebhookEventRedispatched = defineAction("shipping.webhook_event.redispatched",
 		"Someone retried dispatching a stored carrier/channel webhook. data: provider, topic, status (processed or failed), error. What the webhook itself changed raises its own events.")
 )

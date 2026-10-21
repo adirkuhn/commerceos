@@ -90,3 +90,7 @@ var (
 // code (1-4 characters) and a customer number (1-10 characters) -- the
 // limits PostNL's Shipment v4 API enforces.
 var ErrPostNLAccountInvalid = errs.New("POSTNL_ACCOUNT_INVALID", "PostNL needs an API key, a customer code of up to 4 characters and a customer number of up to 10 characters")
+
+// ErrNotPostNLConnection: a PostNL-only operation was asked for a
+// connection of another provider.
+var ErrNotPostNLConnection = errs.New("NOT_POSTNL_CONNECTION", "this is not a PostNL connection")

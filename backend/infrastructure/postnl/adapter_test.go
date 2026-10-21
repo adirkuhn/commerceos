@@ -52,26 +52,55 @@ func shipmentRequest() integrationsDomain.CreateCarrierShipmentRequest {
 	}
 }
 
-func labelconfirmOK(t *testing.T, gotBody *map[string]any) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, "/shipment/delivery/v4/labelconfirm", r.URL.Path)
-		assert.Equal(t, "secret-key", r.Header.Get("apikey"))
-		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
-		raw, _ := io.ReadAll(r.Body)
-		require.NoError(t, json.Unmarshal(raw, gotBody))
-		_, _ = w.Write([]byte(`{"traceId":"t-1","items":[{"barcode":"3SDEVC123456789","labels":[{"label":"` +
-			base64.StdEncoding.EncodeToString([]byte("%PDF-1.4 fake")) + `","outputType":"pdf","labelType":"Label"}]}],"warnings":[]}`))
+// fakePostNL serves Label and Confirm the way PostNL's v4 API does,
+// recording each request body.
+type fakePostNL struct {
+	t           *testing.T
+	label       map[string]any
+	confirm     map[string]any
+	labelReply  string
+	confirmCode int
+}
+
+func (f *fakePostNL) handler(w http.ResponseWriter, r *http.Request) {
+	assert.Equal(f.t, http.MethodPost, r.Method)
+	assert.Equal(f.t, "secret-key", r.Header.Get("apikey"))
+	assert.Equal(f.t, "application/json", r.Header.Get("Content-Type"))
+	raw, _ := io.ReadAll(r.Body)
+	switch r.URL.Path {
+	case "/shipment/delivery/v4/label":
+		require.NoError(f.t, json.Unmarshal(raw, &f.label))
+		reply := f.labelReply
+		if reply == "" {
+			reply = `{"items":[{"barcode":"3SDEVC123456789","labels":[{"label":"` +
+				base64.StdEncoding.EncodeToString([]byte("%PDF-1.4 fake")) + `","outputType":"PDF","labelType":"Label"}]}]}`
+		}
+		_, _ = w.Write([]byte(reply))
+	case "/shipment/delivery/v4/confirm":
+		require.NoError(f.t, json.Unmarshal(raw, &f.confirm))
+		if f.confirmCode != 0 {
+			w.WriteHeader(f.confirmCode)
+			_, _ = w.Write([]byte(`{"title":"One or more business errors occurred","status":400,"errors":{"x":["confirm failed"]}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"items":[{"barcode":"3SDEVC123456789"}]}`))
+	default:
+		f.t.Fatalf("unexpected path %s", r.URL.Path)
 	}
 }
 
-func TestCreateShipment_sendsLabelconfirmRequestBuiltFromTheShipment(t *testing.T) {
-	var body map[string]any
-	client := newClient(t, labelconfirmOK(t, &body))
+func newFake(t *testing.T) (*fakePostNL, integrationsDomain.CarrierClient) {
+	f := &fakePostNL{t: t}
+	return f, newClient(t, f.handler)
+}
+
+func TestCreateShipment_sendsLabelRequestBuiltFromTheShipment(t *testing.T) {
+	f, client := newFake(t)
 
 	_, err := client.CreateShipment(context.Background(), shipmentRequest())
 
 	require.NoError(t, err)
+	body := f.label
 	assert.Equal(t, "parcel", body["shipmentType"])
 	assert.Equal(t, map[string]any{"outputType": "pdf"}, body["labelSettings"])
 	assert.Equal(t, map[string]any{
@@ -87,6 +116,7 @@ func TestCreateShipment_sendsLabelconfirmRequestBuiltFromTheShipment(t *testing.
 		"contact": map[string]any{"email": "jane@example.com", "firstName": "Jane", "lastName": "van Dijk", "mobileNumber": "+31612345678"},
 	}, body["receiver"])
 	assert.Equal(t, map[string]any{"deliveryConfirmation": "signature", "statedAddressOnly": true, "insuredValue": 25.5}, body["services"])
+	assert.Nil(t, body["internationalShipmentData"], "domestic")
 	items := body["items"].([]any)
 	require.Len(t, items, 1)
 	item := items[0].(map[string]any)
@@ -96,68 +126,152 @@ func TestCreateShipment_sendsLabelconfirmRequestBuiltFromTheShipment(t *testing.
 	assert.Equal(t, "order-1", refs["shipmentRemark"])
 }
 
+func TestCreateShipment_confirmsRightAfterWithTheLabelsBarcode(t *testing.T) {
+	f, client := newFake(t)
+
+	_, err := client.CreateShipment(context.Background(), shipmentRequest())
+
+	require.NoError(t, err)
+	require.NotNil(t, f.confirm, "the label is pre-announced right away")
+	assert.Nil(t, f.confirm["labelSettings"], "Confirm takes the Label payload without labelSettings")
+	assert.Equal(t, f.label["receiver"], f.confirm["receiver"])
+	assert.Equal(t, f.label["sender"], f.confirm["sender"])
+	assert.Equal(t, f.label["services"], f.confirm["services"])
+	item := f.confirm["items"].([]any)[0].(map[string]any)
+	assert.Equal(t, "3SDEVC123456789", item["barcode"])
+	assert.Equal(t, f.label["items"].([]any)[0].(map[string]any)["customerReferences"], item["customerReferences"])
+}
+
+func TestCreateShipment_failedConfirmFailsTheShipment(t *testing.T) {
+	f, client := newFake(t)
+	f.confirmCode = http.StatusBadRequest
+
+	_, err := client.CreateShipment(context.Background(), shipmentRequest())
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "confirm")
+	assert.Contains(t, err.Error(), "confirm failed")
+}
+
 func TestCreateShipment_returnsBarcodeReferenceAndDecodedLabel(t *testing.T) {
-	var body map[string]any
-	client := newClient(t, labelconfirmOK(t, &body))
+	f, client := newFake(t)
 
 	result, err := client.CreateShipment(context.Background(), shipmentRequest())
 
 	require.NoError(t, err)
 	assert.Equal(t, "3SDEVC123456789", result.Barcode)
-	sentRef := body["items"].([]any)[0].(map[string]any)["customerReferences"].(map[string]any)["shipmentReference"]
+	sentRef := f.label["items"].([]any)[0].(map[string]any)["customerReferences"].(map[string]any)["shipmentReference"]
 	assert.Equal(t, sentRef, result.ExternalShipmentID)
 	require.NotNil(t, result.Label)
 	assert.Equal(t, []byte("%PDF-1.4 fake"), result.Label.Data)
 	assert.Equal(t, "application/pdf", result.Label.ContentType)
 }
 
+func TestCreateShipment_returnAddressIsTheUndeliverableReturnAddress(t *testing.T) {
+	f, client := newFake(t)
+	in := shipmentRequest()
+	in.ReturnAddress = &integrationsDomain.CarrierAddress{Company: "Returns", Street: "Laan", Number: "2", PostalCode: "3511 AA", City: "Utrecht", CC: "nl"}
+
+	_, err := client.CreateShipment(context.Background(), in)
+
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"companyName": "Returns", "street": "Laan", "houseNumber": "2", "postalCode": "3511AA", "city": "Utrecht", "countryIso": "NL"},
+		f.label["sender"].(map[string]any)["undeliverableReturnAddress"])
+}
+
+// Verified against the real sandbox on 2026-10-21: an EU parcel needs the
+// international bundle, and the Label response's partner fields must be
+// passed on to Confirm.
+func TestCreateShipment_euDestinationUsesTheInternationalBundle(t *testing.T) {
+	f, client := newFake(t)
+	f.labelReply = `{"items":[{"barcode":"3SSLTQ3242209","partnerId":"DHL/EU/GOOD","partnerBarcode":"CM016055191NL","labels":[{"label":"","outputType":"PDF"}]}]}`
+	in := shipmentRequest()
+	in.Recipient.CC, in.Recipient.City, in.Recipient.PostalCode = "DE", "Berlin", "10115"
+	in.Options.InsuranceAmountMinorUnits = nil
+
+	_, err := client.CreateShipment(context.Background(), in)
+
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"bundle": "track_trace"}, f.label["internationalShipmentData"])
+	assert.Nil(t, f.label["services"], "domestic services can't be combined with international products")
+	assert.Equal(t, map[string]any{"bundle": "track_trace", "partnerId": "DHL/EU/GOOD", "partnerBarcode": "CM016055191NL"}, f.confirm["internationalShipmentData"])
+}
+
+func TestCreateShipment_euInsuranceBundleFollowsTheInsuredAmount(t *testing.T) {
+	for _, tc := range []struct {
+		minor  int
+		bundle string
+	}{{5000, "insured"}, {5001, "insured_plus"}, {90000, "insured_plus"}} {
+		f, client := newFake(t)
+		in := shipmentRequest()
+		in.Recipient.CC = "FR"
+		in.Options.InsuranceAmountMinorUnits = &tc.minor
+
+		_, err := client.CreateShipment(context.Background(), in)
+
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{"bundle": tc.bundle}, f.label["internationalShipmentData"], "insured %d", tc.minor)
+	}
+}
+
+func TestCreateShipment_singleWordNameStillHasALastName(t *testing.T) {
+	f, client := newFake(t)
+	in := shipmentRequest()
+	in.Recipient.Person = "Madonna"
+
+	_, err := client.CreateShipment(context.Background(), in)
+
+	require.NoError(t, err)
+	contact := f.label["receiver"].(map[string]any)["contact"].(map[string]any)
+	assert.Equal(t, "Madonna", contact["lastName"])
+}
+
+func TestCreateShipment_outsideTheEUIsNotSupportedYet(t *testing.T) {
+	client := newClient(t, func(http.ResponseWriter, *http.Request) { t.Fatal("PostNL must not be called") })
+	in := shipmentRequest()
+	in.Recipient.CC = "US"
+
+	_, err := client.CreateShipment(context.Background(), in)
+
+	assert.ErrorIs(t, err, integrationsDomain.ErrCarrierDestinationNotSupported)
+}
+
 func TestCreateShipment_zplLabel(t *testing.T) {
-	client := newClient(t, func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]any
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-		assert.Equal(t, map[string]any{"outputType": "zpl"}, body["labelSettings"])
-		_, _ = w.Write([]byte(`{"items":[{"barcode":"3S1","labels":[{"label":"` + base64.StdEncoding.EncodeToString([]byte("^XA^XZ")) + `","outputType":"zpl"}]}]}`))
-	})
+	f, client := newFake(t)
+	f.labelReply = `{"items":[{"barcode":"3S1","labels":[{"label":"` + base64.StdEncoding.EncodeToString([]byte("^XA^XZ")) + `","outputType":"ZPL"}]}]}`
 	in := shipmentRequest()
 	in.LabelFormat = "zpl"
 
 	result, err := client.CreateShipment(context.Background(), in)
 
 	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"outputType": "zpl"}, f.label["labelSettings"])
 	assert.Equal(t, "application/vnd.shipment_label+zpl", result.Label.ContentType)
 }
 
 func TestCreateShipment_mailboxPackageIsLetterbox(t *testing.T) {
-	client := newClient(t, func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]any
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-		assert.Equal(t, "letterbox", body["shipmentType"])
-		assert.Nil(t, body["services"], "no services requested")
-		_, _ = w.Write([]byte(`{"items":[{"barcode":"3S1","labels":[{"label":"","outputType":"pdf"}]}]}`))
-	})
+	f, client := newFake(t)
 	in := shipmentRequest()
 	in.Options = integrationsDomain.CarrierShipmentOptions{PackageType: 2}
 
 	_, err := client.CreateShipment(context.Background(), in)
 
 	require.NoError(t, err)
+	assert.Equal(t, "letterbox", f.label["shipmentType"])
+	assert.Nil(t, f.label["services"], "no services requested")
 }
 
 func TestCreateShipment_companyRecipientIsBusiness(t *testing.T) {
-	client := newClient(t, func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]any
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-		receiver := body["receiver"].(map[string]any)
-		assert.Equal(t, "business", receiver["type"])
-		assert.Equal(t, "ACME BV", receiver["address"].(map[string]any)["companyName"])
-		_, _ = w.Write([]byte(`{"items":[{"barcode":"3S1","labels":[]}]}`))
-	})
+	f, client := newFake(t)
 	in := shipmentRequest()
 	in.Recipient.Company = "ACME BV"
 
 	_, err := client.CreateShipment(context.Background(), in)
 
 	require.NoError(t, err)
+	receiver := f.label["receiver"].(map[string]any)
+	assert.Equal(t, "business", receiver["type"])
+	assert.Equal(t, "ACME BV", receiver["address"].(map[string]any)["companyName"])
 }
 
 func TestCreateShipment_withoutSenderAddressFailsBeforeCallingPostNL(t *testing.T) {
@@ -230,7 +344,7 @@ func TestNewClient_requiresCustomerCodeAndNumber(t *testing.T) {
 func TestNotSupportedOperations(t *testing.T) {
 	client := newClient(t, func(http.ResponseWriter, *http.Request) { t.Fatal("PostNL must not be called") })
 
-	assert.ErrorIs(t, client.CancelShipment(context.Background(), "ref"), integrationsDomain.ErrCarrierOperationNotSupported)
+	assert.ErrorIs(t, client.CancelShipment(context.Background(), "ref"), integrationsDomain.ErrCarrierLabelNotDeletable)
 	_, err := client.GetLabel(context.Background(), "ref", "pdf", "A4")
 	assert.ErrorIs(t, err, integrationsDomain.ErrCarrierOperationNotSupported)
 	_, err = client.GetDeliveryPriceEstimate(context.Background(), integrationsDomain.DeliveryPriceEstimateInput{})

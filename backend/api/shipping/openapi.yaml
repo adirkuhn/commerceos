@@ -145,6 +145,43 @@ paths:
         '400': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
 
+  /shipping/postnl/connections/{connectionId}:
+    get:
+      operationId: getPostNLConnection
+      summary: A PostNL connection's account and environment (never the API key).
+      parameters:
+        - $ref: '#/components/parameters/connectionId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PostNLConnectionResponse' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: updatePostNLConnection
+      summary: >
+        Replace a PostNL connection's customer code/number and sandbox
+        switch, e.g. to go live after PostNL validated the integration.
+        An empty api_key keeps the stored key.
+      parameters:
+        - $ref: '#/components/parameters/connectionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdatePostNLConnectionRequest' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PostNLConnectionResponse' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
   /shipping/connections/{connectionId}/register-webhook:
     post:
       operationId: registerMyParcelWebhook
@@ -182,6 +219,40 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ShippingConnectionsResponse' }
+
+  /shipping/addresses:
+    get:
+      operationId: getShippingAddresses
+      summary: >
+        The tenant's label sender address and return address (one each per
+        tenant), plus the company profile address the sender falls back to
+        when none is set.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShippingAddressesResponse' }
+    put:
+      operationId: updateShippingAddresses
+      summary: >
+        Replace both addresses. null clears one: no sender = the company
+        profile address is used, no return address = undeliverable parcels
+        go back to the sender. Owner/admin only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateShippingAddressesRequest' }
+      responses:
+        '200':
+          description: ok -- the saved addresses
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShippingAddressesResponse' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
 
   /shipping/preferences:
     patch:
@@ -482,6 +553,32 @@ components:
         customer_number: { type: string, minLength: 1, maxLength: 10 }
         sandbox: { type: boolean }
 
+    UpdatePostNLConnectionRequest:
+      type: object
+      required: [api_key, customer_code, customer_number, sandbox]
+      additionalProperties: false
+      properties:
+        api_key: { type: string, description: Empty keeps the stored key. }
+        customer_code: { type: string, minLength: 1, maxLength: 4 }
+        customer_number: { type: string, minLength: 1, maxLength: 10 }
+        sandbox: { type: boolean }
+
+    PostNLConnection:
+      type: object
+      required: [connection_id, customer_code, customer_number, sandbox]
+      properties:
+        connection_id: { type: string, format: uuid }
+        customer_code: { type: string }
+        customer_number: { type: string }
+        sandbox: { type: boolean }
+
+    PostNLConnectionResponse:
+      type: object
+      required: [data, error]
+      properties:
+        data: { $ref: '#/components/schemas/PostNLConnection' }
+        error: { nullable: true }
+
     ConnectionResponse:
       type: object
       properties:
@@ -549,13 +646,23 @@ components:
 
     ShippingConnection:
       type: object
-      required: [id, provider, status, created_at, is_default]
+      required: [id, provider, status, created_at, is_default, missing]
       properties:
         id: { type: string, format: uuid }
         provider: { type: string, description: 'Integration provider, e.g. "myparcel" or "postnl".' }
         status: { type: string }
         created_at: { type: string, format: date-time }
         is_default: { type: boolean, description: Whether packing preselects this connection. }
+        missing:
+          type: array
+          description: >
+            What the tenant still has to set up before this connection can
+            create labels; empty = ready. sender_address: the carrier needs
+            a sender and there is no shipping sender address and no company
+            profile address.
+          items:
+            type: string
+            enum: [sender_address]
 
     ShippingConnections:
       type: object
@@ -581,6 +688,55 @@ components:
       properties:
         data: { $ref: '#/components/schemas/ShippingConnections' }
         error: { nullable: true }
+
+    ShippingAddress:
+      type: object
+      required: [company, street, number, postal_code, city, cc]
+      additionalProperties: false
+      properties:
+        company: { type: string, minLength: 1, maxLength: 35 }
+        street: { type: string, minLength: 1, maxLength: 95 }
+        number: { type: string, minLength: 1, maxLength: 10 }
+        number_suffix: { type: string, maxLength: 10 }
+        postal_code: { type: string, minLength: 1, maxLength: 17 }
+        city: { type: string, minLength: 1, maxLength: 35 }
+        cc: { type: string, pattern: '^[A-Za-z]{2}$', description: ISO 3166-1 alpha-2 country code }
+        email: { type: string, maxLength: 50 }
+        phone: { type: string, maxLength: 17 }
+
+    ShippingAddresses:
+      type: object
+      required: [sender_address, return_address, company_address]
+      properties:
+        sender_address:
+          allOf: [{ $ref: '#/components/schemas/ShippingAddress' }]
+          nullable: true
+        return_address:
+          allOf: [{ $ref: '#/components/schemas/ShippingAddress' }]
+          nullable: true
+        company_address:
+          allOf: [{ $ref: '#/components/schemas/ShippingAddress' }]
+          nullable: true
+          description: The company profile address -- the sender when sender_address is null. Read-only here.
+
+    ShippingAddressesResponse:
+      type: object
+      required: [data, error]
+      properties:
+        data: { $ref: '#/components/schemas/ShippingAddresses' }
+        error: { nullable: true }
+
+    UpdateShippingAddressesRequest:
+      type: object
+      required: [sender_address, return_address]
+      additionalProperties: false
+      properties:
+        sender_address:
+          allOf: [{ $ref: '#/components/schemas/ShippingAddress' }]
+          nullable: true
+        return_address:
+          allOf: [{ $ref: '#/components/schemas/ShippingAddress' }]
+          nullable: true
 
     UpdateShippingPreferencesRequest:
       type: object
@@ -743,6 +899,9 @@ components:
         cancel_carrier_error:
           type: string
           description: MyParcel's own wording when it rejected the delete; empty otherwise.
+        cancel_label_kept:
+          type: boolean
+          description: The carrier can't delete pre-announced labels (PostNL), so the label stays -- free as long as it's never scanned. Not a refusal.
 
     ShipmentResponse:
       type: object
@@ -759,6 +918,9 @@ components:
         carrier_error:
           type: string
           description: MyParcel's own wording when it rejected the delete; empty when deleted_on_myparcel is true.
+        label_kept:
+          type: boolean
+          description: The carrier can't delete pre-announced labels (PostNL), so the label stays -- free as long as it's never scanned and gone after 7 days. Don't hand over the old label.
         message:
           type: string
           description: English outcome text -- clients show a translated outcome from deleted_on_myparcel/carrier_error.

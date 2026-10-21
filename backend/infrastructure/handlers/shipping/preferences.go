@@ -11,6 +11,7 @@ import (
 
 	genshipping "github.com/adirkuhn/commerceos/api/shipping"
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
+	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 )
 
 type listShippingConnectionsUseCase interface {
@@ -19,17 +20,90 @@ type listShippingConnectionsUseCase interface {
 type setDefaultShippingConnectionUseCase interface {
 	Execute(ctx context.Context, connectionID *string) error
 }
-
-// PreferencesHandler serves packing's shipping-connection picker: which
-// connections can ship and which one is the default. Embedded in Handler
-// so it satisfies genshipping.ServerInterface's two matching operations.
-type PreferencesHandler struct {
-	list listShippingConnectionsUseCase
-	set  setDefaultShippingConnectionUseCase
+type getShippingAddressesUseCase interface {
+	Execute(ctx context.Context) (*appshipping.ShippingAddresses, error)
+}
+type updateShippingAddressesUseCase interface {
+	Execute(ctx context.Context, in appshipping.UpdateShippingAddressesInput) error
 }
 
-func NewPreferencesHandler(list listShippingConnectionsUseCase, set setDefaultShippingConnectionUseCase) *PreferencesHandler {
-	return &PreferencesHandler{list: list, set: set}
+// PreferencesHandler serves the tenant's shipping preferences: packing's
+// shipping-connection picker (which connections can ship, which one is
+// the default) and the label sender/return addresses. Embedded in Handler
+// so it satisfies genshipping.ServerInterface's matching operations.
+type PreferencesHandler struct {
+	list            listShippingConnectionsUseCase
+	set             setDefaultShippingConnectionUseCase
+	getAddresses    getShippingAddressesUseCase
+	updateAddresses updateShippingAddressesUseCase
+}
+
+func NewPreferencesHandler(list listShippingConnectionsUseCase, set setDefaultShippingConnectionUseCase, getAddresses getShippingAddressesUseCase, updateAddresses updateShippingAddressesUseCase) *PreferencesHandler {
+	return &PreferencesHandler{list: list, set: set, getAddresses: getAddresses, updateAddresses: updateAddresses}
+}
+
+func (h *PreferencesHandler) GetShippingAddresses(c *gin.Context) {
+	h.writeAddresses(c)
+}
+
+func (h *PreferencesHandler) UpdateShippingAddresses(c *gin.Context) {
+	var req genshipping.UpdateShippingAddressesJSONRequestBody
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	in := appshipping.UpdateShippingAddressesInput{Sender: addressFromRequest(req.SenderAddress), Return: addressFromRequest(req.ReturnAddress)}
+	if err := h.updateAddresses.Execute(c.Request.Context(), in); err != nil {
+		mapErr(c, err)
+		return
+	}
+	h.writeAddresses(c)
+}
+
+func (h *PreferencesHandler) writeAddresses(c *gin.Context) {
+	result, err := h.getAddresses.Execute(c.Request.Context())
+	if err != nil {
+		mapErr(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, genshipping.ShippingAddressesResponse{Data: genshipping.ShippingAddresses{
+		SenderAddress: addressToResponse(result.Sender), ReturnAddress: addressToResponse(result.Return),
+		CompanyAddress: addressToResponse(result.CompanyAddress),
+	}})
+}
+
+func addressFromRequest(a *genshipping.ShippingAddress) *shippingDomain.ShippingAddress {
+	if a == nil {
+		return nil
+	}
+	return &shippingDomain.ShippingAddress{
+		Company: a.Company, Street: a.Street, Number: a.Number, NumberSuffix: deref(a.NumberSuffix),
+		PostalCode: a.PostalCode, City: a.City, CC: a.Cc, Email: deref(a.Email), Phone: deref(a.Phone),
+	}
+}
+
+func addressToResponse(a *shippingDomain.ShippingAddress) *genshipping.ShippingAddress {
+	if a == nil {
+		return nil
+	}
+	return &genshipping.ShippingAddress{
+		Company: a.Company, Street: a.Street, Number: a.Number, NumberSuffix: optional(a.NumberSuffix),
+		PostalCode: a.PostalCode, City: a.City, Cc: a.CC, Email: optional(a.Email), Phone: optional(a.Phone),
+	}
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func optional(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 func (h *PreferencesHandler) ListShippingConnections(c *gin.Context) {
@@ -75,9 +149,13 @@ func shippingConnectionsToResponse(r *appshipping.ShippingConnections) (genshipp
 		if err != nil {
 			return out, fmt.Errorf("connection id %q: %w", conn.ID, err)
 		}
+		missing := make([]genshipping.ShippingConnectionMissing, 0, len(conn.Missing))
+		for _, m := range conn.Missing {
+			missing = append(missing, genshipping.ShippingConnectionMissing(m))
+		}
 		out.Connections = append(out.Connections, genshipping.ShippingConnection{
 			Id: id, Provider: string(conn.Provider), Status: string(conn.Status), CreatedAt: conn.CreatedAt,
-			IsDefault: conn.ID == r.DefaultConnectionID,
+			IsDefault: conn.ID == r.DefaultConnectionID, Missing: missing,
 		})
 	}
 	var err error

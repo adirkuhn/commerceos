@@ -24,6 +24,7 @@ type createShipmentFixture struct {
 	profiles   *fakeCompanyProfiles
 	settings   *shippingDomain.ShippingConnectionSettings
 	activity   fakeRecordActivity
+	prefs      *fakeShippingPreferencesRepo
 }
 
 func (f *createShipmentFixture) useCase(t *testing.T) *appshipping.CreateShipmentUseCase {
@@ -60,10 +61,13 @@ func (f *createShipmentFixture) useCase(t *testing.T) *appshipping.CreateShipmen
 	if f.profiles == nil {
 		f.profiles = &fakeCompanyProfiles{}
 	}
+	if f.prefs == nil {
+		f.prefs = &fakeShippingPreferencesRepo{}
+	}
 	return appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 3), connRepo, settingsRepo, overrideRepo, shipmentRepo,
 		&fakeCarrierClientFactory{client: client}, testEncSecret, &f.activity, tenantSettingsRepoWithCurrency("EUR"),
 		notInsuredSalesOrderRepo(), &fakeOrderExporter{}, &fakeSalesOrderLineItemLister{}, &fakeSKURepo{}, &eventrecordtest.Outbox{},
-		f.profiles, f.labels)
+		appshipping.NewShipmentAddressResolver(f.prefs, f.profiles), f.labels)
 }
 
 func createPostNLShipment(t *testing.T, uc *appshipping.CreateShipmentUseCase) *shippingDomain.Shipment {
@@ -143,4 +147,20 @@ func TestCreateShipment_activityNamesTheProvider(t *testing.T) {
 	require.Len(t, f.activity.calls, 1)
 	assert.Equal(t, "postnl", f.activity.calls[0].Metadata["provider"])
 	assert.Equal(t, "Shipment created via postnl", f.activity.calls[0].Summary)
+}
+
+func TestCreateShipment_sendsTenantSenderAndReturnAddress(t *testing.T) {
+	sender := &shippingDomain.ShippingAddress{Company: "Warehouse", Street: "Kade", Number: "9", PostalCode: "3011AA", City: "Rotterdam", CC: "NL"}
+	ret := &shippingDomain.ShippingAddress{Company: "Returns", Street: "Laan", Number: "2", PostalCode: "3511AA", City: "Utrecht", CC: "NL"}
+	f := &createShipmentFixture{
+		result: integrationsDomain.CarrierShipmentResult{ExternalShipmentID: "ref"},
+		prefs:  &fakeShippingPreferencesRepo{prefs: &shippingDomain.ShippingPreferences{SenderAddress: sender, ReturnAddress: ret}},
+	}
+
+	createPostNLShipment(t, f.useCase(t))
+
+	require.NotNil(t, f.gotRequest.Sender)
+	assert.Equal(t, "Warehouse", f.gotRequest.Sender.Company)
+	require.NotNil(t, f.gotRequest.ReturnAddress)
+	assert.Equal(t, "Returns", f.gotRequest.ReturnAddress.Company)
 }

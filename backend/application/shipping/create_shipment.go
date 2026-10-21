@@ -9,13 +9,13 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/adirkuhn/commerceos/application/eventrecord"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
+	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
-	"github.com/adirkuhn/commerceos/application/eventrecord"
-	"github.com/adirkuhn/commerceos/domain/events"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -47,12 +47,6 @@ type myParcelOrderExporter interface {
 // doc comment).
 type skuWeightGetter interface {
 	FindByID(ctx context.Context, id string) (*pmsDomain.SKU, error)
-}
-
-// companyProfileGetter is settings.CompanyProfileRepository narrowed to
-// point of use (ISP) -- the tenant's own address is the label's sender.
-type companyProfileGetter interface {
-	Get(ctx context.Context) (*settingsDomain.CompanyProfile, error)
 }
 
 // RecipientInput is the confirmed, MyParcel-shaped recipient address the
@@ -112,7 +106,7 @@ type CreateShipmentUseCase struct {
 	lineItemRepo       salesOrderLineItemLister
 	skuRepo            skuWeightGetter
 	outbox             eventrecord.Enqueuer
-	companyProfiles    companyProfileGetter
+	addresses          shipmentAddressSource
 	labelRepo          shippingDomain.ShipmentLabelRepository
 }
 
@@ -131,11 +125,11 @@ func NewCreateShipmentUseCase(
 	lineItemRepo salesOrderLineItemLister,
 	skuRepo skuWeightGetter,
 	outbox eventrecord.Enqueuer,
-	companyProfiles companyProfileGetter,
+	addresses shipmentAddressSource,
 	labelRepo shippingDomain.ShipmentLabelRepository,
 ) *CreateShipmentUseCase {
 	return &CreateShipmentUseCase{
-		companyProfiles: companyProfiles, labelRepo: labelRepo,
+		addresses: addresses, labelRepo: labelRepo,
 		db: db, connRepo: connRepo, settingsRepo: settingsRepo, overrideRepo: overrideRepo,
 		shipmentRepo: shipmentRepo, carrierFactory: carrierFactory, encSecret: encryptionSecret,
 		recordActivity: recordActivity, tenantSettingsRepo: tenantSettingsRepo, salesOrderRepo: salesOrderRepo,
@@ -160,7 +154,7 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	var override *shippingDomain.ShippingCarrierOverride
 	var tenantSettings *settingsDomain.TenantSettings
 	var existing []shippingDomain.Shipment
-	var profile *settingsDomain.CompanyProfile
+	var addresses ShipmentAddresses
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		c, err := uc.connRepo.FindByID(ctx, in.ConnectionID)
 		if err != nil {
@@ -180,7 +174,7 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 		if err != nil {
 			return err
 		}
-		profile, err = uc.companyProfiles.Get(ctx)
+		addresses, err = uc.addresses.Resolve(ctx)
 		if err != nil {
 			return err
 		}
@@ -277,7 +271,8 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 			InsuranceAmountMinorUnits: insuranceAmount,
 			Currency:                  tenantSettings.DefaultCurrency,
 		},
-		Sender:         senderAddress(profile),
+		Sender:         addresses.Sender,
+		ReturnAddress:  addresses.Return,
 		OrderReference: in.SalesOrderID,
 		WeightGrams:    weightGrams,
 		LabelFormat:    resolved.LabelFormat,
@@ -323,23 +318,6 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	uc.recordShipmentActivity(ctx, in, omsDomain.ActivityTypeShipmentCreated, "Shipment created via "+string(conn.Provider),
 		map[string]any{"barcode": shipment.Barcode, "provider": string(conn.Provider)})
 	return &shipment, nil
-}
-
-// senderAddress is the label's sender: the tenant's company profile
-// address, nil when none was saved (the carrier decides whether it needs
-// one).
-func senderAddress(p *settingsDomain.CompanyProfile) *integrationsDomain.CarrierAddress {
-	if p == nil || p.Address.Street == "" || p.Address.PostalCode == "" {
-		return nil
-	}
-	name := p.TradingName
-	if name == "" {
-		name = p.LegalName
-	}
-	return &integrationsDomain.CarrierAddress{
-		Company: name, Street: p.Address.Street, Number: p.Address.HouseNumber, PostalCode: p.Address.PostalCode,
-		City: p.Address.City, CC: p.Address.Country, Email: p.Email, Phone: p.Phone,
-	}
 }
 
 // errWeightUnknown is computeWeightGrams' own internal signal to stop

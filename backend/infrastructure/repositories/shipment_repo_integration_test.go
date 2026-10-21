@@ -455,3 +455,35 @@ func TestShippingCarrierOverrideRepo_Integration_UpsertListAndFind(t *testing.T)
 	require.NoError(t, err)
 	require.Nil(t, found)
 }
+
+func TestShipmentRepo_Integration_MarkCancelledKeepsLabelKeptOutcome(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	orderID := seedSalesOrderForPickingDB(t, db, ctx, warehouseID)
+	connectionID := seedMyParcelConnection(t, db, ctx)
+	repo := repositories.NewShipmentRepo(db)
+
+	var shipmentID string
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		s := shippingDomain.Shipment{
+			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, ConnectionID: connectionID,
+			Carrier: shippingDomain.CarrierPostNL, ExternalShipmentID: "ref-kept", Barcode: "3SSLTQ1",
+			StatusMain: "registered", LabelFormat: shippingDomain.LabelFormatPDF,
+			RecipientPerson: "P", RecipientStreet: "S", RecipientCity: "C", RecipientCC: "NL",
+		}
+		if err := repo.Create(ctx, &s); err != nil {
+			return err
+		}
+		shipmentID = s.ID
+		return repo.MarkCancelled(ctx, s.ID, time.Now(), shippingDomain.CancelOutcome{LabelKept: true})
+	}))
+
+	var found *shippingDomain.Shipment
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = repo.FindByID(ctx, shipmentID)
+		return err
+	}))
+	require.Equal(t, &shippingDomain.CancelOutcome{LabelKept: true}, found.CancelOutcome)
+}

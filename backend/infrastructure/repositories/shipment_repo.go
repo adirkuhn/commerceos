@@ -42,6 +42,7 @@ type shipmentModel struct {
 	CancelNote                string
 	CancelDeletedOnCarrier    *bool  `gorm:"column:cancel_deleted_on_carrier"`
 	CancelCarrierError        string `gorm:"column:cancel_carrier_error;not null;default:''"`
+	CancelLabelKept           bool   `gorm:"column:cancel_label_kept;not null;default:false"`
 	CreatedAt                 time.Time
 	UpdatedAt                 time.Time
 }
@@ -177,7 +178,8 @@ func (r *ShipmentRepo) MarkCancelled(ctx context.Context, id string, cancelledAt
 		Updates(map[string]any{
 			"cancelled_at": cancelledAt, "cancel_note": outcome.Note(),
 			"cancel_deleted_on_carrier": outcome.DeletedOnCarrier, "cancel_carrier_error": outcome.CarrierError,
-			"updated_at": time.Now(),
+			"cancel_label_kept": outcome.LabelKept,
+			"updated_at":        time.Now(),
 		}).Error
 	if err != nil {
 		return fmt.Errorf("shipmentRepo.MarkCancelled: %w", err)
@@ -283,5 +285,5 @@ func toCancelOutcome(m shipmentModel) *shippingDomain.CancelOutcome {
 	if m.CancelDeletedOnCarrier == nil {
 		return nil
 	}
-	return &shippingDomain.CancelOutcome{DeletedOnCarrier: *m.CancelDeletedOnCarrier, CarrierError: m.CancelCarrierError}
+	return &shippingDomain.CancelOutcome{DeletedOnCarrier: *m.CancelDeletedOnCarrier, CarrierError: m.CancelCarrierError, LabelKept: m.CancelLabelKept}
 }

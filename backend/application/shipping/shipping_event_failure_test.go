@@ -51,7 +51,7 @@ func TestCreateShipment_FailsWhenTheEventCantBeRecorded(t *testing.T) {
 	}
 	uc := appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 3), shippingConnRepo(t), settingsRepo, overrideRepo, shipmentRepo,
 		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, tenantSettingsRepoWithCurrency("EUR"),
-		notInsuredSalesOrderRepo(), &fakeOrderExporter{}, &fakeSalesOrderLineItemLister{}, &fakeSKURepo{}, &eventrecordtest.Outbox{Err: errOutboxDown}, &fakeCompanyProfiles{}, &fakeShipmentLabelRepo{})
+		notInsuredSalesOrderRepo(), &fakeOrderExporter{}, &fakeSalesOrderLineItemLister{}, &fakeSKURepo{}, &eventrecordtest.Outbox{Err: errOutboxDown}, appshipping.NewShipmentAddressResolver(&fakeShippingPreferencesRepo{}, &fakeCompanyProfiles{}), &fakeShipmentLabelRepo{})
 
 	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appshipping.CreateShipmentInput{
 		SalesOrderID: "order-1", ConnectionID: "conn-1", Carrier: shippingDomain.CarrierPostNL, Recipient: validRecipient(),

@@ -2,6 +2,7 @@ package integrations
 
 import (
 	"context"
+	"errors"
 
 	"github.com/adirkuhn/commerceos/domain/errs"
 )
@@ -46,7 +47,10 @@ type CreateCarrierShipmentRequest struct {
 	// Sender is the tenant's own company address (settings.CompanyProfile),
 	// nil when none was saved. Carriers that print the sender from their
 	// own account settings (MyParcel) ignore it; PostNL requires it.
-	Sender         *CarrierAddress
+	Sender *CarrierAddress
+	// ReturnAddress is where the carrier sends a parcel it can't deliver;
+	// nil means back to Sender.
+	ReturnAddress  *CarrierAddress
 	Carrier        int
 	Options        CarrierShipmentOptions
 	OrderReference string
@@ -76,6 +80,16 @@ type CarrierShipmentResult struct {
 // this operation (e.g. PostNL can't cancel a manifested shipment or quote a
 // delivery price).
 var ErrCarrierOperationNotSupported = errs.New("CARRIER_OPERATION_NOT_SUPPORTED", "this carrier does not support this operation")
+
+// ErrCarrierLabelNotDeletable: the carrier has no way to delete a
+// pre-announced label (PostNL). It isn't billed until scanned, so
+// cancelling just stops using it.
+var ErrCarrierLabelNotDeletable = errors.New("carrier: pre-announced labels can't be deleted")
+
+// ErrCarrierDestinationNotSupported: the carrier integration can't ship to
+// the recipient's country (PostNL: outside NL, BE and its EU list -- those
+// shipments need customs data).
+var ErrCarrierDestinationNotSupported = errs.New("CARRIER_DESTINATION_NOT_SUPPORTED", "this carrier integration can't ship to this country yet")
 
 // ErrCarrierSenderAddressMissing: the carrier needs the sender's address on
 // every label and the company profile has none saved yet.

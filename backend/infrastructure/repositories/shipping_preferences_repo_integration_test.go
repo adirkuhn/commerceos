@@ -123,3 +123,35 @@ func seedConnectionOfProvider(t *testing.T, db *gorm.DB, ctx context.Context, pr
 	}))
 	return conn.ID
 }
+
+func TestShippingPreferencesRepo_Integration_RoundTripsAddresses(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewShippingPreferencesRepo(db)
+	sender := &shippingDomain.ShippingAddress{Company: "Cantinho", Street: "Damrak", Number: "1", NumberSuffix: "A", PostalCode: "1012AB", City: "Amsterdam", CC: "NL", Email: "shop@example.com"}
+	ret := &shippingDomain.ShippingAddress{Company: "Cantinho Returns", Street: "Kade", Number: "9", PostalCode: "3011AA", City: "Rotterdam", CC: "NL"}
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return repo.Upsert(ctx, &shippingDomain.ShippingPreferences{TenantID: tenant.IDFromContext(ctx), SenderAddress: sender, ReturnAddress: ret, UpdatedAt: time.Now()})
+	}))
+
+	var found *shippingDomain.ShippingPreferences
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = repo.Get(ctx)
+		return err
+	}))
+	require.NotNil(t, found.SenderAddress)
+	require.NotNil(t, found.ReturnAddress)
+	assert.Equal(t, *sender, *found.SenderAddress)
+	assert.Equal(t, *ret, *found.ReturnAddress)
+
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return repo.Upsert(ctx, &shippingDomain.ShippingPreferences{TenantID: tenant.IDFromContext(ctx), SenderAddress: sender, UpdatedAt: time.Now()})
+	}))
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		found, err = repo.Get(ctx)
+		return err
+	}))
+	assert.Nil(t, found.ReturnAddress, "clearing the return address stores NULL")
+}

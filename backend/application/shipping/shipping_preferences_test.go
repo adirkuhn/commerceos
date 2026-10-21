@@ -63,7 +63,7 @@ func connRepoWith(conns ...integrationsDomain.Connection) *mocks.ConnectionRepo 
 }
 
 func TestListShippingConnections_onlyShippingProvidersOldestIsDefaultWhenUnset(t *testing.T) {
-	uc := appshipping.NewListShippingConnectionsUseCase(newMockGormDB(t, 1), connRepoWith(newPostNL, bolConn, oldMyParcel), &fakeShippingPreferencesRepo{}, shippingProviders{})
+	uc := appshipping.NewListShippingConnectionsUseCase(newMockGormDB(t, 1), connRepoWith(newPostNL, bolConn, oldMyParcel), &fakeShippingPreferencesRepo{}, shippingProviders{}, withSender())
 
 	got, err := uc.Execute(adminCtx())
 
@@ -78,7 +78,7 @@ func TestListShippingConnections_onlyShippingProvidersOldestIsDefaultWhenUnset(t
 func TestListShippingConnections_configuredDefaultWins(t *testing.T) {
 	picked := "pn"
 	prefs := &fakeShippingPreferencesRepo{prefs: &shippingDomain.ShippingPreferences{DefaultConnectionID: &picked}}
-	uc := appshipping.NewListShippingConnectionsUseCase(newMockGormDB(t, 1), connRepoWith(oldMyParcel, newPostNL), prefs, shippingProviders{})
+	uc := appshipping.NewListShippingConnectionsUseCase(newMockGormDB(t, 1), connRepoWith(oldMyParcel, newPostNL), prefs, shippingProviders{}, withSender())
 
 	got, err := uc.Execute(adminCtx())
 
@@ -156,4 +156,47 @@ func TestSetDefaultShippingConnection_regularUserForbidden(t *testing.T) {
 
 	assert.ErrorIs(t, err, shippingDomain.ErrShippingPreferencesForbidden)
 	assert.Nil(t, prefs.upserted)
+}
+
+func TestSetDefaultShippingConnection_keepsTheAddresses(t *testing.T) {
+	sender := &shippingDomain.ShippingAddress{Company: "Cantinho", Street: "Damrak", Number: "1", PostalCode: "1012AB", City: "Amsterdam", CC: "NL"}
+	prefs := &fakeShippingPreferencesRepo{prefs: &shippingDomain.ShippingPreferences{SenderAddress: sender, ReturnAddress: sender}}
+	uc := appshipping.NewSetDefaultShippingConnectionUseCase(newMockGormDB(t, 1), connRepoWith(oldMyParcel), prefs, shippingProviders{}, &eventrecordtest.Outbox{})
+	pick := "mp"
+
+	require.NoError(t, uc.Execute(adminCtx(), &pick))
+
+	require.NotNil(t, prefs.upserted)
+	assert.Same(t, sender, prefs.upserted.SenderAddress)
+	assert.Same(t, sender, prefs.upserted.ReturnAddress)
+}
+
+type fixedAddresses struct{ addrs appshipping.ShipmentAddresses }
+
+func (f fixedAddresses) Resolve(context.Context) (appshipping.ShipmentAddresses, error) {
+	return f.addrs, nil
+}
+
+func withSender() fixedAddresses {
+	return fixedAddresses{appshipping.ShipmentAddresses{Sender: &integrationsDomain.CarrierAddress{Company: "Shop"}}}
+}
+
+func TestListShippingConnections_postnlWithoutSenderAddressIsNotReady(t *testing.T) {
+	uc := appshipping.NewListShippingConnectionsUseCase(newMockGormDB(t, 1), connRepoWith(oldMyParcel, newPostNL), &fakeShippingPreferencesRepo{}, shippingProviders{}, fixedAddresses{})
+
+	got, err := uc.Execute(adminCtx())
+
+	require.NoError(t, err)
+	require.Len(t, got.Connections, 2)
+	assert.Empty(t, got.Connections[0].Missing, "MyParcel prints the sender from its own account")
+	assert.Equal(t, []string{appshipping.MissingSenderAddress}, got.Connections[1].Missing)
+}
+
+func TestListShippingConnections_withSenderAddressEveryoneIsReady(t *testing.T) {
+	uc := appshipping.NewListShippingConnectionsUseCase(newMockGormDB(t, 1), connRepoWith(oldMyParcel, newPostNL), &fakeShippingPreferencesRepo{}, shippingProviders{}, withSender())
+
+	got, err := uc.Execute(adminCtx())
+
+	require.NoError(t, err)
+	assert.Empty(t, got.Connections[1].Missing)
 }

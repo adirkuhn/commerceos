@@ -25,8 +25,11 @@ func mapErr(c *gin.Context, err error) {
 	case errors.Is(err, integrationsDomain.ErrConnectionNotFound):
 		middleware.FailErr(c, http.StatusNotFound, "not_found", err)
 	case errors.Is(err, integrationsDomain.ErrPostNLAccountInvalid), errors.Is(err, integrationsDomain.ErrCarrierSenderAddressMissing),
+		errors.Is(err, integrationsDomain.ErrNotPostNLConnection), errors.Is(err, integrationsDomain.ErrCarrierDestinationNotSupported),
 		errors.Is(err, integrationsDomain.ErrCarrierOperationNotSupported), errors.Is(err, integrationsDomain.ErrProviderNotSupported):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "unprocessable", err)
+	case errors.Is(err, shippingDomain.ErrShippingAddressInvalid):
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "invalid_address", err)
 	case errors.Is(err, shippingDomain.ErrNotAShippingConnection):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "not_a_shipping_connection", err)
 	case errors.Is(err, shippingDomain.ErrMissingRecipient), errors.Is(err, shippingDomain.ErrInvalidAddressLookupInput):

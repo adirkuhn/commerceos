@@ -161,8 +161,11 @@ func errorDetail(raw []byte) string {
 	return detail
 }
 
+// CancelShipment: PostNL has no delete for a pre-announced shipment. Its
+// customer service says it's free as long as the barcode is never scanned
+// and drops out of "Voorgemelde zendingen" after 7 days.
 func (c *Client) CancelShipment(context.Context, string) error {
-	return fmt.Errorf("postnl: cancel shipment: %w", integrationsDomain.ErrCarrierOperationNotSupported)
+	return fmt.Errorf("postnl: cancel shipment: %w", integrationsDomain.ErrCarrierLabelNotDeletable)
 }
 
 // GetLabel isn't available: PostNL returns the label once, in the create

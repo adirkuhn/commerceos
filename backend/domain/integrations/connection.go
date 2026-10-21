@@ -47,6 +47,13 @@ const (
 	ProviderPostNL Provider = "postnl"
 )
 
+// RequiresSenderAddress reports whether p's labels need the tenant's own
+// sender address in every request (PostNL); MyParcel prints the sender
+// from its own account settings.
+func (p Provider) RequiresSenderAddress() bool {
+	return p == ProviderPostNL
+}
+
 // IsPaymentProvider reports whether p is one of the payment integrations
 // (Stripe/Revolut) -- used to filter which connections a SalesChannel's
 // PaymentConnectionID may reference (see channels.SalesChannel's doc

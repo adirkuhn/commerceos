@@ -428,5 +428,8 @@
   "SHIPPING_PREFERENCES_FORBIDDEN": "Only an owner or admin can change the default shipping provider.",
   "POSTNL_ACCOUNT_INVALID": "PostNL needs an API key, a customer code of up to 4 characters and a customer number of up to 10 characters.",
   "CARRIER_OPERATION_NOT_SUPPORTED": "This carrier doesn’t support this.",
-  "CARRIER_SENDER_ADDRESS_MISSING": "Fill in your company address in the company profile before creating labels with this carrier."
+  "CARRIER_SENDER_ADDRESS_MISSING": "Fill in your company address in the company profile before creating labels with this carrier.",
+  "CARRIER_DESTINATION_NOT_SUPPORTED": "This carrier integration can’t ship to this country yet.",
+  "NOT_POSTNL_CONNECTION": "This is not a PostNL connection.",
+  "SHIPPING_ADDRESS_INVALID": "A shipping address needs a company name, street, house number, postal code, city and a 2-letter country code."
 }

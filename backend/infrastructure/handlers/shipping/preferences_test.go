@@ -46,9 +46,10 @@ func (s *stubSetDefaultShipping) Execute(_ context.Context, id *string) error {
 func twoShippingConnections() *appshipping.ShippingConnections {
 	created := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	return &appshipping.ShippingConnections{
-		Connections: []integrationsDomain.Connection{
-			{ID: mpID, Provider: integrationsDomain.ProviderMyParcel, Status: integrationsDomain.StatusConnected, CreatedAt: created},
-			{ID: pnID, Provider: "postnl", Status: integrationsDomain.StatusConnected, CreatedAt: created.AddDate(0, 1, 0)},
+		Connections: []appshipping.ShippingConnection{
+			{Connection: integrationsDomain.Connection{ID: mpID, Provider: integrationsDomain.ProviderMyParcel, Status: integrationsDomain.StatusConnected, CreatedAt: created}},
+			{Connection: integrationsDomain.Connection{ID: pnID, Provider: "postnl", Status: integrationsDomain.StatusConnected, CreatedAt: created.AddDate(0, 1, 0)},
+				Missing: []string{appshipping.MissingSenderAddress}},
 		},
 		DefaultConnectionID: mpID,
 	}
@@ -56,7 +57,7 @@ func twoShippingConnections() *appshipping.ShippingConnections {
 
 func preferencesRouter(list *stubListShippingConnections, set *stubSetDefaultShipping) http.Handler {
 	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{},
-		shippinghandler.NewPreferencesHandler(list, set), nil)
+		shippinghandler.NewPreferencesHandler(list, set, &stubGetAddresses{}, &stubUpdateAddresses{}), nil)
 	return newTestRouter(h)
 }
 
@@ -87,6 +88,8 @@ func TestListShippingConnections_200MarksTheDefault(t *testing.T) {
 	assert.Equal(t, mpID, *body.Data.DefaultConnectionID)
 	assert.Nil(t, body.Data.ConfiguredConnectionID)
 	assert.Contains(t, w.Body.String(), `"configured_connection_id":null`)
+	assert.Contains(t, w.Body.String(), `"missing":[]`, "a ready connection lists nothing missing")
+	assert.Contains(t, w.Body.String(), `"missing":["sender_address"]`)
 }
 
 func TestListShippingConnections_noneGivesNullDefault(t *testing.T) {

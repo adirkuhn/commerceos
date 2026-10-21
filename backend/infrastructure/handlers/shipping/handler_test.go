@@ -561,6 +561,17 @@ func TestCancelShipment_200ReportsOutcomeEvenWhenMyParcelRejected(t *testing.T) 
 	assert.Contains(t, w.Body.String(), `"carrier_error":"422 label printed"`)
 }
 
+func TestCancelShipment_200ReportsLabelKept(t *testing.T) {
+	cancel := &stubCancelShipment{result: &appshipping.CancelShipmentResult{LabelKept: true, Message: "kept"}}
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, cancel, &stubGetDeliveryEstimate{}, nil, nil)
+
+	w := httptest.NewRecorder()
+	newTestRouter(h).ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/v1/shipping/shipments/11111111-1111-1111-1111-111111111111/cancel", nil))
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"label_kept":true`)
+}
+
 func TestCancelShipment_404WhenShipmentNotFound(t *testing.T) {
 	cancel := &stubCancelShipment{err: shippingDomain.ErrShipmentNotFound}
 	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, cancel, &stubGetDeliveryEstimate{}, nil, nil)

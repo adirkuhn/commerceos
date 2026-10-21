@@ -29,6 +29,17 @@ const postnlTrackingURLTemplate = "https://jouw.postnl.nl/track-and-trace/{barco
 // hourly.
 const postnlStatusPollMinutes = 60
 
+// postnlAccount normalizes a PostNL customer code/number, within the
+// lengths PostNL's Shipment v4 API accepts.
+func postnlAccount(customerCode, customerNumber string) (string, string, error) {
+	code := strings.ToUpper(strings.TrimSpace(customerCode))
+	number := strings.TrimSpace(customerNumber)
+	if code == "" || len(code) > 4 || number == "" || len(number) > 10 {
+		return "", "", integrationsDomain.ErrPostNLAccountInvalid
+	}
+	return code, number, nil
+}
+
 type ConnectPostNLInput struct {
 	APIKey         string
 	CustomerCode   string
@@ -79,9 +90,8 @@ func (uc *ConnectPostNLUseCase) Execute(ctx context.Context, in ConnectPostNLInp
 		return nil, fmt.Errorf("connectPostNL: %w", integrationsDomain.ErrNoTenantContext)
 	}
 	apiKey := strings.TrimSpace(in.APIKey)
-	code := strings.ToUpper(strings.TrimSpace(in.CustomerCode))
-	number := strings.TrimSpace(in.CustomerNumber)
-	if apiKey == "" || code == "" || len(code) > 4 || number == "" || len(number) > 10 {
+	code, number, err := postnlAccount(in.CustomerCode, in.CustomerNumber)
+	if err != nil || apiKey == "" {
 		return nil, fmt.Errorf("connectPostNL: %w", integrationsDomain.ErrPostNLAccountInvalid)
 	}
 	encryptedKey, err := crypto.Encrypt(uc.encryptionSecret, apiKey)

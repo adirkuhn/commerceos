@@ -17,7 +17,12 @@ type ShippingPreferences struct {
 	// chosen", in which case ResolveDefaultConnection falls back to the
 	// oldest shipping connection.
 	DefaultConnectionID *string
-	UpdatedAt           time.Time
+	// SenderAddress is printed as the sender on every label; nil falls back
+	// to the company profile address. ReturnAddress is where carriers send
+	// parcels they can't deliver; nil means back to the sender.
+	SenderAddress *ShippingAddress
+	ReturnAddress *ShippingAddress
+	UpdatedAt     time.Time
 }
 
 // ShippingPreferencesRepository persists the tenant's ShippingPreferences.

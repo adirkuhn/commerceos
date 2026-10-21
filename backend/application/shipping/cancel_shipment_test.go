@@ -3,6 +3,7 @@ package shipping_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -154,4 +155,32 @@ type myParcelAPIError struct {
 
 func (e *myParcelAPIError) Error() string {
 	return errors.New("myparcel: request failed: " + e.body).Error()
+}
+
+func TestCancelShipment_carrierCantDeleteLabels_cancelsLocallyAndSaysTheLabelIsKept(t *testing.T) {
+	conn := &integrationsDomain.Connection{ID: "conn-1", Provider: integrationsDomain.ProviderPostNL, ConsumerSecretEncrypted: encryptedFor(t, "api-key")}
+	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
+	shipment := shippingDomain.Shipment{ID: "shipment-1", SalesOrderID: "order-1", ConnectionID: "conn-1", ExternalShipmentID: "ref"}
+	client := &fakeCarrierClient{cancelShipmentFn: func(context.Context, string) error {
+		return fmt.Errorf("postnl: cancel shipment: %w", integrationsDomain.ErrCarrierLabelNotDeletable)
+	}}
+	var marked shippingDomain.CancelOutcome
+	shipmentRepo := &fakeShipmentRepo{
+		findByIDFn: func(context.Context, string) (*shippingDomain.Shipment, error) { return &shipment, nil },
+		markCancelledFn: func(_ context.Context, _ string, _ time.Time, outcome shippingDomain.CancelOutcome) error {
+			marked = outcome
+			return nil
+		},
+	}
+	uc := appshipping.NewCancelShipmentUseCase(newMockGormDB(t, 2), connRepo, shipmentRepo,
+		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, &eventrecordtest.Outbox{})
+
+	result, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appshipping.CancelShipmentInput{ShipmentID: "shipment-1"})
+
+	require.NoError(t, err)
+	assert.Equal(t, shippingDomain.CancelOutcome{LabelKept: true}, marked)
+	assert.True(t, result.LabelKept)
+	assert.False(t, result.DeletedOnMyParcel)
+	assert.Empty(t, result.CarrierError, "not a refusal -- the carrier simply has no delete")
+	assert.Contains(t, result.Message, "costs nothing as long as it's never scanned")
 }

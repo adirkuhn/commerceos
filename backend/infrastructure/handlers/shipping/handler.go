@@ -126,6 +126,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 	outboxRepo := repositories.NewOutboxRepository(db)
 	preferencesRepo := repositories.NewShippingPreferencesRepo(db)
 	labelRepo := repositories.NewShipmentLabelRepo(db)
+	addressResolver := appshipping.NewShipmentAddressResolver(preferencesRepo, repositories.NewCompanyProfileRepo(db))
 	myParcelFactory := myparcel.NewClientFactory()
 	carrierFactory := carriers.NewDefaultRegistry()
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
@@ -140,7 +141,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewGetShippingSettingsUseCase(db, settingsRepo, overrideRepo),
 		appshipping.NewUpdateShippingSettingsUseCase(db, settingsRepo, outboxRepo),
 		appshipping.NewUpsertCarrierOverrideUseCase(db, overrideRepo, outboxRepo),
-		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, carrierFactory, encryptionSecret, recordActivity, tenantSettingsRepo, salesOrderRepo, exportMyParcelOrderUC, lineItemRepo, skuRepo, outboxRepo, repositories.NewCompanyProfileRepo(db), labelRepo),
+		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, carrierFactory, encryptionSecret, recordActivity, tenantSettingsRepo, salesOrderRepo, exportMyParcelOrderUC, lineItemRepo, skuRepo, outboxRepo, addressResolver, labelRepo),
 		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, settingsRepo, carrierFactory, encryptionSecret, labelRepo),
 		appshipping.NewListShipmentsForOrderUseCase(db, shipmentRepo, overrideRepo),
 		exportMyParcelOrderUC,
@@ -150,11 +151,16 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewCancelShipmentUseCase(db, connRepo, shipmentRepo, carrierFactory, encryptionSecret, recordActivity, outboxRepo),
 		appshipping.NewGetDeliveryPriceEstimateUseCase(db, connRepo, carrierFactory, encryptionSecret),
 		NewPreferencesHandler(
-			appshipping.NewListShippingConnectionsUseCase(db, connRepo, preferencesRepo, carrierFactory),
+			appshipping.NewListShippingConnectionsUseCase(db, connRepo, preferencesRepo, carrierFactory, addressResolver),
 			appshipping.NewSetDefaultShippingConnectionUseCase(db, connRepo, preferencesRepo, carrierFactory, outboxRepo),
+			appshipping.NewGetShippingAddressesUseCase(db, preferencesRepo, repositories.NewCompanyProfileRepo(db)),
+			appshipping.NewUpdateShippingAddressesUseCase(db, preferencesRepo, outboxRepo),
 		),
-		NewPostNLHandler(appintegrations.NewConnectPostNLUseCase(db, connRepo, settingsRepo, overrideRepo,
-			repositories.NewSyncScheduleRepo(db), outboxRepo, encryptionSecret)),
+		NewPostNLHandler(
+			appintegrations.NewConnectPostNLUseCase(db, connRepo, settingsRepo, overrideRepo, repositories.NewSyncScheduleRepo(db), outboxRepo, encryptionSecret),
+			appintegrations.NewGetPostNLConnectionUseCase(db, connRepo),
+			appintegrations.NewUpdatePostNLConnectionUseCase(db, connRepo, encryptionSecret, outboxRepo),
+		),
 	)
 	genshipping.RegisterHandlersWithOptions(rg, h, genshipping.GinServerOptions{})
 }

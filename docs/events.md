@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-223 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+224 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -147,7 +147,7 @@ Payload (`events.EntityAction`):
 | `integrations.connection.connected` | typed | IntegrationConnected is raised when a tenant successfully connects a new third-party integration (e.g. a WooCommerce store). | `IntegrationConnected`: event_id, occurred_at, tenant_id, provider, connection_id |
 | `integrations.connection.disconnected` | action | A third-party connection (WooCommerce, Bol, MyParcel, WhatsApp, ...) was removed. data: provider. | envelope |
 | `integrations.connection.tested` | action | A connection's credentials were tested against the provider (changes: status). data: provider, succeeded. | envelope |
-| `integrations.connection.updated` | action | A connection's settings changed (changes: default_currency, default_warehouse_id, bol_economic_operator_id, bol_delivery_code, bol_shipping_cost_minor_units, whatsapp_test_mode_enabled, whatsapp_test_phone, whatsapp_ai_parsing_enabled, base_url, instance_name, api_key -- "changed" only, never the key). data: provider. | envelope |
+| `integrations.connection.updated` | action | A connection's settings changed (changes: default_currency, default_warehouse_id, bol_economic_operator_id, bol_delivery_code, bol_shipping_cost_minor_units, whatsapp_test_mode_enabled, whatsapp_test_phone, whatsapp_ai_parsing_enabled, base_url, instance_name, customer_code, customer_number, sandbox, api_key -- "changed" only, never the key). data: provider. | envelope |
 | `integrations.connection.webhook_secret_set` | action | A connection's webhook signing secret was set or rotated (the secret itself is never in the event). data: provider. | envelope |
 | `integrations.provider_webhook.created` | action | CommerceOS subscribed to a provider webhook (e.g. WooCommerce order.updated). data: connection_id, provider, topic. | envelope |
 | `integrations.provider_webhook.deleted` | action | A provider webhook subscription was removed. data: connection_id, provider. | envelope |
@@ -325,6 +325,7 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
+| `shipping.addresses.updated` | action | The tenant's label sender address or return address changed. entity_id is the tenant id. changes: sender_address, return_address (null = not set: the sender falls back to the company profile address, returns go to the sender). | envelope |
 | `shipping.carrier_override.updated` | action | A carrier's per-connection option overrides were set. entity_id is the connection id. data: carrier. changes: package_type, signature_required, only_recipient, insure_by_default, tracking_url_template. | envelope |
 | `shipping.connection_settings.updated` | action | A shipping connection's defaults changed. entity_id is the connection id. changes: default_carrier, default_package_type, default_label_format, default_label_size, default_signature_required, default_only_recipient, insure_by_default, myparcel_account_id, myparcel_shop_id, auto_print_enabled, export_order_to_myparcel. | envelope |
 | `shipping.fulfilment_order.exported` | action | A sales order was exported to MyParcel as a fulfilment order. data: sales_order_id, connection_id, myparcel_uuid, status. | envelope |
