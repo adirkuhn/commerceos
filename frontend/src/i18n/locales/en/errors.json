@@ -423,5 +423,7 @@
   "EXPIRY_WINDOW_UNKNOWN": "That expiry window is not in use. Pick one of the windows shown.",
   "SALES_PERIOD_INVALID": "Pick today, this week or this month.",
   "INVALID_SLOW_MOVING_WINDOW": "Pick a sales window between 1 and 365 days.",
-  "INVALID_SLOW_MOVING_LIMIT": "Pick between 1 and 50 products."
+  "INVALID_SLOW_MOVING_LIMIT": "Pick between 1 and 50 products.",
+  "NOT_A_SHIPPING_CONNECTION": "This connection can’t create shipping labels.",
+  "SHIPPING_PREFERENCES_FORBIDDEN": "Only an owner or admin can change the default shipping provider."
 }

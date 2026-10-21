@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-222 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+223 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -328,6 +328,7 @@ Payload (`events.EntityAction`):
 | `shipping.carrier_override.updated` | action | A carrier's per-connection option overrides were set. entity_id is the connection id. data: carrier. changes: package_type, signature_required, only_recipient, insure_by_default, tracking_url_template. | envelope |
 | `shipping.connection_settings.updated` | action | A shipping connection's defaults changed. entity_id is the connection id. changes: default_carrier, default_package_type, default_label_format, default_label_size, default_signature_required, default_only_recipient, insure_by_default, myparcel_account_id, myparcel_shop_id, auto_print_enabled, export_order_to_myparcel. | envelope |
 | `shipping.fulfilment_order.exported` | action | A sales order was exported to MyParcel as a fulfilment order. data: sales_order_id, connection_id, myparcel_uuid, status. | envelope |
+| `shipping.preferences.updated` | action | The tenant's default shipping connection (used by packing) changed. entity_id is the tenant id. changes: default_connection_id (null = not chosen, the oldest shipping connection is used). | envelope |
 | `shipping.shipment.cancelled` | action | A shipment was cancelled in CommerceOS so a corrected one can be made. data: sales_order_id, deleted_on_carrier (false when the carrier refused, so its label may still exist), note. | envelope |
 | `shipping.shipment.created` | action | A shipping label was created with the carrier (MyParcel). data: sales_order_id, connection_id, carrier, external_shipment_id, barcode, package_type, insured. | envelope |
 | `shipping.shipment.fulfillment_signal` | typed | ShipmentFulfillmentSignal is raised whenever inbound MyParcel activity implies a SalesOrder might need to advance -- both its Shipments API (shipment_status_change webhook, and ReconcileShipmentsUseCase's poll of the same API) and its separate Orders/Fulfilment API (order_status_change webhook's "processed" status) raise this same event instead of each deciding inline what it means for the order (see application/shipping.ApplyShipmentFulfillmentSignalUseCase, the one place that decision is made, consumed via infrastructure/consumers.ShipmentFulfillmentSignalConsumer). | `ShipmentFulfillmentSignal`: event_id, occurred_at, tenant_id, sales_order_id, kind, status_main, status_code |

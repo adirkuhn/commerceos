@@ -423,5 +423,7 @@
   "EXPIRY_WINDOW_UNKNOWN": "Essa janela de validade não está em uso. Escolha uma das janelas exibidas.",
   "SALES_PERIOD_INVALID": "Escolha hoje, esta semana ou este mês.",
   "INVALID_SLOW_MOVING_WINDOW": "Escolha um período de vendas entre 1 e 365 dias.",
-  "INVALID_SLOW_MOVING_LIMIT": "Escolha entre 1 e 50 produtos."
+  "INVALID_SLOW_MOVING_LIMIT": "Escolha entre 1 e 50 produtos.",
+  "NOT_A_SHIPPING_CONNECTION": "Esta conexão não pode criar etiquetas de envio.",
+  "SHIPPING_PREFERENCES_FORBIDDEN": "Somente um proprietário ou administrador pode alterar o provedor de envio padrão."
 }

@@ -144,6 +144,45 @@ paths:
           description: connection has no webhook secret set yet
           $ref: '#/components/responses/Error'
 
+  /shipping/connections:
+    get:
+      operationId: listShippingConnections
+      summary: >
+        Every connection packing can create a label through (MyParcel,
+        PostNL, ...), oldest first, plus which one packing preselects.
+        default_connection_id is the merchant's pick when set, otherwise
+        the oldest shipping connection -- so a tenant with one shipping
+        connection never has to configure anything.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShippingConnectionsResponse' }
+
+  /shipping/preferences:
+    patch:
+      operationId: updateShippingPreferences
+      summary: >
+        Choose packing's default shipping connection. null clears the
+        choice (the oldest shipping connection is used again). Owner/admin
+        only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateShippingPreferencesRequest' }
+      responses:
+        '200':
+          description: ok -- the refreshed connection list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShippingConnectionsResponse' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
   /shipping/connections/{connectionId}/settings:
     get:
       operationId: getShippingSettings
@@ -474,6 +513,51 @@ components:
             e.g. PostNL's "https://postnl.nl/tracktrace/?B={barcode}&P={postcode}&D=NL&T=C&L=EN".
             Preferred over MyParcel's own tracking link when set. Null means
             "use MyParcel's own link, if any".
+
+    ShippingConnection:
+      type: object
+      required: [id, provider, status, created_at, is_default]
+      properties:
+        id: { type: string, format: uuid }
+        provider: { type: string, description: 'Integration provider, e.g. "myparcel" or "postnl".' }
+        status: { type: string }
+        created_at: { type: string, format: date-time }
+        is_default: { type: boolean, description: Whether packing preselects this connection. }
+
+    ShippingConnections:
+      type: object
+      required: [connections, default_connection_id, configured_connection_id]
+      properties:
+        connections:
+          type: array
+          items: { $ref: '#/components/schemas/ShippingConnection' }
+        default_connection_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The connection packing preselects; null only when there is no shipping connection.
+        configured_connection_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The merchant's explicit choice; null when none was made.
+
+    ShippingConnectionsResponse:
+      type: object
+      required: [data, error]
+      properties:
+        data: { $ref: '#/components/schemas/ShippingConnections' }
+        error: { nullable: true }
+
+    UpdateShippingPreferencesRequest:
+      type: object
+      required: [default_connection_id]
+      additionalProperties: false
+      properties:
+        default_connection_id:
+          type: string
+          format: uuid
+          nullable: true
 
     ShippingSettingsResponse:
       type: object

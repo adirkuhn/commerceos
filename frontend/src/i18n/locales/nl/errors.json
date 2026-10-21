@@ -423,5 +423,7 @@
   "EXPIRY_WINDOW_UNKNOWN": "Dat houdbaarheidsvenster wordt niet gebruikt. Kies een van de getoonde vensters.",
   "SALES_PERIOD_INVALID": "Kies vandaag, deze week of deze maand.",
   "INVALID_SLOW_MOVING_WINDOW": "Kies een verkoopperiode van 1 tot 365 dagen.",
-  "INVALID_SLOW_MOVING_LIMIT": "Kies tussen 1 en 50 producten."
+  "INVALID_SLOW_MOVING_LIMIT": "Kies tussen 1 en 50 producten.",
+  "NOT_A_SHIPPING_CONNECTION": "Met deze koppeling kun je geen verzendlabels maken.",
+  "SHIPPING_PREFERENCES_FORBIDDEN": "Alleen een eigenaar of beheerder kan de standaard verzendpartij wijzigen."
 }

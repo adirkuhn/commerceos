@@ -12,6 +12,8 @@ var (
 		"A shipping connection's defaults changed. entity_id is the connection id. changes: default_carrier, default_package_type, default_label_format, default_label_size, default_signature_required, default_only_recipient, insure_by_default, myparcel_account_id, myparcel_shop_id, auto_print_enabled, export_order_to_myparcel.")
 	CarrierOverrideUpdated = defineAction("shipping.carrier_override.updated",
 		"A carrier's per-connection option overrides were set. entity_id is the connection id. data: carrier. changes: package_type, signature_required, only_recipient, insure_by_default, tracking_url_template.")
+	ShippingPreferencesUpdated = defineAction("shipping.preferences.updated",
+		"The tenant's default shipping connection (used by packing) changed. entity_id is the tenant id. changes: default_connection_id (null = not chosen, the oldest shipping connection is used).")
 	WebhookEventRedispatched = defineAction("shipping.webhook_event.redispatched",
 		"Someone retried dispatching a stored carrier/channel webhook. data: provider, topic, status (processed or failed), error. What the webhook itself changed raises its own events.")
 )

@@ -83,6 +83,7 @@ type Handler struct {
 	lookupAddress       lookupAddressUseCase
 	cancelShipment      cancelShipmentUseCase
 	getDeliveryEstimate getDeliveryPriceEstimateUseCase
+	*PreferencesHandler
 }
 
 func NewHandler(
@@ -100,12 +101,14 @@ func NewHandler(
 	lookupAddress lookupAddressUseCase,
 	cancelShipment cancelShipmentUseCase,
 	getDeliveryEstimate getDeliveryPriceEstimateUseCase,
+	preferences *PreferencesHandler,
 ) *Handler {
 	return &Handler{
 		connect: connect, registerWebhook: registerWebhook, getSettings: getSettings, updateSettings: updateSettings,
 		upsertOverride: upsertOverride, createShipment: createShipment, getLabel: getLabel, listShipments: listShipments,
 		exportMyParcelOrder: exportMyParcelOrder, listTrackingEvents: listTrackingEvents, refreshTracking: refreshTracking,
 		lookupAddress: lookupAddress, cancelShipment: cancelShipment, getDeliveryEstimate: getDeliveryEstimate,
+		PreferencesHandler: preferences,
 	}
 }
 
@@ -119,6 +122,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 	statusEventRepo := repositories.NewShipmentStatusEventRepo(db)
 	fulfilmentOrderRepo := repositories.NewMyParcelFulfilmentOrderRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
+	preferencesRepo := repositories.NewShippingPreferencesRepo(db)
 	myParcelFactory := myparcel.NewClientFactory()
 	carrierFactory := carriers.NewDefaultRegistry()
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
@@ -142,6 +146,10 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewLookupAddressUseCase(pdok.NewClient(pdok.Config{})),
 		appshipping.NewCancelShipmentUseCase(db, connRepo, shipmentRepo, carrierFactory, encryptionSecret, recordActivity, outboxRepo),
 		appshipping.NewGetDeliveryPriceEstimateUseCase(db, connRepo, carrierFactory, encryptionSecret),
+		NewPreferencesHandler(
+			appshipping.NewListShippingConnectionsUseCase(db, connRepo, preferencesRepo, carrierFactory),
+			appshipping.NewSetDefaultShippingConnectionUseCase(db, connRepo, preferencesRepo, carrierFactory, outboxRepo),
+		),
 	)
 	genshipping.RegisterHandlersWithOptions(rg, h, genshipping.GinServerOptions{})
 }

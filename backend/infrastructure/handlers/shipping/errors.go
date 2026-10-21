@@ -19,6 +19,12 @@ func mapErr(c *gin.Context, err error) {
 	case errors.Is(err, shippingDomain.ErrShipmentNotFound), errors.Is(err, integrationsDomain.ErrNoTenantContext),
 		errors.Is(err, shippingDomain.ErrAddressNotFound):
 		writeError(c, http.StatusNotFound, "not_found", err.Error())
+	case errors.Is(err, shippingDomain.ErrShippingPreferencesForbidden):
+		writeError(c, http.StatusForbidden, "forbidden", err.Error())
+	case errors.Is(err, integrationsDomain.ErrConnectionNotFound):
+		writeError(c, http.StatusNotFound, "not_found", err.Error())
+	case errors.Is(err, shippingDomain.ErrNotAShippingConnection):
+		writeError(c, http.StatusUnprocessableEntity, "not_a_shipping_connection", err.Error())
 	case errors.Is(err, shippingDomain.ErrMissingRecipient), errors.Is(err, shippingDomain.ErrInvalidAddressLookupInput):
 		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
 	case errors.Is(err, shippingDomain.ErrWebhookSecretNotSet):
