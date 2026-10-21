@@ -616,7 +616,7 @@ components:
 
     SalesSummaryReport:
       type: object
-      required: [currency_code, current, previous]
+      required: [currency_code, current, previous, revenue_change_percent, order_count_change_percent, units_sold_change_percent, aov_change_percent]
       properties:
         currency_code: { type: string }
         current: { $ref: '#/components/schemas/SalesSummary' }
@@ -997,7 +997,7 @@ components:
 
     PromotionPerformanceReport:
       type: object
-      required: [promotion_id, promotion_name, currency_code, before, during]
+      required: [promotion_id, promotion_name, currency_code, before, during, revenue_change_percent, units_sold_change_percent]
       properties:
         promotion_id: { type: string }
         promotion_name: { type: string }

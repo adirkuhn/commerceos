@@ -316,6 +316,20 @@ describe('Promotion edit page', () => {
     expect(screen.getByText('+50.0% vs before')).toBeInTheDocument()
   })
 
+  it('shows no change when there was no revenue before the promotion', async () => {
+    vi.mocked(promotionsApi.listPromotions).mockResolvedValue([promotion()])
+    vi.mocked(promotionsApi.getPromotion).mockResolvedValue(promotionDetail())
+    vi.mocked(reportsApi.getPromotionPerformanceReport).mockResolvedValue(performanceReport({
+      before: { from: '2026-06-01T00:00:00Z', to: '2026-07-01T00:00:00Z', revenue_minor_units: 0, units_sold: 0, order_count: 0 },
+      revenue_change_percent: null, units_sold_change_percent: null,
+    }))
+
+    renderAt(<Promotions />, '/promotions')
+    await userEvent.click(await screen.findByText('Summer Acai'))
+
+    expect(await screen.findAllByText('— vs before')).toHaveLength(2)
+  })
+
   it('shows an error if loading promotion performance fails', async () => {
     vi.mocked(promotionsApi.listPromotions).mockResolvedValue([promotion()])
     vi.mocked(promotionsApi.getPromotion).mockResolvedValue(promotionDetail())

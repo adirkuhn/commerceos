@@ -350,6 +350,21 @@ func TestGetSalesSummaryReportHandler_success(t *testing.T) {
 	assert.Equal(t, "2026-08-31T00:00:00Z", get.gotTo.Format(time.RFC3339))
 }
 
+// A nil change percent (zero previous-period baseline) must be sent as an
+// explicit null -- the contract makes these fields required+nullable, and the
+// frontend checks `=== null`, so an omitted key (undefined) crashes it.
+func TestGetSalesSummaryReportHandler_nilChangePercentsSerializeAsNull(t *testing.T) {
+	get := &stubGetSalesSummaryReport{out: &appreports.SalesSummaryReport{CurrencyCode: "EUR"}}
+	h := reportshandler.NewHandler(get, &stubGetProductPerformanceReport{}, &stubGetProductPerformanceMatrix{}, &stubGetCustomerPerformanceReport{}, &stubGetCategoryPerformanceReport{}, &stubGetSlowMovingProductsReport{}, &stubGetProfitabilityReport{}, &stubGetInventorySalesReport{}, &stubGetBusinessInsights{}, &stubGetSalesTrendsReport{}, &stubGetProductLifecycleReport{}, &stubGetCustomerCohortsReport{}, &stubGetPromotionPerformanceReport{}, &stubGetCustomerRFMReport{}, &stubGetFrequentlyBoughtTogetherReport{}, &stubGetStockoutRiskReport{}, &stubGetProductRecommendations{}, &stubGetProfitabilityTrendReport{}, &stubGetRevenueByChannelReport{}, &stubGetShipmentsReport{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/sales-summary?from=2026-08-01T00:00:00Z&to=2026-08-31T00:00:00Z")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"revenue_change_percent":null`)
+	assert.Contains(t, w.Body.String(), `"order_count_change_percent":null`)
+	assert.Contains(t, w.Body.String(), `"units_sold_change_percent":null`)
+	assert.Contains(t, w.Body.String(), `"aov_change_percent":null`)
+}
+
 func TestGetSalesSummaryReportHandler_validationError(t *testing.T) {
 	get := &stubGetSalesSummaryReport{err: appreports.ErrToBeforeFrom}
 	h := reportshandler.NewHandler(get, &stubGetProductPerformanceReport{}, &stubGetProductPerformanceMatrix{}, &stubGetCustomerPerformanceReport{}, &stubGetCategoryPerformanceReport{}, &stubGetSlowMovingProductsReport{}, &stubGetProfitabilityReport{}, &stubGetInventorySalesReport{}, &stubGetBusinessInsights{}, &stubGetSalesTrendsReport{}, &stubGetProductLifecycleReport{}, &stubGetCustomerCohortsReport{}, &stubGetPromotionPerformanceReport{}, &stubGetCustomerRFMReport{}, &stubGetFrequentlyBoughtTogetherReport{}, &stubGetStockoutRiskReport{}, &stubGetProductRecommendations{}, &stubGetProfitabilityTrendReport{}, &stubGetRevenueByChannelReport{}, &stubGetShipmentsReport{})
@@ -653,6 +668,22 @@ func TestGetPromotionPerformanceReportHandler_success(t *testing.T) {
 	assert.Equal(t, "promo-1", get.gotPromotionID)
 	assert.Contains(t, w.Body.String(), `"promotion_name":"Summer Acai"`)
 	assert.Contains(t, w.Body.String(), `"revenue_change_percent":100`)
+}
+
+// A promotion whose covered SKUs had no revenue before it started has nil
+// change percents; they must be sent as explicit nulls (see the sales-summary
+// test above) or the promotion edit page crashes on undefined.toFixed.
+func TestGetPromotionPerformanceReportHandler_nilChangePercentsSerializeAsNull(t *testing.T) {
+	get := &stubGetPromotionPerformanceReport{out: &appreports.PromotionPerformanceReport{
+		PromotionID: "promo-1", PromotionName: "New Product Launch", CurrencyCode: "EUR",
+		During: appreports.PromotionPerformancePeriod{RevenueMinorUnits: 2000, UnitsSold: 20},
+	}}
+	h := reportshandler.NewHandler(&stubGetSalesSummaryReport{}, &stubGetProductPerformanceReport{}, &stubGetProductPerformanceMatrix{}, &stubGetCustomerPerformanceReport{}, &stubGetCategoryPerformanceReport{}, &stubGetSlowMovingProductsReport{}, &stubGetProfitabilityReport{}, &stubGetInventorySalesReport{}, &stubGetBusinessInsights{}, &stubGetSalesTrendsReport{}, &stubGetProductLifecycleReport{}, &stubGetCustomerCohortsReport{}, get, &stubGetCustomerRFMReport{}, &stubGetFrequentlyBoughtTogetherReport{}, &stubGetStockoutRiskReport{}, &stubGetProductRecommendations{}, &stubGetProfitabilityTrendReport{}, &stubGetRevenueByChannelReport{}, &stubGetShipmentsReport{})
+	w := doRequest(newTestRouter(h), http.MethodGet, "/api/v1/reports/promotions/promo-1/performance")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"revenue_change_percent":null`)
+	assert.Contains(t, w.Body.String(), `"units_sold_change_percent":null`)
 }
 
 func TestGetPromotionPerformanceReportHandler_notFound(t *testing.T) {
