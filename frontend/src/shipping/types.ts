@@ -163,3 +163,24 @@ export interface CreateShipmentInput {
   only_recipient?: boolean | null
   label_format?: 'pdf' | 'zpl' | null
 }
+
+// One connection packing can create a label through (MyParcel, PostNL,
+// ...) -- see backend GET /shipping/connections.
+export interface ShippingConnection {
+  id: string
+  provider: string
+  status: string
+  created_at: string
+  // Whether packing preselects this connection.
+  is_default: boolean
+}
+
+export interface ShippingConnections {
+  // Oldest first.
+  connections: ShippingConnection[]
+  // The connection packing preselects: the merchant's pick, else the
+  // oldest one; null only when there is no shipping connection.
+  default_connection_id: string | null
+  // The merchant's explicit pick; null means "automatic (oldest)".
+  configured_connection_id: string | null
+}

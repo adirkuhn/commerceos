@@ -183,5 +183,18 @@
     "label_created": "Label aangemaakt",
     "out_for_delivery": "Wordt bezorgd",
     "picked_up": "Opgehaald"
+  },
+  "provider": {
+    "label": "Verzendpartij",
+    "via": "Verzenden via {{provider}}",
+    "loadFailed": "De verzendpartijen konden niet worden geladen."
+  },
+  "defaultProvider": {
+    "title": "Standaard verzendpartij",
+    "body": "Vooraf gekozen wanneer bij het inpakken een label wordt gemaakt. Per label kan nog worden gewisseld.",
+    "automatic": "Automatisch – oudste koppeling ({{provider}})",
+    "readOnly": "Alleen een eigenaar of beheerder kan dit wijzigen.",
+    "saved": "Standaard verzendpartij opgeslagen.",
+    "saveFailed": "De standaard verzendpartij kon niet worden opgeslagen."
   }
 }

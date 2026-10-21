@@ -1,6 +1,6 @@
 import type {
   APIResponse, Shipment, ShippingSettingsResult, ShippingConnectionSettings, ShippingCarrierOverride, CreateShipmentInput,
-  MyParcelFulfilmentOrder, RecipientAddress, ShipmentTrackingEvent, DeliveryPriceOption,
+  MyParcelFulfilmentOrder, RecipientAddress, ShipmentTrackingEvent, DeliveryPriceOption, ShippingConnections,
 } from './types'
 import { CodedApiError } from '../api/codedApiError'
 
@@ -66,6 +66,19 @@ export function connectMyParcel(token: string, apiKey: string): Promise<{ connec
 
 export function registerMyParcelWebhook(token: string, connectionId: string): Promise<{ ok: boolean }> {
   return request(`${base()}/connections/${connectionId}/register-webhook`, { method: 'POST' }, token)
+}
+
+// listShippingConnections: every connection that can create a shipping
+// label, oldest first, plus which one packing preselects.
+export function listShippingConnections(token: string): Promise<ShippingConnections> {
+  return request(`${base()}/connections`, { method: 'GET' }, token)
+}
+
+// updateShippingPreferences picks packing's default shipping connection;
+// null clears the pick (the oldest connection is used again). Returns the
+// refreshed list. Owner/admin only.
+export function updateShippingPreferences(token: string, defaultConnectionId: string | null): Promise<ShippingConnections> {
+  return request(`${base()}/preferences`, { method: 'PATCH', body: JSON.stringify({ default_connection_id: defaultConnectionId }) }, token)
 }
 
 export function getShippingSettings(token: string, connectionId: string): Promise<ShippingSettingsResult> {

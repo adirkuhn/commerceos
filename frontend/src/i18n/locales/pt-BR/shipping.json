@@ -183,5 +183,18 @@
     "label_created": "Etiqueta criada",
     "out_for_delivery": "Saiu para entrega",
     "picked_up": "Coletado"
+  },
+  "provider": {
+    "label": "Provedor de envio",
+    "via": "Envio via {{provider}}",
+    "loadFailed": "Não foi possível carregar os provedores de envio."
+  },
+  "defaultProvider": {
+    "title": "Provedor de envio padrão",
+    "body": "Pré-selecionado ao criar uma etiqueta na embalagem. A equipe ainda pode trocar por etiqueta.",
+    "automatic": "Automático – conexão mais antiga ({{provider}})",
+    "readOnly": "Somente um proprietário ou administrador pode alterar isto.",
+    "saved": "Provedor de envio padrão salvo.",
+    "saveFailed": "Não foi possível salvar o provedor de envio padrão."
   }
 }

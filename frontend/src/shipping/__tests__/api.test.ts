@@ -104,3 +104,43 @@ describe('lookupAddress', () => {
     await expect(api.lookupAddress(TOKEN, '1012AB', '1')).rejects.toThrow('pdok: request failed (500)')
   })
 })
+
+const shippingConnections = {
+  connections: [{ id: 'conn-1', provider: 'myparcel', status: 'active', created_at: '2026-01-01T00:00:00Z', is_default: true }],
+  default_connection_id: 'conn-1',
+  configured_connection_id: null,
+}
+
+describe('listShippingConnections', () => {
+  it('gets the shipping connections and the default', async () => {
+    mockFetch(shippingConnections)
+    const result = await api.listShippingConnections(TOKEN)
+    expect(result).toEqual(shippingConnections)
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toMatch(/\/shipping\/connections$/)
+    expect(init?.method).toBe('GET')
+  })
+})
+
+describe('updateShippingPreferences', () => {
+  it('patches the default connection id', async () => {
+    mockFetch(shippingConnections)
+    await api.updateShippingPreferences(TOKEN, 'conn-1')
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toMatch(/\/shipping\/preferences$/)
+    expect(init?.method).toBe('PATCH')
+    expect(JSON.parse(String(init?.body))).toEqual({ default_connection_id: 'conn-1' })
+  })
+
+  it('sends null to go back to automatic', async () => {
+    mockFetch(shippingConnections)
+    await api.updateShippingPreferences(TOKEN, null)
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    expect(JSON.parse(String(init?.body))).toEqual({ default_connection_id: null })
+  })
+
+  it('throws the coded API error', async () => {
+    mockFetchError('SHIPPING_PREFERENCES_FORBIDDEN', 'only an owner or admin can change the default shipping provider', 403)
+    await expect(api.updateShippingPreferences(TOKEN, 'conn-1')).rejects.toMatchObject({ code: 'SHIPPING_PREFERENCES_FORBIDDEN' })
+  })
+})

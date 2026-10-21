@@ -183,5 +183,18 @@
     "label_created": "Label created",
     "out_for_delivery": "Out for delivery",
     "picked_up": "Picked up"
+  },
+  "provider": {
+    "label": "Shipping provider",
+    "via": "Shipping via {{provider}}",
+    "loadFailed": "Couldn’t load the shipping providers."
+  },
+  "defaultProvider": {
+    "title": "Default shipping provider",
+    "body": "Preselected when packing creates a label. Staff can still switch per label.",
+    "automatic": "Automatic – oldest connection ({{provider}})",
+    "readOnly": "Only an owner or admin can change this.",
+    "saved": "Default shipping provider saved.",
+    "saveFailed": "Couldn’t save the default shipping provider."
   }
 }
