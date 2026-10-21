@@ -23,6 +23,7 @@ type createShipmentFixture struct {
 	labels     *fakeShipmentLabelRepo
 	profiles   *fakeCompanyProfiles
 	settings   *shippingDomain.ShippingConnectionSettings
+	activity   fakeRecordActivity
 }
 
 func (f *createShipmentFixture) useCase(t *testing.T) *appshipping.CreateShipmentUseCase {
@@ -60,7 +61,7 @@ func (f *createShipmentFixture) useCase(t *testing.T) *appshipping.CreateShipmen
 		f.profiles = &fakeCompanyProfiles{}
 	}
 	return appshipping.NewCreateShipmentUseCase(newMockGormDB(t, 3), connRepo, settingsRepo, overrideRepo, shipmentRepo,
-		&fakeCarrierClientFactory{client: client}, testEncSecret, &fakeRecordActivity{}, tenantSettingsRepoWithCurrency("EUR"),
+		&fakeCarrierClientFactory{client: client}, testEncSecret, &f.activity, tenantSettingsRepoWithCurrency("EUR"),
 		notInsuredSalesOrderRepo(), &fakeOrderExporter{}, &fakeSalesOrderLineItemLister{}, &fakeSKURepo{}, &eventrecordtest.Outbox{},
 		f.profiles, f.labels)
 }
@@ -132,4 +133,14 @@ func TestCreateShipment_carrierWithoutLabelAtCreationStoresNothing(t *testing.T)
 	createPostNLShipment(t, f.useCase(t))
 
 	assert.Nil(t, f.labels.saved)
+}
+
+func TestCreateShipment_activityNamesTheProvider(t *testing.T) {
+	f := &createShipmentFixture{result: integrationsDomain.CarrierShipmentResult{ExternalShipmentID: "ref", Barcode: "3SDEVC1"}}
+
+	createPostNLShipment(t, f.useCase(t))
+
+	require.Len(t, f.activity.calls, 1)
+	assert.Equal(t, "postnl", f.activity.calls[0].Metadata["provider"])
+	assert.Equal(t, "Shipment created via postnl", f.activity.calls[0].Summary)
 }

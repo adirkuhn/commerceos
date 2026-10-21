@@ -283,7 +283,8 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 		LabelFormat:    resolved.LabelFormat,
 	})
 	if err != nil {
-		uc.recordShipmentActivity(ctx, in, omsDomain.ActivityTypeShipmentFailed, "Failed to create MyParcel shipment", map[string]any{"error": err.Error()})
+		uc.recordShipmentActivity(ctx, in, omsDomain.ActivityTypeShipmentFailed, "Failed to create shipment via "+string(conn.Provider),
+			map[string]any{"error": err.Error(), "provider": string(conn.Provider)})
 		return nil, fmt.Errorf("createShipment: %w", err)
 	}
 
@@ -319,7 +320,8 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 	if err != nil {
 		return nil, fmt.Errorf("createShipment: persist: %w", err)
 	}
-	uc.recordShipmentActivity(ctx, in, omsDomain.ActivityTypeShipmentCreated, "Shipment created via MyParcel", map[string]any{"barcode": shipment.Barcode})
+	uc.recordShipmentActivity(ctx, in, omsDomain.ActivityTypeShipmentCreated, "Shipment created via "+string(conn.Provider),
+		map[string]any{"barcode": shipment.Barcode, "provider": string(conn.Provider)})
 	return &shipment, nil
 }
 
