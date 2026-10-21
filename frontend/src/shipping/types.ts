@@ -176,7 +176,18 @@ export interface ShippingConnection {
   created_at: string
   // Whether packing preselects this connection.
   is_default: boolean
+  // What the tenant still has to set up before this connection can create
+  // labels; empty = ready. See connectionReadiness.ts.
+  missing: MissingSetup[]
 }
+
+// Setup a connection can still be missing (backend ShippingConnection.missing).
+export const MISSING_SETUP = {
+  // The carrier needs a sender and the tenant has neither a shipping
+  // sender address nor a company profile address.
+  senderAddress: 'sender_address',
+} as const
+export type MissingSetup = typeof MISSING_SETUP[keyof typeof MISSING_SETUP]
 
 export interface ShippingConnections {
   // Oldest first.
@@ -186,4 +197,46 @@ export interface ShippingConnections {
   default_connection_id: string | null
   // The merchant's explicit pick; null means "automatic (oldest)".
   configured_connection_id: string | null
+}
+
+// A label sender or return address -- backend ShippingAddress.
+export interface ShippingAddress {
+  company: string
+  street: string
+  number: string
+  number_suffix?: string
+  postal_code: string
+  city: string
+  // ISO 3166-1 alpha-2.
+  cc: string
+  email?: string
+  phone?: string
+}
+
+// GET /shipping/addresses: one sender and one return address per tenant.
+export interface ShippingAddresses {
+  // null = labels use company_address.
+  sender_address: ShippingAddress | null
+  // null = undeliverable parcels go back to the sender.
+  return_address: ShippingAddress | null
+  // The company profile address (read-only here); null when not filled in.
+  company_address: ShippingAddress | null
+}
+
+export type UpdateShippingAddressesInput = Pick<ShippingAddresses, 'sender_address' | 'return_address'>
+
+// A PostNL connection's account and environment -- never the API key.
+export interface PostNLAccount {
+  connection_id: string
+  customer_code: string
+  customer_number: string
+  sandbox: boolean
+}
+
+export interface UpdatePostNLAccountInput {
+  // Empty keeps the stored key.
+  api_key: string
+  customer_code: string
+  customer_number: string
+  sandbox: boolean
 }

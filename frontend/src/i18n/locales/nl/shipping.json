@@ -197,5 +197,45 @@
     "readOnly": "Alleen een eigenaar of beheerder kan dit wijzigen.",
     "saved": "Standaard verzendpartij opgeslagen.",
     "saveFailed": "De standaard verzendpartij kon niet worden opgeslagen."
+  },
+  "readiness": {
+    "senderAddress": "{{provider}} heeft een afzenderadres nodig voordat het labels kan maken.",
+    "fixLink": "Verzendadressen instellen"
+  },
+  "addresses": {
+    "title": "Verzendadressen",
+    "body": "De afzender op labels, en waar onbestelbare pakketten naar teruggaan.",
+    "loadFailed": "Kon de verzendadressen niet laden.",
+    "saveFailed": "Kon de verzendadressen niet opslaan.",
+    "save": "Adressen opslaan",
+    "saved": "Verzendadressen opgeslagen.",
+    "readOnly": "Alleen een eigenaar of beheerder kan dit wijzigen.",
+    "sender": "Afzenderadres",
+    "senderCompany": "Adres uit het bedrijfsprofiel gebruiken",
+    "senderCustom": "Een ander adres gebruiken",
+    "noCompanyAddress": "Je bedrijfsprofiel heeft nog geen adres, dus labels hebben geen afzender.",
+    "companyProfileLink": "Bedrijfsprofiel invullen",
+    "return": "Retouradres",
+    "returnSame": "Hetzelfde als de afzender",
+    "returnCustom": "Een ander retouradres gebruiken",
+    "returnHint": "Onbestelbare pakketten gaan hierheen terug.",
+    "field": {
+      "company": "Bedrijf",
+      "street": "Straat",
+      "number": "Huisnummer",
+      "number_suffix": "Toevoeging",
+      "postal_code": "Postcode",
+      "city": "Plaats",
+      "cc": "Land",
+      "email": "E-mail (optioneel)",
+      "phone": "Telefoon (optioneel)",
+      "chooseCountry": "Kies een land"
+    },
+    "errors": {
+      "required": "Verplicht",
+      "country": "Kies een land",
+      "tooLong": "Te lang"
+    },
+    "loading": "Adressen laden…"
   }
 }

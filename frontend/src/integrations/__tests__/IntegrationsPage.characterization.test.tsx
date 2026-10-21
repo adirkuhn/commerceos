@@ -36,6 +36,7 @@ vi.mock('../api', () => ({
 vi.mock('../../shipping/api', async importOriginal => ({
   ...await importOriginal<typeof import('../../shipping/api')>(),
   listShippingConnections: vi.fn().mockResolvedValue({ connections: [], default_connection_id: null, configured_connection_id: null }),
+  getShippingAddresses: vi.fn().mockResolvedValue({ sender_address: null, return_address: null, company_address: null }),
 }))
 vi.mock('../../inventory/api', () => ({
   listWarehouses: vi.fn(),
@@ -73,6 +74,7 @@ beforeEach(() => {
     prices_include_tax: false, default_tax_country: '', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
   })
   vi.mocked(integrationsApi.listWebhookFallbackEvents).mockResolvedValue({ events: [], total: 0 })
+  vi.mocked(shippingApi.listShippingConnections).mockResolvedValue({ connections: [], default_connection_id: null, configured_connection_id: null })
 })
 
 describe('Connection card actions', () => {
@@ -156,8 +158,8 @@ describe('Empty state and admin shortcut', () => {
 })
 
 describe('Default shipping provider', () => {
-  const withShipping = () => vi.mocked(shippingApi.listShippingConnections).mockResolvedValueOnce({
-    connections: [{ id: 'mp', provider: 'myparcel', status: 'active', created_at: '2026-01-01T00:00:00Z', is_default: true }],
+  const withShipping = () => vi.mocked(shippingApi.listShippingConnections).mockResolvedValue({
+    connections: [{ id: 'mp', provider: 'myparcel', status: 'active', created_at: '2026-01-01T00:00:00Z', is_default: true, missing: [] }],
     default_connection_id: 'mp', configured_connection_id: null,
   })
 
@@ -175,10 +177,18 @@ describe('Default shipping provider', () => {
     expect(await screen.findByLabelText('Default shipping provider')).toBeDisabled()
   })
 
+  it('shows the shipping addresses setting next to it', async () => {
+    mockRole = 'customer_owner'
+    withShipping()
+    renderPage()
+    expect(await screen.findByRole('region', { name: 'Shipping addresses' })).toBeInTheDocument()
+  })
+
   it('is not shown without shipping connections', async () => {
     renderPage()
     await screen.findByText('Connected integrations')
     expect(screen.queryByLabelText('Default shipping provider')).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Shipping addresses' })).not.toBeInTheDocument()
   })
 })
 

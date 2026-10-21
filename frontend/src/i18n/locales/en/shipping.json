@@ -197,5 +197,45 @@
     "readOnly": "Only an owner or admin can change this.",
     "saved": "Default shipping provider saved.",
     "saveFailed": "Couldn’t save the default shipping provider."
+  },
+  "readiness": {
+    "senderAddress": "{{provider}} needs a sender address before it can create labels.",
+    "fixLink": "Set up the shipping addresses"
+  },
+  "addresses": {
+    "title": "Shipping addresses",
+    "body": "The sender printed on labels, and where parcels that can’t be delivered go back to.",
+    "loadFailed": "Couldn’t load the shipping addresses.",
+    "saveFailed": "Couldn’t save the shipping addresses.",
+    "save": "Save addresses",
+    "saved": "Shipping addresses saved.",
+    "readOnly": "Only an owner or admin can change this.",
+    "sender": "Sender address",
+    "senderCompany": "Use the company profile address",
+    "senderCustom": "Use a different address",
+    "noCompanyAddress": "Your company profile has no address yet, so labels have no sender.",
+    "companyProfileLink": "Fill in the company profile",
+    "return": "Return address",
+    "returnSame": "Same as the sender",
+    "returnCustom": "Use a different return address",
+    "returnHint": "Parcels that can’t be delivered go back here.",
+    "field": {
+      "company": "Company",
+      "street": "Street",
+      "number": "House number",
+      "number_suffix": "Addition",
+      "postal_code": "Postal code",
+      "city": "City",
+      "cc": "Country",
+      "email": "Email (optional)",
+      "phone": "Phone (optional)",
+      "chooseCountry": "Choose a country"
+    },
+    "errors": {
+      "required": "Required",
+      "country": "Choose a country",
+      "tooLong": "Too long"
+    },
+    "loading": "Loading addresses…"
   }
 }

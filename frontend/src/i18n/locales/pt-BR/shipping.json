@@ -197,5 +197,45 @@
     "readOnly": "Somente um proprietário ou administrador pode alterar isto.",
     "saved": "Provedor de envio padrão salvo.",
     "saveFailed": "Não foi possível salvar o provedor de envio padrão."
+  },
+  "readiness": {
+    "senderAddress": "{{provider}} precisa de um endereço de remetente antes de criar etiquetas.",
+    "fixLink": "Configurar os endereços de envio"
+  },
+  "addresses": {
+    "title": "Endereços de envio",
+    "body": "O remetente impresso nas etiquetas e para onde voltam os pacotes que não puderem ser entregues.",
+    "loadFailed": "Não foi possível carregar os endereços de envio.",
+    "saveFailed": "Não foi possível salvar os endereços de envio.",
+    "save": "Salvar endereços",
+    "saved": "Endereços de envio salvos.",
+    "readOnly": "Só um proprietário ou administrador pode alterar isto.",
+    "sender": "Endereço do remetente",
+    "senderCompany": "Usar o endereço do perfil da empresa",
+    "senderCustom": "Usar outro endereço",
+    "noCompanyAddress": "O perfil da sua empresa ainda não tem endereço, então as etiquetas ficam sem remetente.",
+    "companyProfileLink": "Preencher o perfil da empresa",
+    "return": "Endereço de devolução",
+    "returnSame": "Igual ao remetente",
+    "returnCustom": "Usar outro endereço de devolução",
+    "returnHint": "Os pacotes que não puderem ser entregues voltam para cá.",
+    "field": {
+      "company": "Empresa",
+      "street": "Rua",
+      "number": "Número",
+      "number_suffix": "Complemento",
+      "postal_code": "CEP",
+      "city": "Cidade",
+      "cc": "País",
+      "email": "E-mail (opcional)",
+      "phone": "Telefone (opcional)",
+      "chooseCountry": "Escolha um país"
+    },
+    "errors": {
+      "required": "Obrigatório",
+      "country": "Escolha um país",
+      "tooLong": "Muito longo"
+    },
+    "loading": "Carregando endereços…"
   }
 }

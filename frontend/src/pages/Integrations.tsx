@@ -23,6 +23,7 @@ import { useIntegrationsRoute, type ConnectionPanel } from '../integrations/hook
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 import { canManageWebhooks } from '../integrations/integrationsPageHelpers'
 import { DefaultShippingProviderSetting } from '../shipping/DefaultShippingProviderSetting'
+import { ShippingAddressesSetting } from '../shipping/addresses/ShippingAddressesSetting'
 import { isTenantAdmin } from '../auth/roles'
 
 export default function Integrations() {
@@ -109,11 +110,18 @@ export default function Integrations() {
             connecting/disconnecting one reloads which shipping providers
             it offers. */}
         {!loading && (
-          <DefaultShippingProviderSetting
-            key={connections.map(c => c.id).join(',')}
-            token={authToken}
-            canEdit={isTenantAdmin(user?.role)}
-          />
+          <>
+            <DefaultShippingProviderSetting
+              key={connections.map(c => c.id).join(',')}
+              token={authToken}
+              canEdit={isTenantAdmin(user?.role)}
+            />
+            <ShippingAddressesSetting
+              key={`addresses-${connections.map(c => c.id).join(',')}`}
+              token={authToken}
+              canEdit={isTenantAdmin(user?.role)}
+            />
+          </>
         )}
 
         <ConnectionsOverview

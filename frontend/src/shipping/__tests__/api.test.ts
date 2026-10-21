@@ -156,3 +156,56 @@ describe('updateShippingPreferences', () => {
     await expect(api.updateShippingPreferences(TOKEN, 'conn-1')).rejects.toMatchObject({ code: 'SHIPPING_PREFERENCES_FORBIDDEN' })
   })
 })
+
+const senderAddress = { company: 'Shop BV', street: 'Damrak', number: '1', postal_code: '1012LG', city: 'Amsterdam', cc: 'NL' }
+
+describe('shipping addresses', () => {
+  it('gets the sender, return and company addresses', async () => {
+    mockFetch({ sender_address: null, return_address: null, company_address: senderAddress })
+    const result = await api.getShippingAddresses(TOKEN)
+    expect(result.company_address).toEqual(senderAddress)
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toMatch(/\/shipping\/addresses$/)
+    expect(init?.method).toBe('GET')
+  })
+
+  it('puts both addresses', async () => {
+    mockFetch({ sender_address: senderAddress, return_address: null, company_address: null })
+    await api.updateShippingAddresses(TOKEN, { sender_address: senderAddress, return_address: null })
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toMatch(/\/shipping\/addresses$/)
+    expect(init?.method).toBe('PUT')
+    expect(JSON.parse(String(init?.body))).toEqual({ sender_address: senderAddress, return_address: null })
+  })
+
+  it('throws the coded API error', async () => {
+    mockFetchError('SHIPPING_ADDRESS_INVALID', 'invalid', 422)
+    await expect(api.updateShippingAddresses(TOKEN, { sender_address: null, return_address: null })).rejects.toMatchObject({ code: 'SHIPPING_ADDRESS_INVALID' })
+  })
+})
+
+describe('PostNL account', () => {
+  const account = { connection_id: 'pn', customer_code: 'DEVC', customer_number: '11223344', sandbox: true }
+
+  it('gets the account', async () => {
+    mockFetch(account)
+    expect(await api.getPostNLConnection(TOKEN, 'pn')).toEqual(account)
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toMatch(/\/shipping\/postnl\/connections\/pn$/)
+    expect(init?.method).toBe('GET')
+  })
+
+  it('puts the account', async () => {
+    mockFetch(account)
+    await api.updatePostNLConnection(TOKEN, 'pn', { api_key: '', customer_code: 'DEVC', customer_number: '11223344', sandbox: false })
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toMatch(/\/shipping\/postnl\/connections\/pn$/)
+    expect(init?.method).toBe('PUT')
+    expect(JSON.parse(String(init?.body))).toEqual({ api_key: '', customer_code: 'DEVC', customer_number: '11223344', sandbox: false })
+  })
+
+  it('throws the coded API error', async () => {
+    mockFetchError('POSTNL_ACCOUNT_INVALID', 'invalid', 422)
+    await expect(api.updatePostNLConnection(TOKEN, 'pn', { api_key: '', customer_code: '', customer_number: '', sandbox: true })).rejects.toMatchObject({ code: 'POSTNL_ACCOUNT_INVALID' })
+  })
+})

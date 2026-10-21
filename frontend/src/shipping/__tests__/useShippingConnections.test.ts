@@ -64,4 +64,15 @@ describe('useShippingConnections', () => {
     await act(() => expect(result.current.saveDefault('c1')).rejects.toThrow('forbidden'))
     expect(result.current.defaultConnection?.id).toBe('c2')
   })
+
+  it('refresh reloads the list (readiness after an address change)', async () => {
+    const { result } = renderHook(() => useShippingConnections('t'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(
+      shippingConnectionsOf([{ id: 'c2', provider: 'postnl', missing: ['sender_address'] }]),
+    )
+    await act(() => result.current.refresh())
+    expect(result.current.connections).toHaveLength(1)
+    expect(result.current.connections[0].missing).toEqual(['sender_address'])
+  })
 })

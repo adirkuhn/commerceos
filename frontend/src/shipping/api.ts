@@ -1,6 +1,7 @@
 import type {
   APIResponse, Shipment, ShippingSettingsResult, ShippingConnectionSettings, ShippingCarrierOverride, CreateShipmentInput,
   MyParcelFulfilmentOrder, RecipientAddress, ShipmentTrackingEvent, DeliveryPriceOption, ShippingConnections,
+  ShippingAddresses, UpdateShippingAddressesInput, PostNLAccount, UpdatePostNLAccountInput,
 } from './types'
 import { CodedApiError } from '../api/codedApiError'
 
@@ -91,6 +92,27 @@ export function listShippingConnections(token: string): Promise<ShippingConnecti
 // refreshed list. Owner/admin only.
 export function updateShippingPreferences(token: string, defaultConnectionId: string | null): Promise<ShippingConnections> {
   return request(`${base()}/preferences`, { method: 'PATCH', body: JSON.stringify({ default_connection_id: defaultConnectionId }) }, token)
+}
+
+// getShippingAddresses: the tenant's label sender and return address, plus
+// the company profile address the sender falls back to.
+export function getShippingAddresses(token: string): Promise<ShippingAddresses> {
+  return request(`${base()}/addresses`, { method: 'GET' }, token)
+}
+
+// updateShippingAddresses replaces both addresses (null clears one).
+// Owner/admin only.
+export function updateShippingAddresses(token: string, input: UpdateShippingAddressesInput): Promise<ShippingAddresses> {
+  return request(`${base()}/addresses`, { method: 'PUT', body: JSON.stringify(input) }, token)
+}
+
+export function getPostNLConnection(token: string, connectionId: string): Promise<PostNLAccount> {
+  return request(`${base()}/postnl/connections/${connectionId}`, { method: 'GET' }, token)
+}
+
+// updatePostNLConnection: an empty api_key keeps the stored key.
+export function updatePostNLConnection(token: string, connectionId: string, input: UpdatePostNLAccountInput): Promise<PostNLAccount> {
+  return request(`${base()}/postnl/connections/${connectionId}`, { method: 'PUT', body: JSON.stringify(input) }, token)
 }
 
 export function getShippingSettings(token: string, connectionId: string): Promise<ShippingSettingsResult> {

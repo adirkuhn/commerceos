@@ -18,6 +18,9 @@ export interface UseShippingConnections {
   // Saves the merchant's pick (null = automatic); rejects on failure so
   // the caller can show why.
   saveDefault: (connectionId: string | null) => Promise<void>
+  // Reloads the list, e.g. after the shipping addresses changed what a
+  // connection is missing.
+  refresh: () => Promise<void>
 }
 
 // The tenant's shipping connections and packing's default one -- shared by
@@ -43,9 +46,18 @@ export function useShippingConnections(token: string): UseShippingConnections {
     setData(await shippingApi.updateShippingPreferences(token, connectionId))
   }, [token])
 
+  const refresh = useCallback(async () => {
+    try {
+      setData(await shippingApi.listShippingConnections(token))
+      setError(null)
+    } catch (err) {
+      setError(apiErrorText(err) ?? i18next.t('shipping:provider.loadFailed'))
+    }
+  }, [token])
+
   const defaultConnection = data.connections.find(c => c.id === data.default_connection_id) ?? null
   return {
     connections: data.connections, defaultConnection, configuredConnectionId: data.configured_connection_id,
-    loading, error, saveDefault,
+    loading, error, saveDefault, refresh,
   }
 }

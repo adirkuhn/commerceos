@@ -9,7 +9,7 @@ export function shippingConnectionsOf(
   configuredId: string | null = null,
 ): ShippingConnections {
   return {
-    connections: connections.map(c => ({ status: 'active', created_at: '2026-01-01T00:00:00Z', ...c, is_default: c.id === defaultId })),
+    connections: connections.map(c => ({ status: 'active', created_at: '2026-01-01T00:00:00Z', missing: [], ...c, is_default: c.id === defaultId })),
     default_connection_id: defaultId,
     configured_connection_id: configuredId,
   }

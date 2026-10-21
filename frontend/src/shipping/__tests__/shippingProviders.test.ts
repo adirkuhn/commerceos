@@ -3,7 +3,7 @@ import { shippingConnectionLabel, shippingProviderCapabilities, SHIPPING_PROVIDE
 import type { ShippingConnection } from '../types'
 
 const conn = (id: string, provider: string, created_at = '2026-01-01T00:00:00Z'): ShippingConnection =>
-  ({ id, provider, status: 'active', created_at, is_default: false })
+  ({ id, provider, status: 'active', created_at, is_default: false, missing: [] })
 
 describe('shippingProviderCapabilities', () => {
   it('MyParcel has a carrier choice, exports orders and offers every package type', () => {

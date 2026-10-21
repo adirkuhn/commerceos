@@ -3,8 +3,9 @@ import { useLocation } from 'react-router-dom'
 import { subPathSegments } from '../../routes'
 import { useStackNavigation } from '../../routing/useStackNavigation'
 import { NEW_RECORD } from '../../routing/useRoutedEditor'
+import { INTEGRATIONS_PATH } from '../integrationsPaths'
 
-export const INTEGRATIONS_PATH = '/integrations'
+export { INTEGRATIONS_PATH }
 const CONNECT_SEGMENT = 'connect'
 
 // Providers connected through a form in the "Add integration" catalog.
