@@ -24,9 +24,9 @@ import (
 	appwhatsapp "github.com/adirkuhn/commerceos/application/whatsapp"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/ai"
+	"github.com/adirkuhn/commerceos/infrastructure/carriers"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
 	"github.com/adirkuhn/commerceos/infrastructure/evolutionapi"
-	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/publishers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/infrastructure/revolut"
@@ -112,7 +112,7 @@ func main() {
 	shipmentHandler := appshipping.NewHandleShipmentWebhookUseCase(
 		db, repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),
 		repositories.NewConnectionRepo(db), salesOrderRepo,
-		myparcel.NewCarrierClientFactory(), cfg.IntegrationsEncryptionSecret, outboxRepo,
+		carriers.NewDefaultRegistry(), cfg.IntegrationsEncryptionSecret, outboxRepo,
 	)
 	orderStatusHandler := appshipping.NewHandleOrderStatusWebhookUseCase(
 		db, repositories.NewMyParcelFulfilmentOrderRepo(db), outboxRepo,

@@ -82,10 +82,27 @@ type CarrierClient interface {
 	GetDeliveryPriceEstimate(ctx context.Context, in DeliveryPriceEstimateInput) ([]DeliveryPriceOption, error)
 }
 
-// CarrierClientFactory builds a CarrierClient scoped to one connection's API
-// key -- the DI seam use cases depend on instead of a provider-specific
-// factory (e.g. MyParcelClientFactory) once they only need this carrier-
-// agnostic subset of capability.
+// CarrierCredentials is everything a CarrierClientFactory needs to build a
+// client for one connection: which provider it is (so a multi-provider
+// factory can dispatch to the right adapter) plus that provider's own
+// credentials, already decrypted. Built by CarrierCredentialsFor.
+type CarrierCredentials struct {
+	Provider Provider
+	APIKey   string
+}
+
+// CarrierCredentialsFor builds conn's CarrierCredentials from its already-
+// decrypted API key (ConsumerSecretEncrypted, decrypted by the caller --
+// the domain never sees the encryption secret).
+func CarrierCredentialsFor(conn Connection, apiKey string) CarrierCredentials {
+	return CarrierCredentials{Provider: conn.Provider, APIKey: apiKey}
+}
+
+// CarrierClientFactory builds a CarrierClient scoped to one connection's
+// credentials -- the DI seam use cases depend on instead of a provider-
+// specific factory (e.g. MyParcelClientFactory) once they only need this
+// carrier-agnostic subset of capability. An implementation that can't build
+// a client for creds.Provider returns ErrProviderNotSupported.
 type CarrierClientFactory interface {
-	NewClient(apiKey string) (CarrierClient, error)
+	NewClient(creds CarrierCredentials) (CarrierClient, error)
 }

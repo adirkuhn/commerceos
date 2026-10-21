@@ -23,6 +23,7 @@ import (
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	bolinfra "github.com/adirkuhn/commerceos/infrastructure/bol"
+	"github.com/adirkuhn/commerceos/infrastructure/carriers"
 	"github.com/adirkuhn/commerceos/infrastructure/evolutionapi"
 	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -441,7 +442,7 @@ func Register(
 		appchannels.NewGetBolCommissionUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, skuRepo, bolOverrideRepo),
 		appintegrations.NewListBolEconomicOperatorsUseCase(db, connRepo, bolinfra.NewClientFactory(), encryptionSecret),
 		appwebhooks.NewListWebhookEventsUseCase(db, webhookEventRepo),
-		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, myparcel.NewCarrierClientFactory(), encryptionSecret, fulfilmentOrderRepo, updateSalesOrderForWebhooksUC, notifyShipmentDeliveryUC, outboxRepo, retryablePaymentHandlers),
+		appshipping.NewRetryWebhookEventDispatchUseCase(db, webhookEventRepo, shipmentRepo, shipmentStatusEventRepo, connRepo, salesOrderRepo, carriers.NewDefaultRegistry(), encryptionSecret, fulfilmentOrderRepo, updateSalesOrderForWebhooksUC, notifyShipmentDeliveryUC, outboxRepo, retryablePaymentHandlers),
 		appchannels.NewLinkExistingWooProductUseCase(db, productRepo, connRepo, listingRepo, wooFactory, encryptionSecret, repositories.NewOutboxRepository(db)),
 		appchannels.NewListProductChannelListingsUseCase(db, listingRepo),
 		appwebhooks.NewAbandonAllWebhookFallbackEventsUseCase(db, webhookFallbackRepo, outboxRepo),

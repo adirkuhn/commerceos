@@ -11,7 +11,6 @@ import (
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
-	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -100,13 +99,9 @@ func (uc *ReconcileShipmentsUseCase) Execute(ctx context.Context, connectionID s
 		return result, nil
 	}
 
-	apiKey, err := crypto.Decrypt(uc.encSecret, conn.ConsumerSecretEncrypted)
+	client, err := buildCarrierClient(uc.carrierFactory, uc.encSecret, conn)
 	if err != nil {
-		return nil, fmt.Errorf("reconcileShipments: decrypt api key: %w", err)
-	}
-	client, err := uc.carrierFactory.NewClient(apiKey)
-	if err != nil {
-		return nil, fmt.Errorf("reconcileShipments: build client: %w", err)
+		return nil, fmt.Errorf("reconcileShipments: %w", err)
 	}
 
 	for _, s := range stale {

@@ -33,8 +33,8 @@ import (
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	reviewsDomain "github.com/adirkuhn/commerceos/domain/reviews"
 	storefrontDomain "github.com/adirkuhn/commerceos/domain/storefront"
+	"github.com/adirkuhn/commerceos/infrastructure/carriers"
 	newsletterhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/newsletter"
-	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/infrastructure/revolut"
 	"github.com/adirkuhn/commerceos/infrastructure/stripe"
@@ -254,7 +254,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL, stor
 		db, channelRepo, connRepo, stripe.NewClientFactory(), revolut.NewClientFactory(),
 		encryptionSecret, publicBaseURL, outboxRepo,
 	)
-	estimateShipping := appshipping.NewGetDeliveryPriceEstimateUseCase(db, connRepo, myparcel.NewCarrierClientFactory(), encryptionSecret)
+	estimateShipping := appshipping.NewGetDeliveryPriceEstimateUseCase(db, connRepo, carriers.NewDefaultRegistry(), encryptionSecret)
 	listPOSProductCatalog := apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo, barcodeAliasRepo, scaleCodeAliasRepo)
 	getCartRecommendations := appreports.NewGetCartRecommendationsUseCase(db, salesRepo, settingsRepo, skuRepo, skuRepo, variantRepo, productRepo)
 	verifyCardPayment := appstorefront.NewVerifyCardPaymentUseCase(db, channelRepo, connRepo, stripe.NewClientFactory(), encryptionSecret)

@@ -15,6 +15,7 @@ import (
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
+	"github.com/adirkuhn/commerceos/infrastructure/carriers"
 	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/pdok"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -119,7 +120,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 	fulfilmentOrderRepo := repositories.NewMyParcelFulfilmentOrderRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
 	myParcelFactory := myparcel.NewClientFactory()
-	carrierFactory := myparcel.NewCarrierClientFactory()
+	carrierFactory := carriers.NewDefaultRegistry()
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
 	skuRepo := repositories.NewSKURepo(db)

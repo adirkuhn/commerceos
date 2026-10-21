@@ -165,9 +165,11 @@ func (f *fakeCarrierClient) GetDeliveryPriceEstimate(ctx context.Context, in int
 type fakeCarrierClientFactory struct {
 	client       integrationsDomain.CarrierClient
 	newClientErr error
+	gotCreds     integrationsDomain.CarrierCredentials
 }
 
-func (f *fakeCarrierClientFactory) NewClient(apiKey string) (integrationsDomain.CarrierClient, error) {
+func (f *fakeCarrierClientFactory) NewClient(creds integrationsDomain.CarrierCredentials) (integrationsDomain.CarrierClient, error) {
+	f.gotCreds = creds
 	if f.newClientErr != nil {
 		return nil, f.newClientErr
 	}

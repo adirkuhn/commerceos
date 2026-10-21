@@ -16,7 +16,6 @@ import (
 	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"github.com/adirkuhn/commerceos/domain/events"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
-	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -245,13 +244,9 @@ func (uc *CreateShipmentUseCase) Execute(ctx context.Context, in CreateShipmentI
 
 	weightGrams := uc.computeWeightGrams(ctx, in.SalesOrderID)
 
-	apiKey, err := crypto.Decrypt(uc.encSecret, conn.ConsumerSecretEncrypted)
+	client, err := buildCarrierClient(uc.carrierFactory, uc.encSecret, conn)
 	if err != nil {
-		return nil, fmt.Errorf("createShipment: decrypt api key: %w", err)
-	}
-	client, err := uc.carrierFactory.NewClient(apiKey)
-	if err != nil {
-		return nil, fmt.Errorf("createShipment: build client: %w", err)
+		return nil, fmt.Errorf("createShipment: %w", err)
 	}
 
 	result, err := client.CreateShipment(ctx, integrationsDomain.CreateCarrierShipmentRequest{

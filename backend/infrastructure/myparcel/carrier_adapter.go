@@ -105,8 +105,8 @@ func NewCarrierClientFactory() CarrierClientFactory {
 
 var _ integrationsDomain.CarrierClientFactory = CarrierClientFactory{}
 
-func (f CarrierClientFactory) NewClient(apiKey string) (integrationsDomain.CarrierClient, error) {
-	client, err := f.inner.NewClient(apiKey)
+func (f CarrierClientFactory) NewClient(creds integrationsDomain.CarrierCredentials) (integrationsDomain.CarrierClient, error) {
+	client, err := f.inner.NewClient(creds.APIKey)
 	if err != nil {
 		return nil, err
 	}

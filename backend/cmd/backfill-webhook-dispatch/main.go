@@ -25,7 +25,7 @@ import (
 
 	appshipping "github.com/adirkuhn/commerceos/application/shipping"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
-	"github.com/adirkuhn/commerceos/infrastructure/myparcel"
+	"github.com/adirkuhn/commerceos/infrastructure/carriers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/config"
 	"github.com/adirkuhn/commerceos/internal/db"
@@ -52,7 +52,7 @@ func main() {
 	// notifyWhatsAppOnDelivery's docs).
 	uc := appshipping.NewBackfillShipmentWebhookDispatchUseCase(
 		db, repositories.NewWebhookEventRepo(db), repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),
-		connRepo, repositories.NewSalesOrderRepo(db), myparcel.NewCarrierClientFactory(), cfg.IntegrationsEncryptionSecret, nil, nil,
+		connRepo, repositories.NewSalesOrderRepo(db), carriers.NewDefaultRegistry(), cfg.IntegrationsEncryptionSecret, nil, nil,
 	)
 
 	// ListByTenant has no WHERE tenant_id clause of its own -- under

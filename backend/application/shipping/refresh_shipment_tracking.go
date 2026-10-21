@@ -9,7 +9,6 @@ import (
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
-	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -66,13 +65,9 @@ func (uc *RefreshShipmentTrackingUseCase) Execute(ctx context.Context, shipmentI
 		return shippingDomain.ShipmentStatusEvent{}, fmt.Errorf("refreshShipmentTracking: %w", err)
 	}
 
-	apiKey, err := crypto.Decrypt(uc.encSecret, conn.ConsumerSecretEncrypted)
+	client, err := buildCarrierClient(uc.carrierFactory, uc.encSecret, conn)
 	if err != nil {
-		return shippingDomain.ShipmentStatusEvent{}, fmt.Errorf("refreshShipmentTracking: decrypt api key: %w", err)
-	}
-	client, err := uc.carrierFactory.NewClient(apiKey)
-	if err != nil {
-		return shippingDomain.ShipmentStatusEvent{}, fmt.Errorf("refreshShipmentTracking: build client: %w", err)
+		return shippingDomain.ShipmentStatusEvent{}, fmt.Errorf("refreshShipmentTracking: %w", err)
 	}
 
 	tt, err := client.GetTrackTrace(ctx, shipment.ExternalShipmentID)

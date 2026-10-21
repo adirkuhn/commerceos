@@ -8,7 +8,6 @@ import (
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
-	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -74,13 +73,9 @@ func (uc *GetShipmentLabelUseCase) Execute(ctx context.Context, shipmentID, size
 		}
 	}
 
-	apiKey, err := crypto.Decrypt(uc.encSecret, conn.ConsumerSecretEncrypted)
+	client, err := buildCarrierClient(uc.carrierFactory, uc.encSecret, conn)
 	if err != nil {
-		return nil, fmt.Errorf("getShipmentLabel: decrypt api key: %w", err)
-	}
-	client, err := uc.carrierFactory.NewClient(apiKey)
-	if err != nil {
-		return nil, fmt.Errorf("getShipmentLabel: build client: %w", err)
+		return nil, fmt.Errorf("getShipmentLabel: %w", err)
 	}
 
 	label, err := client.GetLabel(ctx, shipment.ExternalShipmentID, shipment.LabelFormat, size)

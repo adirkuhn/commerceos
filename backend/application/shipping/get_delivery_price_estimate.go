@@ -9,7 +9,6 @@ import (
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
-	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -61,13 +60,9 @@ func (uc *GetDeliveryPriceEstimateUseCase) Execute(ctx context.Context, in GetDe
 		return nil, fmt.Errorf("getDeliveryPriceEstimate: %w", err)
 	}
 
-	apiKey, err := crypto.Decrypt(uc.encSecret, conn.ConsumerSecretEncrypted)
+	client, err := buildCarrierClient(uc.carrierFactory, uc.encSecret, conn)
 	if err != nil {
-		return nil, fmt.Errorf("getDeliveryPriceEstimate: decrypt api key: %w", err)
-	}
-	client, err := uc.carrierFactory.NewClient(apiKey)
-	if err != nil {
-		return nil, fmt.Errorf("getDeliveryPriceEstimate: build client: %w", err)
+		return nil, fmt.Errorf("getDeliveryPriceEstimate: %w", err)
 	}
 
 	options, err := client.GetDeliveryPriceEstimate(ctx, integrationsDomain.DeliveryPriceEstimateInput{

@@ -29,11 +29,11 @@ import (
 	schedulerDomain "github.com/adirkuhn/commerceos/domain/scheduler"
 	"github.com/adirkuhn/commerceos/infrastructure/ai"
 	bolinfra "github.com/adirkuhn/commerceos/infrastructure/bol"
+	"github.com/adirkuhn/commerceos/infrastructure/carriers"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
 	"github.com/adirkuhn/commerceos/infrastructure/evolutionapi"
 	"github.com/adirkuhn/commerceos/infrastructure/messaging/noop"
 	"github.com/adirkuhn/commerceos/infrastructure/messaging/smtp"
-	myparcelinfra "github.com/adirkuhn/commerceos/infrastructure/myparcel"
 	"github.com/adirkuhn/commerceos/infrastructure/pdf"
 	"github.com/adirkuhn/commerceos/infrastructure/publishers"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -342,7 +342,7 @@ func main() {
 	)
 	shipmentReconcileUC := shippingapp.NewReconcileShipmentsUseCase(
 		db, repositories.NewShipmentRepo(db), repositories.NewShipmentStatusEventRepo(db),
-		connRepo, salesOrderRepo, myparcelinfra.NewCarrierClientFactory(), cfg.IntegrationsEncryptionSecret,
+		connRepo, salesOrderRepo, carriers.NewDefaultRegistry(), cfg.IntegrationsEncryptionSecret,
 		outboxRepo,
 	)
 

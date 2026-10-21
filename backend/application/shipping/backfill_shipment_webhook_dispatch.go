@@ -14,7 +14,6 @@ import (
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	webhooksDomain "github.com/adirkuhn/commerceos/domain/webhooks"
-	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -172,13 +171,9 @@ func (d *shipmentWebhookDispatcher) resolveShipment(ctx context.Context, myParce
 		return &shipmentDispatchOutcome{err: err}
 	}
 
-	apiKey, err := crypto.Decrypt(d.encSecret, conn.ConsumerSecretEncrypted)
+	client, err := buildCarrierClient(d.carrierFactory, d.encSecret, conn)
 	if err != nil {
-		return &shipmentDispatchOutcome{err: fmt.Errorf("decrypt api key: %w", err)}
-	}
-	client, err := d.carrierFactory.NewClient(apiKey)
-	if err != nil {
-		return &shipmentDispatchOutcome{err: fmt.Errorf("build client: %w", err)}
+		return &shipmentDispatchOutcome{err: err}
 	}
 	tt, err := client.GetTrackTrace(ctx, strconv.FormatInt(myParcelShipmentID, 10))
 	if err != nil {

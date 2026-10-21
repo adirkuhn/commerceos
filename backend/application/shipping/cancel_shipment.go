@@ -14,7 +14,6 @@ import (
 	"github.com/adirkuhn/commerceos/domain/events"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
-	"github.com/adirkuhn/commerceos/internal/crypto"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
@@ -103,13 +102,9 @@ func (uc *CancelShipmentUseCase) Execute(ctx context.Context, in CancelShipmentI
 		return &CancelShipmentResult{DeletedOnMyParcel: false, Message: shipment.CancelNote}, nil
 	}
 
-	apiKey, err := crypto.Decrypt(uc.encSecret, conn.ConsumerSecretEncrypted)
+	client, err := buildCarrierClient(uc.carrierFactory, uc.encSecret, conn)
 	if err != nil {
-		return nil, fmt.Errorf("cancelShipment: decrypt api key: %w", err)
-	}
-	client, err := uc.carrierFactory.NewClient(apiKey)
-	if err != nil {
-		return nil, fmt.Errorf("cancelShipment: build client: %w", err)
+		return nil, fmt.Errorf("cancelShipment: %w", err)
 	}
 
 	deleteErr := client.CancelShipment(ctx, shipment.ExternalShipmentID)
