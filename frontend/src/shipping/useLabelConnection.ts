@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import * as shippingApi from './api'
 import { useShippingConnections } from './useShippingConnections'
 import { shippingProviderCapabilities } from './shippingProviders'
+import { connectionReady } from './connectionReadiness'
 
 export type LabelSize = 'A4' | 'A6'
 
@@ -15,6 +16,9 @@ export function useLabelConnection(token: string) {
   const [chosenId, setChosenId] = useState<string | null>(null)
   const connection = connections.find(c => c.id === chosenId) ?? defaultConnection
   const capabilities = shippingProviderCapabilities(connection?.provider)
+  // False while the connection misses setup (e.g. PostNL without a sender
+  // address) -- the flow warns and won't create a label through it.
+  const ready = connectionReady(connection)
 
   const [labelSize, setLabelSize] = useState<LabelSize>('A4')
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
@@ -46,7 +50,7 @@ export function useLabelConnection(token: string) {
   }
 
   return {
-    connections, connection, capabilities, selectConnection: setChosenId,
+    connections, connection, capabilities, ready, selectConnection: setChosenId,
     labelSize, setLabelSize, autoPrintEnabled, defaultCarrier, defaultPackageType, carrierFor,
   }
 }

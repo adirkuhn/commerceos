@@ -175,6 +175,18 @@ describe('AddressConfirmModal', () => {
   })
 })
 
+describe('AddressConfirmModal — connection not ready', () => {
+  it('blocks review while the connection can’t create labels', async () => {
+    const onNext = vi.fn()
+    const address: Address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL' }
+    render(<AddressConfirmModal token="test-token" initialAddress={address} nextDisabled onNext={onNext} onClose={vi.fn()} />)
+    const review = screen.getByRole('button', { name: 'Review label' })
+    expect(review).toBeDisabled()
+    await userEvent.click(review)
+    expect(onNext).not.toHaveBeenCalled()
+  })
+})
+
 describe('AddressConfirmModal — original order address', () => {
   // The fields are a best-effort split of the order's free-text address
   // (see splitStreetAndNumber) -- staff need the untouched original next to

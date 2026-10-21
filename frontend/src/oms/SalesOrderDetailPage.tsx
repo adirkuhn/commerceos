@@ -485,6 +485,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
           onNext={({ carrier, packageType, recipient }) => { setPendingCarrier(carrier); setPendingPackageType(packageType); setPendingRecipient(recipient); setLabelStep('preview') }}
           onClose={() => setLabelStep(null)}
           providerPicker={<LabelConnectionPicker shipping={shipping} />}
+          nextDisabled={!shipping.ready}
           showCarrier={hasCarrierChoice}
           packageTypeIds={packageTypeIds}
         />

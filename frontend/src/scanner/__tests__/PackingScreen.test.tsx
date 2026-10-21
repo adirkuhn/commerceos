@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PackingScreen } from '../PackingScreen'
 import type { SalesOrder } from '../../oms/types'
@@ -192,6 +193,19 @@ describe('PackingScreen locks and labels', () => {
 
     expect(api.touchPackingSession).toHaveBeenCalledWith(TOKEN, 'pack-1')
     expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
+  })
+  it('warns and blocks the label while the connection misses a sender address', async () => {
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([{ id: 'c1', provider: 'postnl', missing: ['sender_address'] }]))
+    vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null } as unknown as Awaited<ReturnType<typeof shippingApi.getShippingSettings>>)
+    vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
+    const user = userEvent.setup()
+    render(<MemoryRouter><PackingScreen token={TOKEN} sessionId="pack-1" order={order} onExit={vi.fn()} onAuthError={vi.fn()} /></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: 'Create label' }))
+
+    expect(await screen.findByText('PostNL needs a sender address before it can create labels.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Set up the shipping addresses' })).toHaveAttribute('href', '/integrations#shipping-addresses')
+    expect(screen.getByRole('button', { name: 'Review label' })).toBeDisabled()
   })
   it('the review screen offers the label before finishing', async () => {
     vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([{ id: 'c1', provider: 'myparcel' }]))

@@ -2,7 +2,8 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
-import { ShippingProviderPicker } from '../ShippingProviderPicker'
+import { MemoryRouter } from 'react-router-dom'
+import { ConnectionNotReadyNotice, ShippingProviderPicker } from '../ShippingProviderPicker'
 import { shippingConnectionsOf } from '../../test/shippingConnections'
 
 const { connections: TWO } = shippingConnectionsOf([{ id: 'mp', provider: 'myparcel' }, { id: 'pn', provider: 'postnl' }])
@@ -27,5 +28,18 @@ describe('ShippingProviderPicker', () => {
     expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual(['MyParcel', 'PostNL'])
     await userEvent.selectOptions(select, 'mp')
     expect(onSelect).toHaveBeenCalledWith('mp')
+  })
+})
+
+describe('ConnectionNotReadyNotice', () => {
+  it('says what the connection misses and links to the shipping addresses', () => {
+    render(<MemoryRouter><ConnectionNotReadyNotice connection={{ ...TWO[1], missing: ['sender_address'] }} /></MemoryRouter>)
+    expect(screen.getByRole('alert')).toHaveTextContent('PostNL needs a sender address before it can create labels.')
+    expect(screen.getByRole('link', { name: 'Set up the shipping addresses' })).toHaveAttribute('href', '/integrations#shipping-addresses')
+  })
+
+  it('shows nothing for a ready connection', () => {
+    const { container } = render(<MemoryRouter><ConnectionNotReadyNotice connection={TWO[0]} /></MemoryRouter>)
+    expect(container).toBeEmptyDOMElement()
   })
 })

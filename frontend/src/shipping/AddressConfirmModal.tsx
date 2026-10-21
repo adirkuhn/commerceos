@@ -102,6 +102,9 @@ interface AddressConfirmModalProps {
   showCarrier?: boolean
   // PACKAGE_TYPES ids the provider supports; all when omitted.
   packageTypeIds?: readonly number[]
+  // True while the selected connection can't create labels (see
+  // connectionReadiness) -- the providerPicker says why.
+  nextDisabled?: boolean
 }
 
 function normalize(s: string): string {
@@ -119,7 +122,7 @@ function normalize(s: string): string {
 // whatever staff already entered, with a one-click fix. Real MyParcel-side
 // validation still only happens when the create-shipment call itself
 // accepts/rejects it, surfaced on LabelPreviewModal's Print step.
-export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defaultCarrier, defaultPackageType, connectionId, initialRecipient, initialCarrier, initialPackageType, onNext, onClose, providerPicker, showCarrier = true, packageTypeIds }: AddressConfirmModalProps) {
+export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defaultCarrier, defaultPackageType, connectionId, initialRecipient, initialCarrier, initialPackageType, onNext, onClose, providerPicker, showCarrier = true, packageTypeIds, nextDisabled = false }: AddressConfirmModalProps) {
   const [recipient, setRecipient] = useState<RecipientAddress>(() => initialRecipient ?? addressToRecipientDraft(initialAddress, fallbackEmail))
   const { t } = useTranslation(['shipping', 'common'])
   const formatMoney = useMoneyFormat()
@@ -250,7 +253,7 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
   // staff picks "Use suggested" or "Keep mine".
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (addressCheck.status === 'mismatch') return
+    if (nextDisabled || addressCheck.status === 'mismatch') return
     if (
       (addressCheck.status === 'idle' || addressCheck.status === 'checking')
       && recipient.cc === 'NL' && recipient.postal_code && recipient.number
@@ -371,7 +374,7 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
           )}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || nextDisabled}
             className="w-full px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {submitting ? t('address.checking') : t('address.review')}

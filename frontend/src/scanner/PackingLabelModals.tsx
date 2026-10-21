@@ -36,6 +36,7 @@ export function PackingLabelModals({ token, order, label }: PackingLabelModalsPr
           onNext={label.confirmAddress}
           onClose={() => label.setLabelStep(null)}
           providerPicker={<LabelConnectionPicker shipping={shipping} />}
+          nextDisabled={!shipping.ready}
           showCarrier={hasCarrierChoice}
           packageTypeIds={packageTypeIds}
         />

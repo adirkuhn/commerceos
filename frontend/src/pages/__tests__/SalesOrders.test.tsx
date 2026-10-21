@@ -915,6 +915,27 @@ describe('Sales order detail page', () => {
     expect(await screen.findByText('myparcel unreachable')).toBeInTheDocument()
   })
 
+  it('warns and blocks the label while PostNL misses a sender address', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([
+      { id: 'conn-pn-1', provider: 'postnl', store_url: '', status: 'connected', created_at: '2026-08-01T00:00:00Z' },
+    ])
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([{ id: 'conn-pn-1', provider: 'postnl', missing: ['sender_address'] }]))
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder({
+      shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' },
+    })], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({ sales_order: salesOrder({
+      shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' },
+    }) }))
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+    await userEvent.click(screen.getByRole('button', { name: 'Create label' }))
+    expect(await screen.findByText('PostNL needs a sender address before it can create labels.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Review label' })).toBeDisabled()
+    expect(shippingApi.createShipment).not.toHaveBeenCalled()
+  })
+
   it('exports the order to MyParcel, creates the shipment, and shows Print label afterward', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([
       { id: 'conn-mp-1', provider: 'myparcel', store_url: '', status: 'connected', created_at: '2026-08-01T00:00:00Z' },

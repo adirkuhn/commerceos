@@ -35,6 +35,7 @@ export function ShippingLabelFlow({ token, activeOrder, label }: ShippingLabelFl
           onNext={label.confirmAddress}
           onClose={label.closeFlow}
           providerPicker={<LabelConnectionPicker shipping={shipping} />}
+          nextDisabled={!shipping.ready}
           showCarrier={hasCarrierChoice}
           packageTypeIds={packageTypeIds}
         />

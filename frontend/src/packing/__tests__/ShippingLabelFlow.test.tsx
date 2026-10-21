@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ShippingLabelFlow } from '../ShippingLabelFlow'
@@ -31,7 +32,7 @@ function Harness() {
 }
 
 async function openAddressStep() {
-  render(<Harness />)
+  render(<MemoryRouter><Harness /></MemoryRouter>)
   const start = screen.getByRole('button', { name: 'start' })
   await waitFor(() => expect(start).toBeEnabled())
   await userEvent.click(start)
@@ -96,5 +97,21 @@ describe('ShippingLabelFlow provider', () => {
     render(<Harness />)
     await waitFor(() => expect(shippingApi.listShippingConnections).toHaveBeenCalled())
     expect(screen.getByRole('button', { name: 'start' })).toBeDisabled()
+  })
+})
+
+describe('ShippingLabelFlow readiness', () => {
+  it('warns and blocks the label while the connection misses a sender address; another connection still works', async () => {
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf(
+      [{ id: 'mp', provider: 'myparcel' }, { id: 'pn', provider: 'postnl', missing: ['sender_address'] }], 'pn',
+    ))
+    await openAddressStep()
+    expect(screen.getByText('PostNL needs a sender address before it can create labels.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Set up the shipping addresses' })).toHaveAttribute('href', '/integrations#shipping-addresses')
+    expect(screen.getByRole('button', { name: 'Review label' })).toBeDisabled()
+
+    await userEvent.selectOptions(screen.getByLabelText('Shipping provider'), 'mp')
+    expect(screen.queryByText('PostNL needs a sender address before it can create labels.')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Review label' })).toBeEnabled()
   })
 })

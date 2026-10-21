@@ -71,4 +71,14 @@ describe('useLabelConnection', () => {
     expect(result.current.connection).toBeNull()
     expect(shippingApi.getShippingSettings).not.toHaveBeenCalled()
   })
+
+  it('is not ready while the chosen connection misses setup', async () => {
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf(
+      [{ id: 'mp', provider: 'myparcel' }, { id: 'pn', provider: 'postnl', missing: ['sender_address'] }], 'pn',
+    ))
+    const { result } = await setup()
+    expect(result.current.ready).toBe(false)
+    act(() => result.current.selectConnection('mp'))
+    expect(result.current.ready).toBe(true)
+  })
 })
