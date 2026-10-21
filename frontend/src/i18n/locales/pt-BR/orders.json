@@ -5,8 +5,8 @@
     "orderExportFailedLabelContinues": "Falha ao exportar o pedido para o MyParcel (a etiqueta continua sendo criada)",
     "orderExported": "Pedido exportado para o MyParcel",
     "shipmentCancelled": "Envio cancelado",
-    "shipmentCreated": "Envio criado via MyParcel",
-    "shipmentFailed": "Falha ao criar envio no MyParcel"
+    "shipmentCreated": "Envio criado via {{provider}}",
+    "shipmentFailed": "Falha ao criar envio no {{provider}}"
   },
   "backToOrders": "Voltar aos pedidos",
   "bolConfirmation": {

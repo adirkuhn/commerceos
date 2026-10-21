@@ -5,8 +5,8 @@
     "orderExportFailedLabelContinues": "Order exporteren naar MyParcel mislukt (label wordt wel aangemaakt)",
     "orderExported": "Order geëxporteerd naar MyParcel",
     "shipmentCancelled": "Zending geannuleerd",
-    "shipmentCreated": "Zending aangemaakt via MyParcel",
-    "shipmentFailed": "Zending aanmaken bij MyParcel mislukt"
+    "shipmentCreated": "Zending aangemaakt via {{provider}}",
+    "shipmentFailed": "Zending aanmaken bij {{provider}} mislukt"
   },
   "backToOrders": "Terug naar orders",
   "bolConfirmation": {

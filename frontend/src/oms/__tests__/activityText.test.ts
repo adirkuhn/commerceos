@@ -16,6 +16,18 @@ describe('activityText', () => {
     expect(activityText(t('en'), { activity_type: 'marked_picked', summary: 'x' })).toBe('Marked as picked')
   })
 
+  it('names the shipping provider the label was made with', () => {
+    const en = t('en')
+    expect(activityText(en, { activity_type: 'myparcel_shipment_created', summary: 'x', metadata: { provider: 'postnl' } })).toBe('Shipment created via PostNL')
+    expect(activityText(en, { activity_type: 'myparcel_shipment_failed', summary: 'x', metadata: { provider: 'postnl' } })).toBe('Failed to create PostNL shipment')
+    expect(activityText(t('nl'), { activity_type: 'myparcel_shipment_created', summary: 'x', metadata: { provider: 'postnl' } })).toBe('Zending aangemaakt via PostNL')
+  })
+
+  it('older shipment activities without a provider were MyParcel', () => {
+    expect(activityText(t('en'), { activity_type: 'myparcel_shipment_created', summary: 'x', metadata: {} })).toBe('Shipment created via MyParcel')
+    expect(activityText(t('en'), { activity_type: 'myparcel_shipment_failed', summary: 'x' })).toBe('Failed to create MyParcel shipment')
+  })
+
   it('shows the stored summary for an unknown activity', () => {
     expect(activityText(t('nl'), { activity_type: 'something_new', summary: 'Stored' })).toBe('Stored')
   })

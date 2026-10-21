@@ -5,8 +5,8 @@
     "orderExportFailedLabelContinues": "Failed to export order to MyParcel (label creation continues)",
     "orderExported": "Order exported to MyParcel",
     "shipmentCancelled": "Shipment cancelled",
-    "shipmentCreated": "Shipment created via MyParcel",
-    "shipmentFailed": "Failed to create MyParcel shipment"
+    "shipmentCreated": "Shipment created via {{provider}}",
+    "shipmentFailed": "Failed to create {{provider}} shipment"
   },
   "backToOrders": "Back to orders",
   "bolConfirmation": {

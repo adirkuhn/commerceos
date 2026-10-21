@@ -26,7 +26,7 @@ export function PostNLConnectForm({ token, onConnected, onDone }: Props) {
         <div>
           <label htmlFor="postnl-customer-code" className={labelClass}>{t('postnl.customerCode')}</label>
           <input id="postnl-customer-code" type="text" required maxLength={4} value={form.customerCode}
-            onChange={e => form.setCustomerCode(e.target.value.toUpperCase())} placeholder="ABCD" className={inputClass} />
+            onChange={e => form.setCustomerCode(e.target.value.toUpperCase())} className={inputClass} />
         </div>
         <div>
           <label htmlFor="postnl-customer-number" className={labelClass}>{t('postnl.customerNumber')}</label>
