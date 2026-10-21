@@ -91,3 +91,17 @@ func TestGetTrackTrace_httpErrorPropagates(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "HTTP 500")
 }
+
+// Captured from the real sandbox on 2026-10-21 right after creating a label.
+func TestGetTrackTrace_realSandboxNoShipmentFoundYet(t *testing.T) {
+	client := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"CurrentStatus":{},"Warnings":[{"Message":"No shipment found","Code":"2"}]}`))
+	})
+
+	tt, err := client.GetTrackTrace(context.Background(), "ref-1")
+	require.NoError(t, err)
+	assert.Equal(t, "registered", tt.StatusMain)
+	barcode, err := client.GetShipmentBarcode(context.Background(), "ref-1")
+	require.NoError(t, err)
+	assert.Empty(t, barcode)
+}
