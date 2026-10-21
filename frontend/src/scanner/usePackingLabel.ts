@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import i18next from 'i18next'
 import * as api from './api'
-import { useConnections } from '../integrations/hooks/useConnections'
 import * as shippingApi from '../shipping/api'
+import { useLabelConnection } from '../shipping/useLabelConnection'
 import type { RecipientAddress, Shipment } from '../shipping/types'
 import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLabel'
 import { isAuthError } from '../auth/isAuthError'
@@ -27,33 +27,18 @@ export type LabelStep = 'address' | 'preview' | null
 // The label flow runs both before finishing (from the working screen) and
 // after (from the done screen).
 export function usePackingLabel({ token, sessionId, order, finished, reload, onAuthError, setError }: PackingLabelOptions) {
-  const { connections } = useConnections(token)
-  const myParcelConnection = connections.find(c => c.provider === 'myparcel')
+  const shipping = useLabelConnection(token)
+  const { connection: shippingConnection, labelSize } = shipping
   const [labelStep, setLabelStep] = useState<LabelStep>(null)
   const [pendingRecipient, setPendingRecipient] = useState<RecipientAddress | null>(null)
   const [pendingCarrier, setPendingCarrier] = useState<number | null>(null)
   const [pendingPackageType, setPendingPackageType] = useState<number | null>(null)
-  const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
   const [labelTab, setLabelTab] = useState<Window | null>(null)
   const [existingShipment, setExistingShipment] = useState<Shipment | null>(null)
-  const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
-  const [connectionDefaultCarrier, setConnectionDefaultCarrier] = useState(1)
-  const [connectionDefaultPackageType, setConnectionDefaultPackageType] = useState(1)
-  useEffect(() => {
-    if (!myParcelConnection) return
-    shippingApi.getShippingSettings(token, myParcelConnection.id)
-      .then(result => {
-        setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false)
-        setLabelSize(result.settings?.default_label_size ?? 'A4')
-        setConnectionDefaultCarrier(result.settings?.default_carrier ?? 1)
-        setConnectionDefaultPackageType(result.settings?.default_package_type ?? 1)
-      })
-      .catch(() => setAutoPrintEnabled(false))
-  }, [token, myParcelConnection])
 
   async function createLabel() {
-    if (!myParcelConnection) return
+    if (!shippingConnection) return
     // Before packing is finished, making the label is working the order --
     // take the lock first (the heartbeat claims it when free).
     if (!finished) {
@@ -84,15 +69,15 @@ export function usePackingLabel({ token, sessionId, order, finished, reload, onA
   }
 
   async function printLabel() {
-    if (!myParcelConnection || !pendingRecipient) return
+    if (!shippingConnection || !pendingRecipient) return
     const tab = window.open('', '_blank')
     let shipment
     try {
       shipment = await shippingApi.createShipment(token, {
-        carrier: pendingCarrier ?? connectionDefaultCarrier,
-        package_type: pendingPackageType ?? connectionDefaultPackageType,
+        carrier: shipping.carrierFor(pendingCarrier),
+        package_type: pendingPackageType ?? shipping.defaultPackageType,
         recipient: pendingRecipient,
-        connection_id: myParcelConnection.id, sales_order_id: order.id,
+        connection_id: shippingConnection.id, sales_order_id: order.id,
       })
     } catch (err) {
       tab?.close()
@@ -127,10 +112,9 @@ export function usePackingLabel({ token, sessionId, order, finished, reload, onA
   }
 
   return {
-    myParcelConnection, createdShipmentId, autoPrintEnabled,
+    shipping, shippingConnection, createdShipmentId, autoPrintEnabled: shipping.autoPrintEnabled,
     labelStep, setLabelStep, pendingRecipient, pendingCarrier, pendingPackageType,
-    labelSize, setLabelSize, labelTab, setLabelTab, existingShipment, setExistingShipment,
-    connectionDefaultCarrier, connectionDefaultPackageType,
+    labelSize, setLabelSize: shipping.setLabelSize, labelTab, setLabelTab, existingShipment, setExistingShipment,
     createLabel, openLabel, printLabel, confirmAddress, reprintExisting, createNewOverExisting,
   }
 }

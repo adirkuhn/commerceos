@@ -26,13 +26,19 @@ interface LabelPreviewModalProps {
   // can still be fixed via Back without losing the rest of the form.
   onPrint: () => void | Promise<void>
   onClose: () => void
+  // The shipping provider's name (e.g. "MyParcel"), shown as a chip so
+  // staff see who the label goes through.
+  providerName?: string
+  // False for a provider that is its own carrier -- the carrier chip would
+  // just repeat the provider. Defaults to true.
+  showCarrier?: boolean
 }
 
 // Second step of the "Create label" flow, after AddressConfirmModal --
 // shows exactly what will be sent to MyParcel, laid out like the physical
 // label itself (not just a form echo), plus the label-size choice, before
 // staff commit to actually creating the shipment.
-export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, onLabelSizeChange, onBack, onPrint, onClose }: LabelPreviewModalProps) {
+export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, onLabelSizeChange, onBack, onPrint, onClose, providerName, showCarrier = true }: LabelPreviewModalProps) {
   const [printing, setPrinting] = useState(false)
   const { t } = useTranslation(['shipping', 'common'])
   const [error, setError] = useState('')
@@ -77,7 +83,12 @@ export function LabelPreviewModal({ recipient, carrier, packageType, labelSize, 
           </p>
           <p className="text-sm font-medium">{recipient.cc}</p>
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-dashed border-gray-200">
-            <span className="text-2xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{carrierLabel}</span>
+            {providerName && (
+              <span className="text-2xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{providerName}</span>
+            )}
+            {showCarrier && (
+              <span className="text-2xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{carrierLabel}</span>
+            )}
             {packageTypeLabel && (
               <span className="text-2xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">{packageTypeLabel}</span>
             )}

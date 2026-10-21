@@ -78,4 +78,10 @@ describe('LabelPreviewModal', () => {
 
     expect(onClose).toHaveBeenCalled()
   })
+
+  it('shows the provider, and no carrier chip for a provider that is its own carrier', () => {
+    render(<LabelPreviewModal recipient={recipient} carrier={4} providerName="PostNL" showCarrier={false} labelSize="A4" onLabelSizeChange={vi.fn()} onBack={vi.fn()} onPrint={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getByText('PostNL')).toBeInTheDocument()
+    expect(screen.queryByText('DPD')).not.toBeInTheDocument()
+  })
 })

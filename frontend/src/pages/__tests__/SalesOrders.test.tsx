@@ -46,6 +46,7 @@ vi.mock('../../integrations/api', () => ({
 }))
 
 vi.mock('../../shipping/api', () => ({
+  listShippingConnections: vi.fn(),
   exportMyParcelOrder: vi.fn(),
   createShipment: vi.fn(),
   getShippingSettings: vi.fn(),
@@ -74,6 +75,7 @@ import * as taxApi from '../../tax/api'
 import * as integrationsApi from '../../integrations/api'
 import * as shippingApi from '../../shipping/api'
 import { acceptConfirm, dismissConfirm } from '../../test/confirm'
+import { shippingConnectionsOf } from '../../test/shippingConnections'
 
 function warehouse(overrides: Record<string, unknown> = {}) {
   return {
@@ -121,6 +123,7 @@ beforeEach(() => {
   vi.mocked(omsApi.bulkUpdateSalesOrders).mockResolvedValue({ updated: [], failed: [] })
   vi.mocked(omsApi.listSalesOrderActivities).mockResolvedValue({ activities: [] })
   vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+  vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([]))
   vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
   vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
   vi.mocked(shippingApi.listShipmentTrackingEvents).mockResolvedValue([])
@@ -720,7 +723,7 @@ describe('Sales order detail page', () => {
     expect(screen.getByText('Timeline')).toBeInTheDocument()
   })
 
-  it('does not show Create label when no MyParcel connection exists', async () => {
+  it('does not show Create label when no shipping connection exists', async () => {
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
 
@@ -735,6 +738,7 @@ describe('Sales order detail page', () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([
       { id: 'conn-mp-1', provider: 'myparcel', store_url: '', status: 'connected', created_at: '2026-08-01T00:00:00Z' },
     ])
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([{ id: 'conn-mp-1', provider: 'myparcel' }]))
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder()], total: 1 })
     vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail())
     vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([{
@@ -915,6 +919,7 @@ describe('Sales order detail page', () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([
       { id: 'conn-mp-1', provider: 'myparcel', store_url: '', status: 'connected', created_at: '2026-08-01T00:00:00Z' },
     ])
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([{ id: 'conn-mp-1', provider: 'myparcel' }]))
     vi.mocked(omsApi.listSalesOrders).mockResolvedValue({
       salesOrders: [salesOrder({
         shipping: { first_name: 'Jane', last_name: 'Doe', address_1: 'Damrak 1', city: 'Amsterdam', postcode: '1012AB', country: 'NL', email: 'jane@example.com' },
@@ -967,10 +972,46 @@ describe('Sales order detail page', () => {
     expect(fakeTab.location.href).toBe('blob:mock-url')
   })
 
+  it('a label through a provider picked per label skips the MyParcel export and the carrier choice', async () => {
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([
+      { id: 'conn-mp-1', provider: 'myparcel' }, { id: 'conn-pn-1', provider: 'postnl' },
+    ]))
+    vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null, carrier_overrides: [] })
+    const address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Hauptstrasse 1', city: 'Berlin', postcode: '10115', country: 'DE', email: 'jane@example.com' }
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [salesOrder({ shipping: address })], total: 1 })
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({ sales_order: salesOrder({ shipping: address }) }))
+    vi.mocked(shippingApi.createShipment).mockResolvedValue({
+      id: 'ship-1', sales_order_id: 'so-1', connection_id: 'conn-pn-1', carrier: 1, barcode: '3SPN1',
+      status: 1, status_main: 'registered', label_format: 'pdf',
+      recipient: { person: 'Jane Doe', street: 'Hauptstrasse', city: 'Berlin', cc: 'DE' },
+      created_at: '2026-08-23T00:00:00Z',
+    })
+    vi.mocked(shippingApi.getShipmentLabel).mockResolvedValue(new Blob(['%PDF-fake'], { type: 'application/pdf' }))
+    vi.spyOn(window, 'open').mockReturnValue({ close: vi.fn(), location: { href: '' } } as unknown as Window)
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByText('#1001'))
+    await screen.findByText('Blue Widget')
+    await userEvent.click(await screen.findByRole('button', { name: 'Create label' }))
+
+    const provider = await screen.findByLabelText('Shipping provider')
+    expect(provider).toHaveValue('conn-mp-1')
+    expect(screen.getByLabelText('Carrier')).toBeInTheDocument()
+    await userEvent.selectOptions(provider, 'conn-pn-1')
+    expect(screen.queryByLabelText('Carrier')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Review label' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Print label' }))
+
+    await waitFor(() => expect(shippingApi.createShipment).toHaveBeenCalledWith('test-token', expect.objectContaining({ connection_id: 'conn-pn-1' })))
+    expect(shippingApi.exportMyParcelOrder).not.toHaveBeenCalled()
+  })
+
   it('auto-opens the print view when auto_print_enabled is on, and offers Retry print', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([
       { id: 'conn-mp-1', provider: 'myparcel', store_url: '', status: 'connected', created_at: '2026-08-01T00:00:00Z' },
     ])
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([{ id: 'conn-mp-1', provider: 'myparcel' }]))
     vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({
       settings: {
         connection_id: 'conn-mp-1', default_carrier: 1, default_package_type: 1, default_label_format: 'pdf',

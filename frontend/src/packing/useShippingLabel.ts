@@ -1,8 +1,8 @@
 import i18next from 'i18next'
 import { useState, useEffect } from 'react'
 import type { SalesOrder } from '../oms/types'
-import { useConnections } from '../integrations/hooks/useConnections'
 import * as shippingApi from '../shipping/api'
+import { useLabelConnection } from '../shipping/useLabelConnection'
 import type { RecipientAddress, Shipment } from '../shipping/types'
 import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLabel'
 import { apiErrorText } from '../api/apiErrorText'
@@ -23,35 +23,20 @@ export interface AddressChoice {
   recipient: RecipientAddress
 }
 
-// The 3-step MyParcel label flow on the Packing page (confirm address ->
+// The 3-step label flow on the Packing page (confirm address ->
 // preview -> print), plus reprinting a label the order already has. Same
 // flow as Picking.tsx used to have -- moved here now that packing (not
 // picking) is what gates "ready to ship".
 export function useShippingLabel({ token, activeOrder, beforeCreate, onError }: ShippingLabelOptions) {
-  const { connections } = useConnections(token ?? '')
-  const myParcelConnection = connections.find(c => c.provider === 'myparcel')
+  const shipping = useLabelConnection(token ?? '')
+  const { connection: shippingConnection, labelSize } = shipping
   const [labelStep, setLabelStep] = useState<LabelStep | null>(null)
   const [pendingRecipient, setPendingRecipient] = useState<RecipientAddress | null>(null)
   const [pendingCarrier, setPendingCarrier] = useState<number | null>(null)
   const [pendingPackageType, setPendingPackageType] = useState<number | null>(null)
-  const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
   const [labelTab, setLabelTab] = useState<Window | null>(null)
   const [existingShipment, setExistingShipment] = useState<Shipment | null>(null)
-  const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
-  const [connectionDefaultCarrier, setConnectionDefaultCarrier] = useState(1)
-  const [connectionDefaultPackageType, setConnectionDefaultPackageType] = useState(1)
-  useEffect(() => {
-    if (!token || !myParcelConnection) return
-    shippingApi.getShippingSettings(token, myParcelConnection.id)
-      .then(result => {
-        setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false)
-        setLabelSize(result.settings?.default_label_size ?? 'A4')
-        setConnectionDefaultCarrier(result.settings?.default_carrier ?? 1)
-        setConnectionDefaultPackageType(result.settings?.default_package_type ?? 1)
-      })
-      .catch(() => setAutoPrintEnabled(false))
-  }, [token, myParcelConnection])
 
   useEffect(() => {
     setLabelStep(null)
@@ -85,15 +70,15 @@ export function useShippingLabel({ token, activeOrder, beforeCreate, onError }: 
   }
 
   async function printLabel() {
-    if (!token || !activeOrder || !myParcelConnection || !pendingRecipient) return
+    if (!token || !activeOrder || !shippingConnection || !pendingRecipient) return
     const tab = window.open('', '_blank')
     let shipment
     try {
       shipment = await shippingApi.createShipment(token, {
-        carrier: pendingCarrier ?? connectionDefaultCarrier,
-        package_type: pendingPackageType ?? connectionDefaultPackageType,
+        carrier: shipping.carrierFor(pendingCarrier),
+        package_type: pendingPackageType ?? shipping.defaultPackageType,
         recipient: pendingRecipient,
-        connection_id: myParcelConnection.id, sales_order_id: activeOrder.id,
+        connection_id: shippingConnection.id, sales_order_id: activeOrder.id,
       })
     } catch (err) {
       tab?.close()
@@ -136,10 +121,9 @@ export function useShippingLabel({ token, activeOrder, beforeCreate, onError }: 
   }
 
   return {
-    myParcelConnection, autoPrintEnabled, createdShipmentId,
+    shipping, shippingConnection, autoPrintEnabled: shipping.autoPrintEnabled, createdShipmentId,
     labelStep, pendingRecipient, pendingCarrier, pendingPackageType,
-    connectionDefaultCarrier, connectionDefaultPackageType,
-    labelSize, setLabelSize, labelTab, existingShipment,
+    labelSize, setLabelSize: shipping.setLabelSize, labelTab, existingShipment,
     createLabel, openLabel, printLabel, confirmAddress,
     closeFlow: () => setLabelStep(null), backToAddress: () => setLabelStep('address'),
     dismissLabelTab: () => setLabelTab(null),

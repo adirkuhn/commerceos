@@ -411,3 +411,19 @@ describe('AddressConfirmModal — estimated label cost', () => {
     expect(screen.queryByText(/Estimated cost/)).not.toBeInTheDocument()
   })
 })
+
+describe('AddressConfirmModal provider', () => {
+  const address: Address = { first_name: 'Jane', last_name: 'Doe', address_1: 'Hauptstrasse 1', city: 'Berlin', postcode: '10115', country: 'DE', email: 'jane@example.com' }
+
+  it('shows the provider picker it is given, and the carrier choice by default', () => {
+    render(<AddressConfirmModal token="t" initialAddress={address} providerPicker={<p>Shipping via MyParcel</p>} onNext={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getByText('Shipping via MyParcel')).toBeInTheDocument()
+    expect(screen.getByLabelText('Carrier')).toBeInTheDocument()
+  })
+
+  it('hides the carrier choice for a provider that is its own carrier', () => {
+    render(<AddressConfirmModal token="t" initialAddress={address} showCarrier={false} onNext={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.queryByLabelText('Carrier')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Package type')).toBeInTheDocument()
+  })
+})

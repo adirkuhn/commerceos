@@ -21,15 +21,16 @@ vi.mock('../api', () => ({
 }))
 vi.mock('../../team/api', () => ({ listMembers: vi.fn().mockResolvedValue([]) }))
 vi.mock('../../pms/api', () => ({ listProductMedia: vi.fn() }))
-vi.mock('../../integrations/hooks/useConnections', () => ({ useConnections: vi.fn() }))
 vi.mock('../../shipping/api', () => ({
+  listShippingConnections: vi.fn(),
   createShipment: vi.fn(), getShippingSettings: vi.fn(), getShipmentLabel: vi.fn(), listShipmentsForOrder: vi.fn(),
 }))
 vi.mock('../errorSound', () => ({ playErrorSound: vi.fn() }))
 
 import * as api from '../api'
 import * as pmsApi from '../../pms/api'
-import { useConnections } from '../../integrations/hooks/useConnections'
+import * as shippingApi from '../../shipping/api'
+import { shippingConnectionsOf } from '../../test/shippingConnections'
 import { playErrorSound } from '../errorSound'
 
 function tokenFor(role: string) {
@@ -55,7 +56,7 @@ function detail(overrides: Partial<PackingSessionDetail> = {}): PackingSessionDe
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
-  vi.mocked(useConnections).mockReturnValue({ connections: [], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+  vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([]))
   vi.mocked(api.getPackingSession).mockResolvedValue(detail())
   vi.mocked(api.releasePackingSessionLock).mockResolvedValue(null)
   vi.mocked(api.touchPackingSession).mockResolvedValue(null)

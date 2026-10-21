@@ -5,17 +5,15 @@ import { useShippingLabel } from '../useShippingLabel'
 import type { SalesOrder } from '../../oms/types'
 import type { RecipientAddress, Shipment } from '../../shipping/types'
 
-vi.mock('../../integrations/hooks/useConnections', () => ({ useConnections: vi.fn() }))
-vi.mock('../../shipping/api', () => ({ getShippingSettings: vi.fn(), listShipmentsForOrder: vi.fn(), createShipment: vi.fn() }))
+vi.mock('../../shipping/api', () => ({ listShippingConnections: vi.fn(), getShippingSettings: vi.fn(), listShipmentsForOrder: vi.fn(), createShipment: vi.fn() }))
 vi.mock('../../shipping/openLabel', () => ({ loadShipmentLabelIntoTab: vi.fn(), openShipmentLabel: vi.fn() }))
 
-import { useConnections } from '../../integrations/hooks/useConnections'
+import { shippingConnectionsOf } from '../../test/shippingConnections'
 import * as shippingApi from '../../shipping/api'
 import * as openLabel from '../../shipping/openLabel'
 
 const order = { id: 'so-1' } as SalesOrder
 const recipient = { cc: 'NL', city: 'Amsterdam' } as RecipientAddress
-const connection = { id: 'c1', provider: 'myparcel' } as ReturnType<typeof useConnections>['connections'][number]
 
 // Waits for the connection defaults, so later updates land inside act.
 async function setup(beforeCreate = vi.fn().mockResolvedValue(true), onError = vi.fn()) {
@@ -26,7 +24,7 @@ async function setup(beforeCreate = vi.fn().mockResolvedValue(true), onError = v
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(useConnections).mockReturnValue({ connections: [connection], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+  vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([{ id: 'c1', provider: 'myparcel' }]))
   vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: { auto_print_enabled: true, default_label_size: 'A6', default_carrier: 4, default_package_type: 2 } } as unknown as Awaited<ReturnType<typeof shippingApi.getShippingSettings>>)
   vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
 })
@@ -36,8 +34,9 @@ describe('useShippingLabel', () => {
     const { result } = await setup()
     await waitFor(() => expect(result.current.autoPrintEnabled).toBe(true))
     expect(result.current.labelSize).toBe('A6')
-    expect(result.current.connectionDefaultCarrier).toBe(4)
-    expect(result.current.connectionDefaultPackageType).toBe(2)
+    expect(result.current.shipping.defaultCarrier).toBe(4)
+    expect(result.current.shipping.defaultPackageType).toBe(2)
+    expect(result.current.shippingConnection?.id).toBe('c1')
   })
 
   it('does nothing when the caller refuses the claim', async () => {
@@ -114,5 +113,19 @@ describe('useShippingLabel', () => {
     await act(() => result.current.createLabel())
     act(() => result.current.clear())
     expect(result.current.labelStep).toBeNull()
+  })
+
+  it('a label made after switching provider goes through the chosen connection', async () => {
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([{ id: 'c1', provider: 'myparcel' }, { id: 'c2', provider: 'postnl' }]))
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    vi.mocked(shippingApi.createShipment).mockResolvedValue({ id: 'new-sh' } as Shipment)
+    const { result } = await setup()
+    act(() => result.current.shipping.selectConnection('c2'))
+    await waitFor(() => expect(shippingApi.getShippingSettings).toHaveBeenLastCalledWith('t', 'c2'))
+    // A carrier picked for MyParcel is not sent to a provider that is its
+    // own carrier -- the connection's default goes instead.
+    act(() => result.current.confirmAddress({ carrier: 9, packageType: 1, recipient }))
+    await act(() => result.current.printLabel())
+    expect(shippingApi.createShipment).toHaveBeenCalledWith('t', expect.objectContaining({ connection_id: 'c2', carrier: 4 }))
   })
 })

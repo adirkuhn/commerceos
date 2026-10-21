@@ -126,7 +126,7 @@ export function PackingScreen({ token, sessionId, order, onExit, onAuthError }: 
           <ArrowLeft size={18} className="text-gray-400" />
         </button>
         <h1 className="flex-1 text-base font-semibold">{t('packScreen.title')}</h1>
-        {label.myParcelConnection && !label.createdShipmentId && (
+        {label.shippingConnection && !label.createdShipmentId && (
           <button aria-label={t('packScreen.createLabel')}
             type="button" onClick={label.createLabel} disabled={readOnly} title={t('packScreen.createLabel')}
             className="min-h-11 px-3 -my-2 flex items-center gap-1.5 rounded-lg bg-night-800 border border-night-700 text-sm font-medium text-gray-200 disabled:opacity-50"

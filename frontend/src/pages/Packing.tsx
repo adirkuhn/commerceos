@@ -71,7 +71,7 @@ export default function Packing() {
   function labelButton(className: string) {
     return (
       <ShippingLabelButton
-        createdShipmentId={label.createdShipmentId} autoPrintEnabled={label.autoPrintEnabled} canCreate={!!label.myParcelConnection}
+        createdShipmentId={label.createdShipmentId} autoPrintEnabled={label.autoPrintEnabled} canCreate={!!label.shippingConnection}
         onOpen={label.openLabel} onCreate={label.createLabel} className={className}
       />
     )
@@ -130,7 +130,7 @@ export default function Packing() {
           <>
             <PackingSessionHeader
               order={activeOrder} readOnly={readOnly}
-              showCreateLabel={!!label.myParcelConnection && !label.createdShipmentId} onCreateLabel={label.createLabel}
+              showCreateLabel={!!label.shippingConnection && !label.createdShipmentId} onCreateLabel={label.createLabel}
               onAddItem={actions.openAddItem} onStartOver={finish.openResetConfirm} onComplete={finish.startFinish}
             />
 

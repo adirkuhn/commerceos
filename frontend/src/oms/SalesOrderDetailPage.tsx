@@ -11,13 +11,15 @@ import { useBolShipmentConfirmations } from './hooks/useBolShipmentConfirmations
 import type { SalesOrderStatus } from './types'
 import { PickingListPrintView } from '../pages/print/PickingListPrintView'
 import { InvoiceWithSeller } from '../pages/print/InvoiceWithSeller'
-import { useConnections } from '../integrations/hooks/useConnections'
 import * as shippingApi from '../shipping/api'
 import { AddressConfirmModal } from '../shipping/AddressConfirmModal'
 import { LabelPreviewModal } from '../shipping/LabelPreviewModal'
 import { ExistingShipmentConfirmModal } from '../shipping/ExistingShipmentConfirmModal'
 import { loadShipmentLabelIntoTab, openShipmentLabel } from '../shipping/openLabel'
 import { LabelOpenedNotice } from '../shipping/LabelOpenedNotice'
+import { useLabelConnection } from '../shipping/useLabelConnection'
+import { LabelConnectionPicker } from '../shipping/ShippingProviderPicker'
+import { providerLabel } from '../webhooks/providerLabel'
 import type { RecipientAddress, Shipment } from '../shipping/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { STATUS_OPTIONS, addressesEqual, customerName } from './salesOrderDisplay'
@@ -76,22 +78,21 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
   const [printMode, setPrintMode] = useState<'picking-list' | 'invoice' | null>(null)
 
   // "Create label" -- a second, independent entry point for creating a
-  // MyParcel shipment, alongside the existing one on the Picking page
-  // (Picking.tsx's own handlePrintLabel/AddressConfirmModal usage).
-  // Unlike Picking's flow, this one exports the order via MyParcel's real
-  // Orders API first (ExportMyParcelOrderUseCase) -- confirmed address in
-  // hand from the same modal -- before creating the actual shipment.
-  const { connections } = useConnections(token ?? '')
-  const myParcelConnection = connections.find(c => c.provider === 'myparcel')
+  // shipment, alongside the one on the Packing page. Unlike Packing's
+  // flow, a provider with its own order dashboard (MyParcel's Orders API,
+  // ExportMyParcelOrderUseCase) gets the order exported first -- confirmed
+  // address in hand from the same modal -- before the actual shipment.
+  const shipping = useLabelConnection(token ?? '')
+  const { connection: shippingConnection, labelSize, setLabelSize, autoPrintEnabled } = shipping
+  const { hasCarrierChoice } = shipping.capabilities
   // Label creation is a 3-step flow: 'address' (AddressConfirmModal, no API
   // call) -> 'preview' (LabelPreviewModal, still no API call) -> Print
   // label actually creates the shipment (see handlePrintLabel). Same shape
   // as Picking.tsx's identical flow.
   const [labelStep, setLabelStep] = useState<'address' | 'preview' | null>(null)
   const [pendingRecipient, setPendingRecipient] = useState<RecipientAddress | null>(null)
-  const [pendingCarrier, setPendingCarrier] = useState(1)
-  const [pendingPackageType, setPendingPackageType] = useState(1)
-  const [labelSize, setLabelSize] = useState<'A4' | 'A6'>('A4')
+  const [pendingCarrier, setPendingCarrier] = useState<number | null>(null)
+  const [pendingPackageType, setPendingPackageType] = useState<number | null>(null)
   const [createdShipmentId, setCreatedShipmentId] = useState<string | null>(null)
   // See Picking.tsx's identical labelTab doc.
   const [labelTab, setLabelTab] = useState<Window | null>(null)
@@ -107,25 +108,9 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
     shippingApi.listShipmentsForOrder(token, detail.sales_order.id).then(setShipments).catch(() => setShipments([]))
   }, [token, detail])
   useEffect(() => { loadShipments() }, [loadShipments])
-  // auto_print_enabled: once a label exists, open the print view right
-  // away instead of requiring a manual click -- still the OS print dialog,
-  // not silent printing (see ShippingConnectionSettings.AutoPrintEnabled's
-  // doc). Fetched once the connection is known so the "Create label"
-  // button's own click handler doesn't need to await it.
-  const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
-  useEffect(() => {
-    if (!token || !myParcelConnection) return
-    shippingApi.getShippingSettings(token, myParcelConnection.id)
-      .then(result => {
-        setAutoPrintEnabled(result.settings?.auto_print_enabled ?? false)
-        setLabelSize(result.settings?.default_label_size ?? 'A4')
-      })
-      .catch(() => setAutoPrintEnabled(false))
-  }, [token, myParcelConnection])
-
   // See Picking.tsx's identical handleCreateLabelClick doc.
   async function handleCreateLabelClick() {
-    if (!token || !detail || !myParcelConnection) return
+    if (!token || !detail || !shippingConnection) return
     const shipments = await shippingApi.listShipmentsForOrder(token, detail.sales_order.id)
     // A cancelled shipment (wrong carrier, "Delete & create new") no longer
     // blocks creating a fresh one -- same rule CreateShipmentUseCase's own
@@ -155,14 +140,16 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
   // tab immediately (see Picking.tsx's identical handlePrintLabel doc on
   // why the blank tab opens synchronously, before either await).
   async function handlePrintLabel() {
-    if (!token || !detail || !myParcelConnection || !pendingRecipient) return
-    const input = { carrier: pendingCarrier, recipient: pendingRecipient }
+    if (!token || !detail || !shippingConnection || !pendingRecipient) return
+    const input = { carrier: shipping.carrierFor(pendingCarrier), recipient: pendingRecipient }
     const tab = window.open('', '_blank')
     let shipment
     try {
-      await shippingApi.exportMyParcelOrder(token, myParcelConnection.id, detail.sales_order.id, input)
+      if (shipping.capabilities.exportsOrders) {
+        await shippingApi.exportMyParcelOrder(token, shippingConnection.id, detail.sales_order.id, input)
+      }
       shipment = await shippingApi.createShipment(token, {
-        ...input, package_type: pendingPackageType, connection_id: myParcelConnection.id, sales_order_id: detail.sales_order.id,
+        ...input, package_type: pendingPackageType ?? shipping.defaultPackageType, connection_id: shippingConnection.id, sales_order_id: detail.sales_order.id,
       })
     } catch (err) {
       tab?.close()
@@ -249,7 +236,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
             >
               <Printer size={13} /> {t('detail.invoice')}
             </button>
-            {myParcelConnection && !createdShipmentId && (
+            {shippingConnection && !createdShipmentId && (
               <button
                 onClick={handleCreateLabelClick}
                 title={t('detail.createLabelTitle')}
@@ -491,17 +478,23 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
           initialAddress={detail.sales_order.shipping}
           fallbackEmail={detail.sales_order.billing?.email}
           initialRecipient={pendingRecipient ?? undefined}
-          initialCarrier={pendingCarrier}
-          initialPackageType={pendingPackageType}
+          initialCarrier={pendingCarrier ?? undefined}
+          initialPackageType={pendingPackageType ?? undefined}
+          defaultCarrier={shipping.defaultCarrier}
+          defaultPackageType={shipping.defaultPackageType}
           onNext={({ carrier, packageType, recipient }) => { setPendingCarrier(carrier); setPendingPackageType(packageType); setPendingRecipient(recipient); setLabelStep('preview') }}
           onClose={() => setLabelStep(null)}
+          providerPicker={<LabelConnectionPicker shipping={shipping} />}
+          showCarrier={hasCarrierChoice}
         />
       )}
       {labelStep === 'preview' && pendingRecipient && (
         <LabelPreviewModal
           recipient={pendingRecipient}
-          carrier={pendingCarrier}
-          packageType={pendingPackageType}
+          carrier={shipping.carrierFor(pendingCarrier)}
+          packageType={pendingPackageType ?? shipping.defaultPackageType}
+          providerName={shippingConnection ? providerLabel(shippingConnection.provider) : undefined}
+          showCarrier={hasCarrierChoice}
           labelSize={labelSize}
           onLabelSizeChange={setLabelSize}
           onBack={() => setLabelStep('address')}

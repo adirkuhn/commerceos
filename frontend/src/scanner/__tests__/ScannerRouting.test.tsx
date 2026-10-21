@@ -34,7 +34,10 @@ vi.mock('../../inventory/api', () => ({ listWarehouses: vi.fn(), listBatches: vi
 vi.mock('../../oms/api', () => ({ listPickingQueue: vi.fn(), getSalesOrder: vi.fn() }))
 vi.mock('../../team/api', () => ({ listMembers: vi.fn().mockResolvedValue([]) }))
 vi.mock('../../pms/api', () => ({ resolveBarcode: vi.fn(), listProducts: vi.fn(), getProduct: vi.fn(), listProductMedia: vi.fn() }))
-vi.mock('../../shipping/api', () => ({ listShipmentsForOrder: vi.fn().mockResolvedValue([]) }))
+vi.mock('../../shipping/api', () => ({
+  listShipmentsForOrder: vi.fn().mockResolvedValue([]),
+  listShippingConnections: vi.fn().mockResolvedValue({ connections: [], default_connection_id: null, configured_connection_id: null }),
+}))
 vi.mock('../../integrations/api', () => ({ listConnections: vi.fn().mockResolvedValue([]) }))
 vi.mock('../errorSound', () => ({ playErrorSound: vi.fn() }))
 vi.mock('@zxing/browser', () => ({

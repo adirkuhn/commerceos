@@ -22,8 +22,8 @@ vi.mock('../api', () => ({
 vi.mock('../../team/api', () => ({ listMembers: vi.fn().mockResolvedValue([]) }))
 vi.mock('../../pms/searchCandidates', () => ({ searchSKUCandidates: vi.fn() }))
 vi.mock('../../pms/api', () => ({ listProductMedia: vi.fn() }))
-vi.mock('../../integrations/hooks/useConnections', () => ({ useConnections: vi.fn() }))
 vi.mock('../../shipping/api', () => ({
+  listShippingConnections: vi.fn(),
   createShipment: vi.fn(), getShippingSettings: vi.fn(), getShipmentLabel: vi.fn(), listShipmentsForOrder: vi.fn(),
 }))
 vi.mock('../errorSound', () => ({ playErrorSound: vi.fn() }))
@@ -32,7 +32,7 @@ import * as api from '../api'
 import * as pmsApi from '../../pms/api'
 import * as searchCandidatesApi from '../../pms/searchCandidates'
 import * as shippingApi from '../../shipping/api'
-import { useConnections } from '../../integrations/hooks/useConnections'
+import { shippingConnectionsOf } from '../../test/shippingConnections'
 
 // A scanner token for user "me".
 const TOKEN = `x.${btoa(JSON.stringify({ user_id: 'me', role: 'customer_user' }))}.y`
@@ -60,7 +60,7 @@ function renderScreen() {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
-  vi.mocked(useConnections).mockReturnValue({ connections: [], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+  vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([]))
   vi.mocked(api.getPackingSession).mockResolvedValue(detail())
   vi.mocked(searchCandidatesApi.searchSKUCandidates).mockResolvedValue([candidate])
   vi.mocked(api.releasePackingSessionLock).mockResolvedValue(null)
@@ -182,7 +182,7 @@ describe('PackingScreen locks and labels', () => {
   })
 
   it('a label can be created before finishing', async () => {
-    vi.mocked(useConnections).mockReturnValue({ connections: [{ id: 'c1', provider: 'myparcel' } as ReturnType<typeof useConnections>['connections'][number]], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([{ id: 'c1', provider: 'myparcel' }]))
     vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null } as unknown as Awaited<ReturnType<typeof shippingApi.getShippingSettings>>)
     vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
     const user = userEvent.setup()
@@ -194,7 +194,7 @@ describe('PackingScreen locks and labels', () => {
     expect(await screen.findByText('Confirm shipping address')).toBeInTheDocument()
   })
   it('the review screen offers the label before finishing', async () => {
-    vi.mocked(useConnections).mockReturnValue({ connections: [{ id: 'c1', provider: 'myparcel' } as ReturnType<typeof useConnections>['connections'][number]], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([{ id: 'c1', provider: 'myparcel' }]))
     vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null } as unknown as Awaited<ReturnType<typeof shippingApi.getShippingSettings>>)
     vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
     const user = userEvent.setup()

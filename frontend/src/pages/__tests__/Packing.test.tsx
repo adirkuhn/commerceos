@@ -43,11 +43,9 @@ vi.mock('../../pms/api', () => ({
   listProductMedia: vi.fn(),
 }))
 
-vi.mock('../../integrations/hooks/useConnections', () => ({
-  useConnections: vi.fn(),
-}))
 
 vi.mock('../../shipping/api', () => ({
+  listShippingConnections: vi.fn(),
   createShipment: vi.fn(),
   getShippingSettings: vi.fn(),
   getShipmentLabel: vi.fn(),
@@ -64,7 +62,7 @@ import * as teamApi from '../../team/api'
 import * as packingApi from '../../scanner/api'
 import * as pmsApi from '../../pms/api'
 import * as shippingApi from '../../shipping/api'
-import { useConnections } from '../../integrations/hooks/useConnections'
+import { shippingConnectionsOf } from '../../test/shippingConnections'
 
 function salesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
@@ -101,7 +99,7 @@ beforeEach(() => {
   vi.mocked(omsApi.listPackingQueue).mockResolvedValue({ entries: [{ sales_order: salesOrder(), lock: null, in_packing: false }], total: 1 })
   vi.mocked(teamApi.listMembers).mockResolvedValue([])
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
-  vi.mocked(useConnections).mockReturnValue({ connections: [], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+  vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([]))
   vi.mocked(shippingApi.lookupAddress).mockResolvedValue(null)
   vi.mocked(omsApi.getSalesOrder).mockResolvedValue({ sales_order: salesOrder(), line_items: [] })
 })
@@ -493,7 +491,7 @@ describe('Packing page locks and labels', () => {
   })
 
   it('a label can be created before finishing, claiming the order first', async () => {
-    vi.mocked(useConnections).mockReturnValue({ connections: [{ id: 'c1', provider: 'myparcel' } as ReturnType<typeof useConnections>['connections'][number]], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([{ id: 'c1', provider: 'myparcel' }]))
     vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null } as unknown as Awaited<ReturnType<typeof shippingApi.getShippingSettings>>)
     vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
     vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
@@ -511,7 +509,7 @@ describe('Packing page locks and labels', () => {
   })
 
   it('the review screen offers the label before completing', async () => {
-    vi.mocked(useConnections).mockReturnValue({ connections: [{ id: 'c1', provider: 'myparcel' } as ReturnType<typeof useConnections>['connections'][number]], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([{ id: 'c1', provider: 'myparcel' }]))
     vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null } as unknown as Awaited<ReturnType<typeof shippingApi.getShippingSettings>>)
     vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
     vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())
@@ -545,7 +543,7 @@ describe('Packing page locks and labels', () => {
   })
 
   it('after completing, the label is created without re-claiming the finished session', async () => {
-    vi.mocked(useConnections).mockReturnValue({ connections: [{ id: 'c1', provider: 'myparcel' } as ReturnType<typeof useConnections>['connections'][number]], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([{ id: 'c1', provider: 'myparcel' }]))
     vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null } as unknown as Awaited<ReturnType<typeof shippingApi.getShippingSettings>>)
     vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([])
     vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session())

@@ -6,31 +6,34 @@ import type { SalesOrder } from '../../oms/types'
 import type { Shipment, RecipientAddress } from '../../shipping/types'
 
 vi.mock('../api', () => ({ touchPackingSession: vi.fn() }))
-vi.mock('../../integrations/hooks/useConnections', () => ({ useConnections: vi.fn() }))
-vi.mock('../../shipping/api', () => ({ getShippingSettings: vi.fn(), listShipmentsForOrder: vi.fn(), createShipment: vi.fn() }))
+vi.mock('../../shipping/api', () => ({ listShippingConnections: vi.fn(), getShippingSettings: vi.fn(), listShipmentsForOrder: vi.fn(), createShipment: vi.fn() }))
 vi.mock('../../shipping/openLabel', () => ({ openShipmentLabel: vi.fn(), loadShipmentLabelIntoTab: vi.fn() }))
 
 import * as api from '../api'
 import * as shippingApi from '../../shipping/api'
 import { openShipmentLabel, loadShipmentLabelIntoTab } from '../../shipping/openLabel'
-import { useConnections } from '../../integrations/hooks/useConnections'
+import { shippingConnectionsOf } from '../../test/shippingConnections'
 
-type Connection = ReturnType<typeof useConnections>['connections'][number]
-const MYPARCEL = [{ id: 'c1', provider: 'myparcel' } as Connection]
+const MYPARCEL = [{ id: 'c1', provider: 'myparcel' }]
 const order = { id: 'so-1' } as SalesOrder
 const recipient = { name: 'Jane' } as unknown as RecipientAddress
 const shipment = (overrides: Partial<Shipment> = {}) => ({ id: 'sh-1', cancelled_at: null, ...overrides }) as Shipment
 
-function withConnections(connections: Connection[]) {
-  vi.mocked(useConnections).mockReturnValue({ connections, loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+function withConnections(connections: { id: string; provider: string }[]) {
+  vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf(connections))
 }
 
 let reload: ReturnType<typeof vi.fn>
 let onAuthError: ReturnType<typeof vi.fn>
 let setError: ReturnType<typeof vi.fn>
 
-function setup(finished = false) {
-  return renderHook(() => usePackingLabel({ token: 't', sessionId: 'pack-1', order, finished, reload, onAuthError, setError }))
+// Waits for the shipping connection (when there is one), so later
+// updates land inside act.
+async function setup(finished = false) {
+  const hook = renderHook(() => usePackingLabel({ token: 't', sessionId: 'pack-1', order, finished, reload, onAuthError, setError }))
+  await waitFor(() => expect(shippingApi.listShippingConnections).toHaveBeenCalled())
+  await act(async () => {})
+  return hook
 }
 
 beforeEach(() => {
@@ -46,16 +49,16 @@ beforeEach(() => {
 
 describe('usePackingLabel settings', () => {
   it('applies the connection\'s label defaults', async () => {
-    const { result } = setup()
+    const { result } = await setup()
     await waitFor(() => expect(result.current.labelSize).toBe('A6'))
     expect(result.current.autoPrintEnabled).toBe(true)
-    expect(result.current.connectionDefaultCarrier).toBe(2)
-    expect(result.current.connectionDefaultPackageType).toBe(3)
+    expect(result.current.shipping.defaultCarrier).toBe(2)
+    expect(result.current.shipping.defaultPackageType).toBe(3)
   })
 
-  it('without a MyParcel connection does nothing', async () => {
+  it('without a shipping connection does nothing', async () => {
     withConnections([])
-    const { result } = setup()
+    const { result } = await setup()
     await act(async () => { await result.current.createLabel() })
     expect(shippingApi.getShippingSettings).not.toHaveBeenCalled()
     expect(result.current.labelStep).toBeNull()
@@ -64,7 +67,7 @@ describe('usePackingLabel settings', () => {
 
 describe('usePackingLabel creating', () => {
   it('before finishing it takes the lock, then opens the address step', async () => {
-    const { result } = setup()
+    const { result } = await setup()
     await act(async () => { await result.current.createLabel() })
     expect(api.touchPackingSession).toHaveBeenCalledWith('t', 'pack-1')
     expect(reload).toHaveBeenCalled()
@@ -72,7 +75,7 @@ describe('usePackingLabel creating', () => {
   })
 
   it('after finishing it skips the lock', async () => {
-    const { result } = setup(true)
+    const { result } = await setup(true)
     await act(async () => { await result.current.createLabel() })
     expect(api.touchPackingSession).not.toHaveBeenCalled()
     expect(result.current.labelStep).toBe('address')
@@ -80,7 +83,7 @@ describe('usePackingLabel creating', () => {
 
   it('a lock held elsewhere stops it with a message', async () => {
     vi.mocked(api.touchPackingSession).mockRejectedValue('locked')
-    const { result } = setup()
+    const { result } = await setup()
     await act(async () => { await result.current.createLabel() })
     expect(setError).toHaveBeenCalledWith('Someone else is packing this order')
     expect(result.current.labelStep).toBeNull()
@@ -88,7 +91,7 @@ describe('usePackingLabel creating', () => {
 
   it('an order that already has a live shipment asks first', async () => {
     vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([shipment({ id: 'old', cancelled_at: '2026-01-01' }), shipment()])
-    const { result } = setup()
+    const { result } = await setup()
     await act(async () => { await result.current.createLabel() })
     expect(result.current.existingShipment?.id).toBe('sh-1')
     expect(result.current.labelStep).toBeNull()
@@ -102,7 +105,7 @@ describe('usePackingLabel creating', () => {
     vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([shipment()])
     const tab = {} as Window
     vi.mocked(openShipmentLabel).mockResolvedValue(tab)
-    const { result } = setup()
+    const { result } = await setup()
     await waitFor(() => expect(result.current.labelSize).toBe('A6'))
     await act(async () => { await result.current.createLabel() })
 
@@ -119,7 +122,7 @@ describe('usePackingLabel creating', () => {
     vi.spyOn(window, 'open').mockReturnValue(tab)
     vi.mocked(shippingApi.createShipment).mockResolvedValue(shipment({ id: 'new' }))
     vi.mocked(loadShipmentLabelIntoTab).mockResolvedValue(tab)
-    const { result } = setup()
+    const { result } = await setup()
     await waitFor(() => expect(result.current.labelSize).toBe('A6'))
 
     act(() => result.current.confirmAddress({ carrier: 5, packageType: 1, recipient }))
@@ -137,11 +140,23 @@ describe('usePackingLabel creating', () => {
     const tab = { close: vi.fn() } as unknown as Window
     vi.spyOn(window, 'open').mockReturnValue(tab)
     vi.mocked(shippingApi.createShipment).mockRejectedValue(new Error('Bad address'))
-    const { result } = setup()
+    const { result } = await setup()
     act(() => result.current.confirmAddress({ carrier: 1, packageType: 1, recipient }))
 
     await act(async () => { await expect(result.current.printLabel()).rejects.toThrow('Bad address') })
     expect(tab.close).toHaveBeenCalled()
     expect(result.current.labelStep).toBe('preview')
+  })
+
+  it('switching provider sends the chosen connection', async () => {
+    withConnections([{ id: 'c1', provider: 'myparcel' }, { id: 'c2', provider: 'myparcel' }])
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    vi.mocked(shippingApi.createShipment).mockResolvedValue(shipment({ id: 'new' }))
+    const { result } = await setup()
+    expect(result.current.shippingConnection?.id).toBe('c1')
+    act(() => result.current.shipping.selectConnection('c2'))
+    act(() => result.current.confirmAddress({ carrier: 4, packageType: 1, recipient }))
+    await act(async () => { await result.current.printLabel() })
+    expect(shippingApi.createShipment).toHaveBeenCalledWith('t', expect.objectContaining({ connection_id: 'c2', carrier: 4 }))
   })
 })

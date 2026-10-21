@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
 import type { Address } from '../oms/types'
@@ -94,6 +94,12 @@ interface AddressConfirmModalProps {
   // doc comment for why creation moved to the print click).
   onNext: (input: { carrier: number; packageType: number; recipient: RecipientAddress }) => void
   onClose: () => void
+  // Which shipping provider the label goes through (ShippingProviderPicker),
+  // shown above the carrier fields.
+  providerPicker?: ReactNode
+  // False for a provider that is its own carrier (PostNL) -- no carrier
+  // dropdown then. Defaults to true.
+  showCarrier?: boolean
 }
 
 function normalize(s: string): string {
@@ -111,12 +117,17 @@ function normalize(s: string): string {
 // whatever staff already entered, with a one-click fix. Real MyParcel-side
 // validation still only happens when the create-shipment call itself
 // accepts/rejects it, surfaced on LabelPreviewModal's Print step.
-export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defaultCarrier, defaultPackageType, connectionId, initialRecipient, initialCarrier, initialPackageType, onNext, onClose }: AddressConfirmModalProps) {
+export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defaultCarrier, defaultPackageType, connectionId, initialRecipient, initialCarrier, initialPackageType, onNext, onClose, providerPicker, showCarrier = true }: AddressConfirmModalProps) {
   const [recipient, setRecipient] = useState<RecipientAddress>(() => initialRecipient ?? addressToRecipientDraft(initialAddress, fallbackEmail))
   const { t } = useTranslation(['shipping', 'common'])
   const formatMoney = useMoneyFormat()
-  const [carrier, setCarrier] = useState(initialCarrier ?? defaultCarrier ?? 1)
-  const [packageType, setPackageType] = useState(initialPackageType ?? defaultPackageType ?? 1)
+  // Staff's own pick, else the defaults -- derived, so switching shipping
+  // provider while this is open follows the new connection's defaults
+  // until staff choose something themselves.
+  const [pickedCarrier, setCarrier] = useState<number | undefined>(initialCarrier)
+  const [pickedPackageType, setPackageType] = useState<number | undefined>(initialPackageType)
+  const carrier = pickedCarrier ?? defaultCarrier ?? 1
+  const packageType = pickedPackageType ?? defaultPackageType ?? 1
 
   // Estimated label cost -- MyParcel's own GET /delivery_options is the
   // only price MyParcel's API exposes before a shipment exists, and it only
@@ -331,13 +342,16 @@ export function AddressConfirmModal({ token, initialAddress, fallbackEmail, defa
                 silently reaching MyParcel blank. */}
             <input id="addr-email" type="email" required {...field('email')} className={inputClass} />
           </div>
+          {providerPicker}
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label htmlFor="ship-carrier" className={labelClass}>{t('address.carrier')}</label>
-              <select id="ship-carrier" value={carrier} onChange={e => setCarrier(Number(e.target.value))} className={inputClass}>
-                {CARRIERS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-              </select>
-            </div>
+            {showCarrier && (
+              <div>
+                <label htmlFor="ship-carrier" className={labelClass}>{t('address.carrier')}</label>
+                <select id="ship-carrier" value={carrier} onChange={e => setCarrier(Number(e.target.value))} className={inputClass}>
+                  {CARRIERS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                </select>
+              </div>
+            )}
             <div>
               <label htmlFor="ship-package-type" className={labelClass}>{t('address.packageType')}</label>
               <select id="ship-package-type" value={packageType} onChange={e => setPackageType(Number(e.target.value))} className={inputClass}>

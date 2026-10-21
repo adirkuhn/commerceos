@@ -21,8 +21,8 @@ vi.mock('../../scanner/api', () => ({
   touchPackingSession: vi.fn(), releasePackingSessionLock: vi.fn(),
 }))
 vi.mock('../../pms/api', () => ({ listProductMedia: vi.fn() }))
-vi.mock('../../integrations/hooks/useConnections', () => ({ useConnections: vi.fn() }))
 vi.mock('../../shipping/api', () => ({
+  listShippingConnections: vi.fn(),
   getShippingSettings: vi.fn(), listShipmentsForOrder: vi.fn(), lookupAddress: vi.fn(), getShipmentLabel: vi.fn(),
 }))
 
@@ -31,7 +31,7 @@ import * as teamApi from '../../team/api'
 import * as packingApi from '../../scanner/api'
 import * as pmsApi from '../../pms/api'
 import * as shippingApi from '../../shipping/api'
-import { useConnections } from '../../integrations/hooks/useConnections'
+import { shippingConnectionsOf } from '../../test/shippingConnections'
 
 const order: SalesOrder = {
   id: 'so-1', tenant_id: 'tenant-1', source: 'woocommerce', external_order_id: 'ext-1', payment_status: 'paid',
@@ -57,7 +57,7 @@ beforeEach(() => {
   vi.mocked(omsApi.listPackingQueue).mockResolvedValue({ entries: [{ sales_order: order, lock: null, in_packing: false }], total: 1 })
   vi.mocked(teamApi.listMembers).mockResolvedValue([])
   vi.mocked(pmsApi.listProductMedia).mockResolvedValue([])
-  vi.mocked(useConnections).mockReturnValue({ connections: [], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+  vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([]))
   vi.mocked(packingApi.startOrResumePacking).mockResolvedValue(session)
 })
 
@@ -92,7 +92,7 @@ describe('Packing (characterization)', () => {
   })
 
   it('an order that already has a label asks before making another, and cancel closes it', async () => {
-    vi.mocked(useConnections).mockReturnValue({ connections: [{ id: 'c1', provider: 'myparcel' } as ReturnType<typeof useConnections>['connections'][number]], loading: false, error: null, refresh: vi.fn(), disconnect: vi.fn() })
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue(shippingConnectionsOf([{ id: 'c1', provider: 'myparcel' }]))
     vi.mocked(shippingApi.getShippingSettings).mockResolvedValue({ settings: null } as unknown as Awaited<ReturnType<typeof shippingApi.getShippingSettings>>)
     vi.mocked(shippingApi.listShipmentsForOrder).mockResolvedValue([{ id: 'sh-1', barcode: '3SABC', cancelled_at: null } as Shipment])
     vi.mocked(packingApi.getPackingSession).mockResolvedValue(detail())
