@@ -8,6 +8,7 @@ import Integrations from '../../pages/Integrations'
 import type { Connection } from '../types'
 import { renderAt } from '../../test/renderAt'
 import { act } from 'react'
+import * as shippingApi from '../../shipping/api'
 
 // Covers the parts of the Integrations page that Integrations.test.tsx
 // doesn't: the WooCommerce connect forms, the per-card Test / Disconnect
@@ -31,6 +32,11 @@ vi.mock('../api', () => ({
   listWebhookFallbackEvents: vi.fn(),
 }))
 
+// The default-shipping-provider setting loads its own list; none here.
+vi.mock('../../shipping/api', async importOriginal => ({
+  ...await importOriginal<typeof import('../../shipping/api')>(),
+  listShippingConnections: vi.fn().mockResolvedValue({ connections: [], default_connection_id: null, configured_connection_id: null }),
+}))
 vi.mock('../../inventory/api', () => ({
   listWarehouses: vi.fn(),
 }))
@@ -146,6 +152,33 @@ describe('Empty state and admin shortcut', () => {
     mockRole = 'customer_owner'
     renderPage()
     expect(await screen.findByText('Fan-out rules and every active provider subscription, in one place')).toBeInTheDocument()
+  })
+})
+
+describe('Default shipping provider', () => {
+  const withShipping = () => vi.mocked(shippingApi.listShippingConnections).mockResolvedValueOnce({
+    connections: [{ id: 'mp', provider: 'myparcel', status: 'active', created_at: '2026-01-01T00:00:00Z', is_default: true }],
+    default_connection_id: 'mp', configured_connection_id: null,
+  })
+
+  it('an owner can change it', async () => {
+    mockRole = 'customer_owner'
+    withShipping()
+    renderPage()
+    expect(await screen.findByLabelText('Default shipping provider')).toBeEnabled()
+  })
+
+  it('is read-only for a non-admin', async () => {
+    mockRole = 'customer_user'
+    withShipping()
+    renderPage()
+    expect(await screen.findByLabelText('Default shipping provider')).toBeDisabled()
+  })
+
+  it('is not shown without shipping connections', async () => {
+    renderPage()
+    await screen.findByText('Connected integrations')
+    expect(screen.queryByLabelText('Default shipping provider')).not.toBeInTheDocument()
   })
 })
 

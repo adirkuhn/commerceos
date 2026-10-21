@@ -36,6 +36,11 @@ vi.mock('../../integrations/api', () => ({
   abandonAllWebhookFallbackEvents: vi.fn(),
 }))
 
+// The default-shipping-provider setting loads its own list; none here.
+vi.mock('../../shipping/api', async importOriginal => ({
+  ...await importOriginal<typeof import('../../shipping/api')>(),
+  listShippingConnections: vi.fn().mockResolvedValue({ connections: [], default_connection_id: null, configured_connection_id: null }),
+}))
 vi.mock('../../inventory/api', () => ({
   listWarehouses: vi.fn(),
 }))
