@@ -237,5 +237,21 @@
       "tooLong": "Muito longo"
     },
     "loading": "Carregando endereços…"
+  },
+  "postnlSettings": {
+    "account": "Conta",
+    "accountBody": "Seus dados de cliente PostNL. Desative o sandbox para entrar em produção depois que a PostNL aprovar a integração.",
+    "newApiKey": "Nova chave de API",
+    "newApiKeyHint": "Deixe em branco para manter a chave atual.",
+    "saveAccount": "Salvar conta",
+    "accountSaved": "Conta salva.",
+    "accountSaveFailed": "Não foi possível salvar a conta PostNL.",
+    "accountLoadFailed": "Não foi possível carregar a conta PostNL.",
+    "labelDefaults": "Padrões de etiqueta",
+    "labelDefaultsBody": "Usados em toda nova etiqueta PostNL. A equipe ainda pode mudar o tipo de pacote por etiqueta.",
+    "insureHint": "O valor segurado é o próprio valor do pedido, calculado quando a etiqueta é criada.",
+    "saveDefaults": "Salvar padrões de etiqueta",
+    "defaultsSaved": "Padrões de etiqueta salvos.",
+    "loading": "Carregando…"
   }
 }

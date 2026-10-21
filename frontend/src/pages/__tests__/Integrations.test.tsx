@@ -65,6 +65,12 @@ vi.mock('../../shipping/MyParcelSyncSettingsPage', () => ({
   ),
 }))
 
+vi.mock('../../shipping/postnl/PostNLSettingsPage', () => ({
+  PostNLSettingsPage: ({ connectionId, onClose }: { connectionId: string; onClose: () => void }) => (
+    <div>PostNL settings ({connectionId}) <button type="button" onClick={onClose}>close postnl</button></div>
+  ),
+}))
+
 vi.mock('../../tax/api', () => ({
   listTaxClasses: vi.fn(),
   createTaxClass: vi.fn(),
@@ -864,6 +870,21 @@ describe('Integrations URLs (refresh + Back)', () => {
     expect(await screen.findByRole('heading', { name: 'Browse integrations' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /WooCommerce/ }))
     expect(router.state.location.pathname).toBe('/integrations/connect/woocommerce')
+  })
+
+  it('PostNL Configure pushes /integrations/:id, which opens the PostNL settings page on load; closing returns to the list', async () => {
+    const postnl: Connection = { id: 'conn-pn-1', provider: 'postnl', store_url: '', status: 'connected', created_at: '' }
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([postnl])
+    const { router, unmount } = renderIntegrationsAt('/integrations')
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    expect(router.state.location.pathname).toBe('/integrations/conn-pn-1')
+    expect(await screen.findByText(/PostNL settings \(conn-pn-1\)/)).toBeInTheDocument()
+    unmount()
+
+    const reloaded = renderIntegrationsAt('/integrations/conn-pn-1')
+    expect(await screen.findByText(/PostNL settings \(conn-pn-1\)/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'close postnl' }))
+    expect(reloaded.router.state.location.pathname).toBe('/integrations')
   })
 
   it('an unknown connection id shows not-found', async () => {

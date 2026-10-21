@@ -19,6 +19,8 @@ import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import WooCommerceSyncSettingsPage from '../integrations/WooCommerceSyncSettingsPage'
 import BolSyncSettingsPage from '../integrations/BolSyncSettingsPage'
 import MyParcelSyncSettingsPage from '../shipping/MyParcelSyncSettingsPage'
+import { PostNLSettingsPage } from '../shipping/postnl/PostNLSettingsPage'
+import { SHIPPING_PROVIDERS } from '../shipping/shippingProviders'
 import { useIntegrationsRoute, type ConnectionPanel } from '../integrations/hooks/useIntegrationsRoute'
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 import { canManageWebhooks } from '../integrations/integrationsPageHelpers'
@@ -65,6 +67,7 @@ export default function Integrations() {
   const myParcelConnection: Connection | 'new' | null =
     view.kind === 'new' && view.provider === 'myparcel' ? 'new' : panelFor('settings', ['myparcel']) ?? panelFor('webhooks', ['myparcel'])
   const focusMyParcelWebhooks = view.kind === 'connection' && view.panel === 'webhooks'
+  const postNLConnection = panelFor('settings', [SHIPPING_PROVIDERS.postnl])
 
   const closeAndRefresh = () => {
     route.close()
@@ -99,6 +102,10 @@ export default function Integrations() {
         onConnected={closeAndRefresh}
       />
     )
+  }
+
+  if (postNLConnection) {
+    return <PostNLSettingsPage connectionId={postNLConnection.id} onClose={route.close} />
   }
 
   return (

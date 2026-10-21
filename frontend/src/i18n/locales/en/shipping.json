@@ -237,5 +237,21 @@
       "tooLong": "Too long"
     },
     "loading": "Loading addresses…"
+  },
+  "postnlSettings": {
+    "account": "Account",
+    "accountBody": "Your PostNL customer details. Switch the sandbox off to go live once PostNL has approved the integration.",
+    "newApiKey": "New API key",
+    "newApiKeyHint": "Leave empty to keep the current key.",
+    "saveAccount": "Save account",
+    "accountSaved": "Account saved.",
+    "accountSaveFailed": "Couldn’t save the PostNL account.",
+    "accountLoadFailed": "Couldn’t load the PostNL account.",
+    "labelDefaults": "Label defaults",
+    "labelDefaultsBody": "Used for every new PostNL label. Staff can still change the package type per label.",
+    "insureHint": "The insured amount is the order’s own value, worked out when the label is created.",
+    "saveDefaults": "Save label defaults",
+    "defaultsSaved": "Label defaults saved.",
+    "loading": "Loading…"
   }
 }

@@ -17,7 +17,7 @@ export const NEW_PAGE_PROVIDERS = ['bol', 'myparcel'] as const
 export type NewPageProvider = typeof NEW_PAGE_PROVIDERS[number]
 
 // What can be open for one existing connection. 'settings' is the
-// provider's own settings page (WooCommerce / bol / MyParcel); the rest
+// provider's own settings page (WooCommerce / bol / MyParcel / PostNL); the rest
 // are modals over the list.
 export const CONNECTION_PANELS = [
   'settings', 'webhooks', 'test-mode', 'ai-parsing', 'credentials', 'whatsapp-webhook', 'import', 'delete-products',

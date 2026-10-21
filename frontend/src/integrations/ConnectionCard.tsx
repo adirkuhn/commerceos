@@ -5,6 +5,7 @@ import type { Connection } from './types'
 import type { ConnectionPanel } from './hooks/useIntegrationsRoute'
 import type { TestResult } from './hooks/useTestConnection'
 import { PROVIDER_COLORS, STATUS_COLOR, STATUS_ICON } from './integrationsPageHelpers'
+import { SHIPPING_PROVIDERS } from '../shipping/shippingProviders'
 
 type CardAction =
   | { kind: 'panel'; label: () => string; panel: ConnectionPanel; danger?: boolean }
@@ -20,6 +21,7 @@ export const PROVIDER_CARD_ACTIONS: Record<string, CardAction[]> = {
   woocommerce: [panel(configure, 'settings'), { kind: 'test' }, panel(() => i18next.t('common:actions.import'), 'import'), panel(() => i18next.t('integrations:card.deleteImported'), 'delete-products', true)],
   myparcel: [panel(configure, 'settings'), panel(() => i18next.t('integrations:card.registerWebhook'), 'webhooks')],
   bol: [panel(configure, 'settings')],
+  [SHIPPING_PROVIDERS.postnl]: [panel(configure, 'settings')],
   whatsapp: [
     panel(() => i18next.t('integrations:card.testMode'), 'test-mode'),
     panel(() => i18next.t('integrations:card.aiParsing'), 'ai-parsing'),

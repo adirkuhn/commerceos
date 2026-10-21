@@ -237,5 +237,21 @@
       "tooLong": "Te lang"
     },
     "loading": "Adressen laden…"
+  },
+  "postnlSettings": {
+    "account": "Account",
+    "accountBody": "Je PostNL-klantgegevens. Zet de sandbox uit om live te gaan zodra PostNL de koppeling heeft goedgekeurd.",
+    "newApiKey": "Nieuwe API-sleutel",
+    "newApiKeyHint": "Laat leeg om de huidige sleutel te houden.",
+    "saveAccount": "Account opslaan",
+    "accountSaved": "Account opgeslagen.",
+    "accountSaveFailed": "Kon het PostNL-account niet opslaan.",
+    "accountLoadFailed": "Kon het PostNL-account niet laden.",
+    "labelDefaults": "Standaardinstellingen voor labels",
+    "labelDefaultsBody": "Gebruikt voor elk nieuw PostNL-label. Medewerkers kunnen het pakkettype per label nog wijzigen.",
+    "insureHint": "Het verzekerde bedrag is de waarde van de bestelling zelf, berekend bij het maken van het label.",
+    "saveDefaults": "Labelinstellingen opslaan",
+    "defaultsSaved": "Labelinstellingen opgeslagen.",
+    "loading": "Laden…"
   }
 }
