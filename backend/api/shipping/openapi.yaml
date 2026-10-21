@@ -122,6 +122,29 @@ paths:
         '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
 
+  /shipping/postnl/connect:
+    post:
+      operationId: connectPostNL
+      summary: >
+        Connect a PostNL business account directly (not through MyParcel).
+        The API key, customer code and customer number come from Mijn
+        PostNL zakelijk. sandbox sends every call to PostNL's sandbox.
+        Also turns on hourly shipment status polling (PostNL has no
+        webhooks) and PostNL's track & trace link.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConnectPostNLRequest' }
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConnectionResponse' }
+        '400': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
   /shipping/connections/{connectionId}/register-webhook:
     post:
       operationId: registerMyParcelWebhook
@@ -448,6 +471,16 @@ components:
           properties:
             ok: { type: boolean }
         error: { nullable: true }
+
+    ConnectPostNLRequest:
+      type: object
+      required: [api_key, customer_code, customer_number, sandbox]
+      additionalProperties: false
+      properties:
+        api_key: { type: string, minLength: 1 }
+        customer_code: { type: string, minLength: 1, maxLength: 4, description: 'e.g. "DEVC"' }
+        customer_number: { type: string, minLength: 1, maxLength: 10 }
+        sandbox: { type: boolean }
 
     ConnectionResponse:
       type: object

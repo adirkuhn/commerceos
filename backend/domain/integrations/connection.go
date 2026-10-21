@@ -40,6 +40,11 @@ const (
 	// tenant has connected one -- see those main.go files).
 	ProviderEmail   Provider = "email"
 	ProviderRevolut Provider = "revolut"
+	// ProviderPostNL is a direct PostNL shipping-label integration (not
+	// through MyParcel). ConsumerSecretEncrypted holds the PostNL API key;
+	// PostNLCustomerCode/PostNLCustomerNumber/PostNLSandbox (below) the
+	// account identifiers every PostNL call needs.
+	ProviderPostNL Provider = "postnl"
 )
 
 // IsPaymentProvider reports whether p is one of the payment integrations
@@ -146,8 +151,16 @@ type Connection struct {
 	// text. SetWhatsAppAIParsingUseCase refuses to enable this unless the
 	// tenant already has an AIConnection configured.
 	WhatsAppAIParsingEnabled bool
-	CreatedAt                time.Time
-	UpdatedAt                time.Time
+	// PostNLCustomerCode (4 letters, e.g. "DEVC") and PostNLCustomerNumber
+	// identify the PostNL business account labels are created for;
+	// PostNLSandbox sends every call to PostNL's sandbox instead of
+	// production. ProviderPostNL-only (empty/false for every other
+	// provider).
+	PostNLCustomerCode   string
+	PostNLCustomerNumber string
+	PostNLSandbox        bool
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 // DefaultBolDeliveryCode is used whenever a Bol connection hasn't set

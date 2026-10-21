@@ -84,6 +84,7 @@ type Handler struct {
 	cancelShipment      cancelShipmentUseCase
 	getDeliveryEstimate getDeliveryPriceEstimateUseCase
 	*PreferencesHandler
+	*PostNLHandler
 }
 
 func NewHandler(
@@ -102,13 +103,14 @@ func NewHandler(
 	cancelShipment cancelShipmentUseCase,
 	getDeliveryEstimate getDeliveryPriceEstimateUseCase,
 	preferences *PreferencesHandler,
+	postnl *PostNLHandler,
 ) *Handler {
 	return &Handler{
 		connect: connect, registerWebhook: registerWebhook, getSettings: getSettings, updateSettings: updateSettings,
 		upsertOverride: upsertOverride, createShipment: createShipment, getLabel: getLabel, listShipments: listShipments,
 		exportMyParcelOrder: exportMyParcelOrder, listTrackingEvents: listTrackingEvents, refreshTracking: refreshTracking,
 		lookupAddress: lookupAddress, cancelShipment: cancelShipment, getDeliveryEstimate: getDeliveryEstimate,
-		PreferencesHandler: preferences,
+		PreferencesHandler: preferences, PostNLHandler: postnl,
 	}
 }
 
@@ -123,6 +125,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 	fulfilmentOrderRepo := repositories.NewMyParcelFulfilmentOrderRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
 	preferencesRepo := repositories.NewShippingPreferencesRepo(db)
+	labelRepo := repositories.NewShipmentLabelRepo(db)
 	myParcelFactory := myparcel.NewClientFactory()
 	carrierFactory := carriers.NewDefaultRegistry()
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
@@ -137,8 +140,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 		appshipping.NewGetShippingSettingsUseCase(db, settingsRepo, overrideRepo),
 		appshipping.NewUpdateShippingSettingsUseCase(db, settingsRepo, outboxRepo),
 		appshipping.NewUpsertCarrierOverrideUseCase(db, overrideRepo, outboxRepo),
-		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, carrierFactory, encryptionSecret, recordActivity, tenantSettingsRepo, salesOrderRepo, exportMyParcelOrderUC, lineItemRepo, skuRepo, outboxRepo),
-		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, settingsRepo, carrierFactory, encryptionSecret),
+		appshipping.NewCreateShipmentUseCase(db, connRepo, settingsRepo, overrideRepo, shipmentRepo, carrierFactory, encryptionSecret, recordActivity, tenantSettingsRepo, salesOrderRepo, exportMyParcelOrderUC, lineItemRepo, skuRepo, outboxRepo, repositories.NewCompanyProfileRepo(db), labelRepo),
+		appshipping.NewGetShipmentLabelUseCase(db, shipmentRepo, connRepo, settingsRepo, carrierFactory, encryptionSecret, labelRepo),
 		appshipping.NewListShipmentsForOrderUseCase(db, shipmentRepo, overrideRepo),
 		exportMyParcelOrderUC,
 		appshipping.NewListShipmentTrackingEventsUseCase(db, statusEventRepo),
@@ -150,6 +153,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicAPIBaseURL st
 			appshipping.NewListShippingConnectionsUseCase(db, connRepo, preferencesRepo, carrierFactory),
 			appshipping.NewSetDefaultShippingConnectionUseCase(db, connRepo, preferencesRepo, carrierFactory, outboxRepo),
 		),
+		NewPostNLHandler(appintegrations.NewConnectPostNLUseCase(db, connRepo, settingsRepo, overrideRepo,
+			repositories.NewSyncScheduleRepo(db), outboxRepo, encryptionSecret)),
 	)
 	genshipping.RegisterHandlersWithOptions(rg, h, genshipping.GinServerOptions{})
 }

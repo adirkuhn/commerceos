@@ -8,6 +8,7 @@ import (
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
+	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 )
 
 func writeError(c *gin.Context, status int, code, message string) {
@@ -18,20 +19,23 @@ func mapErr(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, shippingDomain.ErrShipmentNotFound), errors.Is(err, integrationsDomain.ErrNoTenantContext),
 		errors.Is(err, shippingDomain.ErrAddressNotFound):
-		writeError(c, http.StatusNotFound, "not_found", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "not_found", err)
 	case errors.Is(err, shippingDomain.ErrShippingPreferencesForbidden):
-		writeError(c, http.StatusForbidden, "forbidden", err.Error())
+		middleware.FailErr(c, http.StatusForbidden, "forbidden", err)
 	case errors.Is(err, integrationsDomain.ErrConnectionNotFound):
-		writeError(c, http.StatusNotFound, "not_found", err.Error())
+		middleware.FailErr(c, http.StatusNotFound, "not_found", err)
+	case errors.Is(err, integrationsDomain.ErrPostNLAccountInvalid), errors.Is(err, integrationsDomain.ErrCarrierSenderAddressMissing),
+		errors.Is(err, integrationsDomain.ErrCarrierOperationNotSupported), errors.Is(err, integrationsDomain.ErrProviderNotSupported):
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "unprocessable", err)
 	case errors.Is(err, shippingDomain.ErrNotAShippingConnection):
-		writeError(c, http.StatusUnprocessableEntity, "not_a_shipping_connection", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "not_a_shipping_connection", err)
 	case errors.Is(err, shippingDomain.ErrMissingRecipient), errors.Is(err, shippingDomain.ErrInvalidAddressLookupInput):
-		writeError(c, http.StatusBadRequest, "invalid_request", err.Error())
+		middleware.FailErr(c, http.StatusBadRequest, "invalid_request", err)
 	case errors.Is(err, shippingDomain.ErrWebhookSecretNotSet):
-		writeError(c, http.StatusConflict, "webhook_secret_not_set", err.Error())
+		middleware.FailErr(c, http.StatusConflict, "webhook_secret_not_set", err)
 	case errors.Is(err, shippingDomain.ErrDeliveryEstimateUnsupportedCountry):
-		writeError(c, http.StatusUnprocessableEntity, "unsupported_country", err.Error())
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "unsupported_country", err)
 	default:
-		writeError(c, http.StatusBadGateway, "upstream_error", err.Error())
+		middleware.FailErr(c, http.StatusBadGateway, "upstream_error", err)
 	}
 }

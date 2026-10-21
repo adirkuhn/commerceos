@@ -85,3 +85,8 @@ var (
 	// being pointed at a connection of any other provider.
 	ErrNotWhatsAppConnection = errs.New("NOT_A_WHATSAPP_CONNECTION", "connection is not a whatsapp connection")
 )
+
+// ErrPostNLAccountInvalid: connecting PostNL needs an API key, a customer
+// code (1-4 characters) and a customer number (1-10 characters) -- the
+// limits PostNL's Shipment v4 API enforces.
+var ErrPostNLAccountInvalid = errs.New("POSTNL_ACCOUNT_INVALID", "PostNL needs an API key, a customer code of up to 4 characters and a customer number of up to 10 characters")

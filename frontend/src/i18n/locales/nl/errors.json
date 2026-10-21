@@ -425,5 +425,8 @@
   "INVALID_SLOW_MOVING_WINDOW": "Kies een verkoopperiode van 1 tot 365 dagen.",
   "INVALID_SLOW_MOVING_LIMIT": "Kies tussen 1 en 50 producten.",
   "NOT_A_SHIPPING_CONNECTION": "Met deze koppeling kun je geen verzendlabels maken.",
-  "SHIPPING_PREFERENCES_FORBIDDEN": "Alleen een eigenaar of beheerder kan de standaard verzendpartij wijzigen."
+  "SHIPPING_PREFERENCES_FORBIDDEN": "Alleen een eigenaar of beheerder kan de standaard verzendpartij wijzigen.",
+  "POSTNL_ACCOUNT_INVALID": "PostNL heeft een API-sleutel, een klantcode van maximaal 4 tekens en een klantnummer van maximaal 10 tekens nodig.",
+  "CARRIER_OPERATION_NOT_SUPPORTED": "Deze vervoerder ondersteunt dit niet.",
+  "CARRIER_SENDER_ADDRESS_MISSING": "Vul je bedrijfsadres in het bedrijfsprofiel in voordat je labels maakt met deze vervoerder."
 }

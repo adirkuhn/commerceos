@@ -56,7 +56,7 @@ func twoShippingConnections() *appshipping.ShippingConnections {
 
 func preferencesRouter(list *stubListShippingConnections, set *stubSetDefaultShipping) http.Handler {
 	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{},
-		shippinghandler.NewPreferencesHandler(list, set))
+		shippinghandler.NewPreferencesHandler(list, set), nil)
 	return newTestRouter(h)
 }
 

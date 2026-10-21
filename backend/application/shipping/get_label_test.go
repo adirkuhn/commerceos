@@ -31,7 +31,7 @@ func TestGetShipmentLabel_fetchesInShipmentsOwnFormat(t *testing.T) {
 		return integrationsDomain.LabelResult{Data: []byte("^XA^XZ"), ContentType: "application/vnd.shipment_label+zpl"}, nil
 	}}
 
-	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, connRepo, settingsRepo, &fakeCarrierClientFactory{client: client}, testEncSecret)
+	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, connRepo, settingsRepo, &fakeCarrierClientFactory{client: client}, testEncSecret, &fakeShipmentLabelRepo{})
 
 	result, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), "s-1", "")
 
@@ -61,7 +61,7 @@ func TestGetShipmentLabel_explicitSizeWinsOverConnectionDefault(t *testing.T) {
 		return integrationsDomain.LabelResult{}, nil
 	}}
 
-	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, connRepo, settingsRepo, &fakeCarrierClientFactory{client: client}, testEncSecret)
+	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, connRepo, settingsRepo, &fakeCarrierClientFactory{client: client}, testEncSecret, &fakeShipmentLabelRepo{})
 	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), "s-1", "A6")
 
 	require.NoError(t, err)
@@ -87,7 +87,7 @@ func TestGetShipmentLabel_noExplicitSizeFallsBackToConnectionDefault(t *testing.
 		return integrationsDomain.LabelResult{}, nil
 	}}
 
-	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, connRepo, settingsRepo, &fakeCarrierClientFactory{client: client}, testEncSecret)
+	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, connRepo, settingsRepo, &fakeCarrierClientFactory{client: client}, testEncSecret, &fakeShipmentLabelRepo{})
 	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), "s-1", "")
 
 	require.NoError(t, err)
@@ -98,9 +98,31 @@ func TestGetShipmentLabel_shipmentNotFound_propagatesError(t *testing.T) {
 	shipmentRepo := &fakeShipmentRepo{findByIDFn: func(_ context.Context, _ string) (*shippingDomain.Shipment, error) {
 		return nil, shippingDomain.ErrShipmentNotFound
 	}}
-	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, &mocks.ConnectionRepo{}, &mocks.ShippingConnectionSettingsRepo{}, &fakeCarrierClientFactory{}, testEncSecret)
+	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, &mocks.ConnectionRepo{}, &mocks.ShippingConnectionSettingsRepo{}, &fakeCarrierClientFactory{}, testEncSecret, &fakeShipmentLabelRepo{})
 
 	_, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), "missing", "")
 
 	require.ErrorIs(t, err, shippingDomain.ErrShipmentNotFound)
+}
+
+func TestGetShipmentLabel_storedLabelIsServedWithoutAskingTheCarrier(t *testing.T) {
+	shipment := &shippingDomain.Shipment{ID: "s-1", ConnectionID: "conn-1", ExternalShipmentID: "ref", LabelFormat: shippingDomain.LabelFormatPDF}
+	shipmentRepo := &fakeShipmentRepo{findByIDFn: func(context.Context, string) (*shippingDomain.Shipment, error) { return shipment, nil }}
+	conn := &integrationsDomain.Connection{ID: "conn-1", Provider: integrationsDomain.ProviderPostNL, ConsumerSecretEncrypted: encryptedFor(t, "k")}
+	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil }}
+	settingsRepo := &mocks.ShippingConnectionSettingsRepo{
+		FindByConnectionIDFn: func(context.Context, string) (*shippingDomain.ShippingConnectionSettings, error) { return nil, nil },
+	}
+	labels := &fakeShipmentLabelRepo{stored: &shippingDomain.ShipmentLabel{ShipmentID: "s-1", ContentType: "application/pdf", Data: []byte("%PDF stored")}}
+	client := &fakeCarrierClient{getLabelFn: func(context.Context, string, string, string) (integrationsDomain.LabelResult, error) {
+		t.Fatal("the carrier must not be asked for a label that is stored")
+		return integrationsDomain.LabelResult{}, nil
+	}}
+
+	uc := appshipping.NewGetShipmentLabelUseCase(newMockGormDB(t, 1), shipmentRepo, connRepo, settingsRepo, &fakeCarrierClientFactory{client: client}, testEncSecret, labels)
+	result, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), "s-1", "A6")
+
+	require.NoError(t, err)
+	assert.Equal(t, []byte("%PDF stored"), result.Data)
+	assert.Equal(t, "application/pdf", result.ContentType)
 }

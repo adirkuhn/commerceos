@@ -176,7 +176,7 @@ func newTestRouter(h *shippinghandler.Handler) *gin.Engine {
 
 func TestConnectMyParcel_201OnSuccess(t *testing.T) {
 	conn := &integrationsDomain.Connection{ID: "c-1", Provider: "myparcel", Status: "connected"}
-	h := shippinghandler.NewHandler(&stubConnect{conn: conn}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{conn: conn}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{"api_key": "test-key"})
@@ -190,7 +190,7 @@ func TestConnectMyParcel_201OnSuccess(t *testing.T) {
 
 func TestUpdateShippingSettings_200WrapsResponseInDataEnvelope(t *testing.T) {
 	settings := &shippingDomain.ShippingConnectionSettings{ConnectionID: "22222222-2222-2222-2222-222222222222", DefaultCarrier: 1, DefaultPackageType: 1, DefaultLabelFormat: "pdf"}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{result: settings}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{result: settings}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{"default_carrier": 1, "default_package_type": 1, "default_label_format": "pdf"})
@@ -211,7 +211,7 @@ func TestUpdateShippingSettings_200WrapsResponseInDataEnvelope(t *testing.T) {
 
 func TestUpdateShippingSettings_threadsExportOrderToMyParcelThrough(t *testing.T) {
 	update := &stubUpdateSettings{result: &shippingDomain.ShippingConnectionSettings{}}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, update, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, update, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{
@@ -228,7 +228,7 @@ func TestUpdateShippingSettings_threadsExportOrderToMyParcelThrough(t *testing.T
 
 func TestUpsertCarrierOverride_200WrapsResponseInDataEnvelope(t *testing.T) {
 	override := &shippingDomain.ShippingCarrierOverride{ConnectionID: "22222222-2222-2222-2222-222222222222", Carrier: 1}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{result: override}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{result: override}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{"package_type": nil, "signature_required": nil, "only_recipient": nil})
@@ -251,7 +251,7 @@ func TestUpsertCarrierOverride_200WrapsResponseInDataEnvelope(t *testing.T) {
 func TestCreateShipment_201OnSuccess(t *testing.T) {
 	shipment := &shippingDomain.Shipment{ID: "s-1", SalesOrderID: "order-1", Barcode: "3SMYPA1", StatusMain: "registered"}
 	create := &stubCreateShipment{result: shipment}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, create, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, create, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{
@@ -272,7 +272,7 @@ func TestCreateShipment_201OnSuccess(t *testing.T) {
 
 func TestCreateShipment_400OnMissingRecipient(t *testing.T) {
 	create := &stubCreateShipment{err: shippingDomain.ErrMissingRecipient}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, create, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, create, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{
@@ -291,7 +291,7 @@ func TestCreateShipment_400OnMissingRecipient(t *testing.T) {
 
 func TestCreateShipment_502OnMyParcelRejection(t *testing.T) {
 	create := &stubCreateShipment{err: assertAnError}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, create, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, create, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{
@@ -310,7 +310,7 @@ func TestCreateShipment_502OnMyParcelRejection(t *testing.T) {
 
 func TestGetShipmentLabel_streamsRawBytesWithContentType(t *testing.T) {
 	label := &integrationsDomain.LabelResult{Data: []byte("%PDF-fake"), ContentType: "application/pdf"}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{result: label}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{result: label}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/shipping/shipments/11111111-1111-1111-1111-111111111111/label", nil)
@@ -328,7 +328,7 @@ func TestGetShipmentLabel_streamsRawBytesWithContentType(t *testing.T) {
 func TestGetShipmentLabel_passesSizeQueryParamThrough(t *testing.T) {
 	label := &integrationsDomain.LabelResult{Data: []byte("%PDF-fake"), ContentType: "application/pdf"}
 	getLabel := &stubGetLabel{result: label}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, getLabel, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, getLabel, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/shipping/shipments/11111111-1111-1111-1111-111111111111/label?size=A6", nil)
@@ -340,7 +340,7 @@ func TestGetShipmentLabel_passesSizeQueryParamThrough(t *testing.T) {
 }
 
 func TestRegisterMyParcelWebhook_409OnNoSecretSet(t *testing.T) {
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{err: shippingDomain.ErrWebhookSecretNotSet}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{err: shippingDomain.ErrWebhookSecretNotSet}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/shipping/connections/11111111-1111-1111-1111-111111111111/register-webhook", nil)
@@ -357,7 +357,7 @@ func TestUpdateShippingSettings_passesInsuranceAndFulfilmentConfigThrough(t *tes
 		InsureByDefault: true, MyParcelAccountID: &accountID, MyParcelShopID: &shopID, AutoPrintEnabled: true,
 	}
 	update := &stubUpdateSettings{result: settings}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, update, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, update, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{
@@ -382,7 +382,7 @@ func TestUpsertCarrierOverride_passesInsureByDefaultThrough(t *testing.T) {
 	yes := true
 	override := &shippingDomain.ShippingCarrierOverride{ConnectionID: "22222222-2222-2222-2222-222222222222", Carrier: 1, InsureByDefault: &yes}
 	upsert := &stubUpsertOverride{result: override}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, upsert, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, upsert, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{"insure_by_default": true})
@@ -403,7 +403,7 @@ func TestExportMyParcelOrder_201OnSuccess(t *testing.T) {
 		MyParcelUUID: "order-uuid-1", Status: "open",
 	}
 	export := &stubExportMyParcelOrder{result: order}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, export, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, export, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{
@@ -423,7 +423,7 @@ func TestExportMyParcelOrder_201OnSuccess(t *testing.T) {
 
 func TestExportMyParcelOrder_502OnMyParcelRejection(t *testing.T) {
 	export := &stubExportMyParcelOrder{err: assertAnError}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, export, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, export, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	body, _ := json.Marshal(map[string]any{
@@ -451,7 +451,7 @@ func TestListShipmentTrackingEvents_200WithLabel(t *testing.T) {
 	listEvents := &stubListTrackingEvents{result: []shippingDomain.ShipmentStatusEvent{
 		{ID: "evt-1", ShipmentID: "ship-1", Status: 3, StatusMain: "enroute", Source: shippingDomain.StatusEventSourceWebhook, OccurredAt: occurredAt},
 	}}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, listEvents, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, listEvents, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/shipping/shipments/11111111-1111-1111-1111-111111111111/tracking-events", nil)
@@ -468,7 +468,7 @@ func TestRefreshShipmentTracking_200OnSuccess(t *testing.T) {
 	refresh := &stubRefreshTracking{result: shippingDomain.ShipmentStatusEvent{
 		ID: "evt-2", ShipmentID: "ship-1", Status: 7, StatusMain: "delivered", Source: shippingDomain.StatusEventSourceManual,
 	}}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, refresh, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, refresh, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/shipping/shipments/11111111-1111-1111-1111-111111111111/tracking-events/refresh", nil)
@@ -482,7 +482,7 @@ func TestRefreshShipmentTracking_200OnSuccess(t *testing.T) {
 
 func TestRefreshShipmentTracking_404WhenShipmentNotFound(t *testing.T) {
 	refresh := &stubRefreshTracking{err: shippingDomain.ErrShipmentNotFound}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, refresh, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, refresh, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/shipping/shipments/11111111-1111-1111-1111-111111111111/tracking-events/refresh", nil)
@@ -494,7 +494,7 @@ func TestRefreshShipmentTracking_404WhenShipmentNotFound(t *testing.T) {
 
 func TestRefreshShipmentTracking_502WhenProviderUnreachable(t *testing.T) {
 	refresh := &stubRefreshTracking{err: assertAnError}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, refresh, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, refresh, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/shipping/shipments/11111111-1111-1111-1111-111111111111/tracking-events/refresh", nil)
@@ -506,7 +506,7 @@ func TestRefreshShipmentTracking_502WhenProviderUnreachable(t *testing.T) {
 
 func TestLookupAddress_200OnMatch(t *testing.T) {
 	lookup := &stubLookupAddress{result: &shippingDomain.AddressLookupResult{Street: "Damrak", City: "Amsterdam"}}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, lookup, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, lookup, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/shipping/address-lookup?postal_code=1012AB&number=1", nil)
@@ -522,7 +522,7 @@ func TestLookupAddress_200OnMatch(t *testing.T) {
 
 func TestLookupAddress_404WhenNotFound(t *testing.T) {
 	lookup := &stubLookupAddress{err: shippingDomain.ErrAddressNotFound}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, lookup, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, lookup, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/shipping/address-lookup?postal_code=9999ZZ&number=999", nil)
@@ -533,7 +533,7 @@ func TestLookupAddress_404WhenNotFound(t *testing.T) {
 }
 
 func TestLookupAddress_400WhenMissingRequiredQueryParam(t *testing.T) {
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/shipping/address-lookup?postal_code=1012AB", nil)
@@ -547,7 +547,7 @@ func TestCancelShipment_200ReportsOutcomeEvenWhenMyParcelRejected(t *testing.T) 
 	cancel := &stubCancelShipment{result: &appshipping.CancelShipmentResult{
 		DeletedOnMyParcel: false, CarrierError: "422 label printed", Message: "MyParcel could not delete this shipment (422); marked as cancelled locally.",
 	}}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, cancel, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, cancel, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/shipping/shipments/11111111-1111-1111-1111-111111111111/cancel", nil)
@@ -563,7 +563,7 @@ func TestCancelShipment_200ReportsOutcomeEvenWhenMyParcelRejected(t *testing.T) 
 
 func TestCancelShipment_404WhenShipmentNotFound(t *testing.T) {
 	cancel := &stubCancelShipment{err: shippingDomain.ErrShipmentNotFound}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, cancel, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, cancel, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/shipping/shipments/11111111-1111-1111-1111-111111111111/cancel", nil)
@@ -577,7 +577,7 @@ func TestGetDeliveryPriceEstimate_200WrapsPricedOptionsInDataEnvelope(t *testing
 	estimate := &stubGetDeliveryEstimate{result: []shippingDomain.DeliveryPriceOption{
 		{PriceComment: "standard", AmountMinorUnits: 1000, Currency: "EUR"},
 	}}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, estimate, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, estimate, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/shipping/delivery-price-estimate?connection_id=22222222-2222-2222-2222-222222222222&cc=NL&postal_code=1012AB&number=1&carrier=1", nil)
@@ -596,7 +596,7 @@ func TestGetDeliveryPriceEstimate_200WrapsPricedOptionsInDataEnvelope(t *testing
 
 func TestGetDeliveryPriceEstimate_422WhenCountryUnsupported(t *testing.T) {
 	estimate := &stubGetDeliveryEstimate{err: shippingDomain.ErrDeliveryEstimateUnsupportedCountry}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, estimate, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, &stubListShipments{}, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, estimate, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/shipping/delivery-price-estimate?connection_id=22222222-2222-2222-2222-222222222222&cc=DE&postal_code=10115&number=1&carrier=1", nil)
@@ -612,7 +612,7 @@ func TestListShipmentsForOrder_includesTheCancelOutcome(t *testing.T) {
 		{ID: "s-1", CancelledAt: &cancelledAt, CancelNote: "x", CancelOutcome: &shippingDomain.CancelOutcome{CarrierError: "label printed"}},
 		{ID: "s-2"},
 	}}
-	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, list, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil)
+	h := shippinghandler.NewHandler(&stubConnect{}, &stubRegisterWebhook{}, &stubGetSettings{}, &stubUpdateSettings{}, &stubUpsertOverride{}, &stubCreateShipment{}, &stubGetLabel{}, list, &stubExportMyParcelOrder{}, &stubListTrackingEvents{}, &stubRefreshTracking{}, &stubLookupAddress{}, &stubCancelShipment{}, &stubGetDeliveryEstimate{}, nil, nil)
 	r := newTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/shipping/sales-orders/11111111-1111-1111-1111-111111111111/shipments", nil)

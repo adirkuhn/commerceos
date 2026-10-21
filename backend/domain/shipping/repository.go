@@ -70,3 +70,12 @@ type ShippingCarrierOverrideRepository interface {
 	FindByConnectionAndCarrier(ctx context.Context, connectionID string, carrier Carrier) (*ShippingCarrierOverride, error)
 	Upsert(ctx context.Context, o *ShippingCarrierOverride) error
 }
+
+// ShipmentLabelRepository stores the label file of carriers that hand it
+// over only once, at creation (PostNL) -- carriers that serve labels on
+// demand (MyParcel) never write here. FindByShipmentID returns nil, nil when
+// no label is stored.
+type ShipmentLabelRepository interface {
+	Save(ctx context.Context, l *ShipmentLabel) error
+	FindByShipmentID(ctx context.Context, shipmentID string) (*ShipmentLabel, error)
+}

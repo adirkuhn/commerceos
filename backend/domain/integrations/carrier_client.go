@@ -1,6 +1,10 @@
 package integrations
 
-import "context"
+import (
+	"context"
+
+	"github.com/adirkuhn/commerceos/domain/errs"
+)
 
 // CarrierAddress is a shipment recipient's structured address, generic
 // across shipping-label providers -- same shape MyParcelAddress has (every
@@ -38,11 +42,19 @@ type CarrierShipmentOptions struct {
 // the adapter, not the caller, is responsible for translating it into
 // whatever its own provider's API expects.
 type CreateCarrierShipmentRequest struct {
-	Recipient      CarrierAddress
+	Recipient CarrierAddress
+	// Sender is the tenant's own company address (settings.CompanyProfile),
+	// nil when none was saved. Carriers that print the sender from their
+	// own account settings (MyParcel) ignore it; PostNL requires it.
+	Sender         *CarrierAddress
 	Carrier        int
 	Options        CarrierShipmentOptions
 	OrderReference string
 	WeightGrams    *int
+	// LabelFormat (pdf/zpl) is the label file format wanted -- only used by
+	// carriers that return the label at creation (see
+	// CarrierShipmentResult.Label).
+	LabelFormat string
 }
 
 // CarrierShipmentResult is what CarrierClient.CreateShipment returns.
@@ -54,7 +66,20 @@ type CreateCarrierShipmentRequest struct {
 type CarrierShipmentResult struct {
 	ExternalShipmentID string
 	Barcode            string
+	// Label is set by carriers that hand the label over only once, in the
+	// create response (PostNL), so CreateShipmentUseCase stores it;
+	// nil for carriers whose label is fetched later through GetLabel.
+	Label *LabelResult
 }
+
+// ErrCarrierOperationNotSupported: the connection's carrier has no API for
+// this operation (e.g. PostNL can't cancel a manifested shipment or quote a
+// delivery price).
+var ErrCarrierOperationNotSupported = errs.New("CARRIER_OPERATION_NOT_SUPPORTED", "this carrier does not support this operation")
+
+// ErrCarrierSenderAddressMissing: the carrier needs the sender's address on
+// every label and the company profile has none saved yet.
+var ErrCarrierSenderAddressMissing = errs.New("CARRIER_SENDER_ADDRESS_MISSING", "fill in the company address in the company profile before creating labels with this carrier")
 
 // CarrierClient is the shipping-label capability every carrier integration
 // exposes: create/cancel a shipment, fetch its label/tracking/barcode, and
@@ -89,13 +114,22 @@ type CarrierClient interface {
 type CarrierCredentials struct {
 	Provider Provider
 	APIKey   string
+	// CustomerCode/CustomerNumber/Sandbox are PostNL's account identifiers
+	// and environment switch (see Connection.PostNLCustomerCode); empty
+	// for carriers that only need an API key.
+	CustomerCode   string
+	CustomerNumber string
+	Sandbox        bool
 }
 
 // CarrierCredentialsFor builds conn's CarrierCredentials from its already-
 // decrypted API key (ConsumerSecretEncrypted, decrypted by the caller --
 // the domain never sees the encryption secret).
 func CarrierCredentialsFor(conn Connection, apiKey string) CarrierCredentials {
-	return CarrierCredentials{Provider: conn.Provider, APIKey: apiKey}
+	return CarrierCredentials{
+		Provider: conn.Provider, APIKey: apiKey,
+		CustomerCode: conn.PostNLCustomerCode, CustomerNumber: conn.PostNLCustomerNumber, Sandbox: conn.PostNLSandbox,
+	}
 }
 
 // CarrierClientFactory builds a CarrierClient scoped to one connection's

@@ -527,3 +527,30 @@ func (s *stubOutboxRepo) FetchPending(_ context.Context, _ int) ([]outbox.Messag
 }
 func (s *stubOutboxRepo) MarkPublished(_ context.Context, _ uint) error { return nil }
 func (s *stubOutboxRepo) MarkFailed(_ context.Context, _ uint) error    { return nil }
+
+// --- CompanyProfile / ShipmentLabel fakes ---
+
+type fakeCompanyProfiles struct {
+	profile *settingsDomain.CompanyProfile
+}
+
+func (f *fakeCompanyProfiles) Get(context.Context) (*settingsDomain.CompanyProfile, error) {
+	if f.profile == nil {
+		return &settingsDomain.CompanyProfile{}, nil
+	}
+	return f.profile, nil
+}
+
+type fakeShipmentLabelRepo struct {
+	saved  *shippingDomain.ShipmentLabel
+	stored *shippingDomain.ShipmentLabel
+}
+
+func (f *fakeShipmentLabelRepo) Save(_ context.Context, l *shippingDomain.ShipmentLabel) error {
+	f.saved = l
+	return nil
+}
+
+func (f *fakeShipmentLabelRepo) FindByShipmentID(context.Context, string) (*shippingDomain.ShipmentLabel, error) {
+	return f.stored, nil
+}

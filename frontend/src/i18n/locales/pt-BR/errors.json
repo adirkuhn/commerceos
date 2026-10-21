@@ -425,5 +425,8 @@
   "INVALID_SLOW_MOVING_WINDOW": "Escolha um período de vendas entre 1 e 365 dias.",
   "INVALID_SLOW_MOVING_LIMIT": "Escolha entre 1 e 50 produtos.",
   "NOT_A_SHIPPING_CONNECTION": "Esta conexão não pode criar etiquetas de envio.",
-  "SHIPPING_PREFERENCES_FORBIDDEN": "Somente um proprietário ou administrador pode alterar o provedor de envio padrão."
+  "SHIPPING_PREFERENCES_FORBIDDEN": "Somente um proprietário ou administrador pode alterar o provedor de envio padrão.",
+  "POSTNL_ACCOUNT_INVALID": "A PostNL precisa de uma chave de API, um código de cliente de até 4 caracteres e um número de cliente de até 10 caracteres.",
+  "CARRIER_OPERATION_NOT_SUPPORTED": "Esta transportadora não oferece suporte a isso.",
+  "CARRIER_SENDER_ADDRESS_MISSING": "Preencha o endereço da empresa no perfil da empresa antes de criar etiquetas com esta transportadora."
 }

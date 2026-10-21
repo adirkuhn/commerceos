@@ -36,8 +36,13 @@ type integrationConnectionModel struct {
 	WhatsAppTestModeEnabled  bool    `gorm:"column:whatsapp_test_mode_enabled;not null;default:false"`
 	WhatsAppTestPhoneE164    *string `gorm:"column:whatsapp_test_phone_e164"`
 	WhatsAppAIParsingEnabled bool    `gorm:"column:whatsapp_ai_parsing_enabled;not null;default:false"`
-	CreatedAt                time.Time
-	UpdatedAt                time.Time
+	// Explicit column names for the same reason as WhatsApp above: the
+	// default namer would split "PostNL" into "post_nl".
+	PostNLCustomerCode   string `gorm:"column:postnl_customer_code;not null;default:''"`
+	PostNLCustomerNumber string `gorm:"column:postnl_customer_number;not null;default:''"`
+	PostNLSandbox        bool   `gorm:"column:postnl_sandbox;not null;default:false"`
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 func (integrationConnectionModel) TableName() string { return "integration_connections" }
@@ -77,6 +82,9 @@ func (r *ConnectionRepo) Create(ctx context.Context, c *integrationsDomain.Conne
 		WhatsAppTestModeEnabled:   c.WhatsAppTestModeEnabled,
 		WhatsAppTestPhoneE164:     c.WhatsAppTestPhoneE164,
 		WhatsAppAIParsingEnabled:  c.WhatsAppAIParsingEnabled,
+		PostNLCustomerCode:        c.PostNLCustomerCode,
+		PostNLCustomerNumber:      c.PostNLCustomerNumber,
+		PostNLSandbox:             c.PostNLSandbox,
 		CreatedAt:                 c.CreatedAt,
 		UpdatedAt:                 c.UpdatedAt,
 	}
@@ -138,6 +146,9 @@ func (r *ConnectionRepo) Update(ctx context.Context, c *integrationsDomain.Conne
 			"whatsapp_test_mode_enabled":    c.WhatsAppTestModeEnabled,
 			"whatsapp_test_phone_e164":      c.WhatsAppTestPhoneE164,
 			"whatsapp_ai_parsing_enabled":   c.WhatsAppAIParsingEnabled,
+			"postnl_customer_code":          c.PostNLCustomerCode,
+			"postnl_customer_number":        c.PostNLCustomerNumber,
+			"postnl_sandbox":                c.PostNLSandbox,
 			"updated_at":                    c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("connectionRepo.Update: %w", err)
@@ -176,6 +187,9 @@ func toConnectionDomain(m integrationConnectionModel) *integrationsDomain.Connec
 		WhatsAppTestModeEnabled:   m.WhatsAppTestModeEnabled,
 		WhatsAppTestPhoneE164:     m.WhatsAppTestPhoneE164,
 		WhatsAppAIParsingEnabled:  m.WhatsAppAIParsingEnabled,
+		PostNLCustomerCode:        m.PostNLCustomerCode,
+		PostNLCustomerNumber:      m.PostNLCustomerNumber,
+		PostNLSandbox:             m.PostNLSandbox,
 		CreatedAt:                 m.CreatedAt,
 		UpdatedAt:                 m.UpdatedAt,
 	}
