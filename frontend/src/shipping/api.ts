@@ -128,6 +128,9 @@ export interface CancelShipmentResult {
   deleted_on_myparcel: boolean
   // MyParcel's own wording when it refused the delete.
   carrier_error?: string
+  // The carrier can't delete a pre-announced label (PostNL): it stays, free
+  // unless scanned, gone after 7 days. Not a refusal.
+  label_kept?: boolean
   // English; show cancelOutcomeText instead.
   message: string
 }

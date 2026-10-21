@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { cancelOutcomeText } from './cancelOutcomeText'
+import { cancelOutcomeText, outcomeOfCancelResult } from './cancelOutcomeText'
 import type { CancelShipmentResult } from './api'
 import type { Shipment } from './types'
 import * as shippingApi from './api'
@@ -81,7 +81,7 @@ export function ExistingShipmentConfirmModal({ token, shipment, onReprint, onCre
         ) : (
           <>
             <h3 className="text-sm font-semibold text-ink mb-2">{t('existing.cancelled')}</h3>
-            <p className="text-xs text-ink-3 mb-4">{cancelOutcomeText(t, { deleted: cancelResult.deleted_on_myparcel, carrierError: cancelResult.carrier_error ?? '' }, cancelResult.message)}</p>
+            <p className="text-xs text-ink-3 mb-4">{cancelOutcomeText(t, outcomeOfCancelResult(cancelResult), cancelResult.message)}</p>
             <div className="flex items-center gap-2">
               <button
                 type="button" onClick={onCancel}

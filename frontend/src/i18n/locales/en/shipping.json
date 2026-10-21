@@ -24,7 +24,8 @@
   },
   "cancelOutcome": {
     "deleted": "Shipment deleted on MyParcel.",
-    "notDeleted": "MyParcel could not delete this shipment ({{error}}). It has been cancelled in CommerceOS so a corrected shipment can be created, but the old shipment or label may still exist on MyParcel."
+    "notDeleted": "MyParcel could not delete this shipment ({{error}}). It has been cancelled in CommerceOS so a corrected shipment can be created, but the old shipment or label may still exist on MyParcel.",
+    "labelKept": "Cancelled. The carrier can’t delete a label once it’s announced, so the old label stays valid for 7 days. It costs nothing as long as it’s never scanned – don’t hand over the old label, use the new one."
   },
   "existing": {
     "cancelFailed": "Failed to cancel shipment",

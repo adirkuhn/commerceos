@@ -70,6 +70,22 @@ describe('ExistingShipmentConfirmModal', () => {
     expect(onCreateNew).toHaveBeenCalled()
   })
 
+  it('explains a label the carrier keeps (PostNL) instead of reporting a refusal', async () => {
+    vi.mocked(shippingApi.cancelShipment).mockResolvedValue({
+      deleted_on_myparcel: false, label_kept: true, message: 'PostNL keeps pre-announced labels.',
+    })
+    const onCreateNew = vi.fn()
+    const user = userEvent.setup()
+    render(<ExistingShipmentConfirmModal token="tok" shipment={shipment()} onReprint={vi.fn()} onCancel={vi.fn()} onCreateNew={onCreateNew} />)
+
+    await user.click(screen.getByRole('button', { name: /Wrong carrier\? Delete & create new/ }))
+
+    expect(await screen.findByText(/don’t hand over the old label/i)).toBeInTheDocument()
+    expect(screen.queryByText(/could not delete/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Create new shipment' }))
+    expect(onCreateNew).toHaveBeenCalled()
+  })
+
   it('shows an error and stays on the original view when the cancel call itself fails', async () => {
     vi.mocked(shippingApi.cancelShipment).mockRejectedValue(new Error('network error'))
     const user = userEvent.setup()

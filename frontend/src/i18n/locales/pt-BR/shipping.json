@@ -24,7 +24,8 @@
   },
   "cancelOutcome": {
     "deleted": "Envio excluído no MyParcel.",
-    "notDeleted": "O MyParcel não conseguiu excluir este envio ({{error}}). Ele foi cancelado no CommerceOS para que um envio corrigido possa ser criado, mas o envio ou a etiqueta antiga ainda pode existir no MyParcel."
+    "notDeleted": "O MyParcel não conseguiu excluir este envio ({{error}}). Ele foi cancelado no CommerceOS para que um envio corrigido possa ser criado, mas o envio ou a etiqueta antiga ainda pode existir no MyParcel.",
+    "labelKept": "Cancelado. A transportadora não consegue excluir uma etiqueta já anunciada, então a etiqueta antiga continua válida por 7 dias. Ela não custa nada desde que nunca seja escaneada – não entregue a etiqueta antiga, use a nova."
   },
   "existing": {
     "cancelFailed": "Não foi possível cancelar o envio",

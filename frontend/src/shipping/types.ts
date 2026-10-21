@@ -67,6 +67,9 @@ export interface Shipment {
   cancel_note?: string
   cancel_deleted_on_carrier?: boolean | null
   cancel_carrier_error?: string
+  // The carrier kept the pre-announced label (PostNL) -- see
+  // CancelShipmentResult.label_kept.
+  cancel_label_kept?: boolean
 }
 
 // One status MyParcel has reported for a shipment -- the tracking

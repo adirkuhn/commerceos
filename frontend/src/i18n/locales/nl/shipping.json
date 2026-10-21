@@ -24,7 +24,8 @@
   },
   "cancelOutcome": {
     "deleted": "Zending verwijderd bij MyParcel.",
-    "notDeleted": "MyParcel kon deze zending niet verwijderen ({{error}}). Ze is geannuleerd in CommerceOS zodat een gecorrigeerde zending kan worden aangemaakt, maar de oude zending of het oude label kan bij MyParcel nog bestaan."
+    "notDeleted": "MyParcel kon deze zending niet verwijderen ({{error}}). Ze is geannuleerd in CommerceOS zodat een gecorrigeerde zending kan worden aangemaakt, maar de oude zending of het oude label kan bij MyParcel nog bestaan.",
+    "labelKept": "Geannuleerd. De vervoerder kan een aangemeld label niet verwijderen, dus het oude label blijft 7 dagen geldig. Het kost niets zolang het nooit gescand wordt – geef het oude label niet mee, gebruik het nieuwe."
   },
   "existing": {
     "cancelFailed": "Zending kon niet worden geannuleerd",

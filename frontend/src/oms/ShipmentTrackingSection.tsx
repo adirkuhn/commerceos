@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { myParcelStatusText } from '../shipping/myParcelStatusText'
-import { cancelOutcomeText, outcomeOfShipment } from '../shipping/cancelOutcomeText'
+import { cancelOutcomeText, outcomeOfCancelResult, outcomeOfShipment } from '../shipping/cancelOutcomeText'
 import * as shippingApi from '../shipping/api'
 import type { Shipment, ShipmentTrackingEvent } from '../shipping/types'
 import { CARRIERS } from '../shipping/types'
@@ -60,7 +60,7 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
     setError('')
     try {
       const result = await shippingApi.cancelShipment(token, shipment.id)
-      setCancelMessage(cancelOutcomeText(tShipping, { deleted: result.deleted_on_myparcel, carrierError: result.carrier_error ?? '' }, result.message))
+      setCancelMessage(cancelOutcomeText(tShipping, outcomeOfCancelResult(result), result.message))
       onCancelled()
     } catch (err) {
       setError(apiErrorText(err) ?? t('tracking.failedCancel'))
