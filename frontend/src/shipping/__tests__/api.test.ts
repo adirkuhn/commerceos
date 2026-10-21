@@ -86,6 +86,18 @@ describe('connectMyParcel', () => {
   })
 })
 
+describe('connectPostNL', () => {
+  it('posts the PostNL account and returns the connection', async () => {
+    mockFetch({ connection_id: 'conn-pn', provider: 'postnl', status: 'connected' }, 201)
+    const result = await api.connectPostNL(TOKEN, { api_key: 'k', customer_code: 'SLTQ', customer_number: '10979997', sandbox: true })
+    expect(result.connection_id).toBe('conn-pn')
+    const [url, init] = vi.mocked(fetch).mock.calls[0]
+    expect(String(url)).toContain('/shipping/postnl/connect')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(String(init?.body))).toEqual({ api_key: 'k', customer_code: 'SLTQ', customer_number: '10979997', sandbox: true })
+  })
+})
+
 describe('lookupAddress', () => {
   it('returns the street/city on a match', async () => {
     mockFetch({ street: 'Damrak', city: 'Amsterdam' })

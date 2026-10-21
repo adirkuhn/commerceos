@@ -8,7 +8,7 @@ export const INTEGRATIONS_PATH = '/integrations'
 const CONNECT_SEGMENT = 'connect'
 
 // Providers connected through a form in the "Add integration" catalog.
-export const CONNECT_FORM_PROVIDERS = ['woocommerce', 'whatsapp', 'stripe', 'revolut', 'email'] as const
+export const CONNECT_FORM_PROVIDERS = ['woocommerce', 'whatsapp', 'stripe', 'revolut', 'email', 'postnl'] as const
 export type ConnectFormProvider = typeof CONNECT_FORM_PROVIDERS[number]
 
 // Providers whose "connect" is their full settings page, opened blank.

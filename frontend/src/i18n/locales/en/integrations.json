@@ -167,6 +167,14 @@
     "stripeKeyHint": "From your Stripe Dashboard → Developers → API keys.",
     "stripeWebhookHint": "Stripe Dashboard → Developers → Webhooks"
   },
+  "postnl": {
+    "apiKey": "API key",
+    "customerCode": "Customer code",
+    "customerNumber": "Customer number",
+    "sandbox": "Sandbox (test environment)",
+    "accountHint": "Find these in Mijn PostNL zakelijk. Use the customer code for shipments within the EU.",
+    "senderHint": "Labels use your company profile address as the sender."
+  },
   "providerWebhooks": {
     "createFailed": "Failed to create subscription",
     "empty": "No subscriptions registered yet.",

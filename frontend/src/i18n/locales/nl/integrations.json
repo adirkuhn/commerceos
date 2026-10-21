@@ -167,6 +167,14 @@
     "stripeKeyHint": "Uit je Stripe Dashboard → Developers → API keys.",
     "stripeWebhookHint": "Stripe Dashboard → Developers → Webhooks"
   },
+  "postnl": {
+    "apiKey": "API-sleutel",
+    "customerCode": "Klantcode",
+    "customerNumber": "Klantnummer",
+    "sandbox": "Sandbox (testomgeving)",
+    "accountHint": "Je vindt deze in Mijn PostNL zakelijk. Gebruik de klantcode voor zendingen binnen de EU.",
+    "senderHint": "Labels gebruiken het adres uit je bedrijfsprofiel als afzender."
+  },
   "providerWebhooks": {
     "createFailed": "Abonnement aanmaken mislukt",
     "empty": "Nog geen abonnementen geregistreerd.",

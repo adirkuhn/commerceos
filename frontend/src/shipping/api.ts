@@ -64,6 +64,18 @@ export function connectMyParcel(token: string, apiKey: string): Promise<{ connec
   return request(`${base()}/myparcel/connect`, { method: 'POST', body: JSON.stringify({ api_key: apiKey }) }, token)
 }
 
+export interface ConnectPostNLPayload {
+  api_key: string
+  customer_code: string
+  customer_number: string
+  // Send every call to PostNL's sandbox instead of production.
+  sandbox: boolean
+}
+
+export function connectPostNL(token: string, payload: ConnectPostNLPayload): Promise<{ connection_id: string; provider: string; status: string }> {
+  return request(`${base()}/postnl/connect`, { method: 'POST', body: JSON.stringify(payload) }, token)
+}
+
 export function registerMyParcelWebhook(token: string, connectionId: string): Promise<{ ok: boolean }> {
   return request(`${base()}/connections/${connectionId}/register-webhook`, { method: 'POST' }, token)
 }

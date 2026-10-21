@@ -173,6 +173,14 @@
     "stripeKeyHint": "No seu Stripe Dashboard → Developers → API keys.",
     "stripeWebhookHint": "Stripe Dashboard → Developers → Webhooks"
   },
+  "postnl": {
+    "apiKey": "Chave de API",
+    "customerCode": "Código de cliente",
+    "customerNumber": "Número de cliente",
+    "sandbox": "Sandbox (ambiente de teste)",
+    "accountHint": "Você encontra esses dados no Mijn PostNL zakelijk. Use o código de cliente para envios dentro da UE.",
+    "senderHint": "As etiquetas usam o endereço do perfil da empresa como remetente."
+  },
   "providerWebhooks": {
     "createFailed": "Não foi possível criar a assinatura",
     "empty": "Nenhuma assinatura cadastrada ainda.",

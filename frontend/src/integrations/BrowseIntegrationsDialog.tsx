@@ -9,6 +9,7 @@ import { WooConnectForm } from './connectForms/WooConnectForm'
 import { WhatsAppConnectForm } from './connectForms/WhatsAppConnectForm'
 import { StripeConnectForm, RevolutConnectForm } from './connectForms/PaymentConnectForms'
 import { EmailConnectForm } from './connectForms/EmailConnectForm'
+import { PostNLConnectForm } from './connectForms/PostNLConnectForm'
 
 type CatalogTarget = { connect: ConnectFormProvider } | { new: NewPageProvider }
 
@@ -26,13 +27,21 @@ export const INTEGRATIONS_CATALOG: CatalogEntry[] = [
   { label: 'WooCommerce', initial: 'W', gradient: 'from-purple-500 to-violet-600', target: { connect: 'woocommerce' } },
   { label: 'Bol.com', initial: 'B', gradient: 'from-blue-500 to-cyan-600', target: { new: 'bol' } },
   { label: 'MyParcel', initial: 'M', gradient: 'from-orange-500 to-red-600', target: { new: 'myparcel' } },
+  { label: 'PostNL', initial: 'P', gradient: 'from-orange-400 to-amber-500', target: { connect: 'postnl' } },
   { label: 'WhatsApp', initial: 'WA', gradient: 'from-green-500 to-emerald-600', target: { connect: 'whatsapp' } },
   { label: 'Stripe', initial: 'S', gradient: 'from-indigo-500 to-purple-600', target: { connect: 'stripe' } },
   { label: 'Revolut', initial: 'R', gradient: 'from-slate-700 to-black', target: { connect: 'revolut' } },
   { get label() { return i18next.t('integrations:browse.email') }, initial: 'E', gradient: 'from-teal-500 to-cyan-600', target: { connect: 'email' } },
 ]
 
-type FormRenderer = (forms: ConnectForms, onClose: () => void) => ReactNode
+// token/onConnected are for forms that keep their own state (PostNL)
+// instead of living in useConnectForms.
+interface FormContext {
+  token: string
+  onConnected: () => void
+}
+
+type FormRenderer = (forms: ConnectForms, onClose: () => void, ctx: FormContext) => ReactNode
 
 const CONNECT_FORMS: Record<ConnectFormProvider, FormRenderer> = {
   woocommerce: forms => <WooConnectForm form={forms.woo} error={forms.error} starting={forms.starting} />,
@@ -46,6 +55,7 @@ const CONNECT_FORMS: Record<ConnectFormProvider, FormRenderer> = {
     <RevolutConnectForm form={forms.revolut} webhook={forms.paymentWebhook} error={forms.error} starting={forms.starting} onDone={onClose} />
   ),
   email: forms => <EmailConnectForm form={forms.email} error={forms.error} starting={forms.starting} />,
+  postnl: (_forms, onClose, { token, onConnected }) => <PostNLConnectForm token={token} onConnected={onConnected} onDone={onClose} />,
 }
 
 interface Props {
@@ -81,7 +91,7 @@ export function BrowseIntegrationsDialog({ token, provider, onOpenConnect, onOpe
           </button>
         </div>
 
-        {provider ? CONNECT_FORMS[provider](forms, onClose) : (
+        {provider ? CONNECT_FORMS[provider](forms, onClose, { token, onConnected }) : (
           <div className="space-y-2">
             {INTEGRATIONS_CATALOG.map(entry => (
               <button

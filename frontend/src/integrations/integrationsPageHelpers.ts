@@ -13,6 +13,7 @@ export const PROVIDER_COLORS: Record<string, string> = {
   woocommerce: 'from-purple-500 to-violet-600',
   bol: 'from-blue-500 to-cyan-600',
   myparcel: 'from-orange-500 to-red-600',
+  postnl: 'from-orange-400 to-amber-500',
   whatsapp: 'from-green-500 to-emerald-600',
   stripe: 'from-indigo-500 to-purple-600',
   revolut: 'from-slate-700 to-black',

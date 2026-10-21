@@ -41,6 +41,7 @@ vi.mock('../../integrations/api', () => ({
 vi.mock('../../shipping/api', async importOriginal => ({
   ...await importOriginal<typeof import('../../shipping/api')>(),
   listShippingConnections: vi.fn().mockResolvedValue({ connections: [], default_connection_id: null, configured_connection_id: null }),
+  connectPostNL: vi.fn(),
 }))
 vi.mock('../../inventory/api', () => ({
   listWarehouses: vi.fn(),
@@ -78,6 +79,7 @@ vi.mock('../../tax/api', () => ({
 }))
 
 import * as integrationsApi from '../../integrations/api'
+import * as shippingApi from '../../shipping/api'
 import * as inventoryApi from '../../inventory/api'
 import * as tenantSettingsApi from '../../settings/api'
 import * as taxApi from '../../tax/api'
@@ -556,6 +558,39 @@ describe('Connect WhatsApp/Stripe/Revolut', () => {
     }))
     expect(screen.queryByLabelText('SMTP host')).not.toBeInTheDocument()
     expect(integrationsApi.listConnections).toHaveBeenCalledTimes(2) // initial load + refresh after connect
+  })
+
+  it('connecting PostNL submits the account and closes the modal', async () => {
+    vi.mocked(shippingApi.connectPostNL).mockResolvedValue({ connection_id: 'conn-pn', provider: 'postnl', status: 'connected' })
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse integrations' }))
+    await userEvent.click(await screen.findByText('PostNL'))
+
+    await userEvent.type(await screen.findByLabelText('API key'), 'key-1')
+    await userEvent.type(screen.getByLabelText('Customer code'), 'SLTQ')
+    await userEvent.type(screen.getByLabelText('Customer number'), '10979997')
+    await userEvent.click(screen.getByLabelText('Sandbox (test environment)'))
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+
+    await waitFor(() => expect(shippingApi.connectPostNL).toHaveBeenCalledWith('test-token', {
+      api_key: 'key-1', customer_code: 'SLTQ', customer_number: '10979997', sandbox: true,
+    }))
+    expect(screen.queryByLabelText('Customer code')).not.toBeInTheDocument()
+    expect(integrationsApi.listConnections).toHaveBeenCalledTimes(2) // initial load + refresh after connect
+  })
+
+  it('shows an error if connecting PostNL fails', async () => {
+    vi.mocked(shippingApi.connectPostNL).mockRejectedValue(new Error('bad account'))
+    render(<MemoryRouter><AppProvider><Integrations /></AppProvider></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Browse integrations' }))
+    await userEvent.click(await screen.findByText('PostNL'))
+    await userEvent.type(await screen.findByLabelText('API key'), 'key-1')
+    await userEvent.type(screen.getByLabelText('Customer code'), 'SLTQ')
+    await userEvent.type(screen.getByLabelText('Customer number'), '1')
+    await userEvent.click(screen.getByRole('button', { name: 'Connect' }))
+
+    expect(await screen.findByText('bad account')).toBeInTheDocument()
+    expect(screen.getByLabelText('Customer code')).toBeInTheDocument()
   })
 
   it('shows an error if connecting Email fails', async () => {
