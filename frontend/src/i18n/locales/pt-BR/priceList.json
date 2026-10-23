@@ -8,6 +8,7 @@
     "hint": "Aplicado ao preço e ao preço promocional."
   },
   "search": "Buscar produtos ou códigos SKU",
+  "clearSearch": "Limpar busca",
   "col": {
     "product": "Produto",
     "available": "Disponível",

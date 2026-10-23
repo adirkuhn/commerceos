@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Plus, Search } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Money } from '../format/amountVisibility'
 import { usePriceList } from './hooks/usePriceList'
+import { SearchField } from './SearchField'
 import { applyDiscount, listPrice } from './pricing'
 import { formatQuantity } from './format'
 import type { PriceListRow } from './types'
@@ -30,14 +31,7 @@ export function QuoteSearch({ token, discount, isAdded, onAdd }: {
 
   return (
     <div className="relative max-w-xl">
-      <Search size={13} className="absolute left-3 top-[15px] -translate-y-1/2 text-ink-4" />
-      <input
-        value={input}
-        onChange={e => setInput(e.target.value)}
-        placeholder={t('search')}
-        aria-label={t('search')}
-        className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
-      />
+      <SearchField label={t('search')} value={input} onChange={setInput} />
       {error && <p role="alert" className="mt-1 text-xs text-danger">{error}</p>}
       {enabled && !loading && rows.length === 0 && !error && <p className="mt-1 text-xs text-ink-4">{t('quote.noResults')}</p>}
       {rows.length > 0 && (

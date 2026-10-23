@@ -8,6 +8,7 @@
     "hint": "Taken off the price and the sale price."
   },
   "search": "Search products or SKU codes",
+  "clearSearch": "Clear search",
   "col": {
     "product": "Product",
     "available": "Available",

@@ -8,6 +8,7 @@
     "hint": "Gaat van de prijs en de actieprijs af."
   },
   "search": "Zoek producten of SKU-codes",
+  "clearSearch": "Zoekopdracht wissen",
   "col": {
     "product": "Product",
     "available": "Beschikbaar",

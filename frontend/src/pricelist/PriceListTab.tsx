@@ -1,11 +1,11 @@
 import clsx from 'clsx'
 import { useEffect, useState } from 'react'
-import { Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import Pagination from '../components/common/Pagination'
 import { Money } from '../format/amountVisibility'
 import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { usePriceList } from './hooks/usePriceList'
+import { SearchField } from './SearchField'
 import { applyDiscount, listPrice, unitEconomics } from './pricing'
 import { belowTargetText, formatPercent, formatQuantity } from './format'
 import type { PriceListRow } from './types'
@@ -35,15 +35,8 @@ export function PriceListTab({ token, discount }: { token: string; discount: num
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
-        <div className="relative flex-1 max-w-sm">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
-          <input
-            value={searchInput}
-            onChange={e => setSearchInput(e.target.value)}
-            placeholder={t('search')}
-            aria-label={t('search')}
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-raised border-line border text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
-          />
+        <div className="flex-1 max-w-sm">
+          <SearchField label={t('search')} value={searchInput} onChange={setSearchInput} />
         </div>
         <span className="text-2xs text-ink-4">{t('profitNote')}</span>
         {error && <span role="alert" className="text-xs text-danger ml-auto">{error}</span>}
