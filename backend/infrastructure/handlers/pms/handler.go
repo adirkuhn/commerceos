@@ -9,6 +9,7 @@ import (
 	genpms "github.com/adirkuhn/commerceos/api/pms"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
+	apptax "github.com/adirkuhn/commerceos/application/tax"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
@@ -94,6 +95,9 @@ type getSKUMarginInsightUC interface {
 type listCostPriceHistoryUC interface {
 	Execute(ctx context.Context, skuID string, limit int) ([]pmsDomain.SKUCostPriceHistory, error)
 }
+type listPriceListUC interface {
+	Execute(ctx context.Context, in apppms.ListPriceListInput) (*apppms.ListPriceListResult, error)
+}
 type listMarginReportUC interface {
 	Execute(ctx context.Context, in apppms.ListMarginReportInput) (*apppms.ListMarginReportResult, error)
 }
@@ -175,6 +179,7 @@ type Handler struct {
 	merge                  ProductMergeUseCases
 	setTranslations        setProductTranslationsUC
 	setLowStockThreshold   setProductLowStockThresholdUC
+	listPriceList          listPriceListUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -220,6 +225,7 @@ func NewHandler(
 	merge ProductMergeUseCases,
 	setTranslations setProductTranslationsUC,
 	setLowStockThreshold setProductLowStockThresholdUC,
+	listPriceList listPriceListUC,
 ) *Handler {
 	return &Handler{
 		listBarcodeAliases:     listBarcodeAliases,
@@ -263,6 +269,7 @@ func NewHandler(
 		merge:                  merge,
 		setTranslations:        setTranslations,
 		setLowStockThreshold:   setLowStockThreshold,
+		listPriceList:          listPriceList,
 	}
 }
 
@@ -293,12 +300,15 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 	batchLister := invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo)
 	discardLister := invapp.NewListDiscardsUseCase(db, discardRepo)
 
+	listProducts := apppms.NewListProductsUseCase(db, productRepo)
+	catalog := apppms.NewListPOSProductCatalogUseCase(db, listProducts, variantRepo, skuRepo, mediaRepo, barcodeAliasRepo, scaleCodeAliasRepo)
+
 	h := NewHandler(
 		apppms.NewListCategoriesUseCase(db, categoryRepo),
 		apppms.NewCreateCategoryUseCase(db, categoryRepo, outboxRepo),
 		apppms.NewUpdateCategoryUseCase(db, categoryRepo, outboxRepo),
 		apppms.NewDeleteCategoryUseCase(db, categoryRepo, outboxRepo),
-		apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, productRepo), variantRepo, skuRepo, mediaRepo, barcodeAliasRepo, scaleCodeAliasRepo),
+		catalog,
 		apppms.NewCreateProductUseCase(db, productRepo, outboxRepo),
 		apppms.NewGetProductUseCase(db, productRepo, variantRepo, skuRepo),
 		apppms.NewUpdateProductUseCase(db, productRepo, variantRepo, listingRepo, outboxRepo, productHistoryRepo),
@@ -350,6 +360,10 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		},
 		apppms.NewSetProductTranslationsUseCase(db, productRepo, outboxRepo),
 		apppms.NewSetProductLowStockThresholdUseCase(db, productRepo, outboxRepo),
+		apppms.NewListPriceListUseCase(db, catalog,
+			invapp.NewGetSKUAvailabilityUseCase(db, movementRepo, batchRepo),
+			settingsRepo, categoryRepo,
+			apptax.NewTaxRateResolver(repositories.NewTaxClassRepo(db), repositories.NewTaxRateRepo(db))),
 	)
 	genpms.RegisterHandlers(rg, h)
 }

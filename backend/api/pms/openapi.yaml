@@ -908,6 +908,44 @@ paths:
               schema:
                 $ref: '#/components/schemas/MarginReportResponse'
 
+  /pms/price-list:
+    get:
+      operationId: listPriceList
+      summary: Price list — active SKUs with price, cost, sellable stock and earliest expiry
+      description: >
+        Powers the discount price list and the B2B quote screens. Returns raw
+        numbers only: discounts, profit and totals are computed by the client
+        (the quote edits prices live). Paginated per product; every active
+        SKU of a listed product is a row.
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: search
+          in: query
+          description: Matches product name/slug or any SKU code/barcode.
+          schema: { type: string, maxLength: 200 }
+        - name: product_ids
+          in: query
+          description: Restricts to these products (reloading a quote's lines).
+          style: form
+          explode: false
+          schema:
+            type: array
+            maxItems: 200
+            items: { type: string, format: uuid }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceListResponse'
+        '400': { $ref: '#/components/responses/Error' }
+
 components:
   parameters:
     id:
@@ -1438,6 +1476,62 @@ components:
         below_target:
           type: boolean
           description: markup_basis_points is below target_markup_basis_points -- includes a negative value (selling below cost).
+
+    PriceListRow:
+      type: object
+      required: [product_id, product_name, variant_name, sku_id, sku_code, unit_type, currency_code, price_minor_units, available_quantity, tax_rate_basis_points, target_markup_basis_points]
+      properties:
+        product_id: { type: string }
+        product_name: { type: string }
+        variant_name: { type: string }
+        sku_id: { type: string }
+        sku_code: { type: string }
+        unit_type: { $ref: '#/components/schemas/SKUUnitType' }
+        currency_code: { type: string }
+        price_minor_units:
+          type: integer
+          format: int64
+          description: Regular price, tax-inclusive when meta.prices_include_tax.
+        sale_price_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: Only when a sale runs today; same tax basis as price_minor_units.
+        cost_price_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: Average cost excluding tax; null when unknown.
+        available_quantity:
+          type: integer
+          format: int64
+          description: Stock outside expired lots (grams for unit_type kilo).
+        earliest_expiry:
+          type: string
+          format: date
+          nullable: true
+          description: Soonest expiry among unexpired lots still holding stock.
+        tax_rate_basis_points: { type: integer, format: int64 }
+        target_markup_basis_points:
+          type: integer
+          description: Markup (profit / cost) below which a price is too low.
+
+    PriceListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/PriceListRow' }
+        meta:
+          type: object
+          required: [total, prices_include_tax]
+          properties:
+            total:
+              type: integer
+              format: int64
+              description: Number of products (pagination unit), not rows.
+            prices_include_tax: { type: boolean }
+        error: { nullable: true }
 
     MarginReportResponse:
       type: object
