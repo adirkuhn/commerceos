@@ -3,6 +3,7 @@ import type { NavItem } from './types'
 
 import Home from './pages/Home'
 import Products from './pages/Products'
+import PriceList from './pages/PriceList'
 import Promotions from './pages/Promotions'
 import Coupons from './pages/Coupons'
 import Collections from './pages/Collections'
@@ -71,6 +72,7 @@ export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'unmatched-skus', path: '/unmatched-skus', Component: UnmatchedSkus },
   { nav: 'customers', path: '/customers', Component: Customers },
   { nav: 'products', path: '/products', Component: Products },
+  { nav: 'price-list', path: '/price-list', Component: PriceList },
   { nav: 'collections', path: '/collections', Component: Collections },
   { nav: 'promotions', path: '/promotions', Component: Promotions },
   { nav: 'coupons', path: '/coupons', Component: Coupons },

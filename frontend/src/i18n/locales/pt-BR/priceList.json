@@ -1,0 +1,53 @@
+{
+  "tabs": {
+    "list": "Tabela de preços",
+    "quote": "Orçamento B2B"
+  },
+  "discount": {
+    "label": "Desconto",
+    "hint": "Aplicado ao preço e ao preço promocional."
+  },
+  "search": "Buscar produtos ou códigos SKU",
+  "col": {
+    "product": "Produto",
+    "available": "Disponível",
+    "expiry": "Validade",
+    "cost": "Custo",
+    "price": "Preço",
+    "salePrice": "Preço promocional",
+    "discounted": "−{{discount}}%",
+    "unitPrice": "Preço unitário",
+    "quantity": "Qtd",
+    "lineTotal": "Total da linha",
+    "profit": "Lucro / un.",
+    "lineProfit": "Lucro da linha",
+    "markup": "Markup"
+  },
+  "empty": "Nenhum produto ativo encontrado.",
+  "profitNote": "Lucro e markup sem IVA.",
+  "belowTarget": "Markup abaixo da meta de {{target}}%",
+  "belowCost": "Abaixo do custo",
+  "noCost": "Custo desconhecido",
+  "overStock": "Apenas {{available}} disponível",
+  "grams": "{{value}} g",
+  "quote": {
+    "add": "Adicionar",
+    "added": "Adicionado",
+    "noResults": "Nenhum produto encontrado.",
+    "empty": "Busque acima e adicione produtos para montar um orçamento.",
+    "loadingLine": "Carregando…",
+    "missingLine": "Não é mais um produto ativo",
+    "remove": "Remover {{name}}",
+    "resetPrice": "Voltar ao preço com desconto",
+    "priceEdited": "Preço digitado no lugar do preço com desconto",
+    "total": "Total do pedido",
+    "totalProfit": "Lucro total",
+    "profitPartial": "Não inclui linhas sem custo conhecido.",
+    "clear": "Limpar orçamento",
+    "export": "Exportar CSV",
+    "fileName": "orcamento-{{date}}.csv",
+    "csvProduct": "Produto",
+    "csvQuantity": "Quantidade",
+    "csvUnitPrice": "Preço unitário"
+  }
+}

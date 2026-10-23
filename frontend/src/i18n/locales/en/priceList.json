@@ -1,0 +1,53 @@
+{
+  "tabs": {
+    "list": "Price list",
+    "quote": "B2B quote"
+  },
+  "discount": {
+    "label": "Discount",
+    "hint": "Taken off the price and the sale price."
+  },
+  "search": "Search products or SKU codes",
+  "col": {
+    "product": "Product",
+    "available": "Available",
+    "expiry": "Expiry",
+    "cost": "Cost",
+    "price": "Price",
+    "salePrice": "Sale price",
+    "discounted": "−{{discount}}%",
+    "unitPrice": "Unit price",
+    "quantity": "Qty",
+    "lineTotal": "Line total",
+    "profit": "Profit / unit",
+    "lineProfit": "Line profit",
+    "markup": "Markup"
+  },
+  "empty": "No active products found.",
+  "profitNote": "Profit and markup exclude VAT.",
+  "belowTarget": "Markup under the {{target}}% target",
+  "belowCost": "Below cost",
+  "noCost": "No cost known",
+  "overStock": "Only {{available}} available",
+  "grams": "{{value}} g",
+  "quote": {
+    "add": "Add",
+    "added": "Added",
+    "noResults": "No matching products.",
+    "empty": "Search above and add products to build a quote.",
+    "loadingLine": "Loading…",
+    "missingLine": "No longer an active product",
+    "remove": "Remove {{name}}",
+    "resetPrice": "Back to the discounted price",
+    "priceEdited": "Price typed over the discounted one",
+    "total": "Order total",
+    "totalProfit": "Total profit",
+    "profitPartial": "Leaves out lines with no known cost.",
+    "clear": "Clear quote",
+    "export": "Export CSV",
+    "fileName": "quote-{{date}}.csv",
+    "csvProduct": "Product",
+    "csvQuantity": "Quantity",
+    "csvUnitPrice": "Unit price"
+  }
+}

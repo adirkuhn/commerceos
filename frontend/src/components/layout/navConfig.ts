@@ -3,7 +3,7 @@ import i18next from 'i18next'
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
   ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag, BarChart3, Ticket, Star,
-  Webhook, MessageSquare, PackageCheck, UserCog, Layers, Mail, CalendarClock,
+  Webhook, MessageSquare, PackageCheck, UserCog, Layers, Mail, CalendarClock, Calculator,
 } from 'lucide-react'
 import type { NavItem } from '../../types'
 import type { Design } from '../../theme/designPreference'
@@ -53,6 +53,7 @@ const L = {
   packing: link('packing', () => i18next.t('layout:nav.packing'), PackageCheck),
   stockIssues: link('stock-issues', () => i18next.t('layout:nav.stockIssues'), AlertTriangle),
   products: link('products', () => i18next.t('layout:nav.products'), Package),
+  priceList: link('price-list', () => i18next.t('layout:nav.priceList'), Calculator),
   collections: link('collections', () => i18next.t('layout:nav.collections'), Layers),
   inventory: link('inventory', () => i18next.t('layout:nav.inventory'), Boxes),
   warehouses: link('warehouses', () => i18next.t('layout:nav.warehouses'), Warehouse),
@@ -90,7 +91,7 @@ const R = {
 const CLASSIC_GROUPS: NavGroup[] = [
   group('sell', () => i18next.t('layout:group.sell'), [L.salesOrders, L.customers, L.salesChannels]),
   group('fulfill', () => i18next.t('layout:group.fulfill'), [L.picking, L.packing, L.stockIssues]),
-  group('catalog', () => i18next.t('layout:group.catalog'), [L.products, L.collections, L.inventory, L.warehouses, L.unmatchedSkus]),
+  group('catalog', () => i18next.t('layout:group.catalog'), [L.products, L.priceList, L.collections, L.inventory, L.warehouses, L.unmatchedSkus]),
   group('buy', () => i18next.t('layout:group.buy'), [L.suppliers, L.procurement, L.purchasePlanner]),
   group('marketing', () => i18next.t('layout:group.marketing'), [L.promotions, L.coupons, L.reviews, L.messageCenter, L.newsletter]),
   group('reports', () => i18next.t('layout:group.reports'), [
@@ -109,7 +110,7 @@ const REPORTS_LINK: NavLink = { id: 'reports-overview', get label() { return i18
 const DEPOT_GROUPS: NavGroup[] = [
   group('orders', () => i18next.t('layout:group.orders'), [L.salesOrders, L.customers]),
   group('warehouse', () => i18next.t('layout:group.warehouse'), [L.picking, L.packing, L.stockIssues, L.inventory, L.warehouses]),
-  group('catalog', () => i18next.t('layout:group.catalog'), [L.products, L.collections, L.unmatchedSkus]),
+  group('catalog', () => i18next.t('layout:group.catalog'), [L.products, L.priceList, L.collections, L.unmatchedSkus]),
   group('buying', () => i18next.t('layout:group.buying'), [L.suppliers, L.procurement, L.purchasePlanner]),
   group('marketing', () => i18next.t('layout:group.marketing'), [L.promotions, L.coupons, L.reviews, L.messageCenter, L.newsletter]),
   group('insight', () => i18next.t('layout:group.insight'), [REPORTS_LINK], { flat: true }),

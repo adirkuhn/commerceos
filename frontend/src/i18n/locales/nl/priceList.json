@@ -1,0 +1,53 @@
+{
+  "tabs": {
+    "list": "Prijslijst",
+    "quote": "B2B-offerte"
+  },
+  "discount": {
+    "label": "Korting",
+    "hint": "Gaat van de prijs en de actieprijs af."
+  },
+  "search": "Zoek producten of SKU-codes",
+  "col": {
+    "product": "Product",
+    "available": "Beschikbaar",
+    "expiry": "Houdbaar tot",
+    "cost": "Kostprijs",
+    "price": "Prijs",
+    "salePrice": "Actieprijs",
+    "discounted": "−{{discount}}%",
+    "unitPrice": "Stukprijs",
+    "quantity": "Aantal",
+    "lineTotal": "Regeltotaal",
+    "profit": "Winst / stuk",
+    "lineProfit": "Regelwinst",
+    "markup": "Opslag"
+  },
+  "empty": "Geen actieve producten gevonden.",
+  "profitNote": "Winst en opslag zijn exclusief btw.",
+  "belowTarget": "Opslag onder het doel van {{target}}%",
+  "belowCost": "Onder kostprijs",
+  "noCost": "Geen kostprijs bekend",
+  "overStock": "Slechts {{available}} beschikbaar",
+  "grams": "{{value}} g",
+  "quote": {
+    "add": "Toevoegen",
+    "added": "Toegevoegd",
+    "noResults": "Geen producten gevonden.",
+    "empty": "Zoek hierboven en voeg producten toe om een offerte te maken.",
+    "loadingLine": "Laden…",
+    "missingLine": "Geen actief product meer",
+    "remove": "{{name}} verwijderen",
+    "resetPrice": "Terug naar de kortingsprijs",
+    "priceEdited": "Prijs handmatig aangepast",
+    "total": "Totaal offerte",
+    "totalProfit": "Totale winst",
+    "profitPartial": "Zonder regels waarvan de kostprijs onbekend is.",
+    "clear": "Offerte wissen",
+    "export": "CSV exporteren",
+    "fileName": "offerte-{{date}}.csv",
+    "csvProduct": "Product",
+    "csvQuantity": "Aantal",
+    "csvUnitPrice": "Stukprijs"
+  }
+}
