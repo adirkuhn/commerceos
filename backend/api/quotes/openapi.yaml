@@ -1,0 +1,213 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Quotes API
+  version: "1.0"
+  description: >-
+    Saved B2B quotes built on the price list screen. A quote stores each
+    line's price as offered -- reopening it shows what was quoted, not
+    today's price. Every shop numbers its quotes Q-0001, Q-0002, ...;
+    numbers are never reused. Money is in minor units (cents).
+servers:
+  - url: /api/v1
+
+paths:
+  /quotes:
+    get:
+      operationId: listQuotes
+      summary: Saved quotes, most recently saved first
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: search
+          in: query
+          description: Matches the name, or the number (Q-0007 or 7).
+          schema: { type: string, maxLength: 200 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteListResponse'
+        '400': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createQuote
+      summary: Save a new quote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteInput'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteResponse'
+        '400': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
+  /quotes/{id}:
+    get:
+      operationId: getQuote
+      summary: One saved quote with its lines
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteResponse'
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: updateQuote
+      summary: Save over a quote -- name, discount and every line are replaced
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteInput'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteResponse'
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteQuote
+      summary: Delete a quote (its number is not reused)
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '204':
+          description: deleted
+        '404': { $ref: '#/components/responses/Error' }
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      description: Quote ID.
+      schema: { type: string, format: uuid }
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    QuoteLineInput:
+      type: object
+      required: [product_id, sku_id, quantity, unit_price_minor_units]
+      properties:
+        product_id: { type: string, format: uuid }
+        sku_id: { type: string, format: uuid }
+        quantity: { type: integer, format: int64, minimum: 0 }
+        unit_price_minor_units:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The price offered for one unit, as shown on the quote (tax basis as the shop's prices).
+
+    QuoteInput:
+      type: object
+      required: [name, discount_basis_points, lines]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        discount_basis_points:
+          type: integer
+          minimum: 0
+          maximum: 10000
+          description: The discount the quote was built with (3000 = 30%).
+        currency_code:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: Required once the quote has lines.
+        lines:
+          type: array
+          maxItems: 500
+          items: { $ref: '#/components/schemas/QuoteLineInput' }
+
+    QuoteLine:
+      type: object
+      required: [product_id, sku_id, quantity, unit_price_minor_units, line_total_minor_units]
+      properties:
+        product_id: { type: string }
+        sku_id: { type: string }
+        quantity: { type: integer, format: int64 }
+        unit_price_minor_units: { type: integer, format: int64 }
+        line_total_minor_units: { type: integer, format: int64 }
+
+    QuoteSummary:
+      type: object
+      required: [id, number, reference, name, currency_code, discount_basis_points, line_count, total_minor_units, created_at, updated_at]
+      properties:
+        id: { type: string }
+        number: { type: integer, format: int64 }
+        reference: { type: string, description: 'Shown number, e.g. Q-0007.' }
+        name: { type: string }
+        currency_code: { type: string, description: Empty for a quote without lines. }
+        discount_basis_points: { type: integer }
+        line_count: { type: integer }
+        total_minor_units: { type: integer, format: int64 }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Quote:
+      allOf:
+        - $ref: '#/components/schemas/QuoteSummary'
+        - type: object
+          required: [lines]
+          properties:
+            lines:
+              type: array
+              items: { $ref: '#/components/schemas/QuoteLine' }
+
+    QuoteResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/Quote' }
+        error: { nullable: true }
+
+    QuoteListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/QuoteSummary' }
+        meta:
+          type: object
+          required: [total]
+          properties:
+            total: { type: integer, format: int64 }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

@@ -44,6 +44,7 @@ func TestNewQuote_validation(t *testing.T) {
 		"negative discount":  {func(in *quotes.Input) { in.DiscountBasisPoints = -1 }, quotes.ErrInvalidDiscount},
 		"discount over 100%": {func(in *quotes.Input) { in.DiscountBasisPoints = 10001 }, quotes.ErrInvalidDiscount},
 		"bad currency":       {func(in *quotes.Input) { in.CurrencyCode = "eu" }, quotes.ErrInvalidCurrency},
+		"lines, no currency": {func(in *quotes.Input) { in.CurrencyCode = "" }, quotes.ErrInvalidCurrency},
 		"negative quantity":  {func(in *quotes.Input) { in.Lines[0].Quantity = -1 }, quotes.ErrInvalidLine},
 		"negative price":     {func(in *quotes.Input) { in.Lines[0].UnitPriceMinorUnits = -1 }, quotes.ErrInvalidLine},
 		"line without sku":   {func(in *quotes.Input) { in.Lines[0].SKUID = "" }, quotes.ErrInvalidLine},

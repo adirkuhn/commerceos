@@ -431,5 +431,13 @@
   "CARRIER_SENDER_ADDRESS_MISSING": "Fill in your company address in the company profile before creating labels with this carrier.",
   "CARRIER_DESTINATION_NOT_SUPPORTED": "This carrier integration can’t ship to this country yet.",
   "NOT_POSTNL_CONNECTION": "This is not a PostNL connection.",
-  "SHIPPING_ADDRESS_INVALID": "A shipping address needs a company name, street, house number, postal code, city and a 2-letter country code."
+  "SHIPPING_ADDRESS_INVALID": "A shipping address needs a company name, street, house number, postal code, city and a 2-letter country code.",
+  "QUOTE_NOT_FOUND": "This quote doesn’t exist (any more).",
+  "QUOTE_NAME_REQUIRED": "Give the quote a name.",
+  "QUOTE_NAME_TOO_LONG": "A quote name can be at most 200 characters.",
+  "QUOTE_INVALID_DISCOUNT": "The discount must be between 0% and 100%.",
+  "QUOTE_INVALID_CURRENCY": "The quote’s currency must be a three-letter code like EUR.",
+  "QUOTE_INVALID_LINE": "Every quote line needs a product, a quantity and a price of at least zero.",
+  "QUOTE_DUPLICATE_LINE": "A product can be on a quote only once.",
+  "QUOTE_TOO_MANY_LINES": "A quote can have at most 500 lines."
 }

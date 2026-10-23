@@ -431,5 +431,13 @@
   "CARRIER_SENDER_ADDRESS_MISSING": "Vul je bedrijfsadres in het bedrijfsprofiel in voordat je labels maakt met deze vervoerder.",
   "CARRIER_DESTINATION_NOT_SUPPORTED": "Met deze vervoerderskoppeling kun je nog niet naar dit land verzenden.",
   "NOT_POSTNL_CONNECTION": "Dit is geen PostNL-koppeling.",
-  "SHIPPING_ADDRESS_INVALID": "Een verzendadres heeft een bedrijfsnaam, straat, huisnummer, postcode, plaats en een landcode van 2 letters nodig."
+  "SHIPPING_ADDRESS_INVALID": "Een verzendadres heeft een bedrijfsnaam, straat, huisnummer, postcode, plaats en een landcode van 2 letters nodig.",
+  "QUOTE_NOT_FOUND": "Deze offerte bestaat niet (meer).",
+  "QUOTE_NAME_REQUIRED": "Geef de offerte een naam.",
+  "QUOTE_NAME_TOO_LONG": "Een offertenaam mag maximaal 200 tekens zijn.",
+  "QUOTE_INVALID_DISCOUNT": "De korting moet tussen 0% en 100% liggen.",
+  "QUOTE_INVALID_CURRENCY": "De valuta van de offerte moet een code van drie letters zijn, zoals EUR.",
+  "QUOTE_INVALID_LINE": "Elke offerteregel heeft een product, een aantal en een prijs van minstens nul nodig.",
+  "QUOTE_DUPLICATE_LINE": "Een product kan maar één keer op een offerte staan.",
+  "QUOTE_TOO_MANY_LINES": "Een offerte kan maximaal 500 regels hebben."
 }

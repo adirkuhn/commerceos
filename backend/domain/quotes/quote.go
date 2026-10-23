@@ -86,7 +86,7 @@ func validate(name string, in Input) error {
 		return ErrNameTooLong
 	case in.DiscountBasisPoints < 0 || in.DiscountBasisPoints > fullDiscount:
 		return ErrInvalidDiscount
-	case in.CurrencyCode != "" && !currencyCode.MatchString(in.CurrencyCode):
+	case (in.CurrencyCode != "" || len(in.Lines) > 0) && !currencyCode.MatchString(in.CurrencyCode):
 		return ErrInvalidCurrency
 	case len(in.Lines) > MaxLines:
 		return ErrTooManyLines

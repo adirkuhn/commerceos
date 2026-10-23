@@ -431,5 +431,13 @@
   "CARRIER_SENDER_ADDRESS_MISSING": "Preencha o endereço da empresa no perfil da empresa antes de criar etiquetas com esta transportadora.",
   "CARRIER_DESTINATION_NOT_SUPPORTED": "Esta integração de transportadora ainda não envia para este país.",
   "NOT_POSTNL_CONNECTION": "Esta não é uma conexão PostNL.",
-  "SHIPPING_ADDRESS_INVALID": "Um endereço de envio precisa de nome da empresa, rua, número, código postal, cidade e um código de país de 2 letras."
+  "SHIPPING_ADDRESS_INVALID": "Um endereço de envio precisa de nome da empresa, rua, número, código postal, cidade e um código de país de 2 letras.",
+  "QUOTE_NOT_FOUND": "Este orçamento não existe (mais).",
+  "QUOTE_NAME_REQUIRED": "Dê um nome ao orçamento.",
+  "QUOTE_NAME_TOO_LONG": "O nome do orçamento pode ter no máximo 200 caracteres.",
+  "QUOTE_INVALID_DISCOUNT": "O desconto deve estar entre 0% e 100%.",
+  "QUOTE_INVALID_CURRENCY": "A moeda do orçamento deve ser um código de três letras, como EUR.",
+  "QUOTE_INVALID_LINE": "Cada linha do orçamento precisa de um produto, uma quantidade e um preço de pelo menos zero.",
+  "QUOTE_DUPLICATE_LINE": "Um produto só pode aparecer uma vez no orçamento.",
+  "QUOTE_TOO_MANY_LINES": "Um orçamento pode ter no máximo 500 linhas."
 }

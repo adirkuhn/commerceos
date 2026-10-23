@@ -42,6 +42,7 @@ import (
 	genshipping "github.com/adirkuhn/commerceos/api/shipping"
 	genstockexpiry "github.com/adirkuhn/commerceos/api/stockexpiry"
 	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
+	genquotes "github.com/adirkuhn/commerceos/api/quotes"
 	gensupplierissues "github.com/adirkuhn/commerceos/api/supplierissues"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
@@ -80,6 +81,7 @@ import (
 	shippinghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/shipping"
 	stockexpiryhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/stockexpiry"
 	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
+	quoteshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/quotes"
 	supplierissueshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/supplierissues"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
 	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
@@ -623,6 +625,19 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	supplierissueshandler.Register(supplierissuesGroup, db, outboxRepo, cfg.IntegrationsEncryptionSecret, emailClient)
+
+	quotesSpec, err := genquotes.GetSpec()
+	if err != nil {
+		log.Fatalf("quotes: load openapi spec: %v", err)
+	}
+	// Own sub-group so the quotes-only spec validator never applies to the
+	// other modules' routes. No RequireRole: every authenticated role may
+	// work quotes for now (owner's call, 2026-10-23).
+	quotesGroup := v1.Group("")
+	quotesGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(quotesSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	quoteshandler.Register(quotesGroup, db, outboxRepo)
 
 	themeSpec, err := gentheme.GetSpec()
 	if err != nil {
