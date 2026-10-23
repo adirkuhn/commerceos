@@ -1,7 +1,8 @@
 {
   "tabs": {
     "list": "Prijslijst",
-    "quote": "B2B-offerte"
+    "quote": "B2B-offerte",
+    "saved": "Opgeslagen offertes"
   },
   "discount": {
     "label": "Korting",
@@ -49,7 +50,17 @@
     "fileName": "offerte-{{date}}.csv",
     "csvProduct": "Product",
     "csvQuantity": "Aantal",
-    "csvUnitPrice": "Stukprijs"
+    "csvUnitPrice": "Stukprijs",
+    "name": "Naam offerte",
+    "namePlaceholder": "Naam offerte, bijv. de klant",
+    "nameNeeded": "Geef de offerte een naam om op te slaan",
+    "save": "Opslaan",
+    "saving": "Opslaan…",
+    "saveAsNew": "Opslaan als nieuw",
+    "newQuote": "Nieuwe offerte",
+    "unsaved": "Niet-opgeslagen wijzigingen",
+    "saveFailed": "De offerte kon niet worden opgeslagen.",
+    "currentPrice": "Nu"
   },
   "cost": {
     "edit": "Kostprijs van {{sku}} instellen",
@@ -59,5 +70,22 @@
     "hint": "Stelt de kostprijs van het product overal in. Nieuwe ontvangsten blijven hem bijwerken.",
     "invalid": "Vul een kostprijs van minstens 0 in.",
     "saveFailed": "De kostprijs kon niet worden opgeslagen."
+  },
+  "saved": {
+    "search": "Zoek offertes op naam of nummer",
+    "empty": "Nog geen opgeslagen offertes.",
+    "colReference": "Nummer",
+    "colName": "Naam",
+    "colLines": "Regels",
+    "colDiscount": "Korting",
+    "colTotal": "Totaal",
+    "colUpdated": "Laatst opgeslagen",
+    "open": "{{reference}} openen",
+    "delete": "{{reference}} verwijderen",
+    "deleteTitle": "{{reference}} “{{name}}” verwijderen?",
+    "deleteMessage": "De offerte wordt definitief verwijderd. Het nummer wordt niet opnieuw gebruikt.",
+    "deleteConfirm": "Offerte verwijderen",
+    "deleteFailed": "De offerte kon niet worden verwijderd.",
+    "openFailed": "De offerte kon niet worden geopend."
   }
 }

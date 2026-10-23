@@ -1,22 +1,30 @@
 import clsx from 'clsx'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Download, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
+import { apiErrorText } from '../api/apiErrorText'
 import { Money } from '../format/amountVisibility'
 import { downloadBlob } from '../newsletter/download'
+import { useQueryString } from '../routing/useQueryState'
 import { usePriceList } from './hooks/usePriceList'
 import { useQuoteLines } from './hooks/useQuoteLines'
+import { useSavedQuote } from './hooks/useSavedQuotes'
 import { applyDiscount, listPrice, quoteTotals, type PricedLine } from './pricing'
 import { productLabel, quoteCsv } from './quoteCsv'
 import { QuoteLineRow } from './QuoteLineRow'
+import { QuoteSaveBar } from './QuoteSaveBar'
 import { QuoteSearch } from './QuoteSearch'
+import { createQuote, updateQuote } from './quotesApi'
+import { buildQuoteInput, isSameQuote, savedQuoteInput, withSavedQuote, withoutQuote } from './savedQuote'
 import type { PriceListRow } from './types'
 
 const TH = 'px-3 py-2.5 font-medium text-ink-4 caps-label'
 
 // A B2B quote: lines at the discounted price (each one can be typed over),
 // totals and profit, exported as CSV with product, quantity and price only.
+// Saved quotes open here too (?quote=<id>), at the prices they were saved with.
 export function QuoteTab({ token, discount }: { token: string; discount: number }) {
   const { t } = useTranslation(['priceList', 'common'])
   const quote = useQuoteLines()
@@ -24,6 +32,38 @@ export function QuoteTab({ token, discount }: { token: string; discount: number 
   const { data, loading, error, refresh } = usePriceList(token, { productIds, perPage: 200 }, productIds.length > 0)
   const rowBySku = useMemo(() => new Map((data?.rows ?? []).map(r => [r.sku_id, r])), [data])
   const pricesIncludeTax = data?.pricesIncludeTax ?? true
+
+  const [, setSearchParams] = useSearchParams()
+  const [quoteId] = useQueryString('quote')
+  const saved = useSavedQuote(token, quoteId)
+  const [name, setName] = useState('')
+  useEffect(() => { if (saved.data) setName(saved.data.name) }, [saved.data])
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const input = buildQuoteInput(name, discount, quote.lines, rowBySku, saved.data?.currency_code)
+  const dirty = quoteId
+    ? saved.data !== null && !isSameQuote(input, savedQuoteInput(saved.data))
+    : quote.lines.length > 0 || name.trim() !== ''
+
+  async function persist(asNew: boolean) {
+    setSaving(true)
+    setSaveError('')
+    try {
+      const q = quoteId && !asNew ? await updateQuote(token, quoteId, input) : await createQuote(token, input)
+      setSearchParams(prev => withSavedQuote(prev, q), { replace: true })
+      if (q.id === quoteId) saved.refresh()
+    } catch (e) {
+      setSaveError(apiErrorText(e) ?? t('quote.saveFailed'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function startNew() {
+    setSearchParams(prev => withoutQuote(prev), { replace: false })
+    setName('')
+    setSaveError('')
+  }
 
   const priced: (PricedLine & { skuId: string })[] = quote.lines.flatMap(line => {
     const row = rowBySku.get(line.skuId)
@@ -44,6 +84,12 @@ export function QuoteTab({ token, discount }: { token: string; discount: number 
 
   return (
     <>
+      <QuoteSaveBar
+        reference={saved.data && saved.data.id === quoteId ? saved.data.reference : null}
+        name={name} onName={setName} dirty={dirty} saving={saving}
+        error={saveError || (quoteId && saved.error) || ''}
+        onSave={() => persist(false)} onSaveAsNew={() => persist(true)} onNew={startNew}
+      />
       <div className="flex flex-wrap items-start gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <div className="flex-1 min-w-[260px]">
           <QuoteSearch token={token} discount={discount}

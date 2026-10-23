@@ -47,6 +47,9 @@ export function QuoteLineRow({ token, line, row, discountedPrice, pricesIncludeT
       <td className="px-3 py-2 text-right">
         <PriceInput value={unitPrice} edited={line.unitPrice !== undefined} onCommit={onUnitPrice}
           label={`${t('col.unitPrice')} ${row.sku_code}`} />
+        {line.unitPrice !== undefined && line.unitPrice !== discountedPrice && (
+          <p className="mt-0.5 text-2xs text-ink-4">{t('quote.currentPrice')} <Money minor={discountedPrice} currency={currency} /></p>
+        )}
       </td>
       <td className="px-3 py-2 text-right">
         <input

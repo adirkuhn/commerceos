@@ -6,11 +6,13 @@ import { parseDiscount } from '../pricelist/pricing'
 import { DiscountField } from '../pricelist/DiscountField'
 import { PriceListTab } from '../pricelist/PriceListTab'
 import { QuoteTab } from '../pricelist/QuoteTab'
+import { SavedQuotesTab } from '../pricelist/SavedQuotesTab'
 
-const TABS = ['list', 'quote'] as const
+const TABS = ['list', 'quote', 'saved'] as const
 
 // Price list with a what-if discount, and a B2B quote built on the same
-// discount: ?tab=quote&discount=30 (the quote's lines are in ?lines=).
+// discount: ?tab=quote&discount=30 (the quote's lines are in ?lines=), and
+// the saved quotes (?tab=saved).
 export default function PriceList() {
   const { token } = useAuth()
   const { t } = useTranslation('priceList')
@@ -37,13 +39,15 @@ export default function PriceList() {
             </button>
           ))}
         </div>
-        <div className="ml-auto">
-          <DiscountField value={discountRaw ?? ''} onChange={setDiscount} />
-        </div>
+        {tab !== 'saved' && (
+          <div className="ml-auto">
+            <DiscountField value={discountRaw ?? ''} onChange={setDiscount} />
+          </div>
+        )}
       </div>
-      {tab === 'quote'
-        ? <QuoteTab token={token ?? ''} discount={discount} />
-        : <PriceListTab token={token ?? ''} discount={discount} />}
+      {tab === 'quote' && <QuoteTab token={token ?? ''} discount={discount} />}
+      {tab === 'saved' && <SavedQuotesTab token={token ?? ''} />}
+      {tab === 'list' && <PriceListTab token={token ?? ''} discount={discount} />}
     </div>
   )
 }
