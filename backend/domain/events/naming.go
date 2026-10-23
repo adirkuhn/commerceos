@@ -19,7 +19,7 @@ import (
 // JetStream subject (infrastructure/publishers).
 var Domains = []string{
 	"apikeys", "channels", "collections", "coupons", "customers", "fx", "iam", "integrations", "inventory",
-	"messagecenter", "newsletter", "notifications", "oms", "payments", "pms", "procurement", "promotions",
+	"messagecenter", "newsletter", "notifications", "oms", "payments", "pms", "procurement", "promotions", "quotes",
 	"reviews", "scheduler", "settings", "shipping", "storefront", "suppliers", "tax", "theme", "webhook_forwarding", "whatsapp",
 }
 
