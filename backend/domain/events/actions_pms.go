@@ -16,7 +16,7 @@ var (
 	SKUCurrencyPriceDeleted = defineAction("pms.sku_currency_price.deleted",
 		"A SKU's fixed price in another currency was removed -- it falls back to exchange-rate conversion (entity_id is the SKU). data: currency_code.")
 	SKUCostPriceChanged = defineAction("pms.sku.cost_price_changed",
-		"A SKU's cost price changed (changes: cost_price_minor_units, cost_price_source). data: reason -- receipt (stock received at a landed cost, moving average), correction (a value correction such as a corrected invoice), manual (set by hand, overrides computed cost) or override_cleared (back to the computed cost); reference_type, reference_id.")
+		"A SKU's cost price changed (changes: cost_price_minor_units, cost_price_source). data: reason -- receipt (stock received at a landed cost, moving average), correction (a value correction such as a corrected invoice), manual (set by hand, overrides computed cost), set (set by hand but still computed -- the next receipt blends into it) or override_cleared (back to the computed cost); reference_type, reference_id.")
 	BarcodeAliasCreated = defineAction("pms.barcode_alias.created",
 		"An extra barcode (e.g. a case barcode) was linked to a SKU. data: sku_id, code, units_per_scan.")
 	BarcodeAliasDeleted = defineAction("pms.barcode_alias.deleted",

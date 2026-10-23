@@ -14,6 +14,7 @@ const (
 	CostPriceChangeReasonCorrection      = "correction"
 	CostPriceChangeReasonManual          = "manual"
 	CostPriceChangeReasonOverrideCleared = "override_cleared"
+	CostPriceChangeReasonSet             = "set"
 )
 
 // recordCostPriceChanged records a SKU's cost price change: before is the

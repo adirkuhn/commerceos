@@ -434,6 +434,7 @@ type stubs struct {
 	setTranslations        stubSetProductTranslations
 	setLowStockThreshold   stubSetProductLowStockThreshold
 	listPriceList          stubListPriceList
+	setAutomaticCostPrice  stubSetManualCostPrice
 }
 
 func newTestRouter(s *stubs) *gin.Engine {
@@ -456,6 +457,7 @@ func newTestRouter(s *stubs) *gin.Engine {
 		&s.setTranslations,
 		&s.setLowStockThreshold,
 		&s.listPriceList,
+		&s.setAutomaticCostPrice,
 	)
 	r := gin.New()
 	genpms.RegisterHandlers(r.Group("/api/v1"), h)

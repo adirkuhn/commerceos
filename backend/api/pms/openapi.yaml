@@ -609,6 +609,35 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /pms/skus/{id}/cost-price/automatic:
+    put:
+      operationId: setAutomaticCostPrice
+      summary: Set a SKU's cost price that goods receipts keep updating
+      description: >-
+        Unlike setManualCostPrice the cost stays automatic
+        (cost_price_source computed): the next goods receipt blends its
+        landed cost into this value. For an unknown or stale cost that
+        should still follow purchase prices. 422 for a negative cost.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetManualCostPriceRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SKUResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /pms/skus/{id}/cost-price/correction:
     post:
       operationId: correctCost

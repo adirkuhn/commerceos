@@ -68,6 +68,7 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, pmsDomain.ErrBarcodeAliasCodeRequired),
 		errors.Is(err, pmsDomain.ErrScaleCodeAliasCodeRequired),
 		errors.Is(err, pmsDomain.ErrCostPriceUnknownForCorrection),
+		errors.Is(err, pmsDomain.ErrInvalidCostPrice),
 		errors.Is(err, pmsDomain.ErrNoStockOnHandForCorrection),
 		errors.Is(err, fxDomain.ErrInvalidCurrencyCode):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)

@@ -26,6 +26,20 @@ func (h *Handler) SetManualCostPrice(c *gin.Context, id genpms.Id) {
 	c.JSON(http.StatusOK, genpms.SKUResponse{Data: &resp})
 }
 
+func (h *Handler) SetAutomaticCostPrice(c *gin.Context, id genpms.Id) {
+	var req genpms.SetManualCostPriceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
+		return
+	}
+	sku, err := h.setAutomaticCostPrice.Execute(c.Request.Context(), id, req.CostPriceMinorUnits)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenSKU(*sku)
+	c.JSON(http.StatusOK, genpms.SKUResponse{Data: &resp})
+}
+
 func (h *Handler) ClearCostPriceOverride(c *gin.Context, id genpms.Id) {
 	sku, err := h.clearCostPriceOverride.Execute(c.Request.Context(), id)
 	if err := mapError(c, err); err != nil {

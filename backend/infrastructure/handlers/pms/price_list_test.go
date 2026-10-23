@@ -79,3 +79,40 @@ func TestListPriceList_useCaseErrorIsServerError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.NotContains(t, w.Body.String(), "boom", "internal errors don't leak")
 }
+
+func TestSetAutomaticCostPrice_success(t *testing.T) {
+	cost := int64(450)
+	s := &stubs{setAutomaticCostPrice: stubSetManualCostPrice{out: &pmsDomain.SKU{
+		ID: "sku-1", CurrencyCode: "EUR", CostPriceMinorUnits: &cost, CostPriceSource: pmsDomain.SKUCostPriceSourceComputed, Status: pmsDomain.SKUStatusActive,
+	}}}
+
+	w := doRequest(newTestRouter(s), http.MethodPut, "/api/v1/pms/skus/sku-1/cost-price/automatic", map[string]int64{"cost_price_minor_units": 450})
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "sku-1", s.setAutomaticCostPrice.gotSKUID)
+	assert.Equal(t, int64(450), s.setAutomaticCostPrice.gotCostPriceMinorUnits)
+	assert.Contains(t, w.Body.String(), `"cost_price_source":"computed"`)
+}
+
+func TestSetAutomaticCostPrice_notFound(t *testing.T) {
+	s := &stubs{setAutomaticCostPrice: stubSetManualCostPrice{err: pmsDomain.ErrSKUNotFound}}
+
+	w := doRequest(newTestRouter(s), http.MethodPut, "/api/v1/pms/skus/missing/cost-price/automatic", map[string]int64{"cost_price_minor_units": 450})
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestSetAutomaticCostPrice_negativeIsValidationError(t *testing.T) {
+	s := &stubs{setAutomaticCostPrice: stubSetManualCostPrice{err: pmsDomain.ErrInvalidCostPrice}}
+
+	w := doRequest(newTestRouter(s), http.MethodPut, "/api/v1/pms/skus/sku-1/cost-price/automatic", map[string]int64{"cost_price_minor_units": -1})
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), "COST_PRICE_NEGATIVE")
+}
+
+func TestSetAutomaticCostPrice_missingBodyIsValidationError(t *testing.T) {
+	w := doRequest(newTestRouter(&stubs{}), http.MethodPut, "/api/v1/pms/skus/sku-1/cost-price/automatic", nil)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}

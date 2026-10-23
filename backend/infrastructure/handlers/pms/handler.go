@@ -180,6 +180,7 @@ type Handler struct {
 	setTranslations        setProductTranslationsUC
 	setLowStockThreshold   setProductLowStockThresholdUC
 	listPriceList          listPriceListUC
+	setAutomaticCostPrice  setManualCostPriceUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -226,6 +227,7 @@ func NewHandler(
 	setTranslations setProductTranslationsUC,
 	setLowStockThreshold setProductLowStockThresholdUC,
 	listPriceList listPriceListUC,
+	setAutomaticCostPrice setManualCostPriceUC,
 ) *Handler {
 	return &Handler{
 		listBarcodeAliases:     listBarcodeAliases,
@@ -270,6 +272,7 @@ func NewHandler(
 		setTranslations:        setTranslations,
 		setLowStockThreshold:   setLowStockThreshold,
 		listPriceList:          listPriceList,
+		setAutomaticCostPrice:  setAutomaticCostPrice,
 	}
 }
 
@@ -364,6 +367,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 			invapp.NewGetSKUAvailabilityUseCase(db, movementRepo, batchRepo),
 			settingsRepo, categoryRepo,
 			apptax.NewTaxRateResolver(repositories.NewTaxClassRepo(db), repositories.NewTaxRateRepo(db))),
+		apppms.NewSetAutomaticCostPriceUseCase(db, skuRepo, outboxRepo),
 	)
 	genpms.RegisterHandlers(rg, h)
 }
