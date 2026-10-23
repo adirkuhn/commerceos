@@ -50,5 +50,14 @@
     "csvProduct": "Product",
     "csvQuantity": "Quantity",
     "csvUnitPrice": "Unit price"
+  },
+  "cost": {
+    "edit": "Set cost of {{sku}}",
+    "label": "Cost of {{sku}}",
+    "save": "Save cost",
+    "cancel": "Cancel",
+    "hint": "Sets the product's cost everywhere. New goods receipts keep updating it.",
+    "invalid": "Enter a cost of at least 0.",
+    "saveFailed": "The cost couldn't be saved."
   }
 }

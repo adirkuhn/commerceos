@@ -42,3 +42,41 @@ export interface QuoteLine {
   quantity: number
   unitPrice?: number
 }
+
+// Mirrors backend/api/quotes/openapi.yaml.
+export interface SavedQuoteSummary {
+  id: string
+  number: number
+  reference: string
+  name: string
+  currency_code: string
+  discount_basis_points: number
+  line_count: number
+  total_minor_units: number
+  created_at: string
+  updated_at: string
+}
+
+export interface SavedQuoteLine {
+  product_id: string
+  sku_id: string
+  quantity: number
+  unit_price_minor_units: number
+  line_total_minor_units: number
+}
+
+export interface SavedQuote extends SavedQuoteSummary {
+  lines: SavedQuoteLine[]
+}
+
+export interface QuoteInput {
+  name: string
+  discount_basis_points: number
+  currency_code?: string
+  lines: Omit<SavedQuoteLine, 'line_total_minor_units'>[]
+}
+
+export interface SavedQuotePage {
+  quotes: SavedQuoteSummary[]
+  total: number
+}

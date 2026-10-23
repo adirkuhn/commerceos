@@ -6,6 +6,7 @@ import { Money } from '../format/amountVisibility'
 import { useQueryPage, useQueryString } from '../routing/useQueryState'
 import { usePriceList } from './hooks/usePriceList'
 import { SearchField } from './SearchField'
+import { CostCell } from './CostCell'
 import { applyDiscount, listPrice, unitEconomics } from './pricing'
 import { belowTargetText, formatPercent, formatQuantity } from './format'
 import type { PriceListRow } from './types'
@@ -29,7 +30,7 @@ export function PriceListTab({ token, discount }: { token: string; discount: num
   }, [searchInput, search, setUrlSearch])
   useEffect(() => { setSearchInput(search) }, [search])
 
-  const { data, loading, error } = usePriceList(token, { page, perPage: PAGE_SIZE, search })
+  const { data, loading, error, refresh } = usePriceList(token, { page, perPage: PAGE_SIZE, search })
   const rows = data?.rows ?? []
 
   return (
@@ -64,7 +65,7 @@ export function PriceListTab({ token, discount }: { token: string; discount: num
               <tr><td colSpan={9} className="px-4 py-6 text-center text-ink-4">{t('empty')}</td></tr>
             )}
             {rows.map(row => (
-              <PriceListTableRow key={row.sku_id} row={row} discount={discount} pricesIncludeTax={data?.pricesIncludeTax ?? true} />
+              <PriceListTableRow key={row.sku_id} token={token} row={row} discount={discount} pricesIncludeTax={data?.pricesIncludeTax ?? true} onCostSaved={refresh} />
             ))}
           </tbody>
         </table>
@@ -74,7 +75,13 @@ export function PriceListTab({ token, discount }: { token: string; discount: num
   )
 }
 
-function PriceListTableRow({ row, discount, pricesIncludeTax }: { row: PriceListRow; discount: number; pricesIncludeTax: boolean }) {
+function PriceListTableRow({ token, row, discount, pricesIncludeTax, onCostSaved }: {
+  token: string
+  row: PriceListRow
+  discount: number
+  pricesIncludeTax: boolean
+  onCostSaved: () => void
+}) {
   const { t } = useTranslation('priceList')
   const currency = row.currency_code
   const sale = row.sale_price_minor_units
@@ -87,9 +94,7 @@ function PriceListTableRow({ row, discount, pricesIncludeTax }: { row: PriceList
         <p className="text-2xs font-mono text-ink-4 truncate">{row.sku_code}</p>
       </td>
       <td className="px-3 py-2 text-right tabular-nums text-ink-2">{formatQuantity(row, row.available_quantity)}</td>
-      <td className="px-3 py-2 text-right tabular-nums text-ink-3">
-        {row.cost_price_minor_units != null ? <Money minor={row.cost_price_minor_units} currency={currency} /> : '—'}
-      </td>
+      <CostCell token={token} row={row} onSaved={onCostSaved} />
       <td className="px-3 py-2 text-right tabular-nums text-ink-2"><Money minor={row.price_minor_units} currency={currency} /></td>
       <td className="px-3 py-2 text-right tabular-nums font-medium text-ink"><Money minor={applyDiscount(row.price_minor_units, discount)} currency={currency} /></td>
       <td className="px-3 py-2 text-right tabular-nums text-ink-2">{sale != null ? <Money minor={sale} currency={currency} /> : '—'}</td>

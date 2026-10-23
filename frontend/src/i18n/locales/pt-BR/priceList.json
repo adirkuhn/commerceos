@@ -50,5 +50,14 @@
     "csvProduct": "Produto",
     "csvQuantity": "Quantidade",
     "csvUnitPrice": "Preço unitário"
+  },
+  "cost": {
+    "edit": "Definir custo de {{sku}}",
+    "label": "Custo de {{sku}}",
+    "save": "Salvar custo",
+    "cancel": "Cancelar",
+    "hint": "Define o custo do produto em todo o sistema. Novos recebimentos continuam atualizando.",
+    "invalid": "Informe um custo de pelo menos 0.",
+    "saveFailed": "Não foi possível salvar o custo."
   }
 }

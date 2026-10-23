@@ -6,12 +6,14 @@ import { fromMinorUnits, toMinorUnits } from '../collections/form'
 import { Money } from '../format/amountVisibility'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { unitEconomics } from './pricing'
+import { CostCell } from './CostCell'
 import { belowTargetText, formatQuantity } from './format'
 import type { PriceListRow, QuoteLine } from './types'
 
 const INPUT = 'py-1 px-2 text-xs rounded-md bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-focus tabular-nums text-right'
 
 export interface QuoteLineRowProps {
+  token: string
   line: QuoteLine
   row: PriceListRow
   discountedPrice: number
@@ -19,9 +21,10 @@ export interface QuoteLineRowProps {
   onQuantity: (quantity: number) => void
   onUnitPrice: (unitPrice: number | undefined) => void
   onRemove: () => void
+  onCostSaved: () => void
 }
 
-export function QuoteLineRow({ line, row, discountedPrice, pricesIncludeTax, onQuantity, onUnitPrice, onRemove }: QuoteLineRowProps) {
+export function QuoteLineRow({ token, line, row, discountedPrice, pricesIncludeTax, onQuantity, onUnitPrice, onRemove, onCostSaved }: QuoteLineRowProps) {
   const { t } = useTranslation('priceList')
   const { formatDate } = useDateFormat()
   const currency = row.currency_code
@@ -40,9 +43,7 @@ export function QuoteLineRow({ line, row, discountedPrice, pricesIncludeTax, onQ
         title={overStock ? t('overStock', { available: formatQuantity(row, row.available_quantity) }) : undefined}>
         {formatQuantity(row, row.available_quantity)}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums text-ink-3">
-        {row.cost_price_minor_units != null ? <Money minor={row.cost_price_minor_units} currency={currency} /> : '—'}
-      </td>
+      <CostCell token={token} row={row} onSaved={onCostSaved} />
       <td className="px-3 py-2 text-right">
         <PriceInput value={unitPrice} edited={line.unitPrice !== undefined} onCommit={onUnitPrice}
           label={`${t('col.unitPrice')} ${row.sku_code}`} />

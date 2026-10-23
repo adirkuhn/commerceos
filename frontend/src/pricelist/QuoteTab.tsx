@@ -21,7 +21,7 @@ export function QuoteTab({ token, discount }: { token: string; discount: number 
   const { t } = useTranslation(['priceList', 'common'])
   const quote = useQuoteLines()
   const productIds = useMemo(() => [...new Set(quote.lines.map(l => l.productId))].sort(), [quote.lines])
-  const { data, loading, error } = usePriceList(token, { productIds, perPage: 200 }, productIds.length > 0)
+  const { data, loading, error, refresh } = usePriceList(token, { productIds, perPage: 200 }, productIds.length > 0)
   const rowBySku = useMemo(() => new Map((data?.rows ?? []).map(r => [r.sku_id, r])), [data])
   const pricesIncludeTax = data?.pricesIncludeTax ?? true
 
@@ -96,7 +96,7 @@ export function QuoteTab({ token, discount }: { token: string; discount: number 
                 )
               }
               return (
-                <QuoteLineRow key={line.skuId} line={line} row={row} pricesIncludeTax={pricesIncludeTax}
+                <QuoteLineRow key={line.skuId} token={token} line={line} onCostSaved={refresh} row={row} pricesIncludeTax={pricesIncludeTax}
                   discountedPrice={applyDiscount(listPrice(row), discount)}
                   onQuantity={q => quote.setQuantity(line.skuId, q)}
                   onUnitPrice={p => quote.setUnitPrice(line.skuId, p)}
