@@ -209,6 +209,7 @@ type stubStockMovementRepo struct {
 	created   []invDomain.StockMovement
 
 	bySKUs              []invDomain.StockMovement
+	bySKUsErr           error
 	distinctSKUIDs      []string
 	distinctSKUIDsTotal int64
 	distinctSKUIDsErr   error
@@ -231,7 +232,7 @@ func (s *stubStockMovementRepo) ListByBatch(_ context.Context, _ string) ([]invD
 	return s.byBatch, nil
 }
 func (s *stubStockMovementRepo) ListBySKUs(_ context.Context, _ []string) ([]invDomain.StockMovement, error) {
-	return s.bySKUs, nil
+	return s.bySKUs, s.bySKUsErr
 }
 func (s *stubStockMovementRepo) ListDistinctSKUIDs(_ context.Context, changedSince *time.Time, limit, offset int) ([]string, int64, error) {
 	s.gotChangedSince, s.gotLimit, s.gotOffset = changedSince, limit, offset
