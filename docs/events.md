@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-224 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+227 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -299,6 +299,14 @@ Payload (`events.EntityAction`):
 | `promotions.promotion_line.applied` | action | A promotion line put its SKU on sale. data: promotion_id, sku_id, sale_price_minor_units, previous_sale_price_minor_units. | envelope |
 | `promotions.promotion_line.finished` | action | A clearance line ended because its batch sold out, expired or was removed. data: promotion_id, sku_id, batch_id. | envelope |
 | `promotions.promotion_line.reverted` | action | A promotion line's SKU went back to its pre-promotion sale price. data: promotion_id, sku_id, restored_sale_price_minor_units. | envelope |
+
+### quotes
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `quotes.quote.created` | action | A B2B quote was saved for the first time. data: number, name, line_count, total_minor_units, currency_code. | envelope |
+| `quotes.quote.deleted` | action | A saved B2B quote was deleted. data: number, name. | envelope |
+| `quotes.quote.updated` | action | A saved B2B quote was saved over (changes: name, discount_basis_points, currency_code, line_count, total_minor_units). | envelope |
 
 ### reviews
 
