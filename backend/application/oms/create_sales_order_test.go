@@ -150,9 +150,39 @@ func TestCreateSalesOrder_rejectsEmptyLineItems(t *testing.T) {
 	assert.ErrorIs(t, err, omsDomain.ErrEmptyLineItems)
 }
 
+// Short stock must not fail an order that already exists: the short line
+// is left pending and the order goes to Stock issues, same as a status
+// change into processing does (decrementLineItems).
+func TestCreateSalesOrder_shortStockSendsTheOrderToStockIssues(t *testing.T) {
+	// order creation, then for the covered line link + freeze cost, then
+	// the short line's status and the order's review flag.
+	db := newMockGormDBN(t, 5)
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "sales-order-1"}}
+	lineItemRepo := &stubSalesOrderLineItemRepo{}
+	recordMovement := &stubRecordMovement{errBySKU: map[string]error{"sku-short": invDomain.ErrInsufficientStock}}
+	outbox := &eventrecordtest.Outbox{}
+	uc := appoms.NewCreateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement, outbox)
+
+	result, err := uc.Execute(context.Background(), appoms.CreateSalesOrderInput{
+		WarehouseID: "warehouse-1", CurrencyCode: "EUR", OccurredAt: time.Now(),
+		Status: omsDomain.SalesOrderStatusProcessing,
+		LineItems: []appoms.CreateSalesOrderLineItemInput{
+			{SKUID: "sku-ok", Quantity: 1, PriceMinorUnits: 500},
+			{SKUID: "sku-short", Quantity: 100, PriceMinorUnits: 500},
+		},
+	})
+
+	require.NoError(t, err)
+	assert.True(t, result.SalesOrder.NeedsStockReview)
+	require.Len(t, result.LineItems, 2)
+	assert.NotEqual(t, omsDomain.StockStatusPending, result.LineItems[0].StockStatus)
+	assert.Equal(t, omsDomain.StockStatusPending, result.LineItems[1].StockStatus)
+	assert.Equal(t, map[string]any{"needs_stock_review": true}, salesOrderRepo.gotUpdateFields)
+}
+
 func TestCreateSalesOrder_propagatesAStockMovementError(t *testing.T) {
 	db := newMockGormDB(t)
-	recordMovement := &stubRecordMovement{err: invDomain.ErrInsufficientStock}
+	recordMovement := &stubRecordMovement{err: assert.AnError}
 	uc := appoms.NewCreateSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, recordMovement, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), appoms.CreateSalesOrderInput{
@@ -161,7 +191,7 @@ func TestCreateSalesOrder_propagatesAStockMovementError(t *testing.T) {
 		LineItems: []appoms.CreateSalesOrderLineItemInput{{SKUID: "sku-1", Quantity: 100, PriceMinorUnits: 500}},
 	})
 
-	assert.ErrorIs(t, err, invDomain.ErrInsufficientStock)
+	assert.ErrorIs(t, err, assert.AnError)
 }
 
 func TestCreateSalesOrder_propagatesACreateError(t *testing.T) {

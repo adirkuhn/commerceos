@@ -25,39 +25,52 @@ import (
 // case) then RetryStockDecrementUseCase (either case) from the "Stock
 // Issues"/"Unmatched SKUs" admin pages -- see those use cases' docs.
 func decrementLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, salesOrderRepo omsDomain.SalesOrderRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, outbox eventrecord.Enqueuer, orderID, warehouseID string, lineItems []omsDomain.SalesOrderLineItem) error {
-	stillPending := false
-	for _, li := range lineItems {
+	pending, err := allocateLineItems(ctx, db, lineItemRepo, linkRepo, skuRepo, recordMovement, outbox, warehouseID, lineItems,
+		fmt.Sprintf("sales order %s status change", orderID), time.Now())
+	if err != nil {
+		return err
+	}
+	return setOrderNeedsStockReview(ctx, db, salesOrderRepo, outbox, orderID, len(pending) > 0, OrderChangeReasonStockShortfall)
+}
+
+// allocateLineItems takes each line item's stock (FEFO, see
+// AllocateSaleStockUseCase), linking the movements and freezing its cost.
+// A SKU-less line, or one short of stock, is left out and its position in
+// lineItems returned -- the short ones already marked StockStatusPending --
+// for the caller to flag the order; any other error stops it.
+func allocateLineItems(ctx context.Context, db *gorm.DB, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, outbox eventrecord.Enqueuer, warehouseID string, lineItems []omsDomain.SalesOrderLineItem, reason string, occurredAt time.Time) (pending []int, err error) {
+	for i, li := range lineItems {
 		if li.SKUID == nil {
 			// Never matched a catalog SKU -- NeedsSKUReview already
 			// reflects this from creation time; nothing to decrement
 			// against until it's linked.
-			stillPending = true
+			pending = append(pending, i)
 			continue
 		}
 		movements, err := recordMovement.Execute(ctx, invapp.AllocateSaleStockInput{
 			SKUID: *li.SKUID, WarehouseID: warehouseID, Type: invDomain.MovementTypeSale,
-			Quantity: li.Quantity, Reason: fmt.Sprintf("sales order %s status change", orderID), OccurredAt: time.Now(),
+			Quantity: li.Quantity, Reason: reason, OccurredAt: occurredAt,
 		})
 		if err != nil {
 			if !errors.Is(err, invDomain.ErrInsufficientStock) {
-				return err
+				return nil, err
 			}
-			stillPending = true
+			pending = append(pending, i)
 			if err := setLineItemStockStatus(ctx, db, lineItemRepo, outbox, li, omsDomain.StockStatusPending, OrderChangeReasonStockShortfall); err != nil {
-				return err
+				return nil, err
 			}
 			continue
 		}
 		for _, movement := range movements {
 			if err := linkLineItemMovement(ctx, db, linkRepo, li.ID, movement); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		if err := freezeCostAtSale(ctx, db, lineItemRepo, skuRepo, li.ID, *li.SKUID, li.Quantity); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return setOrderNeedsStockReview(ctx, db, salesOrderRepo, outbox, orderID, stillPending, OrderChangeReasonStockShortfall)
+	return pending, nil
 }
 
 // restockLineItems only restocks a line item whose StockStatus is already

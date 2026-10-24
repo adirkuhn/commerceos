@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/adirkuhn/commerceos/application/eventrecord"
-	invapp "github.com/adirkuhn/commerceos/application/inventory"
-	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"github.com/google/uuid"
@@ -178,25 +176,23 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 		return result, nil
 	}
 
-	for _, li := range createdLineItems {
-		if li.SKUID == nil {
-			continue
-		}
-		movements, err := uc.recordMovement.Execute(ctx, invapp.AllocateSaleStockInput{
-			SKUID: *li.SKUID, WarehouseID: in.WarehouseID, Type: invDomain.MovementTypeSale,
-			Quantity: li.Quantity, Reason: fmt.Sprintf("manual sale %s", order.ID),
-			OccurredAt: in.OccurredAt,
-		})
-		if err != nil {
+	// A short line doesn't fail the order (it exists already): it's left
+	// pending and the order flagged for Stock issues, like a status change
+	// into a stock-reducing status (decrementLineItems).
+	pending, err := allocateLineItems(ctx, uc.db, uc.lineItemRepo, uc.linkRepo, uc.skuRepo, uc.recordMovement, uc.outbox,
+		in.WarehouseID, createdLineItems, fmt.Sprintf("manual sale %s", order.ID), in.OccurredAt)
+	if err != nil {
+		return nil, fmt.Errorf("createSalesOrder: %w", err)
+	}
+	if len(pending) > 0 {
+		if err := setOrderNeedsStockReview(ctx, uc.db, uc.salesOrderRepo, uc.outbox, order.ID, true, OrderChangeReasonStockShortfall); err != nil {
 			return nil, fmt.Errorf("createSalesOrder: %w", err)
 		}
-		for _, movement := range movements {
-			if err := linkLineItemMovement(ctx, uc.db, uc.linkRepo, li.ID, movement); err != nil {
-				return nil, fmt.Errorf("createSalesOrder: %w", err)
+		result.SalesOrder.NeedsStockReview = true
+		for _, i := range pending {
+			if result.LineItems[i].SKUID != nil {
+				result.LineItems[i].StockStatus = omsDomain.StockStatusPending
 			}
-		}
-		if err := freezeCostAtSale(ctx, uc.db, uc.lineItemRepo, uc.skuRepo, li.ID, *li.SKUID, li.Quantity); err != nil {
-			return nil, fmt.Errorf("createSalesOrder: %w", err)
 		}
 	}
 	return result, nil
