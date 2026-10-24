@@ -49,6 +49,8 @@ type salesOrderModel struct {
 	CurrencyCode            string `gorm:"not null;default:'USD'"`
 	DiscountTotalMinorUnits int64  `gorm:"not null;default:0"`
 	ShippingTotalMinorUnits int64  `gorm:"not null;default:0"`
+	FeeLabel                string `gorm:"column:fee_label;not null;default:''"`
+	FeeTotalMinorUnits      int64  `gorm:"column:fee_total_minor_units;not null;default:0"`
 	TaxTotalMinorUnits      int64  `gorm:"not null;default:0"`
 	TotalMinorUnits         int64  `gorm:"not null;default:0"`
 
@@ -97,6 +99,7 @@ func salesOrderModelFromDomain(o *omsDomain.SalesOrder) salesOrderModel {
 		ShippingPostcode: sPostcode, ShippingCountry: sCountry, ShippingPhone: sPhone,
 		CustomerNote: o.CustomerNote, CurrencyCode: o.CurrencyCode,
 		DiscountTotalMinorUnits: o.DiscountTotalMinorUnits, ShippingTotalMinorUnits: o.ShippingTotalMinorUnits,
+		FeeLabel: o.FeeLabel, FeeTotalMinorUnits: o.FeeTotalMinorUnits,
 		TaxTotalMinorUnits: o.TaxTotalMinorUnits, TotalMinorUnits: o.TotalMinorUnits,
 		PaymentMethod: o.PaymentMethod, PaymentMethodTitle: o.PaymentMethodTitle,
 		ShippingMethod: o.ShippingMethod, ShippingMethodTitle: o.ShippingMethodTitle, CouponCode: o.CouponCode, TransactionID: o.TransactionID,
@@ -128,6 +131,7 @@ func toSalesOrderDomain(m salesOrderModel) *omsDomain.SalesOrder {
 		},
 		CustomerNote: m.CustomerNote, CurrencyCode: m.CurrencyCode,
 		DiscountTotalMinorUnits: m.DiscountTotalMinorUnits, ShippingTotalMinorUnits: m.ShippingTotalMinorUnits,
+		FeeLabel: m.FeeLabel, FeeTotalMinorUnits: m.FeeTotalMinorUnits,
 		TaxTotalMinorUnits: m.TaxTotalMinorUnits, TotalMinorUnits: m.TotalMinorUnits,
 		PaymentMethod: m.PaymentMethod, PaymentMethodTitle: m.PaymentMethodTitle,
 		ShippingMethod: m.ShippingMethod, ShippingMethodTitle: m.ShippingMethodTitle, CouponCode: m.CouponCode, TransactionID: m.TransactionID,

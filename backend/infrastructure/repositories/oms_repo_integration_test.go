@@ -2711,3 +2711,24 @@ func TestSalesOrderRepo_Integration_QuoteLinkAndFilter(t *testing.T) {
 		return nil
 	}))
 }
+
+func TestSalesOrderRepo_Integration_FeeRoundTrips(t *testing.T) {
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	repo := repositories.NewSalesOrderRepo(db)
+
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		o := omsDomain.SalesOrder{TenantID: tenantID, Source: omsDomain.SalesOrderSourceManual, ExternalOrderID: "fee-1",
+			WarehouseID: warehouseID, CurrencyCode: "EUR", Status: omsDomain.SalesOrderStatusPending, OccurredAt: now, CreatedAt: now,
+			ShippingTotalMinorUnits: 695, FeeLabel: "Pallet", FeeTotalMinorUnits: 2500}
+		require.NoError(t, repo.Create(ctx, &o))
+		got, err := repo.FindByID(ctx, o.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "Pallet", got.FeeLabel)
+		assert.Equal(t, int64(2500), got.FeeTotalMinorUnits)
+		assert.Equal(t, int64(695), got.ShippingTotalMinorUnits)
+		return nil
+	}))
+}

@@ -55,6 +55,8 @@ type CreateSalesOrderInput struct {
 	CurrencyCode            string
 	DiscountTotalMinorUnits int64
 	ShippingTotalMinorUnits int64
+	FeeLabel                string
+	FeeTotalMinorUnits      int64
 	TaxTotalMinorUnits      int64
 	TotalMinorUnits         int64
 
@@ -129,6 +131,7 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 			WarehouseID: in.WarehouseID, CustomerID: in.CustomerID, QuoteID: in.QuoteID, SalesChannelID: in.SalesChannelID, Billing: in.Billing, Shipping: in.Shipping,
 			CustomerNote: in.CustomerNote, CurrencyCode: in.CurrencyCode,
 			DiscountTotalMinorUnits: in.DiscountTotalMinorUnits, ShippingTotalMinorUnits: in.ShippingTotalMinorUnits,
+			FeeLabel: in.FeeLabel, FeeTotalMinorUnits: in.FeeTotalMinorUnits,
 			TaxTotalMinorUnits: in.TaxTotalMinorUnits, TotalMinorUnits: in.TotalMinorUnits,
 			PaymentMethod: in.PaymentMethod, PaymentMethodTitle: in.PaymentMethodTitle,
 			ShippingMethod: in.ShippingMethod, ShippingMethodTitle: in.ShippingMethodTitle, CouponCode: in.CouponCode, TransactionID: in.TransactionID,

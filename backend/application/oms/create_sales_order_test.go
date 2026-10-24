@@ -141,6 +141,22 @@ func TestCreateSalesOrder_defaultsStatusToPending(t *testing.T) {
 	assert.False(t, order.SalesOrder.Fulfilled)
 }
 
+func TestCreateSalesOrder_keepsTheExtraFee(t *testing.T) {
+	db := newMockGormDBN(t, 1)
+	salesOrderRepo := &stubSalesOrderRepo{}
+	uc := appoms.NewCreateSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
+
+	_, err := uc.Execute(context.Background(), appoms.CreateSalesOrderInput{
+		WarehouseID: "warehouse-1", CurrencyCode: "EUR", OccurredAt: time.Now(), FeeLabel: "Pallet", FeeTotalMinorUnits: 2500,
+		LineItems: []appoms.CreateSalesOrderLineItemInput{{SKUID: "sku-1", Quantity: 1, PriceMinorUnits: 500}},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, salesOrderRepo.created, 1)
+	assert.Equal(t, "Pallet", salesOrderRepo.created[0].FeeLabel)
+	assert.Equal(t, int64(2500), salesOrderRepo.created[0].FeeTotalMinorUnits)
+}
+
 func TestCreateSalesOrder_rejectsEmptyLineItems(t *testing.T) {
 	db := newMockGormDB(t)
 	uc := appoms.NewCreateSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})

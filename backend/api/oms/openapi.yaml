@@ -1077,6 +1077,8 @@ components:
         currency_code: { type: string }
         discount_total_minor_units: { type: integer, format: int64 }
         shipping_total_minor_units: { type: integer, format: int64 }
+        fee_label: { type: string, maxLength: 100, description: "One extra charge on the order (handling, pallet...); empty for none." }
+        fee_total_minor_units: { type: integer, format: int64, minimum: 0, description: Part of total_minor_units. }
         tax_total_minor_units: { type: integer, format: int64 }
         total_minor_units: { type: integer, format: int64 }
         payment_method: { type: string }
@@ -1450,6 +1452,8 @@ components:
         currency_code: { type: string }
         discount_total_minor_units: { type: integer, format: int64 }
         shipping_total_minor_units: { type: integer, format: int64 }
+        fee_label: { type: string, maxLength: 100, description: "One extra charge on the order (handling, pallet...); empty for none." }
+        fee_total_minor_units: { type: integer, format: int64, minimum: 0, description: Part of total_minor_units. }
         tax_total_minor_units: { type: integer, format: int64 }
         total_minor_units: { type: integer, format: int64 }
         payment_method: { type: string }

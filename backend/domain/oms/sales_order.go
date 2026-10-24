@@ -167,6 +167,10 @@ type SalesOrder struct {
 	CurrencyCode            string
 	DiscountTotalMinorUnits int64
 	ShippingTotalMinorUnits int64
+	// FeeLabel/FeeTotalMinorUnits are one extra charge (handling, pallet...)
+	// added on the admin's order form; 0 when none. Part of TotalMinorUnits.
+	FeeLabel           string
+	FeeTotalMinorUnits int64
 	TaxTotalMinorUnits      int64
 	TotalMinorUnits         int64
 

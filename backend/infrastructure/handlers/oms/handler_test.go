@@ -657,6 +657,25 @@ func TestCreateSalesOrder_success(t *testing.T) {
 	assert.Equal(t, int64(2), create.gotInput.LineItems[0].Quantity)
 }
 
+func TestCreateSalesOrder_passesShippingAndFeeThrough(t *testing.T) {
+	create := &stubCreateSalesOrder{out: &appoms.CreateSalesOrderResult{SalesOrder: omsDomain.SalesOrder{
+		ID: "so-1", FeeLabel: "Pallet", FeeTotalMinorUnits: 2500, ShippingTotalMinorUnits: 695,
+	}}}
+	body := map[string]any{
+		"warehouse_id": "wh-1", "currency_code": "EUR", "occurred_at": "2026-01-01T00:00:00Z",
+		"shipping_total_minor_units": 695, "fee_label": "Pallet", "fee_total_minor_units": 2500,
+		"line_items": []map[string]any{{"sku_id": "sku-1", "quantity": 1, "price_minor_units": 500}},
+	}
+	w := doRequest(newTestRouter(&stubListSalesOrders{}, &stubGetSalesOrder{}, create, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "POST", "/api/v1/sales-orders", body)
+
+	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	assert.Equal(t, int64(695), create.gotInput.ShippingTotalMinorUnits)
+	assert.Equal(t, "Pallet", create.gotInput.FeeLabel)
+	assert.Equal(t, int64(2500), create.gotInput.FeeTotalMinorUnits)
+	assert.Contains(t, w.Body.String(), `"fee_label":"Pallet"`)
+	assert.Contains(t, w.Body.String(), `"fee_total_minor_units":2500`)
+}
+
 func TestCreateSalesOrder_emptyLineItemsIsUnprocessable(t *testing.T) {
 	create := &stubCreateSalesOrder{err: omsDomain.ErrEmptyLineItems}
 	body := map[string]any{
