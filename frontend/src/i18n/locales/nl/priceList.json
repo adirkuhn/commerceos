@@ -87,5 +87,14 @@
     "deleteConfirm": "Offerte verwijderen",
     "deleteFailed": "De offerte kon niet worden verwijderd.",
     "openFailed": "De offerte kon niet worden geopend."
+  },
+  "print": {
+    "title": "Offerte",
+    "product": "Product",
+    "quantity": "Aantal",
+    "unitPrice": "Stukprijs",
+    "lineTotal": "Regeltotaal",
+    "orderTotal": "Totaal",
+    "button": "PDF downloaden"
   }
 }

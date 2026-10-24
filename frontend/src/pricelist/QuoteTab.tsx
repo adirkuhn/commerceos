@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Download, Trash2 } from 'lucide-react'
+import { Download, FileText, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
 import { apiErrorText } from '../api/apiErrorText'
@@ -14,6 +14,7 @@ import { useSavedQuote } from './hooks/useSavedQuotes'
 import { applyDiscount, listPrice, quoteTotals, type PricedLine } from './pricing'
 import { productLabel, quoteCsv } from './quoteCsv'
 import { QuoteLineRow } from './QuoteLineRow'
+import { QuotePrintView } from './QuotePrintView'
 import { QuoteSaveBar } from './QuoteSaveBar'
 import { QuoteSearch } from './QuoteSearch'
 import { createQuote, updateQuote } from './quotesApi'
@@ -39,6 +40,7 @@ export function QuoteTab({ token, discount }: { token: string; discount: number 
   const [name, setName] = useState('')
   useEffect(() => { if (saved.data) setName(saved.data.name) }, [saved.data])
   const [saving, setSaving] = useState(false)
+  const [printing, setPrinting] = useState(false)
   const [saveError, setSaveError] = useState('')
   const input = buildQuoteInput(name, discount, quote.lines, rowBySku, saved.data?.currency_code)
   const dirty = quoteId
@@ -84,6 +86,13 @@ export function QuoteTab({ token, discount }: { token: string; discount: number 
 
   return (
     <>
+      {printing && (
+        <QuotePrintView
+          reference={saved.data && saved.data.id === quoteId ? saved.data.reference : null}
+          name={name} currency={currency} onClose={() => setPrinting(false)}
+          lines={priced.map(l => ({ product: productLabel(l.row), quantity: l.quantity, unitPrice: l.unitPrice }))}
+        />
+      )}
       <QuoteSaveBar
         reference={saved.data && saved.data.id === quoteId ? saved.data.reference : null}
         name={name} onName={setName} dirty={dirty} saving={saving}
@@ -104,6 +113,10 @@ export function QuoteTab({ token, discount }: { token: string; discount: number 
           <button onClick={exportCsv} disabled={priced.length === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-40">
             <Download size={13} /> {t('quote.export')}
+          </button>
+          <button onClick={() => setPrinting(true)} disabled={priced.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-40">
+            <FileText size={13} /> {t('print.button')}
           </button>
         </div>
       </div>

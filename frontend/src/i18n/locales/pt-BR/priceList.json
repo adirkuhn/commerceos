@@ -87,5 +87,14 @@
     "deleteConfirm": "Excluir orçamento",
     "deleteFailed": "Não foi possível excluir o orçamento.",
     "openFailed": "Não foi possível abrir o orçamento."
+  },
+  "print": {
+    "title": "Orçamento",
+    "product": "Produto",
+    "quantity": "Qtd",
+    "unitPrice": "Preço unitário",
+    "lineTotal": "Total da linha",
+    "orderTotal": "Total do pedido",
+    "button": "Baixar PDF"
   }
 }

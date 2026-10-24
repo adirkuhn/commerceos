@@ -87,5 +87,14 @@
     "deleteConfirm": "Delete quote",
     "deleteFailed": "The quote couldn't be deleted.",
     "openFailed": "The quote couldn't be opened."
+  },
+  "print": {
+    "title": "Quote",
+    "product": "Product",
+    "quantity": "Qty",
+    "unitPrice": "Unit price",
+    "lineTotal": "Line total",
+    "orderTotal": "Order total",
+    "button": "Download PDF"
   }
 }

@@ -132,6 +132,19 @@ describe('B2B quote tab', () => {
     await waitFor(() => expect(location).not.toContain('.1150'))
   })
 
+  it('opens the printable quote for Save as PDF', async () => {
+    const print = vi.spyOn(window, 'print').mockImplementation(() => {})
+    renderPage(`/price-list?tab=quote&lines=${P1}.s-fei.3.999`)
+    await screen.findByTestId('quote-line-s-fei')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }))
+
+    expect(print).toHaveBeenCalled()
+    expect(screen.getByRole('heading', { name: 'Quote' })).toBeInTheDocument()
+    expect(screen.getAllByText('€29.97', { selector: 'td' })).toHaveLength(2) // line total and order total
+    print.mockRestore()
+  })
+
   it('exports product, quantity and unit price only', async () => {
     Object.defineProperty(navigator, 'language', { value: 'en-US', configurable: true })
     renderPage(`/price-list?tab=quote&lines=${P1}.s-fei.3.999`)
