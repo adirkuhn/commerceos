@@ -145,7 +145,7 @@ describe('B2B quote tab', () => {
     print.mockRestore()
   })
 
-  it('exports product, quantity and unit price only', async () => {
+  it('exports sku, product, quantity, unit price, line total and the order total', async () => {
     Object.defineProperty(navigator, 'language', { value: 'en-US', configurable: true })
     renderPage(`/price-list?tab=quote&lines=${P1}.s-fei.3.999`)
     await screen.findByTestId('quote-line-s-fei')
@@ -157,6 +157,6 @@ describe('B2B quote tab', () => {
     expect(fileName).toMatch(/^quote-\d{4}-\d{2}-\d{2}\.csv$/)
     const bytes = await readBytes(blob)
     expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
-    expect(new TextDecoder().decode(bytes.slice(3))).toBe('Product,Quantity,Unit price\r\nFeijão — 1kg (FEI-1),3,9.99\r\n')
+    expect(new TextDecoder().decode(bytes.slice(3))).toBe('SKU,Product,Quantity,Unit price,Line total\r\nFEI-1,Feijão — 1kg,3,9.99,29.97\r\n,,,Order total,29.97\r\n')
   })
 })

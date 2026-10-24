@@ -48,9 +48,7 @@
     "clear": "Clear quote",
     "export": "Export CSV",
     "fileName": "quote-{{date}}.csv",
-    "csvProduct": "Product",
     "csvQuantity": "Quantity",
-    "csvUnitPrice": "Unit price",
     "name": "Quote name",
     "namePlaceholder": "Quote name, e.g. the customer",
     "nameNeeded": "Give the quote a name to save it",
@@ -89,6 +87,7 @@
     "openFailed": "The quote couldn't be opened."
   },
   "print": {
+    "sku": "SKU",
     "title": "Quote",
     "product": "Product",
     "quantity": "Qty",

@@ -48,9 +48,7 @@
     "clear": "Offerte wissen",
     "export": "CSV exporteren",
     "fileName": "offerte-{{date}}.csv",
-    "csvProduct": "Product",
     "csvQuantity": "Aantal",
-    "csvUnitPrice": "Stukprijs",
     "name": "Naam offerte",
     "namePlaceholder": "Naam offerte, bijv. de klant",
     "nameNeeded": "Geef de offerte een naam om op te slaan",
@@ -89,6 +87,7 @@
     "openFailed": "De offerte kon niet worden geopend."
   },
   "print": {
+    "sku": "SKU",
     "title": "Offerte",
     "product": "Product",
     "quantity": "Aantal",

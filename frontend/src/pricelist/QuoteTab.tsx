@@ -12,7 +12,7 @@ import { usePriceList } from './hooks/usePriceList'
 import { useQuoteLines } from './hooks/useQuoteLines'
 import { useSavedQuote } from './hooks/useSavedQuotes'
 import { applyDiscount, listPrice, quoteTotals, type PricedLine } from './pricing'
-import { productLabel, quoteCsv } from './quoteCsv'
+import { productName, quoteCsv, type ExportLine } from './quoteCsv'
 import { QuoteLineRow } from './QuoteLineRow'
 import { QuotePrintView } from './QuotePrintView'
 import { QuoteSaveBar } from './QuoteSaveBar'
@@ -74,14 +74,17 @@ export function QuoteTab({ token, discount }: { token: string; discount: number 
   const totals = quoteTotals(priced, pricesIncludeTax)
   const currency = priced[0]?.row.currency_code ?? ''
 
+  const exportLines: ExportLine[] = priced.map(l => ({
+    sku: l.row.sku_code, product: productName(l.row), quantity: l.quantity, unitPriceMinor: l.unitPrice,
+  }))
+
   function exportCsv() {
-    const csv = quoteCsv(
-      priced.map(l => ({ product: productLabel(l.row), quantity: l.quantity, unitPriceMinor: l.unitPrice })),
-      [t('quote.csvProduct'), t('quote.csvQuantity'), t('quote.csvUnitPrice')],
-      navigator.language || i18next.language,
-    )
+    const csv = quoteCsv(exportLines, {
+      sku: t('print.sku'), product: t('print.product'), quantity: t('quote.csvQuantity'),
+      unitPrice: t('print.unitPrice'), lineTotal: t('print.lineTotal'), total: t('print.orderTotal'),
+    }, navigator.language || i18next.language)
     const date = new Date().toISOString().slice(0, 10)
-    downloadBlob(new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8' }), t('quote.fileName', { date }))
+    downloadBlob(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }), t('quote.fileName', { date }))
   }
 
   return (
@@ -90,7 +93,7 @@ export function QuoteTab({ token, discount }: { token: string; discount: number 
         <QuotePrintView
           reference={saved.data && saved.data.id === quoteId ? saved.data.reference : null}
           name={name} currency={currency} onClose={() => setPrinting(false)}
-          lines={priced.map(l => ({ product: productLabel(l.row), quantity: l.quantity, unitPrice: l.unitPrice }))}
+          lines={exportLines}
         />
       )}
       <QuoteSaveBar

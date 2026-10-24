@@ -48,9 +48,7 @@
     "clear": "Limpar orçamento",
     "export": "Exportar CSV",
     "fileName": "orcamento-{{date}}.csv",
-    "csvProduct": "Produto",
     "csvQuantity": "Quantidade",
-    "csvUnitPrice": "Preço unitário",
     "name": "Nome do orçamento",
     "namePlaceholder": "Nome do orçamento, ex.: o cliente",
     "nameNeeded": "Dê um nome ao orçamento para salvar",
@@ -89,6 +87,7 @@
     "openFailed": "Não foi possível abrir o orçamento."
   },
   "print": {
+    "sku": "SKU",
     "title": "Orçamento",
     "product": "Produto",
     "quantity": "Qtd",

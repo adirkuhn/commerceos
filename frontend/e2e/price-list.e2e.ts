@@ -60,9 +60,9 @@ test('price list: discounted prices and a B2B quote exported as CSV', async ({ p
     expect(download.suggestedFilename()).toMatch(/^quote-\d{4}-\d{2}-\d{2}\.csv$/)
     const csv = (await readFile(await download.path())).toString('utf8').replace(/^﻿/, '')
     const [header, first] = csv.split('\r\n')
-    expect(header.split(/[,;]/)).toEqual(['Product', 'Quantity', 'Unit price'])
-    expect(first).toContain(code)
-    expect(first).toMatch(/[,;]30[,;]3[.,]50$/)
+    expect(header.split(/[,;]/)).toEqual(['SKU', 'Product', 'Quantity', 'Unit price', 'Line total'])
+    expect(first.startsWith(code)).toBe(true)
+    expect(first).toMatch(/[,;]30[,;]3[.,]50[,;]105[.,]00$/)
   } finally {
     await api(request, token, `/pms/products/${product.id}`, { method: 'DELETE' }).catch(() => undefined)
   }

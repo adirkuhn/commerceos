@@ -4,13 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { formatMoney } from '../format/money'
 
-export interface PrintLine {
-  product: string
-  quantity: number
-  unitPrice: number
-}
+import type { ExportLine } from './quoteCsv'
 
-// The quote for the customer: product, quantity, price, line totals and the
+// The quote for the customer: sku, product, quantity, price, line totals and the
 // order total -- never cost or profit. "Save as PDF" in the browser's print
 // dialog makes the PDF, same zero-dependency approach as InvoicePrintView.
 // Amounts always print, even while they're hidden on screen.
@@ -18,14 +14,14 @@ export function QuotePrintView({ reference, name, currency, lines, onClose }: {
   reference: string | null
   name: string
   currency: string
-  lines: PrintLine[]
+  lines: ExportLine[]
   onClose: () => void
 }) {
   const { t } = useTranslation(['priceList', 'common'])
   const { formatDate } = useDateFormat()
   useEffect(() => { window.print() }, [])
   const money = (minor: number) => formatMoney(minor, currency)
-  const total = lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0)
+  const total = lines.reduce((sum, l) => sum + l.quantity * l.unitPriceMinor, 0)
   const title = [t('print.title'), reference].filter(Boolean).join(' ') + (name.trim() ? ` — ${name.trim()}` : '')
 
   return (
@@ -42,6 +38,7 @@ export function QuotePrintView({ reference, name, currency, lines, onClose }: {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b-2 border-gray-900">
+              <th className="text-left py-1.5">{t('print.sku')}</th>
               <th className="text-left py-1.5">{t('print.product')}</th>
               <th className="text-right py-1.5">{t('print.quantity')}</th>
               <th className="text-right py-1.5">{t('print.unitPrice')}</th>
@@ -50,17 +47,18 @@ export function QuotePrintView({ reference, name, currency, lines, onClose }: {
           </thead>
           <tbody>
             {lines.map(l => (
-              <tr key={l.product} className="border-b border-gray-300 break-inside-avoid">
+              <tr key={l.sku} className="border-b border-gray-300 break-inside-avoid">
+                <td className="py-2 pr-2 font-mono text-xs">{l.sku}</td>
                 <td className="py-2 pr-2">{l.product}</td>
                 <td className="py-2 text-right tabular-nums">{l.quantity}</td>
-                <td className="py-2 text-right tabular-nums">{money(l.unitPrice)}</td>
-                <td className="py-2 text-right tabular-nums">{money(l.quantity * l.unitPrice)}</td>
+                <td className="py-2 text-right tabular-nums">{money(l.unitPriceMinor)}</td>
+                <td className="py-2 text-right tabular-nums">{money(l.quantity * l.unitPriceMinor)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-gray-900 font-semibold">
-              <td colSpan={3} className="py-2 text-right">{t('print.orderTotal')}</td>
+              <td colSpan={4} className="py-2 text-right">{t('print.orderTotal')}</td>
               <td className="py-2 text-right tabular-nums">{money(total)}</td>
             </tr>
           </tfoot>
