@@ -86,7 +86,7 @@ func (s *stubListCustomerWhatsAppMessages) Execute(_ context.Context, customerID
 }
 
 func newTestRouter(list *stubListCustomers, create *stubCreateCustomer, update *stubUpdateCustomer, del *stubDeleteCustomer) *gin.Engine {
-	h := customerhandler.NewHandler(list, create, update, del, &stubListCustomerWhatsAppMessages{})
+	h := customerhandler.NewHandler(list, create, update, del, &stubListCustomerWhatsAppMessages{}, &stubGetCustomer{})
 	r := gin.New()
 	gencustomers.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -174,7 +174,7 @@ func TestListCustomerWhatsAppMessages_success(t *testing.T) {
 	list := &stubListCustomerWhatsAppMessages{out: []whatsappDomain.Message{
 		{ID: "msg-1", PhoneE164: "31612345678", CustomerID: &custID, Direction: whatsappDomain.MessageDirectionInbound, Body: "STOCK ABC123"},
 	}}
-	h := customerhandler.NewHandler(&stubListCustomers{}, &stubCreateCustomer{}, &stubUpdateCustomer{}, &stubDeleteCustomer{}, list)
+	h := customerhandler.NewHandler(&stubListCustomers{}, &stubCreateCustomer{}, &stubUpdateCustomer{}, &stubDeleteCustomer{}, list, &stubGetCustomer{})
 	r := gin.New()
 	gencustomers.RegisterHandlers(r.Group("/api/v1"), h)
 
@@ -183,4 +183,35 @@ func TestListCustomerWhatsAppMessages_success(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "cust-1", list.got)
 	assert.Contains(t, w.Body.String(), "STOCK ABC123")
+}
+
+type stubGetCustomer struct {
+	out *customersDomain.Customer
+	err error
+}
+
+func (s *stubGetCustomer) Execute(_ context.Context, _ string) (*customersDomain.Customer, error) {
+	return s.out, s.err
+}
+
+func TestGetCustomer_returnsTheCustomerWithAddresses(t *testing.T) {
+	get := &stubGetCustomer{out: &customersDomain.Customer{ID: "cust-1", Email: "ana@sabor.nl", FirstName: "Ana",
+		Billing: customersDomain.Address{City: "Utrecht"}}}
+	h := customerhandler.NewHandler(&stubListCustomers{}, &stubCreateCustomer{}, &stubUpdateCustomer{}, &stubDeleteCustomer{}, &stubListCustomerWhatsAppMessages{}, get)
+	r := gin.New()
+	gencustomers.RegisterHandlers(r.Group("/api/v1"), h)
+
+	w := doRequest(r, "GET", "/api/v1/customers/cust-1", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"city":"Utrecht"`)
+}
+
+func TestGetCustomer_notFound(t *testing.T) {
+	get := &stubGetCustomer{err: customersDomain.ErrCustomerNotFound}
+	h := customerhandler.NewHandler(&stubListCustomers{}, &stubCreateCustomer{}, &stubUpdateCustomer{}, &stubDeleteCustomer{}, &stubListCustomerWhatsAppMessages{}, get)
+	r := gin.New()
+	gencustomers.RegisterHandlers(r.Group("/api/v1"), h)
+
+	assert.Equal(t, http.StatusNotFound, doRequest(r, "GET", "/api/v1/customers/missing", nil).Code)
 }

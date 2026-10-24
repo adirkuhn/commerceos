@@ -39,6 +39,20 @@ paths:
           $ref: '#/components/responses/Error'
 
   /customers/{id}:
+    get:
+      operationId: getCustomer
+      summary: One customer -- e.g. to copy its addresses onto a sales order
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResponse'
+        '404':
+          $ref: '#/components/responses/Error'
     patch:
       operationId: updateCustomer
       summary: Update a customer

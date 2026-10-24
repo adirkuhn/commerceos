@@ -29,6 +29,9 @@ type createCustomerUC interface {
 type updateCustomerUC interface {
 	Execute(ctx context.Context, in appcustomers.UpdateCustomerInput) (*customersDomain.Customer, error)
 }
+type getCustomerUC interface {
+	Execute(ctx context.Context, id string) (*customersDomain.Customer, error)
+}
 type deleteCustomerUC interface {
 	Execute(ctx context.Context, id string) error
 }
@@ -44,15 +47,17 @@ type Handler struct {
 	updateCustomer               updateCustomerUC
 	deleteCustomer               deleteCustomerUC
 	listCustomerWhatsAppMessages listCustomerWhatsAppMessagesUC
+	getCustomer                  getCustomerUC
 }
 
 func NewHandler(
 	listCustomers listCustomersUC, createCustomer createCustomerUC, updateCustomer updateCustomerUC, deleteCustomer deleteCustomerUC,
 	listCustomerWhatsAppMessages listCustomerWhatsAppMessagesUC,
+	getCustomer getCustomerUC,
 ) *Handler {
 	return &Handler{
 		listCustomers: listCustomers, createCustomer: createCustomer, updateCustomer: updateCustomer, deleteCustomer: deleteCustomer,
-		listCustomerWhatsAppMessages: listCustomerWhatsAppMessages,
+		listCustomerWhatsAppMessages: listCustomerWhatsAppMessages, getCustomer: getCustomer,
 	}
 }
 
@@ -70,6 +75,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		appcustomers.NewUpdateCustomerUseCase(db, customerRepo, outboxRepo),
 		appcustomers.NewDeleteCustomerUseCase(db, customerRepo, outboxRepo),
 		appcustomers.NewListCustomerWhatsAppMessagesUseCase(db, repositories.NewWhatsAppMessageRepo(db)),
+		appcustomers.NewGetCustomerUseCase(db, customerRepo),
 	)
 	gencustomers.RegisterHandlers(rg, h)
 }
@@ -125,6 +131,15 @@ func (h *Handler) UpdateCustomer(c *gin.Context, id gencustomers.Id) {
 		Username: strPtrOr(req.Username), Role: strPtrOr(req.Role), Billing: toDomainAddress(req.Billing), Shipping: toDomainAddress(req.Shipping),
 		IsPayingCustomer: boolPtrOr(req.IsPayingCustomer), AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
 	})
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := toGenCustomer(*cust)
+	c.JSON(http.StatusOK, gencustomers.CustomerResponse{Data: &resp})
+}
+
+func (h *Handler) GetCustomer(c *gin.Context, id gencustomers.Id) {
+	cust, err := h.getCustomer.Execute(c.Request.Context(), id)
 	if err := mapError(c, err); err != nil {
 		return
 	}
