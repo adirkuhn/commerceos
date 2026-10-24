@@ -112,3 +112,47 @@ test('price list: set cost, save a quote, reopen and delete it', async ({ page, 
     await api(request, token, `/pms/products/${product.id}`, { method: 'DELETE' }).catch(() => undefined)
   }
 })
+
+// A quote for more than the warehouse holds becomes a sales order anyway and
+// lands in Stock issues; a second order from it needs two confirmations.
+test('quotes: convert to a sales order, short stock goes to Stock issues', async ({ page, request, token }) => {
+  const [warehouse] = await api<Warehouse[]>(request, token, '/inventory/warehouses', { method: 'GET' })
+  test.skip(!warehouse, 'tenant needs a warehouse')
+
+  const stamp = Date.now()
+  const name = `E2E Convert ${stamp}`
+  const code = `E2E-CV-${stamp}`
+  const product = await api<Product>(request, token, '/pms/products', { method: 'POST', body: { name, status: 'active' } })
+  const variant = await api<Variant>(request, token, `/pms/products/${product.id}/variants`, { method: 'POST', body: { name: 'Default' } })
+  const sku = await api<SKU>(request, token, `/pms/variants/${variant.id}/skus`, {
+    method: 'POST', body: { sku_code: code, price_minor_units: 1000, currency_code: 'EUR', status: 'active' },
+  })
+  await api(request, token, `/inventory/skus/${sku.id}/movements`, {
+    method: 'POST', body: { warehouse_id: warehouse.id, type: 'receipt', quantity_delta: 5 },
+  })
+
+  await page.goto(`/quotes/new?lines=${product.id}.${sku.id}.8`)
+  await page.getByRole('textbox', { name: 'Quote name' }).fill(`E2E convert ${stamp}`)
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByTestId('quote-reference')).toBeVisible()
+  const quoteUrl = page.url()
+
+  await page.getByRole('button', { name: 'Create sales order' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('combobox', { name: 'Warehouse' }).selectOption(warehouse.id)
+  await dialog.getByRole('textbox', { name: /order number/i }).fill(`E2E-SO-${stamp}`)
+  await dialog.getByRole('button', { name: 'Create sales order' }).click()
+  await expect(dialog.getByRole('alert')).toContainText(name)
+  await dialog.getByRole('button', { name: 'Create anyway' }).click()
+
+  await expect(page).toHaveURL(/\/stock-issues/)
+  await expect(page.getByText(`E2E-SO-${stamp}`)).toBeVisible()
+
+  await page.goto(quoteUrl)
+  await expect(page.getByTestId('quote-orders')).toContainText(`E2E-SO-${stamp}`)
+  await page.getByRole('button', { name: 'Create sales order' }).click()
+  await dialog.getByRole('button', { name: 'Create sales order' }).click()
+  await dialog.getByRole('button', { name: 'Create another order' }).click()
+  await expect(dialog.getByRole('button', { name: 'Yes, create a new order' })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+})
