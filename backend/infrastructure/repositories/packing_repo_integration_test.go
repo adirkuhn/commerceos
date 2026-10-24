@@ -390,3 +390,57 @@ func TestPackScanRepo_Integration_SessionIDsWithScans(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, got)
 }
+
+func TestPackScanRepo_Integration_ListAppliedBySalesOrderReturnsOnlyAppliedChanges(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	sessionRepo := repositories.NewPackingSessionRepo(db)
+	scanRepo := repositories.NewPackScanRepo(db)
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	orderID, lineItemID := seedSalesOrderWithLineItemForPackingDB(t, db, ctx, skuID, warehouseID)
+
+	covered := int64(2)
+	var substituteID, refundID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		session := omsDomain.PackingSession{TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, Status: omsDomain.PackingSessionStatusCompleted, StartedAt: time.Now()}
+		if err := sessionRepo.Create(ctx, &session); err != nil {
+			return err
+		}
+		base := time.Now().Add(-time.Minute)
+		rows := []*omsDomain.PackScan{
+			{TenantID: tenant.IDFromContext(ctx), SessionID: session.ID, LineItemID: &lineItemID, SKUID: skuID, Quantity: 1, ScannedAt: base},
+			{TenantID: tenant.IDFromContext(ctx), SessionID: session.ID, LineItemID: &lineItemID, SKUID: skuID, ActionType: omsDomain.PackScanActionRefund,
+				Quantity: 1, Reason: "damaged", ScannedAt: base.Add(2 * time.Second), ScannedBy: "user-2"},
+			{TenantID: tenant.IDFromContext(ctx), SessionID: session.ID, LineItemID: &lineItemID, SKUID: skuID, ActionType: omsDomain.PackScanActionSubstitute,
+				Quantity: 2, OriginalQtyCovered: &covered, Reason: "out of stock", ScannedAt: base.Add(time.Second), ScannedBy: "user-1"},
+			{TenantID: tenant.IDFromContext(ctx), SessionID: session.ID, SKUID: skuID, ActionType: omsDomain.PackScanActionFreebie,
+				Quantity: 1, Reason: "Gift", ScannedAt: base.Add(3 * time.Second)},
+		}
+		for _, r := range rows {
+			if err := scanRepo.Create(ctx, r); err != nil {
+				return err
+			}
+		}
+		refundID, substituteID = rows[1].ID, rows[2].ID
+		if err := scanRepo.MarkReplayed(ctx, refundID, time.Now()); err != nil {
+			return err
+		}
+		return scanRepo.MarkReplayed(ctx, substituteID, time.Now())
+	})
+	require.NoError(t, err)
+
+	var changes []omsDomain.StagedChange
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		changes, err = scanRepo.ListAppliedBySalesOrder(ctx, orderID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, changes, 2, "the plain pack and the unapplied freebie are left out")
+	assert.Equal(t, substituteID, changes[0].ID, "oldest first")
+	assert.Equal(t, omsDomain.ChangeSubstitute, changes[0].Action)
+	assert.Equal(t, "user-1", changes[0].ScannedBy)
+	assert.Equal(t, int64(2), *changes[0].OriginalQtyCovered)
+	assert.Equal(t, refundID, changes[1].ID)
+	assert.Equal(t, omsDomain.ChangeRefund, changes[1].Action)
+}

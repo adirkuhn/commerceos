@@ -100,7 +100,7 @@ func (s PackScan) Change() (StagedChange, bool) {
 	return StagedChange{
 		ID: s.ID, LineItemID: s.LineItemID, SKUID: s.SKUID, Action: ChangeAction(s.ActionType), Quantity: s.Quantity,
 		OriginalQtyCovered: s.OriginalQtyCovered, ReturnToStock: s.ReturnToStock, PriceMinorUnits: s.PriceMinorUnits,
-		Reason: s.Reason, ScannedAt: s.ScannedAt, ReplayedAt: s.ReplayedAt,
+		Reason: s.Reason, ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy, ReplayedAt: s.ReplayedAt,
 	}, true
 }
 

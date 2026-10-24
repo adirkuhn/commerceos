@@ -87,6 +87,10 @@ type listSalesOrderActivitiesUC interface {
 	Execute(ctx context.Context, salesOrderID string) ([]omsDomain.SalesOrderActivity, error)
 }
 
+type listSalesOrderLineChangesUC interface {
+	Execute(ctx context.Context, salesOrderID string) ([]appoms.SalesOrderLineChange, error)
+}
+
 // Packing use-case interfaces live in packing_handler.go alongside the
 // handler methods that use them (see that file's doc comment for why).
 
@@ -115,6 +119,7 @@ type Handler struct {
 	completePicking            completePickingUC
 	bulkUpdateSalesOrderStatus bulkUpdateSalesOrderStatusUC
 	listSalesOrderActivities   listSalesOrderActivitiesUC
+	listSalesOrderLineChanges  listSalesOrderLineChangesUC
 
 	startOrResumePacking startOrResumePackingUC
 	getPackingSession    getPackingSessionUC
@@ -150,6 +155,7 @@ func NewHandler(
 	scanPackItem scanPackItemUC, deletePackScan deletePackScanUC, completePacking completePackingUC,
 	buildPickList buildPickListUC, listPackingQueue listPackingQueueUC, markOrderPicked markOrderPickedUC,
 	resolvePackScanCode resolvePickScanCodeUC, locks SessionLockUseCases, listPickingQueue listPackingQueueUC,
+	listSalesOrderLineChanges listSalesOrderLineChangesUC,
 ) *Handler {
 	return &Handler{
 		listSalesOrders: listSalesOrders, getSalesOrder: getSalesOrder,
@@ -168,6 +174,7 @@ func NewHandler(
 		scanPackItem: scanPackItem, deletePackScan: deletePackScan, completePacking: completePacking,
 		buildPickList: buildPickList, listPackingQueue: listPackingQueue, markOrderPicked: markOrderPicked,
 		resolvePackScanCode: resolvePackScanCode, locks: locks, listPickingQueue: listPickingQueue,
+		listSalesOrderLineChanges: listSalesOrderLineChanges,
 	}
 }
 
@@ -307,6 +314,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 			TakeOverPicking: appoms.NewTakeOverPickingSessionUseCase(db, pickingSessionRepo),
 		},
 		appoms.NewListPickingQueueUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo, packScanRepo),
+		appoms.NewListSalesOrderLineChangesUseCase(db, appoms.LineChangeSources{Packing: packScanRepo, Picking: pickScanRepo},
+			lineItemRepo, skuRepo, variantRepo, productRepo),
 	)
 	genoms.RegisterHandlers(rg, h)
 }

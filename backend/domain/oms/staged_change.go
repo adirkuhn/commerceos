@@ -30,7 +30,9 @@ type StagedChange struct {
 	PriceMinorUnits    *int64
 	Reason             string
 	ScannedAt          time.Time
-	ReplayedAt         *time.Time
+	// ScannedBy is the lm2 UserID who recorded the change.
+	ScannedBy  string
+	ReplayedAt *time.Time
 }
 
 // Change returns the order change this scan records -- false for a plain
@@ -44,6 +46,6 @@ func (s PickScan) Change() (StagedChange, bool) {
 	return StagedChange{
 		ID: s.ID, LineItemID: s.LineItemID, SKUID: s.SKUID, Action: ChangeAction(s.ActionType), Quantity: s.Quantity,
 		OriginalQtyCovered: s.OriginalQtyCovered, ReturnToStock: s.ReturnToStock, PriceMinorUnits: s.PriceMinorUnits,
-		Reason: s.Reason, ScannedAt: s.ScannedAt, ReplayedAt: s.ReplayedAt,
+		Reason: s.Reason, ScannedAt: s.ScannedAt, ScannedBy: s.ScannedBy, ReplayedAt: s.ReplayedAt,
 	}, true
 }

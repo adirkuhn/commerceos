@@ -359,3 +359,20 @@ func quoteIDParam(id *openapi_types.UUID) *string {
 	s := id.String()
 	return &s
 }
+
+func (h *Handler) ListSalesOrderLineChanges(c *gin.Context, id genoms.Id) {
+	changes, err := h.listSalesOrderLineChanges.Execute(c.Request.Context(), id)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	out := make([]genoms.SalesOrderLineChange, len(changes))
+	for i, ch := range changes {
+		out[i] = genoms.SalesOrderLineChange{
+			Id: ch.ID, Step: genoms.SalesOrderLineChangeStep(ch.Step), Action: genoms.SalesOrderLineChangeAction(ch.Action),
+			LineItemId: ch.LineItemID, SkuId: ch.SKUID, SkuCode: ch.SKUCode, ProductName: ch.ProductName, VariantName: ch.VariantName,
+			Quantity: ch.Quantity, OriginalQtyCovered: ch.OriginalQtyCovered, ReturnToStock: ch.ReturnToStock,
+			PriceMinorUnits: ch.PriceMinorUnits, Reason: ch.Reason, By: ch.By, At: ch.At,
+		}
+	}
+	c.JSON(http.StatusOK, genoms.SalesOrderLineChangeListResponse{Data: &genoms.SalesOrderLineChangeList{Changes: out}})
+}

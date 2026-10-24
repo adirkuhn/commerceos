@@ -210,13 +210,39 @@ func (r *PickScanRepo) ListBySession(ctx context.Context, sessionID string) ([]o
 	}
 	scans := make([]omsDomain.PickScan, len(rows))
 	for i, m := range rows {
-		scans[i] = omsDomain.PickScan{
-			ID: m.ID, TenantID: m.TenantID, SessionID: m.SessionID, LineItemID: m.LineItemID, SKUID: m.SKUID,
-			ActionType: omsDomain.PickScanActionType(m.ActionType), Quantity: m.Quantity, OriginalQtyCovered: m.OriginalQtyCovered, ReturnToStock: m.ReturnToStock,
-			PriceMinorUnits: m.PriceMinorUnits, Reason: m.Reason, ScannedAt: m.ScannedAt, ScannedBy: m.ScannedBy, ReplayedAt: m.ReplayedAt,
-		}
+		scans[i] = toPickScanDomain(m)
 	}
 	return scans, nil
+}
+
+// ListAppliedBySalesOrder -- see omsDomain.AppliedChangeLister. Picking no
+// longer records changes; this reads the ones from before packing did.
+func (r *PickScanRepo) ListAppliedBySalesOrder(ctx context.Context, salesOrderID string) ([]omsDomain.StagedChange, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []pickScanModel
+	if err := tx.Joins("JOIN picking_sessions ON picking_sessions.id = pick_scans.session_id").
+		Where("picking_sessions.sales_order_id = ? AND pick_scans.replayed_at IS NOT NULL", salesOrderID).
+		Order("pick_scans.scanned_at asc").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("pickScanRepo.ListAppliedBySalesOrder: %w", err)
+	}
+	var changes []omsDomain.StagedChange
+	for _, m := range rows {
+		if c, ok := toPickScanDomain(m).Change(); ok {
+			changes = append(changes, c)
+		}
+	}
+	return changes, nil
+}
+
+func toPickScanDomain(m pickScanModel) omsDomain.PickScan {
+	return omsDomain.PickScan{
+		ID: m.ID, TenantID: m.TenantID, SessionID: m.SessionID, LineItemID: m.LineItemID, SKUID: m.SKUID,
+		ActionType: omsDomain.PickScanActionType(m.ActionType), Quantity: m.Quantity, OriginalQtyCovered: m.OriginalQtyCovered, ReturnToStock: m.ReturnToStock,
+		PriceMinorUnits: m.PriceMinorUnits, Reason: m.Reason, ScannedAt: m.ScannedAt, ScannedBy: m.ScannedBy, ReplayedAt: m.ReplayedAt,
+	}
 }
 
 func (r *PickScanRepo) MarkReplayed(ctx context.Context, id string, replayedAt time.Time) error {

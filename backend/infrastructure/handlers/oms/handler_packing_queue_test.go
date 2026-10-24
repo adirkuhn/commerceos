@@ -95,7 +95,7 @@ func newTestRouterAs(role middleware.Role, s lockStubs) *gin.Engine {
 		&stubListSalesOrderActivities{},
 		s.startPacking, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
 		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, s.queue, s.markPicked, &stubResolvePickScanCode{},
-		omshandler.SessionLockUseCases{ReleasePacking: s.releasePacking, ReleasePicking: s.releasePicking, TakeOverPacking: s.takeOverPacking, TakeOverPicking: s.takeOverPicking}, s.pickingQueue)
+		omshandler.SessionLockUseCases{ReleasePacking: s.releasePacking, ReleasePicking: s.releasePicking, TakeOverPacking: s.takeOverPacking, TakeOverPicking: s.takeOverPicking}, s.pickingQueue, &stubListSalesOrderLineChanges{})
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
 		c.Set("jwt_claims", &middleware.Claims{UserID: "user-1", TenantID: "tenant-1", Role: role})
@@ -131,7 +131,7 @@ func TestListPackingQueue_returnsEntriesWithLocks(t *testing.T) {
 	assert.Equal(t, "so-1", resp.Data.Entries[0].SalesOrder.Id)
 	require.NotNil(t, resp.Data.Entries[0].Lock)
 	assert.Equal(t, "picker", resp.Data.Entries[0].Lock.UserId)
-	assert.Equal(t, genoms.Picking, resp.Data.Entries[0].Lock.Activity)
+	assert.Equal(t, genoms.QueueLockActivityPicking, resp.Data.Entries[0].Lock.Activity)
 	assert.True(t, resp.Data.Entries[0].Lock.Since.Equal(since))
 	assert.Contains(t, w.Body.String(), `"lock":null`, "an unlocked entry serializes lock as null")
 }

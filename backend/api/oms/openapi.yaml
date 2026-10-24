@@ -388,6 +388,26 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /sales-orders/{id}/line-changes:
+    get:
+      operationId: listSalesOrderLineChanges
+      summary: >
+        What picking and packing changed on the order, oldest first: a line
+        replaced by another product (substitute), an extra item added free
+        (freebie) or charged (new_item), or part of a line refunded. Only
+        changes already applied (the session finished) are listed.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesOrderLineChangeListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /sales-orders/{id}/line-items:
     post:
       operationId: addSalesOrderLineItem
@@ -1384,6 +1404,67 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/SalesOrderActivityList' }
+        error: { nullable: true }
+
+    SalesOrderLineChange:
+      type: object
+      required: [id, step, action, sku_id, sku_code, product_name, variant_name, quantity, return_to_stock, reason, by, at]
+      properties:
+        id: { type: string }
+        step:
+          type: string
+          enum: [picking, packing]
+          description: The fulfilment step that recorded the change.
+        action:
+          type: string
+          enum: [substitute, freebie, new_item, refund]
+        line_item_id:
+          type: string
+          nullable: true
+          description: >
+            The line replaced or refunded, or the line an extra item became.
+            Null for an extra item that was never added (shipped without, no
+            stock).
+        sku_id: { type: string }
+        sku_code:
+          type: string
+          description: Product packed -- the substitute, the extra item or the refunded line's SKU. Empty when the SKU was deleted.
+        product_name: { type: string }
+        variant_name: { type: string }
+        quantity: { type: integer, format: int64 }
+        original_qty_covered:
+          type: integer
+          format: int64
+          nullable: true
+          description: How many of the original line a substitute replaces.
+        return_to_stock:
+          type: boolean
+          description: A substitute put the original units back on the shelf.
+        price_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: A charged extra item's unit price.
+        reason:
+          type: string
+          description: Staff's note; for an extra item, the name it was added as.
+        by:
+          type: string
+          description: lm2 user ID of who recorded the change.
+        at: { type: string, format: date-time }
+
+    SalesOrderLineChangeList:
+      type: object
+      required: [changes]
+      properties:
+        changes:
+          type: array
+          items: { $ref: '#/components/schemas/SalesOrderLineChange' }
+
+    SalesOrderLineChangeListResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/SalesOrderLineChangeList' }
         error: { nullable: true }
 
     SalesOrderResponse:

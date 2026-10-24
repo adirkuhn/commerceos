@@ -215,14 +215,39 @@ func (r *PackScanRepo) ListBySession(ctx context.Context, sessionID string) ([]o
 	}
 	scans := make([]omsDomain.PackScan, len(rows))
 	for i, m := range rows {
-		scans[i] = omsDomain.PackScan{
-			ID: m.ID, TenantID: m.TenantID, SessionID: m.SessionID, LineItemID: m.LineItemID, SKUID: m.SKUID,
-			ActionType: omsDomain.PackScanActionType(m.ActionType), Quantity: m.Quantity,
-			OriginalQtyCovered: m.OriginalQtyCovered, ReturnToStock: m.ReturnToStock, PriceMinorUnits: m.PriceMinorUnits,
-			Reason: m.Reason, ScannedAt: m.ScannedAt, ScannedBy: m.ScannedBy, ReplayedAt: m.ReplayedAt,
-		}
+		scans[i] = toPackScanDomain(m)
 	}
 	return scans, nil
+}
+
+// ListAppliedBySalesOrder -- see omsDomain.AppliedChangeLister.
+func (r *PackScanRepo) ListAppliedBySalesOrder(ctx context.Context, salesOrderID string) ([]omsDomain.StagedChange, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []packScanModel
+	if err := tx.Joins("JOIN packing_sessions ON packing_sessions.id = pack_scans.session_id").
+		Where("packing_sessions.sales_order_id = ? AND pack_scans.replayed_at IS NOT NULL", salesOrderID).
+		Order("pack_scans.scanned_at asc").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("packScanRepo.ListAppliedBySalesOrder: %w", err)
+	}
+	var changes []omsDomain.StagedChange
+	for _, m := range rows {
+		if c, ok := toPackScanDomain(m).Change(); ok {
+			changes = append(changes, c)
+		}
+	}
+	return changes, nil
+}
+
+func toPackScanDomain(m packScanModel) omsDomain.PackScan {
+	return omsDomain.PackScan{
+		ID: m.ID, TenantID: m.TenantID, SessionID: m.SessionID, LineItemID: m.LineItemID, SKUID: m.SKUID,
+		ActionType: omsDomain.PackScanActionType(m.ActionType), Quantity: m.Quantity,
+		OriginalQtyCovered: m.OriginalQtyCovered, ReturnToStock: m.ReturnToStock, PriceMinorUnits: m.PriceMinorUnits,
+		Reason: m.Reason, ScannedAt: m.ScannedAt, ScannedBy: m.ScannedBy, ReplayedAt: m.ReplayedAt,
+	}
 }
 
 // MarkReplayed -- see PackScanRepository.MarkReplayed.

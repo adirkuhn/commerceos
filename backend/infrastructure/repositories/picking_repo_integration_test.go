@@ -423,3 +423,48 @@ func TestPickingSessionRepo_Integration_RLSIsolatesTenants(t *testing.T) {
 	})
 	require.ErrorIs(t, err, omsDomain.ErrPickingSessionNotFound, "tenant B must not see tenant A's picking session")
 }
+
+func TestPickScanRepo_Integration_ListAppliedBySalesOrderSkipsPlainPicks(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	sessionRepo := repositories.NewPickingSessionRepo(db)
+	scanRepo := repositories.NewPickScanRepo(db)
+	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	orderID := seedSalesOrderForPickingDB(t, db, ctx, warehouseID)
+
+	var substituteID string
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		session := omsDomain.PickingSession{TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID,
+			Status: omsDomain.PickingSessionStatusCompleted, StartedAt: time.Now()}
+		if err := sessionRepo.Create(ctx, &session); err != nil {
+			return err
+		}
+		pick := omsDomain.PickScan{TenantID: tenant.IDFromContext(ctx), SessionID: session.ID, SKUID: skuID,
+			ActionType: omsDomain.PickScanActionPick, Quantity: 1, ScannedAt: time.Now()}
+		covered := int64(1)
+		sub := omsDomain.PickScan{TenantID: tenant.IDFromContext(ctx), SessionID: session.ID, SKUID: skuID,
+			ActionType: omsDomain.PickScanActionSubstitute, Quantity: 1, OriginalQtyCovered: &covered, ScannedAt: time.Now(), ScannedBy: "user-1"}
+		for _, s := range []*omsDomain.PickScan{&pick, &sub} {
+			if err := scanRepo.Create(ctx, s); err != nil {
+				return err
+			}
+			if err := scanRepo.MarkReplayed(ctx, s.ID, time.Now()); err != nil {
+				return err
+			}
+		}
+		substituteID = sub.ID
+		return nil
+	})
+	require.NoError(t, err)
+
+	var changes []omsDomain.StagedChange
+	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		var err error
+		changes, err = scanRepo.ListAppliedBySalesOrder(ctx, orderID)
+		return err
+	})
+	require.NoError(t, err)
+	require.Len(t, changes, 1)
+	require.Equal(t, substituteID, changes[0].ID)
+	require.Equal(t, "user-1", changes[0].ScannedBy)
+}
