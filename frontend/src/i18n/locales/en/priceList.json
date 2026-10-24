@@ -35,5 +35,8 @@
     "hint": "Sets the product's cost everywhere. New goods receipts keep updating it.",
     "invalid": "Enter a cost of at least 0.",
     "saveFailed": "The cost couldn't be saved."
-  }
+  },
+  "add": "Add",
+  "added": "Added",
+  "noResults": "No matching products."
 }

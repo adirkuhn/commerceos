@@ -1,132 +1,86 @@
-import { useState } from 'react'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
-import clsx from 'clsx'
-import i18next from 'i18next'
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
-import type { SalesOrderStatus, SalesOrderDetail, CreateSalesOrderInput, CreateSalesOrderLineItemInput, Address } from './types'
+import { apiErrorText } from '../api/apiErrorText'
+import type { Customer } from '../customers/types'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
-import { ProductSkuPicker } from '../components/common/ProductSkuPicker'
-import type { SKU } from '../pms/types'
+import { resolveSkuTaxRate } from '../pms/skuTax'
+import { useTenantSettings } from '../settings/hooks/useTenantSettings'
 import { useTaxClasses } from '../tax/hooks/useTaxClasses'
 import { useTaxRates } from '../tax/hooks/useTaxRates'
-import { useTenantSettings } from '../settings/hooks/useTenantSettings'
+import { AddressFields } from './create/AddressFields'
+import { OrderCustomerCard } from './create/OrderCustomerCard'
+import { OrderItemsCard } from './create/OrderItemsCard'
+import { OrderSummaryCard } from './create/OrderSummaryCard'
+import { draftTotals, pricesIncludeTax, toCreateInput, type OrderDraft } from './create/orderDraft'
 import { STATUS_OPTIONS } from './salesOrderDisplay'
 import { salesOrderStatusLabel } from './statusLabel'
-import { formatMoney } from '../format/money'
-import { apiErrorText } from '../api/apiErrorText'
+import type { Address, CreateSalesOrderInput, SalesOrderDetail } from './types'
 
-// ── Create Sales Order Page ──────────────────────────────────────────────────
-
-interface DraftLineItem {
-  key: string
-  skuId: string
-  label: string
-  quantity: string
-  price: string
-  // null means "use the tenant's default tax class" -- same convention as
-  // pms.SKU.TaxClassID.
-  taxClassId: string | null
+const nowLocal = () => {
+  const d = new Date()
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 16)
 }
 
-function emptyAddress(): Address {
-  return { first_name: '', last_name: '', company: '', address_1: '', address_2: '', city: '', state: '', postcode: '', country: '', email: '', phone: '' }
-}
+const emptyDraft = (): OrderDraft => ({
+  warehouseId: '', status: 'processing', occurredAt: nowLocal(), number: '', note: '', customerId: null,
+  billing: {}, shipping: {}, shippingSameAsBilling: true, lines: [], shipping_cost: 0, feeLabel: '', fee: 0,
+})
 
+const hasAny = (a?: Address) => !!a && Object.values(a).some(v => typeof v === 'string' && v.trim() !== '')
+
+// New sales order: customer (pick or create), items at their current
+// (sale) price, shipping and an extra fee, order details and addresses.
+// The currency is the shop's; totals use the shop's VAT setting.
 export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateSalesOrderInput) => Promise<SalesOrderDetail>; onClose: () => void }) {
   const { token } = useAuth()
   const { t } = useTranslation(['orders', 'common'])
   const { warehouses } = useWarehouses(token ?? '')
-  const { classes: taxClasses } = useTaxClasses(token ?? '')
-  const { rates: taxRates } = useTaxRates(token ?? '')
-  const { settings: tenantSettings } = useTenantSettings(token ?? '')
-
-  const [warehouseId, setWarehouseId] = useState('')
-  const [currencyCode, setCurrencyCode] = useState('USD')
-  const [status, setStatus] = useState<SalesOrderStatus>('pending')
-  const [occurredAt, setOccurredAt] = useState(() => new Date().toISOString().slice(0, 16))
-  const [customerNote, setCustomerNote] = useState('')
-  const [billing, setBilling] = useState<Address>(emptyAddress())
-  const [shipping, setShipping] = useState<Address>(emptyAddress())
-  const [lineItems, setLineItems] = useState<DraftLineItem[]>([])
-  const [pickerOpen, setPickerOpen] = useState(false)
+  const { classes } = useTaxClasses(token ?? '')
+  const { rates } = useTaxRates(token ?? '')
+  const { settings } = useTenantSettings(token ?? '')
+  const [draft, setDraft] = useState<OrderDraft>(emptyDraft)
+  const [customer, setCustomer] = useState<Customer | null>(null)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
+  const set = <K extends keyof OrderDraft>(key: K, value: OrderDraft[K]) => setDraft(d => ({ ...d, [key]: value }))
 
-  function addSku(sku: SKU, label: string) {
-    setLineItems(prev => [...prev, {
-      key: `${sku.id}-${prev.length}`, skuId: sku.id, label,
-      quantity: '1', price: (sku.price_minor_units / 100).toFixed(2),
-      taxClassId: sku.tax_class_id ?? null,
-    }])
-    setPickerOpen(false)
-  }
+  useEffect(() => {
+    if (warehouses.length === 1 && !draft.warehouseId) set('warehouseId', warehouses[0].id)
+  }, [warehouses]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function updateLineItem(key: string, field: 'quantity' | 'price', value: string) {
-    setLineItems(prev => prev.map(li => (li.key === key ? { ...li, [field]: value } : li)))
-  }
+  const currency = settings?.default_currency || 'EUR'
+  const inclusive = pricesIncludeTax(settings)
+  const defaultRate = resolveSkuTaxRate(rates, classes, null, settings?.default_tax_country)?.rate_basis_points ?? 0
+  const totals = useMemo(() => draftTotals({
+    lines: draft.lines, shipping: draft.shipping_cost, fee: draft.fee, defaultRateBasisPoints: defaultRate, pricesIncludeTax: inclusive,
+  }), [draft.lines, draft.shipping_cost, draft.fee, defaultRate, inclusive])
 
-  function removeLineItem(key: string) {
-    setLineItems(prev => prev.filter(li => li.key !== key))
-  }
-
-  const defaultTaxClassId = taxClasses.find(c => c.is_default)?.id ?? null
-
-  // Per line: subtotal===total (no discount UI here), tax split out from it
-  // using the tenant's prices_include_tax convention -- same math as the
-  // product form's price preview, just applied per order line and summed.
-  function lineTax(li: DraftLineItem): { minorUnits: number; taxMinorUnits: number } {
-    const qty = parseInt(li.quantity, 10) || 0
-    const price = Math.round(parseFloat(li.price || '0') * 100)
-    const minorUnits = qty * price
-    const taxClassId = li.taxClassId ?? defaultTaxClassId
-    const rate = taxClassId && tenantSettings?.default_tax_country
-      ? taxRates.find(r => r.tax_class_id === taxClassId && r.country === tenantSettings.default_tax_country)
-      : undefined
-    if (!rate) return { minorUnits, taxMinorUnits: 0 }
-    const rateFraction = rate.rate_basis_points / 10000
-    const taxMinorUnits = tenantSettings?.prices_include_tax
-      ? minorUnits - Math.round(minorUnits / (1 + rateFraction))
-      : Math.round(minorUnits * rateFraction)
-    return { minorUnits, taxMinorUnits }
-  }
-
-  const totalMinorUnits = lineItems.reduce((sum, li) => {
-    const { minorUnits, taxMinorUnits } = lineTax(li)
-    // prices_include_tax: the line price already carries the tax, so the
-    // order total is just the sum of line amounts. Exclusive prices: tax is
-    // added on top of each line to reach the order total.
-    return sum + minorUnits + (tenantSettings?.prices_include_tax ? 0 : taxMinorUnits)
-  }, 0)
-  const taxTotalMinorUnits = lineItems.reduce((sum, li) => sum + lineTax(li).taxMinorUnits, 0)
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault()
-    setFormError('')
-    if (lineItems.length === 0) {
-      setFormError(t('create.needLine'))
+  function chooseCustomer(c: Customer | null) {
+    setCustomer(c)
+    if (!c) {
+      set('customerId', null)
       return
     }
+    const billing: Address = { ...(c.billing ?? {}), email: c.billing?.email || c.email || '' }
+    if (!billing.first_name && !billing.last_name) Object.assign(billing, { first_name: c.first_name, last_name: c.last_name })
+    const shipping = hasAny(c.shipping) ? c.shipping! : {}
+    setDraft(d => ({
+      ...d, customerId: c.id, billing, shipping,
+      shippingSameAsBilling: !hasAny(shipping) || JSON.stringify(shipping) === JSON.stringify(c.billing),
+    }))
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!draft.warehouseId) return setFormError(t('form.needWarehouse'))
+    if (draft.lines.length === 0) return setFormError(t('form.needItems'))
     setSaving(true)
+    setFormError('')
     try {
-      const input: CreateSalesOrderInput = {
-        warehouse_id: warehouseId, currency_code: currencyCode, status,
-        occurred_at: new Date(occurredAt).toISOString(),
-        customer_note: customerNote, billing, shipping,
-        total_minor_units: totalMinorUnits,
-        tax_total_minor_units: taxTotalMinorUnits,
-        line_items: lineItems.map((li): CreateSalesOrderLineItemInput => {
-          const qty = parseInt(li.quantity, 10) || 0
-          const price = Math.round(parseFloat(li.price || '0') * 100)
-          const { minorUnits, taxMinorUnits } = lineTax(li)
-          return {
-            sku_id: li.skuId, quantity: qty, price_minor_units: price,
-            subtotal_minor_units: minorUnits, subtotal_tax_minor_units: taxMinorUnits,
-            total_minor_units: minorUnits, total_tax_minor_units: taxMinorUnits,
-          }
-        }),
-      }
-      await onCreate(input)
+      await onCreate(toCreateInput(draft, { currency, defaultRateBasisPoints: defaultRate, pricesIncludeTax: inclusive }))
       onClose()
     } catch (err) {
       setFormError(apiErrorText(err) ?? t('create.failed'))
@@ -135,189 +89,90 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
     }
   }
 
-  const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1.5'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
+  const label = 'block text-2xs font-medium text-ink-4 mb-1'
+  const input = 'w-full px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-focus'
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
         <div>
-          <button
-            onClick={onClose}
-            className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 transition-colors mb-1"
-          >
+          <button type="button" onClick={onClose} className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 mb-1">
             <ArrowLeft size={11} /> {t('detail.back')}
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">{t('create.title')}</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button" onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover transition-colors"
-          >
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover">
             {t('create.discard')}
           </button>
-          <button
-            type="submit" form="create-sales-order-form" disabled={saving || !warehouseId}
-            className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
-          >
+          <button type="submit" form="create-sales-order-form" disabled={saving}
+            className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50">
             {saving ? t('create.creating') : t('create.submit')}
           </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto p-6 space-y-5">
-          <form id="create-sales-order-form" onSubmit={handleCreate} className="space-y-5">
-            <div className="rounded-xl border border-line p-4 space-y-3">
-              <h3 className="text-xs font-semibold text-ink">{t('create.general')}</h3>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label htmlFor="so-warehouse" className={labelClass}>{t('common:fields.warehouse')}</label>
-                  <select id="so-warehouse" required value={warehouseId} onChange={e => setWarehouseId(e.target.value)} className={inputClass}>
-                    <option value="">{t('create.select')}</option>
-                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                  </select>
+        <form id="create-sales-order-form" onSubmit={submit} className="max-w-6xl mx-auto p-6 grid gap-5 lg:grid-cols-3 items-start">
+          <div className="lg:col-span-2 space-y-5">
+            {formError && <p role="alert" className="text-xs text-danger bg-danger/10 rounded-lg px-3 py-2">{formError}</p>}
+            <OrderCustomerCard token={token ?? ''} customer={customer} onChange={chooseCustomer} />
+            <OrderItemsCard token={token ?? ''} lines={draft.lines} lineTotals={totals.lineTotals} currency={currency} onChange={l => set('lines', l)} />
+            <section className="rounded-xl border border-line bg-surface p-4 space-y-4">
+              <h3 className="text-xs font-semibold text-ink">{t('form.addresses')}</h3>
+              <div className="grid gap-5 md:grid-cols-2">
+                <div className="space-y-2">
+                  <h4 className="text-2xs font-semibold caps-label text-ink-4">{t('form.billing')}</h4>
+                  <AddressFields prefix="billing" value={draft.billing} onChange={a => set('billing', a)} />
                 </div>
-                <div>
-                  <label htmlFor="so-status" className={labelClass}>{t('common:fields.status')}</label>
-                  <select id="so-status" value={status} onChange={e => setStatus(e.target.value as SalesOrderStatus)} className={inputClass}>
-                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{salesOrderStatusLabel(s)}</option>)}
-                  </select>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-2xs font-semibold caps-label text-ink-4">{t('form.shippingAddress')}</h4>
+                    <label className="flex items-center gap-1.5 text-2xs text-ink-3">
+                      <input type="checkbox" checked={draft.shippingSameAsBilling} onChange={e => set('shippingSameAsBilling', e.target.checked)} />
+                      {t('form.sameAsBilling')}
+                    </label>
+                  </div>
+                  {!draft.shippingSameAsBilling && <AddressFields prefix="shipping" value={draft.shipping} onChange={a => set('shipping', a)} />}
                 </div>
-                <div>
-                  <label htmlFor="so-currency" className={labelClass}>{t('common:fields.currency')}</label>
-                  <input id="so-currency" type="text" value={currencyCode} onChange={e => setCurrencyCode(e.target.value.toUpperCase())} className={inputClass} />
-                </div>
-                <div className="col-span-2">
-                  <label htmlFor="so-occurred-at" className={labelClass}>{t('create.date')}</label>
-                  <input id="so-occurred-at" type="datetime-local" value={occurredAt} onChange={e => setOccurredAt(e.target.value)} className={inputClass} />
-                </div>
+              </div>
+            </section>
+          </div>
+
+          <div className="space-y-5 lg:sticky lg:top-0">
+            <section className="rounded-xl border border-line bg-surface p-4 space-y-3">
+              <h3 className="text-xs font-semibold text-ink">{t('form.order')}</h3>
+              <div>
+                <label htmlFor="so-warehouse" className={label}>{t('form.warehouse')}</label>
+                <select id="so-warehouse" value={draft.warehouseId} onChange={e => set('warehouseId', e.target.value)} className={input}>
+                  <option value="">{t('create.select')}</option>
+                  {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
               </div>
               <div>
-                <label htmlFor="so-note" className={labelClass}>{t('create.customerNote')}</label>
-                <input id="so-note" type="text" value={customerNote} onChange={e => setCustomerNote(e.target.value)} className={inputClass} />
+                <label htmlFor="so-status" className={label}>{t('form.status')}</label>
+                <select id="so-status" value={draft.status} onChange={e => set('status', e.target.value as OrderDraft['status'])} className={input}>
+                  {STATUS_OPTIONS.map(s => <option key={s} value={s}>{salesOrderStatusLabel(s)}</option>)}
+                </select>
               </div>
-              {formError && (
-                <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-line p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-ink">{t('detail.lineItems')}</h3>
-                <button
-                  type="button" onClick={() => setPickerOpen(v => !v)}
-                  className="flex items-center gap-1 text-2xs font-medium text-accent hover:text-accent"
-                >
-                  <Plus size={12} /> {t('create.addProduct')}
-                </button>
+              <div>
+                <label htmlFor="so-date" className={label}>{t('form.date')}</label>
+                <input id="so-date" type="datetime-local" value={draft.occurredAt} onChange={e => set('occurredAt', e.target.value)} className={input} />
               </div>
-              {pickerOpen && <ProductSkuPicker onSelect={addSku} onClose={() => setPickerOpen(false)} />}
-              {lineItems.length === 0 && <p className="text-xs text-ink-4">{t('create.noLines')}</p>}
-              {lineItems.length > 0 && (
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-line">
-                      <th className="text-left py-1.5 font-medium text-ink-4">{t('common:fields.product')}</th>
-                      <th className="text-right py-1.5 font-medium text-ink-4 w-20">{t('detail.qty')}</th>
-                      <th className="text-right py-1.5 font-medium text-ink-4 w-24">{t('common:fields.price')}</th>
-                      <th className="w-8" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line/60">
-                    {lineItems.map(li => (
-                      <tr key={li.key}>
-                        <td className="py-1.5 text-ink">{li.label}</td>
-                        <td className="py-1.5">
-                          <input
-                            type="number" min="1" value={li.quantity}
-                            onChange={e => updateLineItem(li.key, 'quantity', e.target.value)}
-                            className="w-16 px-2 py-1 text-xs text-right rounded bg-raised border border-line text-ink-2"
-                          />
-                        </td>
-                        <td className="py-1.5">
-                          <input
-                            type="number" step="0.01" min="0" value={li.price}
-                            onChange={e => updateLineItem(li.key, 'price', e.target.value)}
-                            className="w-20 px-2 py-1 text-xs text-right rounded bg-raised border border-line text-ink-2"
-                          />
-                        </td>
-                        <td className="py-1.5 text-right">
-                          <button type="button" onClick={() => removeLineItem(li.key)} aria-label={t('create.removeLine')} title={t('create.removeLine')} className="p-1 -m-1 rounded hover:bg-hover">
-                            <Trash2 size={12} className="text-ink-4 hover:text-danger" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              {lineItems.length > 0 && taxTotalMinorUnits > 0 && (
-                <div className="flex justify-between text-xs text-ink-3 pt-2 border-t border-line">
-                  <span>{t('detail.tax')}</span>
-                  <span>{formatMoney(taxTotalMinorUnits, currencyCode)}</span>
-                </div>
-              )}
-              {lineItems.length > 0 && (
-                <div className={clsx('flex justify-between text-xs font-semibold text-ink', taxTotalMinorUnits > 0 ? 'pt-1' : 'pt-2 border-t border-line')}>
-                  <span>{t('common:fields.total')}</span>
-                  <span>{formatMoney(totalMinorUnits, currencyCode)}</span>
-                </div>
-              )}
-            </div>
-
-            <CreateAddressFields kind="billing" prefix="new-billing" value={billing} onChange={setBilling} showPhone />
-            <CreateAddressFields kind="shipping" prefix="new-shipping" value={shipping} onChange={setShipping} />
-          </form>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-interface AddressLabels { title: string; firstName: string; lastName: string; city: string; country: string; phone: string }
-
-function addressLabels(kind: 'billing' | 'shipping'): AddressLabels {
-  return kind === 'billing'
-    ? { title: i18next.t('orders:create.billing.title'), firstName: i18next.t('orders:create.billing.firstName'), lastName: i18next.t('orders:create.billing.lastName'), city: i18next.t('orders:create.billing.city'), country: i18next.t('orders:create.billing.country'), phone: i18next.t('orders:create.billing.phone') }
-    : { title: i18next.t('orders:create.shipping.title'), firstName: i18next.t('orders:create.shipping.firstName'), lastName: i18next.t('orders:create.shipping.lastName'), city: i18next.t('orders:create.shipping.city'), country: i18next.t('orders:create.shipping.country'), phone: i18next.t('orders:create.shipping.phone') }
-}
-
-function CreateAddressFields({ kind, prefix, value, onChange, showPhone }: { kind: 'billing' | 'shipping'; prefix: string; value: Address; onChange: (a: Address) => void; showPhone?: boolean }) {
-  useTranslation('orders') // re-render when the language changes
-  const labels = addressLabels(kind)
-  const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1.5'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
-  const set = (field: keyof Address) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [field]: e.target.value })
-  const id = (field: string) => `${prefix}-${field}`
-
-  return (
-    <div className="rounded-xl border border-line p-4 space-y-3">
-      <h3 className="text-xs font-semibold text-ink">{labels.title}</h3>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label htmlFor={id('first-name')} className={labelClass}>{labels.firstName}</label>
-          <input id={id('first-name')} type="text" value={value.first_name ?? ''} onChange={set('first_name')} className={inputClass} />
-        </div>
-        <div>
-          <label htmlFor={id('last-name')} className={labelClass}>{labels.lastName}</label>
-          <input id={id('last-name')} type="text" value={value.last_name ?? ''} onChange={set('last_name')} className={inputClass} />
-        </div>
-        <div>
-          <label htmlFor={id('city')} className={labelClass}>{labels.city}</label>
-          <input id={id('city')} type="text" value={value.city ?? ''} onChange={set('city')} className={inputClass} />
-        </div>
-        <div>
-          <label htmlFor={id('country')} className={labelClass}>{labels.country}</label>
-          <input id={id('country')} type="text" value={value.country ?? ''} onChange={set('country')} className={inputClass} />
-        </div>
-        {showPhone && (
-          <div>
-            <label htmlFor={id('phone')} className={labelClass}>{labels.phone}</label>
-            <input id={id('phone')} type="tel" value={value.phone ?? ''} onChange={set('phone')} className={inputClass} />
+              <div>
+                <label htmlFor="so-number" className={label}>{t('form.number')}</label>
+                <input id="so-number" value={draft.number} onChange={e => set('number', e.target.value)} placeholder={t('form.numberPlaceholder')} maxLength={64} className={input} />
+              </div>
+              <div>
+                <label htmlFor="so-note" className={label}>{t('form.note')}</label>
+                <textarea id="so-note" rows={2} value={draft.note} onChange={e => set('note', e.target.value)} className={input} />
+              </div>
+            </section>
+            <OrderSummaryCard totals={totals} currency={currency} pricesIncludeTax={inclusive}
+              shipping={draft.shipping_cost} feeLabel={draft.feeLabel} fee={draft.fee}
+              onShipping={v => set('shipping_cost', v)} onFeeLabel={v => set('feeLabel', v)} onFee={v => set('fee', v)} />
           </div>
-        )}
+        </form>
       </div>
     </div>
   )

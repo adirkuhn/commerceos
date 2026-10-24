@@ -1,8 +1,5 @@
 {
   "quote": {
-    "add": "Add",
-    "added": "Added",
-    "noResults": "No matching products.",
     "empty": "Search above and add products to build a quote.",
     "loadingLine": "Loading…",
     "missingLine": "No longer an active product",

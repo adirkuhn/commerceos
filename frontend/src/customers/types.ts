@@ -35,7 +35,8 @@ export interface Customer {
 
 export interface CustomerInput {
   woo_customer_id?: number | null
-  email: string
+  // Optional: a customer needs a name, company, email or phone.
+  email?: string
   first_name?: string
   last_name?: string
   username?: string

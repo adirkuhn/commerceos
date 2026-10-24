@@ -125,6 +125,12 @@ export function InvoicePrintView({ order, lineItems, seller, onClose }: InvoiceP
               <span>{t('detail.shipping')}</span>
               <span>{formatMoney(order.shipping_total_minor_units, order.currency_code)}</span>
             </div>
+            {(order.fee_total_minor_units ?? 0) > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <span>{order.fee_label || t('form.feeLabel')}</span>
+                <span>{formatMoney(order.fee_total_minor_units ?? 0, order.currency_code)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-gray-600">
               <span>{t('detail.tax')}</span>
               <span>{formatMoney(order.tax_total_minor_units, order.currency_code)}</span>

@@ -59,7 +59,7 @@ export function CustomerPicker({ token, value, onChange }: {
       <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-sunken border border-line text-xs text-ink">
         <UserRound size={12} className="text-ink-4" />
         <span title={value.email}>{value.name}</span>
-        <button onClick={() => onChange(null)} aria-label={t('picker.remove')} title={t('picker.remove')}
+        <button type="button" onClick={() => onChange(null)} aria-label={t('picker.remove')} title={t('picker.remove')}
           className="w-4 h-4 flex items-center justify-center rounded hover:bg-hover text-ink-4"><X size={11} /></button>
       </span>
     )
@@ -79,7 +79,7 @@ export function CustomerPicker({ token, value, onChange }: {
         <ul className="absolute z-20 mt-1 w-full rounded-lg border border-line bg-raised shadow-lg divide-y divide-line/60 max-h-60 overflow-auto">
           {results.map(c => (
             <li key={c.id}>
-              <button
+              <button type="button"
                 onClick={() => { onChange(c); setInput(''); setResults([]) }}
                 className="w-full text-left px-3 py-2 text-xs hover:bg-hover"
               >

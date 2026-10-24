@@ -35,5 +35,8 @@
     "hint": "Stelt de kostprijs van het product overal in. Nieuwe ontvangsten blijven hem bijwerken.",
     "invalid": "Vul een kostprijs van minstens 0 in.",
     "saveFailed": "De kostprijs kon niet worden opgeslagen."
-  }
+  },
+  "add": "Toevoegen",
+  "added": "Toegevoegd",
+  "noResults": "Geen producten gevonden."
 }

@@ -1,8 +1,5 @@
 {
   "quote": {
-    "add": "Toevoegen",
-    "added": "Toegevoegd",
-    "noResults": "Geen producten gevonden.",
     "empty": "Zoek hierboven en voeg producten toe om een offerte te maken.",
     "loadingLine": "Laden…",
     "missingLine": "Geen actief product meer",

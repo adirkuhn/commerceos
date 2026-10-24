@@ -2,23 +2,24 @@ import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Money } from '../format/amountVisibility'
-import { usePriceList } from '../pricelist/hooks/usePriceList'
-import { SearchField } from '../pricelist/SearchField'
-import { applyDiscount, listPrice } from '../pricelist/pricing'
-import { formatQuantity } from '../pricelist/format'
-import type { PriceListRow } from '../pricelist/types'
+import { usePriceList } from './hooks/usePriceList'
+import { SearchField } from './SearchField'
+import { applyDiscount, listPrice } from './pricing'
+import { formatQuantity } from './format'
+import type { PriceListRow } from './types'
 
 const MIN_CHARS = 2
 
-// Finds a product to add to the quote; results show the discounted price
-// and stock so the right SKU is picked at a glance.
-export function QuoteSearch({ token, discount, isAdded, onAdd }: {
+// Finds a product to add to a quote or an order; results show the price
+// (after the discount, if any) and stock so the right SKU is picked at a
+// glance. isAdded greys out products already there.
+export function ProductPriceSearch({ token, discount = 0, isAdded = () => false, onAdd }: {
   token: string
-  discount: number
-  isAdded: (skuId: string) => boolean
+  discount?: number
+  isAdded?: (skuId: string) => boolean
   onAdd: (row: PriceListRow) => void
 }) {
-  const { t } = useTranslation(['quotes', 'priceList'])
+  const { t } = useTranslation('priceList')
   const [input, setInput] = useState('')
   const [search, setSearch] = useState('')
   useEffect(() => {
@@ -31,9 +32,9 @@ export function QuoteSearch({ token, discount, isAdded, onAdd }: {
 
   return (
     <div className="relative max-w-xl">
-      <SearchField label={t('priceList:search')} value={input} onChange={setInput} />
+      <SearchField label={t('search')} value={input} onChange={setInput} />
       {error && <p role="alert" className="mt-1 text-xs text-danger">{error}</p>}
-      {enabled && !loading && rows.length === 0 && !error && <p className="mt-1 text-xs text-ink-4">{t('quote.noResults')}</p>}
+      {enabled && !loading && rows.length === 0 && !error && <p className="mt-1 text-xs text-ink-4">{t('noResults')}</p>}
       {rows.length > 0 && (
         <ul className="mt-1 rounded-lg border border-line bg-raised divide-y divide-line/60 max-h-72 overflow-auto">
           {rows.map(row => {
@@ -45,13 +46,13 @@ export function QuoteSearch({ token, discount, isAdded, onAdd }: {
                   <p className="text-2xs font-mono text-ink-4">{row.sku_code} · {formatQuantity(row, row.available_quantity)}</p>
                 </div>
                 <Money minor={applyDiscount(listPrice(row), discount)} currency={row.currency_code} className="tabular-nums text-ink-2" />
-                <button
+                <button type="button"
                   onClick={() => onAdd(row)}
                   disabled={added}
-                  aria-label={`${t('quote.add')} ${row.product_name} ${row.sku_code}`}
+                  aria-label={`${t('add')} ${row.product_name} ${row.sku_code}`}
                   className="flex items-center gap-1 px-2 py-1 rounded-md bg-accent-solid text-white hover:bg-accent-solid-hover disabled:opacity-40 disabled:cursor-default"
                 >
-                  {added ? t('quote.added') : <><Plus size={12} /> {t('quote.add')}</>}
+                  {added ? t('added') : <><Plus size={12} /> {t('add')}</>}
                 </button>
               </li>
             )

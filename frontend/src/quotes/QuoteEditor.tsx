@@ -22,7 +22,7 @@ import { QuoteLineRow } from './QuoteLineRow'
 import { openQuoteDocument } from './openQuoteDocument'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { QuoteSaveBar } from './QuoteSaveBar'
-import { QuoteSearch } from './QuoteSearch'
+import { ProductPriceSearch } from '../pricelist/ProductPriceSearch'
 import { createQuote, updateQuote } from './quotesApi'
 import { buildQuoteInput, isSameQuote, savedQuoteInput, savedQuotePath } from './savedQuote'
 import type { PriceListRow } from '../pricelist/types'
@@ -154,7 +154,7 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
           <ArrowLeft size={13} /> {t('list.back')}
         </button>
         <div className="flex-1 min-w-[260px]">
-          <QuoteSearch token={token} discount={discount}
+          <ProductPriceSearch token={token} discount={discount}
             isAdded={skuId => quote.lines.some(l => l.skuId === skuId)}
             onAdd={(row: PriceListRow) => quote.add(row.product_id, row.sku_id)} />
         </div>

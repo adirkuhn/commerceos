@@ -57,6 +57,8 @@ vi.mock('../../shipping/api', () => ({
   cancelShipment: vi.fn(),
 }))
 
+vi.mock('../../pricelist/api', () => ({ listPriceList: vi.fn(async () => ({ rows: [], total: 0, pricesIncludeTax: true })), setAutomaticCostPrice: vi.fn() }))
+vi.mock('../../customers/api', () => ({ createCustomer: vi.fn(), getCustomer: vi.fn() }))
 vi.mock('../../tax/api', () => ({
   listTaxClasses: vi.fn(),
   createTaxClass: vi.fn(),
@@ -72,6 +74,8 @@ import * as inventoryApi from '../../inventory/api'
 import * as pmsApi from '../../pms/api'
 import * as tenantSettingsApi from '../../settings/api'
 import * as taxApi from '../../tax/api'
+import * as priceListApi from '../../pricelist/api'
+import * as customersApi from '../../customers/api'
 import * as integrationsApi from '../../integrations/api'
 import * as shippingApi from '../../shipping/api'
 import { acceptConfirm, dismissConfirm } from '../../test/confirm'
@@ -1285,121 +1289,6 @@ describe('Create sales order', () => {
     expect(await screen.findByText('Main Warehouse')).toBeInTheDocument()
   })
 
-  it('adds a line item via the product picker and creates the sales order', async () => {
-    vi.mocked(pmsApi.listProducts).mockResolvedValue({
-      products: [{
-        id: 'product-1', tenant_id: 'tenant-1', category_id: null, name: 'Widget Product',
-        slug: 'widget-product', description: '', status: 'active', has_variants: false, tags: [],
-        created_at: '', updated_at: '',
-      }],
-      total: 1,
-    })
-    vi.mocked(pmsApi.getProduct).mockResolvedValue({
-      product: {
-        id: 'product-1', tenant_id: 'tenant-1', category_id: null, name: 'Widget Product',
-        slug: 'widget-product', description: '', status: 'active', has_variants: false, tags: [],
-        created_at: '', updated_at: '',
-      },
-      variants: [{
-        id: 'variant-1', tenant_id: 'tenant-1', product_id: 'product-1', name: 'Default', position: 0,
-        created_at: '', updated_at: '',
-        skus: [{
-          id: 'sku-1', tenant_id: 'tenant-1', variant_id: 'variant-1', sku_code: 'WID-001',
-          price_minor_units: 999, currency_code: 'USD', is_virtual: false, status: 'active',
-          created_at: '', updated_at: '',
-        }],
-      }],
-    })
-    vi.mocked(omsApi.createSalesOrder).mockResolvedValue(detail())
-
-    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
-    await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'wh-1')
-
-    await userEvent.click(screen.getByRole('button', { name: /Add product/ }))
-    await userEvent.type(screen.getByPlaceholderText('Search products by name…'), 'Widget')
-    await userEvent.click(await screen.findByText('Widget Product'))
-    await userEvent.click(await screen.findByText('WID-001'))
-
-    await userEvent.click(screen.getByRole('button', { name: 'Create sales order' }))
-
-    await waitFor(() => expect(omsApi.createSalesOrder).toHaveBeenCalledWith('test-token', expect.objectContaining({
-      warehouse_id: 'wh-1',
-      line_items: [expect.objectContaining({ sku_id: 'sku-1', quantity: 1, price_minor_units: 999 })],
-    })))
-  })
-
-  it('requires at least one line item', async () => {
-    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
-    await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'wh-1')
-
-    await userEvent.click(screen.getByRole('button', { name: 'Create sales order' }))
-
-    expect(await screen.findByText('Add at least one line item')).toBeInTheDocument()
-    expect(omsApi.createSalesOrder).not.toHaveBeenCalled()
-  })
-
-  it('computes per-line and order-level tax from the SKU tax class and tenant defaults', async () => {
-    vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
-      tenant_id: 'tenant-1', default_currency: 'USD', timezone: '', date_format: '', language: '',
-      prices_include_tax: true, default_tax_country: 'NL', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
-    })
-    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([
-      { id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '' },
-    ])
-    vi.mocked(taxApi.listTaxRates).mockResolvedValue([
-      { id: 'rate-1', tax_class_id: 'class-1', country: 'NL', rate_basis_points: 2100, created_at: '', updated_at: '' },
-    ])
-    vi.mocked(pmsApi.listProducts).mockResolvedValue({
-      products: [{
-        id: 'product-1', tenant_id: 'tenant-1', category_id: null, name: 'Widget Product',
-        slug: 'widget-product', description: '', status: 'active', has_variants: false, tags: [],
-        created_at: '', updated_at: '',
-      }],
-      total: 1,
-    })
-    vi.mocked(pmsApi.getProduct).mockResolvedValue({
-      product: {
-        id: 'product-1', tenant_id: 'tenant-1', category_id: null, name: 'Widget Product',
-        slug: 'widget-product', description: '', status: 'active', has_variants: false, tags: [],
-        created_at: '', updated_at: '',
-      },
-      variants: [{
-        id: 'variant-1', tenant_id: 'tenant-1', product_id: 'product-1', name: 'Default', position: 0,
-        created_at: '', updated_at: '',
-        skus: [{
-          id: 'sku-1', tenant_id: 'tenant-1', variant_id: 'variant-1', sku_code: 'WID-001',
-          price_minor_units: 999, currency_code: 'USD', is_virtual: false, status: 'active',
-          created_at: '', updated_at: '',
-        }],
-      }],
-    })
-    vi.mocked(omsApi.createSalesOrder).mockResolvedValue(detail())
-
-    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
-    await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'wh-1')
-
-    await userEvent.click(screen.getByRole('button', { name: /Add product/ }))
-    await userEvent.type(screen.getByPlaceholderText('Search products by name…'), 'Widget')
-    await userEvent.click(await screen.findByText('Widget Product'))
-    await userEvent.click(await screen.findByText('WID-001'))
-
-    expect(await screen.findByText(/Tax/)).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Create sales order' }))
-
-    await waitFor(() => expect(omsApi.createSalesOrder).toHaveBeenCalledWith('test-token', expect.objectContaining({
-      tax_total_minor_units: 173,
-      line_items: [expect.objectContaining({
-        sku_id: 'sku-1', quantity: 1, price_minor_units: 999,
-        subtotal_minor_units: 999, subtotal_tax_minor_units: 173,
-        total_minor_units: 999, total_tax_minor_units: 173,
-      })],
-    })))
-  })
-
   it('Discard returns to the list without creating', async () => {
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
@@ -1408,6 +1297,79 @@ describe('Create sales order', () => {
     expect(omsApi.createSalesOrder).not.toHaveBeenCalled()
     expect(await screen.findByRole('button', { name: 'New sales order' })).toBeInTheDocument()
   })
+  it('adds products at their price, with shipping and a fee, as a processing order in the shop currency', async () => {
+    vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+      tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
+      prices_include_tax: true, default_tax_country: 'NL', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
+    } as never)
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([{ id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '' }])
+    vi.mocked(taxApi.listTaxRates).mockResolvedValue([{ id: 'rate-1', tax_class_id: 'class-1', country: 'NL', rate_basis_points: 2100, created_at: '', updated_at: '' }])
+    vi.mocked(priceListApi.listPriceList).mockResolvedValue({ pricesIncludeTax: true, total: 1, rows: [{
+      product_id: 'product-1', product_name: 'Widget', variant_name: '', sku_id: 'sku-1', sku_code: 'WID-001', unit_type: 'unit',
+      currency_code: 'EUR', price_minor_units: 1210, sale_price_minor_units: 1089, cost_price_minor_units: 500,
+      available_quantity: 3, earliest_expiry: null, tax_rate_basis_points: 2100, target_markup_basis_points: 0,
+    }] })
+    vi.mocked(omsApi.createSalesOrder).mockResolvedValue(detail())
+
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
+    expect(screen.queryByLabelText(/currency/i)).not.toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'wh-1')
+    await userEvent.type(screen.getByRole('textbox', { name: /search products/i }), 'wid')
+    const add = await screen.findByRole('button', { name: /add widget WID-001/i })
+    await userEvent.click(add)
+    await userEvent.click(add) // same product again: quantity 2, not a second line
+    await waitFor(() => expect(screen.getByRole('spinbutton', { name: 'Qty WID-001' })).toHaveValue(2))
+
+    const shipping = screen.getByRole('textbox', { name: 'Shipping' })
+    await userEvent.clear(shipping)
+    await userEvent.type(shipping, '6,95{enter}')
+    await userEvent.type(screen.getByRole('textbox', { name: 'Extra fee' }), 'Pallet')
+    const fee = screen.getByRole('textbox', { name: 'Fee amount' })
+    await userEvent.clear(fee)
+    await userEvent.type(fee, '25{enter}')
+
+    // 2 x 10.89 (sale price) + 6.95 + 25.00, VAT inside
+    await waitFor(() => expect(screen.getByTestId('order-total')).toHaveTextContent('€53.73'))
+    expect(screen.getByTestId('order-subtotal')).toHaveTextContent('€21.78')
+    expect(screen.getByText('VAT (included)')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create sales order' }))
+    await waitFor(() => expect(omsApi.createSalesOrder).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      warehouse_id: 'wh-1', status: 'processing', currency_code: 'EUR',
+      shipping_total_minor_units: 695, fee_label: 'Pallet', fee_total_minor_units: 2500, total_minor_units: 5373,
+      line_items: [expect.objectContaining({ sku_id: 'sku-1', name: 'Widget', quantity: 2, price_minor_units: 1089, total_minor_units: 2178 })],
+    })))
+  })
+
+  it('needs at least one product', async () => {
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
+    await userEvent.selectOptions(screen.getByLabelText('Warehouse'), 'wh-1')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create sales order' }))
+
+    expect(await screen.findByText('Add at least one product.')).toBeInTheDocument()
+    expect(omsApi.createSalesOrder).not.toHaveBeenCalled()
+  })
+
+  it('creates a new customer without an email and fills the addresses from it', async () => {
+    vi.mocked(customersApi.createCustomer).mockResolvedValue({
+      id: 'c-9', tenant_id: 'tenant-1', email: '', first_name: 'Bruno', last_name: '', is_paying_customer: false, date_created: '', date_modified: '',
+      billing: { first_name: 'Bruno', company: 'Padaria Lima', city: 'Delft', country: 'NL' }, shipping: { first_name: 'Bruno', company: 'Padaria Lima', city: 'Delft', country: 'NL' },
+    })
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
+
+    await userEvent.click(screen.getByRole('button', { name: 'New customer' }))
+    await userEvent.type(screen.getByLabelText('First name', { selector: 'input:not([id])' }), 'Bruno')
+    await userEvent.click(screen.getByRole('button', { name: 'Create customer' }))
+
+    expect(await screen.findByText('Bruno')).toBeInTheDocument()
+    expect(screen.getByLabelText('City', { selector: '#billing-city' })).toHaveValue('Delft')
+    expect(screen.getByLabelText('Company', { selector: '#billing-company' })).toHaveValue('Padaria Lima')
+  })
+
 })
 
 describe('Sales orders list in Portuguese', () => {

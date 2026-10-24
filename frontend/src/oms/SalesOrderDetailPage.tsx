@@ -337,6 +337,12 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                       <span>{t('detail.shipping')}</span>
                       <span><Money minor={detail.sales_order.shipping_total_minor_units} currency={detail.sales_order.currency_code} /></span>
                     </div>
+                    {(detail.sales_order.fee_total_minor_units ?? 0) > 0 && (
+                      <div className="flex justify-between text-ink-3">
+                        <span>{detail.sales_order.fee_label || t('form.feeLabel')}</span>
+                        <span><Money minor={detail.sales_order.fee_total_minor_units ?? 0} currency={detail.sales_order.currency_code} /></span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-ink-3">
                       <span>{t('detail.tax')}</span>
                       <span><Money minor={detail.sales_order.tax_total_minor_units} currency={detail.sales_order.currency_code} /></span>

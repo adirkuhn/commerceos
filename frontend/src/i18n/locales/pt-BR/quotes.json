@@ -1,8 +1,5 @@
 {
   "quote": {
-    "add": "Adicionar",
-    "added": "Adicionado",
-    "noResults": "Nenhum produto encontrado.",
     "empty": "Busque acima e adicione produtos para montar um orçamento.",
     "loadingLine": "Carregando…",
     "missingLine": "Não é mais um produto ativo",

@@ -43,6 +43,8 @@ export interface SalesOrder {
   currency_code: string
   discount_total_minor_units: number
   shipping_total_minor_units: number
+  fee_label?: string
+  fee_total_minor_units?: number
   tax_total_minor_units: number
   total_minor_units: number
   payment_method?: string
@@ -154,6 +156,8 @@ export interface CreateSalesOrderInput {
   currency_code: string
   discount_total_minor_units?: number
   shipping_total_minor_units?: number
+  fee_label?: string
+  fee_total_minor_units?: number
   tax_total_minor_units?: number
   total_minor_units?: number
   payment_method?: string
