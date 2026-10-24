@@ -282,7 +282,7 @@ func (uc *ImportBolOrdersUseCase) createOne(ctx context.Context, in ImportBolOrd
 				TenantID: tenant.IDFromContext(ctx), SalesOrderID: order.ID, SKUID: skuID,
 				Name: li.Title, Barcode: li.EAN, Quantity: quantity, StockStatus: stockStatus,
 				PriceMinorUnits: li.UnitPriceMinorUnits, SubtotalMinorUnits: lineTotal,
-				TotalMinorUnits: lineTotal, TaxClassID: taxClassID, CreatedAt: now,
+				TotalMinorUnits: lineTotal, TotalIncludesTax: true, TaxClassID: taxClassID, CreatedAt: now,
 			}
 			if err := uc.lineItemRepo.Create(ctx, &lineItem); err != nil {
 				return err

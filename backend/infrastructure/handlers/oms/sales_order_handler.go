@@ -95,7 +95,7 @@ func (h *Handler) CreateSalesOrder(c *gin.Context) {
 			SKUID: li.SkuId, Name: strOrEmpty(li.Name), SKUCode: strOrEmpty(li.SkuCode), Quantity: li.Quantity,
 			PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: int64OrZero(li.SubtotalMinorUnits),
 			SubtotalTaxMinorUnits: int64OrZero(li.SubtotalTaxMinorUnits), TotalMinorUnits: int64OrZero(li.TotalMinorUnits),
-			TotalTaxMinorUnits: int64OrZero(li.TotalTaxMinorUnits),
+			TotalTaxMinorUnits: int64OrZero(li.TotalTaxMinorUnits), TotalIncludesTax: li.TotalIncludesTax != nil && *li.TotalIncludesTax,
 		}
 	}
 	var status omsDomain.SalesOrderStatus
@@ -313,12 +313,16 @@ func toGenSalesOrderLineItem(li omsDomain.SalesOrderLineItem) genoms.SalesOrderL
 	if li.SoldExpiryDate != nil {
 		soldExpiryDate = &openapi_types.Date{Time: *li.SoldExpiryDate}
 	}
+	exclTax, inclTax := li.TotalExclTax(), li.TotalInclTax()
 	return genoms.SalesOrderLineItem{
 		Id: li.ID, SkuId: li.SKUID, Name: &li.Name, SkuCode: &li.SKUCode, Barcode: &li.Barcode, Quantity: li.Quantity,
 		StockStatus:     &stockStatus,
 		PriceMinorUnits: &li.PriceMinorUnits, SubtotalMinorUnits: &li.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: &li.SubtotalTaxMinorUnits, TotalMinorUnits: &li.TotalMinorUnits,
-		TotalTaxMinorUnits: &li.TotalTaxMinorUnits, ProductId: li.ProductID,
+		TotalTaxMinorUnits: &li.TotalTaxMinorUnits, TotalIncludesTax: &li.TotalIncludesTax,
+		TotalExclTaxMinorUnits: &exclTax, TotalInclTaxMinorUnits: &inclTax,
+		RefundedQuantity: &li.RefundedQuantity, RefundedAmountMinorUnits: &li.RefundedAmountMinorUnits,
+		ProductId:            li.ProductID,
 		SoldExpiryDate:       soldExpiryDate,
 		CostAtSaleMinorUnits: li.CostAtSaleMinorUnits, CogsMinorUnits: li.CogsMinorUnits,
 	}
@@ -371,7 +375,7 @@ func (h *Handler) ListSalesOrderLineChanges(c *gin.Context, id genoms.Id) {
 			Id: ch.ID, Step: genoms.SalesOrderLineChangeStep(ch.Step), Action: genoms.SalesOrderLineChangeAction(ch.Action),
 			LineItemId: ch.LineItemID, SkuId: ch.SKUID, SkuCode: ch.SKUCode, ProductName: ch.ProductName, VariantName: ch.VariantName,
 			Quantity: ch.Quantity, OriginalQtyCovered: ch.OriginalQtyCovered, ReturnToStock: ch.ReturnToStock,
-			PriceMinorUnits: ch.PriceMinorUnits, Reason: ch.Reason, By: ch.By, At: ch.At,
+			PriceMinorUnits: ch.PriceMinorUnits, AmountMinorUnits: ch.AmountMinorUnits, Reason: ch.Reason, By: ch.By, At: ch.At,
 		}
 	}
 	c.JSON(http.StatusOK, genoms.SalesOrderLineChangeListResponse{Data: &genoms.SalesOrderLineChangeList{Changes: out}})

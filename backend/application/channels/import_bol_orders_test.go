@@ -112,6 +112,7 @@ func TestImportBolOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	require.NotNil(t, h.lineItemRepo.created[0].SKUID)
 	assert.Equal(t, "sku-1", *h.lineItemRepo.created[0].SKUID)
 	assert.Equal(t, int64(1000), h.lineItemRepo.created[0].PriceMinorUnits)
+	assert.True(t, h.lineItemRepo.created[0].TotalIncludesTax, "Bol prices include VAT")
 	require.Len(t, h.stock.calls, 1)
 	assert.Equal(t, int64(2), h.stock.calls[0].Quantity)
 	require.Len(t, h.linkRepo.created, 1)

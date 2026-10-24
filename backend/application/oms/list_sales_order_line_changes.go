@@ -45,6 +45,10 @@ type SalesOrderLineChange struct {
 	ReturnToStock      bool
 	// PriceMinorUnits is a charged extra item's unit price.
 	PriceMinorUnits *int64
+	// AmountMinorUnits is what the change moved, VAT included: the money a
+	// refund gives back, or what an added extra item charged. Nil for a
+	// substitute and for an extra never added.
+	AmountMinorUnits *int64
 	// Reason is staff's note; for an extra item, the name it was added as.
 	Reason string
 	// By is the lm2 UserID who recorded the change.
@@ -97,6 +101,10 @@ func (uc *ListSalesOrderLineChangesUseCase) Execute(ctx context.Context, salesOr
 			all[i] = c.StagedChange
 		}
 		addedLines := omsDomain.MatchAddedLines(all, lines)
+		lineByID := make(map[string]omsDomain.SalesOrderLineItem, len(lines))
+		for _, l := range lines {
+			lineByID[l.ID] = l
+		}
 
 		products := make(map[string]skuProduct)
 		for _, c := range changes {
@@ -107,7 +115,7 @@ func (uc *ListSalesOrderLineChangesUseCase) Execute(ctx context.Context, salesOr
 				}
 				products[c.SKUID] = p
 			}
-			out = append(out, toLineChange(c, p, addedLines))
+			out = append(out, toLineChange(c, p, addedLines, lineByID))
 		}
 		return nil
 	})
@@ -155,16 +163,25 @@ func (uc *ListSalesOrderLineChangesUseCase) describeSKU(ctx context.Context, sku
 	return p, nil
 }
 
-func toLineChange(c stepChange, p skuProduct, addedLines map[string]string) SalesOrderLineChange {
+func toLineChange(c stepChange, p skuProduct, addedLines map[string]string, lineByID map[string]omsDomain.SalesOrderLineItem) SalesOrderLineChange {
 	lineItemID := c.LineItemID
+	var amount *int64
 	if c.IsExtraItem() {
 		lineItemID = nil
 		if id, ok := addedLines[c.ID]; ok {
 			lineItemID = &id
+			charged := lineByID[id].TotalInclTax()
+			amount = &charged
+		}
+	} else if c.Action == omsDomain.ChangeRefund && lineItemID != nil {
+		if line, ok := lineByID[*lineItemID]; ok {
+			refunded := line.RefundAmount(c.Quantity)
+			amount = &refunded
 		}
 	}
 	return SalesOrderLineChange{
-		ID: c.ID, Step: c.step, Action: c.Action, LineItemID: lineItemID,
+		AmountMinorUnits: amount,
+		ID:               c.ID, Step: c.step, Action: c.Action, LineItemID: lineItemID,
 		SKUID: c.SKUID, SKUCode: p.code, ProductName: p.product, VariantName: p.variant,
 		Quantity: c.Quantity, OriginalQtyCovered: c.OriginalQtyCovered, ReturnToStock: c.ReturnToStock,
 		PriceMinorUnits: c.PriceMinorUnits, Reason: c.Reason, By: c.ScannedBy, At: c.ScannedAt,

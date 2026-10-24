@@ -10,6 +10,7 @@ import (
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
+	apptax "github.com/adirkuhn/commerceos/application/tax"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -253,7 +254,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 	scaleCodeAliasRepo := repositories.NewScaleCodeAliasRepo(db)
 	variantRepo := repositories.NewVariantRepo(db)
 	productRepo := repositories.NewProductRepo(db)
-	addLineItem := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo, outboxRepo)
+	addLineItem := appoms.NewAddSalesOrderLineItemUseCase(db, salesOrderRepo, lineItemRepo, skuRepo,
+		appoms.NewShopLinePricer(repositories.NewTenantSettingsRepo(db), apptax.NewTaxRateResolver(repositories.NewTaxClassRepo(db), repositories.NewTaxRateRepo(db))), outboxRepo)
 	updateSalesOrder := NewUpdateSalesOrderUseCase(db)
 
 	packingSessionRepo := repositories.NewPackingSessionRepo(db)

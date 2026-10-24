@@ -432,7 +432,7 @@ func TestCompletePicking_refundWithKnownProviderIssuesRealRefund(t *testing.T) {
 		ID: "order-1", WarehouseID: "warehouse-1", PaymentProvider: "stripe", PaymentExternalID: "cs_123",
 	}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{
-		{ID: "li-1", SKUID: strPtr("sku-1"), Name: "Widget", Quantity: 2, PriceMinorUnits: 500},
+		{ID: "li-1", SKUID: strPtr("sku-1"), Name: "Widget", Quantity: 2, PriceMinorUnits: 500, TotalMinorUnits: 1000, TotalTaxMinorUnits: 90},
 	}}
 	scanRepo := &stubPickScanRepo{listBySession: []omsDomain.PickScan{
 		{ID: "scan-1", LineItemID: strPtr("li-1"), SKUID: "sku-1", ActionType: omsDomain.PickScanActionRefund, Quantity: 2, Reason: "damaged"},
@@ -449,13 +449,13 @@ func TestCompletePicking_refundWithKnownProviderIssuesRealRefund(t *testing.T) {
 	assert.Equal(t, "stripe", resolver.gotProvider)
 	require.Equal(t, 1, refundClient.refundCalls)
 	assert.Equal(t, "cs_123", refundClient.gotExternalPaymentID)
-	assert.Equal(t, int64(1000), refundClient.gotAmountMinorUnits, "quantity 2 * price 500")
+	assert.Equal(t, int64(1090), refundClient.gotAmountMinorUnits, "the 10.00 line plus its 0.90 VAT on top")
 	assert.Equal(t, "damaged", refundClient.gotReason)
 
 	require.Len(t, lineItemRepo.updateCalls, 1)
 	assert.Equal(t, "li-1", lineItemRepo.updateCalls[0].ID)
 	assert.Equal(t, int64(2), lineItemRepo.updateCalls[0].Fields["refunded_quantity"])
-	assert.Equal(t, int64(1000), lineItemRepo.updateCalls[0].Fields["refunded_amount_minor_units"])
+	assert.Equal(t, int64(1090), lineItemRepo.updateCalls[0].Fields["refunded_amount_minor_units"])
 
 	require.Len(t, salesOrderRepo.updateCalls, 2, "refund status write + the always-on fulfilled write")
 	assert.Equal(t, "partially_refunded", salesOrderRepo.updateCalls[0].Fields["status"])

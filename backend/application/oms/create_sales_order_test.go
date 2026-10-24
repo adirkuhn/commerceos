@@ -222,3 +222,20 @@ func TestCreateSalesOrder_propagatesACreateError(t *testing.T) {
 
 	require.Error(t, err)
 }
+
+func TestCreateSalesOrder_keepsWhetherTheLineTotalIncludesTax(t *testing.T) {
+	db := newMockGormDBN(t, 1)
+	lineItemRepo := &stubSalesOrderLineItemRepo{}
+	uc := appoms.NewCreateSalesOrderUseCase(db, &stubSalesOrderRepo{}, lineItemRepo, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
+
+	_, err := uc.Execute(context.Background(), appoms.CreateSalesOrderInput{
+		WarehouseID: "warehouse-1", CurrencyCode: "EUR", OccurredAt: time.Now(), Status: omsDomain.SalesOrderStatusPending,
+		LineItems: []appoms.CreateSalesOrderLineItemInput{{SKUID: "sku-1", Quantity: 2, PriceMinorUnits: 199,
+			TotalMinorUnits: 398, TotalTaxMinorUnits: 33, TotalIncludesTax: true}},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, lineItemRepo.created, 1)
+	assert.True(t, lineItemRepo.created[0].TotalIncludesTax)
+	assert.Equal(t, int64(365), lineItemRepo.created[0].TotalExclTax())
+}

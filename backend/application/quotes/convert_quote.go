@@ -128,6 +128,7 @@ func (uc *ConvertQuoteToSalesOrderUseCase) buildOrder(ctx context.Context, in Co
 		order.LineItems = append(order.LineItems, appoms.CreateSalesOrderLineItemInput{
 			SKUID: l.SKUID, Name: lineName(row), SKUCode: row.SKUCode, Quantity: l.Quantity, PriceMinorUnits: l.UnitPriceMinorUnits,
 			SubtotalMinorUnits: a.Subtotal, SubtotalTaxMinorUnits: a.SubtotalTax, TotalMinorUnits: a.Total, TotalTaxMinorUnits: a.TotalTax,
+			TotalIncludesTax: catalog.PricesIncludeTax,
 		})
 	}
 	order.TotalMinorUnits, order.TaxTotalMinorUnits = omsDomain.OrderTotals(amounts, catalog.PricesIncludeTax)

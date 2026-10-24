@@ -317,7 +317,7 @@ type refundTotal struct {
 // never blocked by a payment-provider problem. See PickScanActionRefund's
 // domain doc comment for the full policy.
 func (a *OrderChangeApplier) replayRefund(ctx context.Context, order *omsDomain.SalesOrder, li omsDomain.SalesOrderLineItem, s omsDomain.StagedChange, totals map[string]refundTotal, marker changeMarker) error {
-	amount := li.PriceMinorUnits * s.Quantity
+	amount := li.RefundAmount(s.Quantity)
 
 	issued := false
 	if order.PaymentProvider != "" && order.PaymentExternalID != "" {

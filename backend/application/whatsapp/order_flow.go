@@ -235,9 +235,11 @@ func (uc *OrderFlowUseCase) placeOrder(ctx context.Context, conv *whatsappDomain
 	currency := ""
 	for i, item := range conv.Cart {
 		subtotal := item.Quantity * item.PriceMinorUnits
+		// The shop's own price, VAT not split out.
 		lineItems[i] = appoms.CreateSalesOrderLineItemInput{
 			SKUID: item.SKUID, Name: item.ProductName, SKUCode: item.SKUCode, Quantity: item.Quantity,
 			PriceMinorUnits: item.PriceMinorUnits, SubtotalMinorUnits: subtotal, TotalMinorUnits: subtotal,
+			TotalIncludesTax: true,
 		}
 		total += subtotal
 		currency = item.CurrencyCode

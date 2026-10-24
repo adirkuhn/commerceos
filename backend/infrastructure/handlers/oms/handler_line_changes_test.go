@@ -61,6 +61,19 @@ func TestListSalesOrderLineChanges_success(t *testing.T) {
 	assert.Contains(t, body, `"product_name":"Feijão Preto"`)
 }
 
+func TestListSalesOrderLineChanges_includesARefundsAmount(t *testing.T) {
+	amount := int64(1497)
+	list := &stubListSalesOrderLineChanges{out: []appoms.SalesOrderLineChange{{
+		ID: "c-1", Step: appoms.OrderChangeStepPacking, Action: omsDomain.ChangeRefund, LineItemID: strPtr("line-1"),
+		SKUID: "sku-1", Quantity: 3, AmountMinorUnits: &amount, At: time.Date(2026, 10, 24, 10, 49, 0, 0, time.UTC),
+	}}}
+
+	w := doRequest(newTestRouterWithLineChanges(list), "GET", "/api/v1/sales-orders/so-1/line-changes", nil)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"amount_minor_units":1497`)
+}
+
 func TestListSalesOrderLineChanges_emptyList(t *testing.T) {
 	w := doRequest(newTestRouterWithLineChanges(&stubListSalesOrderLineChanges{}), "GET", "/api/v1/sales-orders/so-1/line-changes", nil)
 

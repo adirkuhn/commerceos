@@ -23,6 +23,9 @@ type CreateSalesOrderLineItemInput struct {
 	SubtotalTaxMinorUnits int64
 	TotalMinorUnits       int64
 	TotalTaxMinorUnits    int64
+	// TotalIncludesTax: TotalMinorUnits already holds TotalTaxMinorUnits
+	// (see SalesOrderLineItem.TotalIncludesTax).
+	TotalIncludesTax bool
 }
 
 // CreateSalesOrderInput is what staff fill in from the admin UI for a
@@ -163,7 +166,7 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 				Name: li.Name, SKUCode: li.SKUCode, Quantity: li.Quantity,
 				PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 				SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
-				TotalTaxMinorUnits: li.TotalTaxMinorUnits, TaxClassID: taxClassID, CreatedAt: now,
+				TotalTaxMinorUnits: li.TotalTaxMinorUnits, TotalIncludesTax: li.TotalIncludesTax, TaxClassID: taxClassID, CreatedAt: now,
 			}
 			if err := uc.lineItemRepo.Create(ctx, &lineItem); err != nil {
 				return err

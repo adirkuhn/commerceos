@@ -319,12 +319,18 @@ type SalesOrderLineItem struct {
 	// the SKU had no tax class set, or for line items created before this
 	// field existed.
 	TaxClassID *string
+	// TotalIncludesTax says whether TotalMinorUnits already contains
+	// TotalTaxMinorUnits (lines priced with a tax-inclusive shop price:
+	// manual, quote, POS, Bol, WhatsApp, extras added while working the
+	// order) or has it on top (Woo, the storefront). Read the totals through
+	// TotalExclTax/TotalInclTax, never the raw column.
+	TotalIncludesTax bool
 
 	// RefundedQuantity/RefundedAmountMinorUnits accumulate across possibly
 	// more than one PickScanActionRefund row against this line (partial-by-
-	// quantity, see RefundLineItemUseCase) -- RefundedAmountMinorUnits is
-	// always RefundedQuantity * PriceMinorUnits at the time each refund
-	// replayed, not recomputed from the line's current price. Both zero
+	// quantity, see RefundLineItemUseCase) -- RefundedAmountMinorUnits sums
+	// RefundAmount of each refund as it replayed (refunds recorded before
+	// that rule were PriceMinorUnits x quantity), never recomputed. Both zero
 	// means never refunded.
 	RefundedQuantity         int64
 	RefundedAmountMinorUnits int64

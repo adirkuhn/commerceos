@@ -133,3 +133,27 @@ func TestListSalesOrderLineChanges_wrapsAReadError(t *testing.T) {
 
 	assert.ErrorContains(t, err, "listSalesOrderLineChanges")
 }
+
+func TestListSalesOrderLineChanges_givesRefundsAndChargedExtrasTheirAmountInclVAT(t *testing.T) {
+	at := time.Date(2026, 10, 24, 10, 0, 0, 0, time.UTC)
+	price := int64(199)
+	packing := &stubAppliedChanges{out: []omsDomain.StagedChange{
+		{ID: "c-refund", Action: omsDomain.ChangeRefund, LineItemID: strPtr("line-caldo"), SKUID: "sku-black", Quantity: 3, ScannedAt: at},
+		{ID: "c-extra", Action: omsDomain.ChangeNewItem, SKUID: "sku-gift", Quantity: 2, PriceMinorUnits: &price, Reason: "Canjiquinha", ScannedAt: at},
+		{ID: "c-missing", Action: omsDomain.ChangeNewItem, SKUID: "sku-gift", Quantity: 5, PriceMinorUnits: &price, Reason: "Not added", ScannedAt: at},
+	}}
+	lines := []omsDomain.SalesOrderLineItem{
+		{ID: "line-caldo", SKUID: strPtr("sku-black"), Name: "Caldo de Cana", Quantity: 3, TotalMinorUnits: 1373, TotalTaxMinorUnits: 124},
+		{ID: "line-extra", SKUID: strPtr("sku-gift"), Name: "Canjiquinha", Quantity: 2, TotalMinorUnits: 398, TotalTaxMinorUnits: 33, TotalIncludesTax: true},
+	}
+
+	got, err := newLineChangesUC(t, packing, &stubAppliedChanges{}, lines).Execute(context.Background(), "so-1")
+
+	require.NoError(t, err)
+	require.Len(t, got, 3)
+	require.NotNil(t, got[0].AmountMinorUnits)
+	assert.Equal(t, int64(1497), *got[0].AmountMinorUnits, "the refunded units' share of the line incl. VAT")
+	require.NotNil(t, got[1].AmountMinorUnits)
+	assert.Equal(t, int64(398), *got[1].AmountMinorUnits, "the added line's total incl. VAT")
+	assert.Nil(t, got[2].AmountMinorUnits, "an extra never added charged nothing")
+}

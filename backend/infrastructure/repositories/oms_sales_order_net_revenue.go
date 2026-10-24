@@ -11,8 +11,11 @@ package repositories
 const (
 	// netLineQuantitySQL is a line's units sold, net of refunds (alias li).
 	netLineQuantitySQL = `(li.quantity - li.refunded_quantity)`
-	// netLineRevenueSQL is a line's revenue, net of refunds (alias li).
-	netLineRevenueSQL = `(li.total_minor_units - li.refunded_amount_minor_units)`
+	// netLineRevenueSQL is a line's revenue, net of refunds (alias li): the
+	// share of its total for the units kept. Proportional rather than
+	// subtracting refunded_amount_minor_units, which includes VAT while a
+	// line's total may not (SalesOrderLineItem.TotalIncludesTax).
+	netLineRevenueSQL = `(CASE WHEN li.quantity > 0 THEN li.total_minor_units * (li.quantity - li.refunded_quantity) / li.quantity ELSE li.total_minor_units END)`
 	// lineNotFullyRefundedSQL drops a fully refunded line from line-level
 	// reports -- the SKU didn't sell in that order after all, so it must
 	// not count toward the SKU's order count or basket pairs.

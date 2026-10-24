@@ -88,7 +88,7 @@ func TestSalesOrderUseCases_FailWhenTheEventCantBeRecorded(t *testing.T) {
 	t.Run("add line item", func(t *testing.T) {
 		skus := &stubSKURepo{byID: map[string]*pmsDomain.SKU{"sku-1": {ID: "sku-1", SKUCode: "SKU-1"}}}
 		uc := appoms.NewAddSalesOrderLineItemUseCase(newMockGormDB(t), &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1"}},
-			&stubSalesOrderLineItemRepo{}, skus, failingOutbox())
+			&stubSalesOrderLineItemRepo{}, skus, &stubLinePricer{includesTax: true}, failingOutbox())
 		_, err := uc.Execute(ctx, appoms.AddSalesOrderLineItemInput{SalesOrderID: "order-1", SKUID: "sku-1", Name: "Freebie", Quantity: 1, PriceMinorUnits: 500})
 		assert.ErrorIs(t, err, errOMSOutboxDown)
 	})

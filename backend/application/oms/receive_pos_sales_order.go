@@ -207,7 +207,7 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 					Name: li.Name, SKUCode: li.SKUCode, Quantity: li.Quantity, WeightGrams: li.WeightGrams,
 					PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 					SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
-					TotalTaxMinorUnits: li.TotalTaxMinorUnits, CreatedAt: now,
+					TotalTaxMinorUnits: li.TotalTaxMinorUnits, TotalIncludesTax: true, CreatedAt: now,
 				}
 			} else {
 				sku, err = uc.skuRepo.FindByID(ctx, *li.SKUID)
@@ -220,7 +220,7 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 					Name: li.Name, SKUCode: sku.SKUCode, Barcode: sku.Barcode, Quantity: li.Quantity, WeightGrams: li.WeightGrams,
 					PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 					SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
-					TotalTaxMinorUnits: li.TotalTaxMinorUnits, TaxClassID: sku.TaxClassID, CreatedAt: now,
+					TotalTaxMinorUnits: li.TotalTaxMinorUnits, TotalIncludesTax: true, TaxClassID: sku.TaxClassID, CreatedAt: now,
 				}
 			}
 			if err := uc.lineItemRepo.Create(ctx, &lineItem); err != nil {

@@ -30,6 +30,7 @@ type salesOrderLineItemModel struct {
 	TotalMinorUnits       int64   `gorm:"not null;default:0"`
 	TotalTaxMinorUnits    int64   `gorm:"not null;default:0"`
 	TaxClassID            *string `gorm:"column:tax_class_id;type:uuid"`
+	TotalIncludesTax      bool    `gorm:"column:total_includes_tax;not null;default:false"`
 
 	RefundedQuantity         int64 `gorm:"column:refunded_quantity;not null;default:0"`
 	RefundedAmountMinorUnits int64 `gorm:"column:refunded_amount_minor_units;not null;default:0"`
@@ -75,7 +76,7 @@ func (r *SalesOrderLineItemRepo) Create(ctx context.Context, li *omsDomain.Sales
 		StockStatus:     string(stockStatus),
 		PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
-		TotalTaxMinorUnits: li.TotalTaxMinorUnits, TaxClassID: li.TaxClassID, CreatedAt: li.CreatedAt,
+		TotalTaxMinorUnits: li.TotalTaxMinorUnits, TaxClassID: li.TaxClassID, TotalIncludesTax: li.TotalIncludesTax, CreatedAt: li.CreatedAt,
 		RefundedQuantity: li.RefundedQuantity, RefundedAmountMinorUnits: li.RefundedAmountMinorUnits,
 		SoldExpiryDate: li.SoldExpiryDate,
 	}
@@ -123,7 +124,7 @@ func toSalesOrderLineItemDomain(m salesOrderLineItemModel) *omsDomain.SalesOrder
 		StockStatus:     omsDomain.StockStatus(m.StockStatus),
 		PriceMinorUnits: m.PriceMinorUnits, SubtotalMinorUnits: m.SubtotalMinorUnits,
 		SubtotalTaxMinorUnits: m.SubtotalTaxMinorUnits, TotalMinorUnits: m.TotalMinorUnits,
-		TotalTaxMinorUnits: m.TotalTaxMinorUnits, TaxClassID: m.TaxClassID, CreatedAt: m.CreatedAt,
+		TotalTaxMinorUnits: m.TotalTaxMinorUnits, TaxClassID: m.TaxClassID, TotalIncludesTax: m.TotalIncludesTax, CreatedAt: m.CreatedAt,
 		RefundedQuantity: m.RefundedQuantity, RefundedAmountMinorUnits: m.RefundedAmountMinorUnits,
 		SoldExpiryDate:       m.SoldExpiryDate,
 		CostAtSaleMinorUnits: m.CostAtSaleMinorUnits, CogsMinorUnits: m.CogsMinorUnits,

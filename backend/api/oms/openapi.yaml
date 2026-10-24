@@ -1190,6 +1190,21 @@ components:
         subtotal_tax_minor_units: { type: integer, format: int64 }
         total_minor_units: { type: integer, format: int64 }
         total_tax_minor_units: { type: integer, format: int64 }
+        total_includes_tax:
+          type: boolean
+          description: >-
+            Whether total_minor_units already contains total_tax_minor_units
+            (shop-priced lines: manual, quote, POS, Bol, items added while
+            packing) or has it on top (WooCommerce, the storefront). Read the
+            totals from total_excl_tax/total_incl_tax instead.
+        total_excl_tax_minor_units:
+          type: integer
+          format: int64
+          description: The line total without VAT.
+        total_incl_tax_minor_units:
+          type: integer
+          format: int64
+          description: The line total with VAT -- what the customer paid for it.
         refunded_quantity:
           type: integer
           format: int64
@@ -1445,6 +1460,14 @@ components:
           format: int64
           nullable: true
           description: A charged extra item's unit price.
+        amount_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            What the change moved, VAT included: the money a refund gives
+            back, or what an added extra item charged. Null for a substitute
+            and for an extra never added.
         reason:
           type: string
           description: Staff's note; for an extra item, the name it was added as.
@@ -1517,6 +1540,12 @@ components:
         subtotal_tax_minor_units: { type: integer, format: int64 }
         total_minor_units: { type: integer, format: int64 }
         total_tax_minor_units: { type: integer, format: int64 }
+        total_includes_tax:
+          type: boolean
+          default: false
+          description: >-
+            True when total_minor_units already contains total_tax_minor_units
+            (the shop's prices include VAT); false when the VAT comes on top.
 
     CreateSalesOrderRequest:
       type: object

@@ -80,6 +80,7 @@ func TestReceivePOSSalesOrder_matchesLineItemsToSKUsByID(t *testing.T) {
 	assert.Equal(t, "5601049213991", lineItemRepo.created[0].Barcode)
 	require.NotNil(t, lineItemRepo.created[0].TaxClassID)
 	assert.Equal(t, "tax-class-standard", *lineItemRepo.created[0].TaxClassID)
+	assert.True(t, lineItemRepo.created[0].TotalIncludesTax, "POS sends line totals with VAT")
 }
 
 func TestReceivePOSSalesOrder_propagatesASKUNotFoundError(t *testing.T) {

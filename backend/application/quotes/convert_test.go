@@ -122,9 +122,9 @@ func TestConvertQuote_createsAProcessingOrderAtTheQuotedPrices(t *testing.T) {
 	assert.Equal(t, "Quote Q-0007 — Restaurant Sabor", in.CustomerNote, "no customer: the quote name goes in the note")
 	assert.Equal(t, []appoms.CreateSalesOrderLineItemInput{
 		{SKUID: "s-1", Name: "Feijão", SKUCode: "FEI-1", Quantity: 10, PriceMinorUnits: 1210,
-			SubtotalMinorUnits: 12100, SubtotalTaxMinorUnits: 2100, TotalMinorUnits: 12100, TotalTaxMinorUnits: 2100},
+			SubtotalMinorUnits: 12100, SubtotalTaxMinorUnits: 2100, TotalMinorUnits: 12100, TotalTaxMinorUnits: 2100, TotalIncludesTax: true},
 		{SKUID: "s-3", Name: "Farofa — 500g", SKUCode: "FAR-1", Quantity: 2, PriceMinorUnits: 500,
-			SubtotalMinorUnits: 1000, SubtotalTaxMinorUnits: 83, TotalMinorUnits: 1000, TotalTaxMinorUnits: 83},
+			SubtotalMinorUnits: 1000, SubtotalTaxMinorUnits: 83, TotalMinorUnits: 1000, TotalTaxMinorUnits: 83, TotalIncludesTax: true},
 	}, in.LineItems, "zero-quantity lines are left out")
 	assert.Equal(t, int64(13100), in.TotalMinorUnits)
 	assert.Equal(t, int64(2183), in.TaxTotalMinorUnits)

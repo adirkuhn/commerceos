@@ -31,12 +31,11 @@ type AddSalesOrderLineItemInput struct {
 // freebie/new_item replay: a picker can add a product to an order mid-pick
 // that was never on the original order at all.
 //
-// No tax computation -- SubtotalTaxMinorUnits/TotalTaxMinorUnits are left
-// 0, a deliberate simplification (no tax-rate lookup happens mid-pick;
-// staff can correct via the existing header-edit flow if needed).
-// TotalMinorUnits is a cached column on SalesOrder, never derived from
-// summed line items (unlike procurement.PurchaseOrder's), so this use case
-// must explicitly bump it -- nothing else will.
+// The price is the shop's own, so its VAT is split the way the shop prices
+// its catalog (ShopLinePricer). TotalMinorUnits/TaxTotalMinorUnits are
+// cached columns on SalesOrder, never derived from summed line items
+// (unlike procurement.PurchaseOrder's), so this use case must explicitly
+// bump them -- nothing else will.
 //
 // Does not touch stock -- same "line-item write is one transaction, stock
 // movement is the caller's separate call" split used everywhere else in
@@ -47,10 +46,15 @@ type AddSalesOrderLineItemUseCase struct {
 	salesOrderRepo omsDomain.SalesOrderRepository
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	skuRepo        skuLookupRepo
+	pricer         addedLinePricer
 }
 
-func NewAddSalesOrderLineItemUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, skuRepo skuLookupRepo, outbox eventrecord.Enqueuer) *AddSalesOrderLineItemUseCase {
-	return &AddSalesOrderLineItemUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, skuRepo: skuRepo}
+type addedLinePricer interface {
+	PriceLine(ctx context.Context, taxClassID *string, quantity, unitPriceMinorUnits int64) (omsDomain.LineAmounts, bool, error)
+}
+
+func NewAddSalesOrderLineItemUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, skuRepo skuLookupRepo, pricer addedLinePricer, outbox eventrecord.Enqueuer) *AddSalesOrderLineItemUseCase {
+	return &AddSalesOrderLineItemUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, skuRepo: skuRepo, pricer: pricer}
 }
 
 func (uc *AddSalesOrderLineItemUseCase) Execute(ctx context.Context, in AddSalesOrderLineItemInput) (*omsDomain.SalesOrderLineItem, error) {
@@ -72,7 +76,10 @@ func (uc *AddSalesOrderLineItemUseCase) Execute(ctx context.Context, in AddSales
 			return err
 		}
 
-		total := in.PriceMinorUnits * in.Quantity
+		amounts, includesTax, err := uc.pricer.PriceLine(ctx, sku.TaxClassID, in.Quantity, in.PriceMinorUnits)
+		if err != nil {
+			return err
+		}
 		skuID := in.SKUID
 		lineItem = omsDomain.SalesOrderLineItem{
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: in.SalesOrderID, SKUID: &skuID,
@@ -81,17 +88,20 @@ func (uc *AddSalesOrderLineItemUseCase) Execute(ctx context.Context, in AddSales
 			// This use case's caller (CompletePickingUseCase) records the
 			// real stock movement itself right after this returns -- see
 			// its doc comment for why the two aren't one transaction.
-			PriceMinorUnits: in.PriceMinorUnits, SubtotalMinorUnits: total, TotalMinorUnits: total,
+			PriceMinorUnits: in.PriceMinorUnits, SubtotalMinorUnits: amounts.Subtotal, SubtotalTaxMinorUnits: amounts.SubtotalTax,
+			TotalMinorUnits: amounts.Total, TotalTaxMinorUnits: amounts.TotalTax, TotalIncludesTax: includesTax,
 			TaxClassID: sku.TaxClassID, CreatedAt: time.Now(),
 		}
 		if err := uc.lineItemRepo.Create(ctx, &lineItem); err != nil {
 			return err
 		}
 
-		newTotal := order.TotalMinorUnits + total
+		newTotal := order.TotalMinorUnits + lineItem.TotalInclTax()
+		newTax := order.TaxTotalMinorUnits + lineItem.TotalTaxMinorUnits
 		if err := uc.salesOrderRepo.Update(ctx, order.ID, map[string]any{
-			"total_minor_units": newTotal,
-			"updated_at":        time.Now(),
+			"total_minor_units":     newTotal,
+			"tax_total_minor_units": newTax,
+			"updated_at":            time.Now(),
 		}); err != nil {
 			return err
 		}
@@ -102,7 +112,8 @@ func (uc *AddSalesOrderLineItemUseCase) Execute(ctx context.Context, in AddSales
 			return err
 		}
 		return recordSalesOrderUpdated(ctx, uc.outbox, order.ID,
-			eventrecord.NewChanges().Set("total_minor_units", order.TotalMinorUnits, newTotal), OrderChangeReasonLineItemAdded)
+			eventrecord.NewChanges().Set("total_minor_units", order.TotalMinorUnits, newTotal).
+				Set("tax_total_minor_units", order.TaxTotalMinorUnits, newTax), OrderChangeReasonLineItemAdded)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("addSalesOrderLineItem: %w", err)
