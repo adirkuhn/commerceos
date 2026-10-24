@@ -6,15 +6,19 @@ import type { PriceListQuery, PriceListRow } from '../../pricelist/types'
 import type { QuoteInput, SavedQuote } from '../types'
 
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ token: 'tok' }) }))
+vi.mock('../../inventory/api', () => ({ listWarehouses: vi.fn(async () => [{ id: 'wh-1', name: 'Amsterdam' }]) }))
+vi.mock('../../oms/api', () => ({ listSalesOrders: vi.fn(async () => ({ salesOrders: [], total: 0 })) }))
 vi.mock('../../pricelist/api', () => ({ listPriceList: vi.fn(), setAutomaticCostPrice: vi.fn() }))
 vi.mock('../quotesApi', () => ({
   listQuotes: vi.fn(), getQuote: vi.fn(), createQuote: vi.fn(), updateQuote: vi.fn(), deleteQuote: vi.fn(),
+  checkQuoteStock: vi.fn(), convertQuote: vi.fn(),
 }))
 vi.mock('../../search/api', () => ({ globalSearch: vi.fn(async () => ({
   products: [], suppliers: [], sales_orders: [], customers: [{ id: 'c-1', first_name: 'Ana', last_name: 'Souza', email: 'ana@sabor.nl' }],
 })) }))
 import * as api from '../../pricelist/api'
 import * as quotesApi from '../quotesApi'
+import * as omsApi from '../../oms/api'
 import Quotes from '../../pages/Quotes'
 
 const P1 = '0b0e7e8e-0000-4000-8000-000000000001'
@@ -105,7 +109,8 @@ describe('saving a quote', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(quotesApi.createQuote).toHaveBeenCalledWith('tok', expect.objectContaining({ customer_id: 'c-1' })))
-    fireEvent.click(await screen.findByRole('button', { name: 'All quotes' }))
+    await waitFor(() => expect(screen.getByTestId('quote-reference')).toHaveTextContent('Q-0001'))
+    fireEvent.click(screen.getByRole('button', { name: 'All quotes' }))
     expect(await screen.findByTestId('saved-quote-Q-0001')).toHaveTextContent('Ana Souza')
   })
 
@@ -196,5 +201,38 @@ describe('saved quotes tab', () => {
 
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Delete quote' })).not.toBeInTheDocument())
     expect(quotesApi.deleteQuote).not.toHaveBeenCalled()
+  })
+})
+
+describe('creating a sales order from a quote', () => {
+  beforeEach(() => {
+    store['q-1'] = toSaved('q-1', 1, { name: 'Sabor', discount_basis_points: 0, currency_code: 'EUR',
+      lines: [{ product_id: P1, sku_id: 's-fei', quantity: 50, unit_price_minor_units: 950 }] })
+  })
+
+  it('is only possible for a saved quote without unsaved changes', async () => {
+    renderPage(`/quotes/new?lines=${P1}.s-fei.1`)
+    await screen.findByTestId('quote-line-s-fei')
+    expect(screen.getByRole('button', { name: 'Create sales order' })).toBeDisabled()
+  })
+
+  it('shows earlier orders and sends a short order to Stock issues', async () => {
+    vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [{ id: 'so-0', number: 'B2B-0', external_order_id: 'x' } as never], total: 1 })
+    vi.mocked(quotesApi.checkQuoteStock).mockResolvedValue({ has_shortfall: true, lines: [{ product_id: P1, sku_id: 's-fei', quantity: 50, available: 40, short: 10 }] })
+    vi.mocked(quotesApi.convertQuote).mockResolvedValue({ sales_order_id: 'so-1', number: '', needs_stock_review: true })
+    renderPage(`/quotes/q-1?lines=${P1}.s-fei.50.950`)
+    expect(await screen.findByTestId('quote-orders')).toHaveTextContent('B2B-0')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create sales order' })).toBeEnabled())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create sales order' }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create sales order' }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Create another order' }))
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Yes, create a new order' }))
+    expect(await within(dialog).findByText('Feijão')).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create anyway' }))
+
+    await waitFor(() => expect(search).toBe('/stock-issues'))
+    expect(quotesApi.convertQuote).toHaveBeenCalledWith('tok', 'q-1', { warehouse_id: 'wh-1', number: undefined })
   })
 })

@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Download, FileText, Trash2 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowLeft, Download, FileText, ShoppingCart, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
 import { apiErrorText } from '../api/apiErrorText'
@@ -10,6 +10,9 @@ import { downloadBlob } from '../newsletter/download'
 import { useQueryString } from '../routing/useQueryState'
 import { DiscountField } from '../pricelist/DiscountField'
 import { CustomerPicker, type PickedCustomer } from '../customers/CustomerPicker'
+import { useWarehouses } from '../inventory/hooks/useWarehouses'
+import { ConvertQuoteDialog, orderLabel } from './ConvertQuoteDialog'
+import { useQuoteOrders } from './hooks/useQuoteOrders'
 import { usePriceList } from '../pricelist/hooks/usePriceList'
 import { useQuoteLines } from './hooks/useQuoteLines'
 import { useSavedQuote } from './hooks/useSavedQuotes'
@@ -50,6 +53,9 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
   }, [saved.data])
   const [saving, setSaving] = useState(false)
   const [printing, setPrinting] = useState(false)
+  const [converting, setConverting] = useState(false)
+  const { warehouses } = useWarehouses(token)
+  const orders = useQuoteOrders(token, quoteId)
   const [saveError, setSaveError] = useState('')
   const input = buildQuoteInput(name, customer?.id ?? null, discount, quote.lines, rowBySku, saved.data?.currency_code)
   const dirty = quoteId
@@ -106,6 +112,12 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
           lines={exportLines}
         />
       )}
+      {converting && quoteId && (
+        <ConvertQuoteDialog token={token} quoteId={quoteId} warehouses={warehouses} existingOrders={orders.data ?? []}
+          productName={skuId => { const row = rowBySku.get(skuId); return row ? productName(row) : skuId }}
+          onClose={() => setConverting(false)}
+          onCreated={r => navigate(r.needs_stock_review ? '/stock-issues' : `/sales-orders/${r.sales_order_id}`)} />
+      )}
       <QuoteSaveBar
         reference={saved.data && saved.data.id === quoteId ? saved.data.reference : null}
         name={name} onName={setName} dirty={dirty} saving={saving}
@@ -113,6 +125,14 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
         error={saveError || (quoteId && saved.error) || ''}
         onSave={() => persist(false)} onSaveAsNew={() => persist(true)} onNew={startNew}
       />
+      {(orders.data?.length ?? 0) > 0 && (
+        <p data-testid="quote-orders" className="px-5 py-1.5 border-b border-line bg-surface text-2xs text-ink-3">
+          {t('convert.orders')}{' '}
+          {orders.data!.map((o, i) => (
+            <span key={o.id}>{i > 0 && ', '}<Link to={`/sales-orders/${o.id}`} className="text-accent hover:underline">{orderLabel(o)}</Link></span>
+          ))}
+        </p>
+      )}
       <div className="flex flex-wrap items-start gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <button onClick={onClose} className="flex items-center gap-1 py-1.5 text-xs text-ink-3 hover:text-ink">
           <ArrowLeft size={13} /> {t('list.back')}
@@ -135,6 +155,11 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
           <button onClick={() => setPrinting(true)} disabled={priced.length === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-40">
             <FileText size={13} /> {t('print.button')}
+          </button>
+          <button onClick={() => setConverting(true)} disabled={!quoteId || dirty || priced.length === 0}
+            title={!quoteId || dirty ? t('convert.saveFirst') : undefined}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-40">
+            <ShoppingCart size={13} /> {t('convert.button')}
           </button>
         </div>
       </div>

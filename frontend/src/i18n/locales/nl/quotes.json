@@ -59,5 +59,31 @@
     "lineTotal": "Regeltotaal",
     "orderTotal": "Totaal",
     "button": "PDF downloaden"
+  },
+  "convert": {
+    "title": "Verkooporder maken",
+    "button": "Verkooporder maken",
+    "saveFirst": "Sla de offerte eerst op",
+    "warehouse": "Magazijn",
+    "number": "Ordernummer (optioneel)",
+    "numberPlaceholder": "bijv. B2B-2026-014",
+    "hint": "De order wordt aangemaakt als in behandeling tegen de prijzen van de offerte; de voorraad komt uit dit magazijn.",
+    "submit": "Verkooporder maken",
+    "working": "Bezig…",
+    "failed": "De verkooporder kon niet worden gemaakt.",
+    "alreadyOrdered": "Deze offerte is al order {{orders}} geworden.",
+    "repeatQuestion": "Deze offerte is al order {{orders}} geworden. Nog een order ervan maken?",
+    "repeatConfirm": "Nog een order maken",
+    "repeatAgainQuestion": "Weet je het zeker? Een nieuwe order neemt de voorraad opnieuw.",
+    "repeatAgainConfirm": "Ja, nieuwe order maken",
+    "shortIntro": "Het magazijn kan niet elke regel leveren:",
+    "colProduct": "Product",
+    "colNeeded": "Nodig",
+    "colAvailable": "Beschikbaar",
+    "colShort": "Tekort",
+    "shortHint": "Toch maken en de order gaat naar Voorraadproblemen voor de ontbrekende artikelen.",
+    "backToFix": "Terug om de offerte aan te passen",
+    "createAnyway": "Toch maken",
+    "orders": "Orders van deze offerte:"
   }
 }

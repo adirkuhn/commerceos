@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { createQuote, deleteQuote, getQuote, listQuotes, updateQuote } from '../quotesApi'
+import { checkQuoteStock, convertQuote, createQuote, deleteQuote, getQuote, listQuotes, updateQuote } from '../quotesApi'
 import type { QuoteInput, SavedQuote } from '../types'
 
 function mockFetch(body: unknown, status = 200) {
@@ -53,4 +53,15 @@ describe('quotes API', () => {
     await expect(getQuote('tok', 'q-x')).rejects.toMatchObject({ code: 'QUOTE_NOT_FOUND' })
   })
 
+
+  it('checks stock in a warehouse and converts', async () => {
+    let fetchMock = mockFetch({ data: { lines: [], has_shortfall: false }, error: null })
+    await checkQuoteStock('tok', 'q-1', 'wh-1')
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/quotes\/q-1\/stock-check\?warehouse_id=wh-1$/)
+
+    fetchMock = mockFetch({ data: { sales_order_id: 'so-1', number: '', needs_stock_review: false }, error: null }, 201)
+    expect(await convertQuote('tok', 'q-1', { warehouse_id: 'wh-1', number: 'B2B-1' })).toEqual({ sales_order_id: 'so-1', number: '', needs_stock_review: false })
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/quotes\/q-1\/sales-orders$/)
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', body: JSON.stringify({ warehouse_id: 'wh-1', number: 'B2B-1' }) })
+  })
 })

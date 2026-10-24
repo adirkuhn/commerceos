@@ -1,5 +1,5 @@
 import { CodedApiError } from '../api/codedApiError'
-import type { QuoteInput, SavedQuote, SavedQuotePage, SavedQuoteSummary } from './types'
+import type { ConvertQuoteResult, QuoteInput, QuoteStockCheck, SavedQuote, SavedQuotePage, SavedQuoteSummary } from './types'
 
 interface Envelope<T> {
   data: T | null
@@ -44,4 +44,14 @@ export async function updateQuote(token: string, id: string, input: QuoteInput):
 
 export async function deleteQuote(token: string, id: string): Promise<void> {
   await call<null>(token, `/quotes/${id}`, { method: 'DELETE' })
+}
+
+/** Which lines the warehouse can't fully cover right now (nothing is taken). */
+export async function checkQuoteStock(token: string, id: string, warehouseId: string): Promise<QuoteStockCheck> {
+  return (await call<QuoteStockCheck>(token, `/quotes/${id}/stock-check?warehouse_id=${encodeURIComponent(warehouseId)}`)).data as QuoteStockCheck
+}
+
+/** A processing sales order from the quote; short lines send it to Stock issues. */
+export async function convertQuote(token: string, id: string, input: { warehouse_id: string; number?: string }): Promise<ConvertQuoteResult> {
+  return (await call<ConvertQuoteResult>(token, `/quotes/${id}/sales-orders`, { method: 'POST', body: JSON.stringify(input) })).data as ConvertQuoteResult
 }

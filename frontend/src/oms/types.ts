@@ -35,6 +35,8 @@ export interface SalesOrder {
   status: SalesOrderStatus
   warehouse_id?: string | null
   customer_id?: string | null
+  // The quote this order was created from.
+  quote_id?: string | null
   billing?: Address
   shipping?: Address
   customer_note?: string

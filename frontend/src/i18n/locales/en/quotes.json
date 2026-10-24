@@ -59,5 +59,31 @@
     "lineTotal": "Line total",
     "orderTotal": "Order total",
     "button": "Download PDF"
+  },
+  "convert": {
+    "title": "Create sales order",
+    "button": "Create sales order",
+    "saveFirst": "Save the quote first",
+    "warehouse": "Warehouse",
+    "number": "Order number (optional)",
+    "numberPlaceholder": "e.g. B2B-2026-014",
+    "hint": "The order is created as processing at the quote's prices, and the stock is taken from this warehouse.",
+    "submit": "Create sales order",
+    "working": "Working…",
+    "failed": "The sales order couldn't be created.",
+    "alreadyOrdered": "This quote already became order {{orders}}.",
+    "repeatQuestion": "This quote already became order {{orders}}. Create another order from it?",
+    "repeatConfirm": "Create another order",
+    "repeatAgainQuestion": "Are you sure? A new order takes the stock again.",
+    "repeatAgainConfirm": "Yes, create a new order",
+    "shortIntro": "The warehouse can't cover every line:",
+    "colProduct": "Product",
+    "colNeeded": "Needed",
+    "colAvailable": "Available",
+    "colShort": "Short",
+    "shortHint": "Create anyway and the order goes to Stock issues for the missing items.",
+    "backToFix": "Back to fix the quote",
+    "createAnyway": "Create anyway",
+    "orders": "Orders from this quote:"
   }
 }

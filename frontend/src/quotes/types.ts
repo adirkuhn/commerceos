@@ -54,3 +54,22 @@ export interface SavedQuotePage {
   quotes: SavedQuoteSummary[]
   total: number
 }
+
+export interface QuoteStockCheckLine {
+  product_id: string
+  sku_id: string
+  quantity: number
+  available: number
+  short: number
+}
+
+export interface QuoteStockCheck {
+  lines: QuoteStockCheckLine[]
+  has_shortfall: boolean
+}
+
+export interface ConvertQuoteResult {
+  sales_order_id: string
+  number: string
+  needs_stock_review: boolean
+}

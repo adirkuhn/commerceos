@@ -54,6 +54,8 @@ export interface ListSalesOrdersParams {
   // "orders to ship today" button. The rule lives in the backend
   // (ListSalesOrdersFilter.ShipDueOnOrBefore).
   shipDue?: boolean
+  // Orders created from this quote.
+  quoteId?: string
 }
 
 export interface ListSalesOrdersResult {
@@ -75,6 +77,7 @@ export async function listSalesOrders(token: string, params: ListSalesOrdersPara
   for (const status of params.status ?? []) qs.append('status', status)
   for (const source of params.source ?? []) qs.append('source', source)
   if (params.customerId) qs.set('customer_id', params.customerId)
+  if (params.quoteId) qs.set('quote_id', params.quoteId)
   if (params.shipDue) qs.set('ship_due', 'true')
   const query = qs.toString()
 

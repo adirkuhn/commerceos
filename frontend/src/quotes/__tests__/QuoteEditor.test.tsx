@@ -5,6 +5,8 @@ import { MemoryRouter, useLocation } from 'react-router-dom'
 import type { PriceListQuery, PriceListRow } from '../../pricelist/types'
 
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ token: 'tok' }) }))
+vi.mock('../../inventory/api', () => ({ listWarehouses: vi.fn(async () => [{ id: 'wh-1', name: 'Amsterdam' }]) }))
+vi.mock('../../oms/api', () => ({ listSalesOrders: vi.fn(async () => ({ salesOrders: [], total: 0 })) }))
 vi.mock('../../pricelist/api', () => ({ listPriceList: vi.fn(), setAutomaticCostPrice: vi.fn() }))
 vi.mock('../../newsletter/download', () => ({ downloadBlob: vi.fn() }))
 import * as api from '../../pricelist/api'

@@ -59,5 +59,31 @@
     "lineTotal": "Total da linha",
     "orderTotal": "Total do pedido",
     "button": "Baixar PDF"
+  },
+  "convert": {
+    "title": "Criar pedido de venda",
+    "button": "Criar pedido de venda",
+    "saveFirst": "Salve o orçamento primeiro",
+    "warehouse": "Depósito",
+    "number": "Número do pedido (opcional)",
+    "numberPlaceholder": "ex.: B2B-2026-014",
+    "hint": "O pedido é criado como em processamento com os preços do orçamento, e o estoque sai deste depósito.",
+    "submit": "Criar pedido de venda",
+    "working": "Processando…",
+    "failed": "Não foi possível criar o pedido de venda.",
+    "alreadyOrdered": "Este orçamento já virou o pedido {{orders}}.",
+    "repeatQuestion": "Este orçamento já virou o pedido {{orders}}. Criar outro pedido a partir dele?",
+    "repeatConfirm": "Criar outro pedido",
+    "repeatAgainQuestion": "Tem certeza? Um novo pedido retira o estoque de novo.",
+    "repeatAgainConfirm": "Sim, criar novo pedido",
+    "shortIntro": "O depósito não cobre todas as linhas:",
+    "colProduct": "Produto",
+    "colNeeded": "Necessário",
+    "colAvailable": "Disponível",
+    "colShort": "Faltando",
+    "shortHint": "Criando mesmo assim, o pedido vai para Problemas de estoque pelos itens que faltam.",
+    "backToFix": "Voltar e corrigir o orçamento",
+    "createAnyway": "Criar mesmo assim",
+    "orders": "Pedidos deste orçamento:"
   }
 }
