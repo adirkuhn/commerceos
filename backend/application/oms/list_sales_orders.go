@@ -42,6 +42,8 @@ type ListSalesOrdersInput struct {
 	Source []omsDomain.SalesOrderSource
 	// CustomerID nil means "don't filter" -- see domain/oms.ListSalesOrdersFilter.CustomerID's doc.
 	CustomerID *string
+	// QuoteID nil means "don't filter" -- see domain/oms.ListSalesOrdersFilter.QuoteID.
+	QuoteID *string
 	// ShipDue true narrows to orders that must ship today or are late --
 	// ListSalesOrdersFilter.ShipDueOnOrBefore with today's date in the
 	// tenant's reporting timezone. false means "don't filter".
@@ -93,7 +95,7 @@ func (uc *ListSalesOrdersUseCase) Execute(ctx context.Context, in ListSalesOrder
 		filter := omsDomain.ListSalesOrdersFilter{
 			Limit: perPage, Offset: (page - 1) * perPage, SortBy: in.SortBy, SortDir: in.SortDir,
 			NeedsStockReview: in.NeedsStockReview, NeedsSKUReview: in.NeedsSKUReview, Fulfilled: in.Fulfilled, Packed: in.Packed, AwaitingPicking: in.AwaitingPicking,
-			Status: in.Status, Source: in.Source, CustomerID: in.CustomerID,
+			Status: in.Status, Source: in.Source, CustomerID: in.CustomerID, QuoteID: in.QuoteID,
 		}
 		if in.ShipDue {
 			settings, err := uc.settings.Get(ctx)

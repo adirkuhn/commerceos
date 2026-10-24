@@ -42,6 +42,8 @@ type CreateSalesOrderInput struct {
 	Status      omsDomain.SalesOrderStatus // defaults to Pending -- unlike a POS push, a manual order is not necessarily already paid/fulfilled
 	WarehouseID string
 	CustomerID  *string
+	// QuoteID links the order to the quote it was created from.
+	QuoteID *string
 	// SalesChannelID is set only by application/storefront's checkout
 	// (SalesOrderSourceInternal) -- see SalesOrder.SalesChannelID's doc
 	// comment. Nil for every other caller of this use case.
@@ -124,7 +126,7 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 		newOrder := omsDomain.SalesOrder{
 			TenantID: tenant.IDFromContext(ctx), Source: source,
 			ExternalOrderID: uuid.NewString(), Number: in.Number, OrderKey: in.OrderKey, Status: status,
-			WarehouseID: in.WarehouseID, CustomerID: in.CustomerID, SalesChannelID: in.SalesChannelID, Billing: in.Billing, Shipping: in.Shipping,
+			WarehouseID: in.WarehouseID, CustomerID: in.CustomerID, QuoteID: in.QuoteID, SalesChannelID: in.SalesChannelID, Billing: in.Billing, Shipping: in.Shipping,
 			CustomerNote: in.CustomerNote, CurrencyCode: in.CurrencyCode,
 			DiscountTotalMinorUnits: in.DiscountTotalMinorUnits, ShippingTotalMinorUnits: in.ShippingTotalMinorUnits,
 			TaxTotalMinorUnits: in.TaxTotalMinorUnits, TotalMinorUnits: in.TotalMinorUnits,

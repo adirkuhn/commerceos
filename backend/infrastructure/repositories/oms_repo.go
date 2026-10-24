@@ -186,6 +186,9 @@ func salesOrdersMatching(tx *gorm.DB, filter omsDomain.ListSalesOrdersFilter) *g
 	if filter.CustomerID != nil {
 		q = q.Where("customer_id = ?", *filter.CustomerID)
 	}
+	if filter.QuoteID != nil {
+		q = q.Where("quote_id = ?", *filter.QuoteID)
+	}
 	if filter.SalesChannelID != nil {
 		q = q.Where("sales_channel_id = ?", *filter.SalesChannelID)
 	}

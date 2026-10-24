@@ -158,6 +158,8 @@ type SalesOrder struct {
 	// CustomerID is nil for a guest/walk-in sale -- most POS sales have no
 	// linked customer record.
 	CustomerID   *string
+	// QuoteID is the quote this order was created from; nil otherwise.
+	QuoteID *string
 	Billing      Address
 	Shipping     Address
 	CustomerNote string

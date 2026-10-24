@@ -48,7 +48,7 @@ func (h *Handler) ListSalesOrders(c *gin.Context, params genoms.ListSalesOrdersP
 	result, err := h.listSalesOrders.Execute(c.Request.Context(), appoms.ListSalesOrdersInput{
 		Page: page, PerPage: perPage, SortBy: sortBy, SortDir: sortDir,
 		NeedsStockReview: params.NeedsStockReview, NeedsSKUReview: params.NeedsSkuReview,
-		Fulfilled: params.Fulfilled, Packed: params.Packed, AwaitingPicking: params.AwaitingPicking != nil && *params.AwaitingPicking, Status: statuses, Source: sources, CustomerID: params.CustomerId,
+		Fulfilled: params.Fulfilled, Packed: params.Packed, AwaitingPicking: params.AwaitingPicking != nil && *params.AwaitingPicking, Status: statuses, Source: sources, CustomerID: params.CustomerId, QuoteID: quoteIDParam(params.QuoteId),
 		ShipDue: params.ShipDue != nil && *params.ShipDue,
 	})
 	if err := mapError(c, err); err != nil {
@@ -291,7 +291,7 @@ func toGenSalesOrder(o omsDomain.SalesOrder) genoms.SalesOrder {
 	paymentReference := o.PaymentReference()
 	return genoms.SalesOrder{
 		Id: o.ID, Source: genoms.SalesOrderSource(o.Source), ExternalOrderId: o.ExternalOrderID, Number: &o.Number, OrderKey: &o.OrderKey,
-		Status: genoms.SalesOrderStatus(o.Status), WarehouseId: o.WarehouseID, CustomerId: o.CustomerID,
+		Status: genoms.SalesOrderStatus(o.Status), WarehouseId: o.WarehouseID, CustomerId: o.CustomerID, QuoteId: o.QuoteID,
 		Billing: &billing, Shipping: &shipping, CustomerNote: &o.CustomerNote, CurrencyCode: o.CurrencyCode,
 		DiscountTotalMinorUnits: &o.DiscountTotalMinorUnits, ShippingTotalMinorUnits: &o.ShippingTotalMinorUnits,
 		TaxTotalMinorUnits: &o.TaxTotalMinorUnits, TotalMinorUnits: o.TotalMinorUnits,
@@ -348,4 +348,12 @@ func toGenDate(d *time.Time) *openapi_types.Date {
 		return nil
 	}
 	return &openapi_types.Date{Time: *d}
+}
+
+func quoteIDParam(id *openapi_types.UUID) *string {
+	if id == nil {
+		return nil
+	}
+	s := id.String()
+	return &s
 }

@@ -21,6 +21,7 @@ type salesOrderModel struct {
 
 	WarehouseID string  `gorm:"not null;type:uuid"`
 	CustomerID  *string `gorm:"type:uuid"`
+	QuoteID     *string `gorm:"column:quote_id;type:uuid"`
 
 	BillingFirstName  string
 	BillingLastName   string
@@ -87,7 +88,7 @@ func salesOrderModelFromDomain(o *omsDomain.SalesOrder) salesOrderModel {
 	return salesOrderModel{
 		ID: o.ID, TenantID: o.TenantID, Source: string(o.Source), ExternalOrderID: o.ExternalOrderID,
 		ConnectionID: o.ConnectionID, SalesChannelID: o.SalesChannelID, Number: o.Number, OrderKey: o.OrderKey, Status: string(o.Status),
-		WarehouseID: o.WarehouseID, CustomerID: o.CustomerID,
+		WarehouseID: o.WarehouseID, CustomerID: o.CustomerID, QuoteID: o.QuoteID,
 		BillingFirstName: bFirst, BillingLastName: bLast, BillingCompany: bCompany,
 		BillingAddress1: bAddr1, BillingAddress2: bAddr2, BillingCity: bCity, BillingState: bState,
 		BillingPostcode: bPostcode, BillingCountry: bCountry, BillingEmail: bEmail, BillingPhone: bPhone,
@@ -114,7 +115,7 @@ func toSalesOrderDomain(m salesOrderModel) *omsDomain.SalesOrder {
 	return &omsDomain.SalesOrder{
 		ID: m.ID, TenantID: m.TenantID, Source: omsDomain.SalesOrderSource(m.Source),
 		ExternalOrderID: m.ExternalOrderID, ConnectionID: m.ConnectionID, SalesChannelID: m.SalesChannelID, Number: m.Number, OrderKey: m.OrderKey,
-		Status: omsDomain.SalesOrderStatus(m.Status), WarehouseID: m.WarehouseID, CustomerID: m.CustomerID,
+		Status: omsDomain.SalesOrderStatus(m.Status), WarehouseID: m.WarehouseID, CustomerID: m.CustomerID, QuoteID: m.QuoteID,
 		Billing: omsDomain.Address{
 			FirstName: m.BillingFirstName, LastName: m.BillingLastName, Company: m.BillingCompany,
 			Address1: m.BillingAddress1, Address2: m.BillingAddress2, City: m.BillingCity, State: m.BillingState,

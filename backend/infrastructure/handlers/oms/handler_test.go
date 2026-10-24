@@ -714,6 +714,18 @@ func TestListSalesOrders_passesNeedsReviewFiltersThrough(t *testing.T) {
 	assert.False(t, *list.gotInput.NeedsSKUReview)
 }
 
+func TestListSalesOrders_passesQuoteFilterThroughAndShowsTheQuote(t *testing.T) {
+	quoteID := "3f6d1c2a-0b7e-4c1d-9a2f-5e8b7c6d4a31"
+	list := &stubListSalesOrders{out: &appoms.ListSalesOrdersResult{SalesOrders: []omsDomain.SalesOrder{{ID: "o-1", QuoteID: &quoteID}}}}
+	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}),
+		"GET", "/api/v1/sales-orders?quote_id="+quoteID, nil)
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	require.NotNil(t, list.gotInput.QuoteID)
+	assert.Equal(t, quoteID, *list.gotInput.QuoteID)
+	assert.Contains(t, w.Body.String(), `"quote_id":"`+quoteID+`"`)
+}
+
 // TestListSalesOrders_passesFulfilledAndStatusFiltersThrough guards against
 // the query params being accepted by the route but silently dropped before
 // reaching the use case (fulfilled previously was -- the picking screens'

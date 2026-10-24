@@ -77,6 +77,10 @@ paths:
             Filter to orders placed by this customer -- the Customer detail
             page's order history and lifetime-spend figures.
           schema: { type: string }
+        - name: quote_id
+          in: query
+          description: Filter to the orders created from this quote.
+          schema: { type: string, format: uuid }
         - name: packed
           in: query
           description: >
@@ -1066,6 +1070,7 @@ components:
         status: { $ref: '#/components/schemas/SalesOrderStatus' }
         warehouse_id: { type: string }
         customer_id: { type: string, nullable: true }
+        quote_id: { type: string, nullable: true, description: The quote this order was created from. }
         billing: { $ref: '#/components/schemas/Address' }
         shipping: { $ref: '#/components/schemas/Address' }
         customer_note: { type: string }

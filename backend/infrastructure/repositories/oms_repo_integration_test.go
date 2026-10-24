@@ -2676,3 +2676,38 @@ func seedConnectionOf(t *testing.T, db *gorm.DB, ctx context.Context, provider i
 	}))
 	return id
 }
+
+func TestSalesOrderRepo_Integration_QuoteLinkAndFilter(t *testing.T) {
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	salesOrderRepo := repositories.NewSalesOrderRepo(db)
+	quoteRepo := repositories.NewQuoteRepo(db)
+
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		q := newQuote(t, tenantID, "Sabor")
+		require.NoError(t, quoteRepo.Create(ctx, q))
+		now := time.Now()
+		fromQuote := omsDomain.SalesOrder{TenantID: tenantID, Source: omsDomain.SalesOrderSourceManual, ExternalOrderID: "from-quote",
+			WarehouseID: warehouseID, QuoteID: &q.ID, CurrencyCode: "EUR", Status: omsDomain.SalesOrderStatusProcessing, OccurredAt: now, CreatedAt: now}
+		other := omsDomain.SalesOrder{TenantID: tenantID, Source: omsDomain.SalesOrderSourceManual, ExternalOrderID: "no-quote",
+			WarehouseID: warehouseID, CurrencyCode: "EUR", Status: omsDomain.SalesOrderStatusProcessing, OccurredAt: now, CreatedAt: now}
+		require.NoError(t, salesOrderRepo.Create(ctx, &fromQuote))
+		require.NoError(t, salesOrderRepo.Create(ctx, &other))
+
+		got, total, err := salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{Limit: 10, QuoteID: &q.ID})
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), total)
+		require.Len(t, got, 1)
+		assert.Equal(t, fromQuote.ID, got[0].ID)
+		require.NotNil(t, got[0].QuoteID)
+		assert.Equal(t, q.ID, *got[0].QuoteID)
+
+		// Deleting the quote keeps the order, unlinked.
+		require.NoError(t, quoteRepo.Delete(ctx, q.ID))
+		order, err := salesOrderRepo.FindByID(ctx, fromQuote.ID)
+		require.NoError(t, err)
+		assert.Nil(t, order.QuoteID)
+		return nil
+	}))
+}
