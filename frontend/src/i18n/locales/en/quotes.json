@@ -58,7 +58,10 @@
     "unitPrice": "Unit price",
     "lineTotal": "Line total",
     "orderTotal": "Order total",
-    "button": "Download PDF"
+    "button": "Download PDF",
+    "for": "For: {{name}}",
+    "preparing": "Preparing the quote…",
+    "popupBlocked": "Allow pop-ups for this site to download the PDF."
   },
   "convert": {
     "title": "Create sales order",

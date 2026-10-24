@@ -58,7 +58,10 @@
     "unitPrice": "Stukprijs",
     "lineTotal": "Regeltotaal",
     "orderTotal": "Totaal",
-    "button": "PDF downloaden"
+    "button": "PDF downloaden",
+    "for": "Voor: {{name}}",
+    "preparing": "Offerte voorbereiden…",
+    "popupBlocked": "Sta pop-ups toe voor deze site om de PDF te downloaden."
   },
   "convert": {
     "title": "Verkooporder maken",

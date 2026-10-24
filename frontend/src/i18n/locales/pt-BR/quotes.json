@@ -58,7 +58,10 @@
     "unitPrice": "Preço unitário",
     "lineTotal": "Total da linha",
     "orderTotal": "Total do pedido",
-    "button": "Baixar PDF"
+    "button": "Baixar PDF",
+    "for": "Para: {{name}}",
+    "preparing": "Preparando o orçamento…",
+    "popupBlocked": "Permita pop-ups neste site para baixar o PDF."
   },
   "convert": {
     "title": "Criar pedido de venda",

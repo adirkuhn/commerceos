@@ -5,6 +5,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom'
 import type { PriceListQuery, PriceListRow } from '../../pricelist/types'
 
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ token: 'tok' }) }))
+vi.mock('../../settings/company/api', () => ({ getCompanyProfile: vi.fn(async () => ({ legal_name: 'Cantinho B.V.', address: {} })) }))
 vi.mock('../../inventory/api', () => ({ listWarehouses: vi.fn(async () => [{ id: 'wh-1', name: 'Amsterdam' }]) }))
 vi.mock('../../oms/api', () => ({ listSalesOrders: vi.fn(async () => ({ salesOrders: [], total: 0 })) }))
 vi.mock('../../pricelist/api', () => ({ listPriceList: vi.fn(), setAutomaticCostPrice: vi.fn() }))
@@ -104,17 +105,19 @@ describe('quote editor', () => {
     await waitFor(() => expect(location).not.toContain('.1150'))
   })
 
-  it('opens the printable quote for Save as PDF', async () => {
-    const print = vi.spyOn(window, 'print').mockImplementation(() => {})
+  it('opens the quote document in a new tab, keeping the editor', async () => {
+    const written: string[] = []
+    const tab = { document: { open: vi.fn(), write: (h: string) => written.push(h), close: vi.fn() }, close: vi.fn() }
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as never)
     renderPage(`/quotes/new?lines=${P1}.s-fei.3.999`)
     await screen.findByTestId('quote-line-s-fei')
 
     fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }))
 
-    expect(print).toHaveBeenCalled()
-    expect(screen.getByRole('heading', { name: 'Quote' })).toBeInTheDocument()
-    expect(screen.getAllByText('€29.97', { selector: 'td' })).toHaveLength(2) // line total and order total
-    print.mockRestore()
+    expect(open).toHaveBeenCalledWith('', '_blank')
+    await waitFor(() => expect(written[written.length - 1]).toContain('€29.97'))
+    expect(screen.getByTestId('quote-line-s-fei')).toBeInTheDocument()
+    open.mockRestore()
   })
 
   it('exports sku, product, quantity, unit price, line total and the order total', async () => {

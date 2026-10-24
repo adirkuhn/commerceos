@@ -19,7 +19,8 @@ import { useSavedQuote } from './hooks/useSavedQuotes'
 import { applyDiscount, listPrice, parseDiscount, quoteTotals, type PricedLine } from '../pricelist/pricing'
 import { productName, quoteCsv, type ExportLine } from './quoteCsv'
 import { QuoteLineRow } from './QuoteLineRow'
-import { QuotePrintView } from './QuotePrintView'
+import { openQuoteDocument } from './openQuoteDocument'
+import { useDateFormat } from '../format/DateFormatProvider'
 import { QuoteSaveBar } from './QuoteSaveBar'
 import { QuoteSearch } from './QuoteSearch'
 import { createQuote, updateQuote } from './quotesApi'
@@ -61,7 +62,8 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
     }
   }, [saved.data]) // eslint-disable-line react-hooks/exhaustive-deps
   const [saving, setSaving] = useState(false)
-  const [printing, setPrinting] = useState(false)
+  const [pdfError, setPdfError] = useState('')
+  const { formatDate } = useDateFormat()
   const [converting, setConverting] = useState(false)
   const { warehouses } = useWarehouses(token)
   const orders = useQuoteOrders(token, quoteId)
@@ -112,15 +114,20 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
     downloadBlob(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }), t('quote.fileName', { date }))
   }
 
+  async function downloadPdf() {
+    setPdfError('')
+    try {
+      await openQuoteDocument(token, {
+        reference: saved.data && saved.data.id === quoteId ? saved.data.reference : null,
+        name, customerName: customer?.name ?? null, date: formatDate(new Date().toISOString()), currency, lines: exportLines,
+      })
+    } catch (e) {
+      setPdfError(apiErrorText(e) ?? t('quote.saveFailed'))
+    }
+  }
+
   return (
     <>
-      {printing && (
-        <QuotePrintView
-          reference={saved.data && saved.data.id === quoteId ? saved.data.reference : null}
-          name={name} currency={currency} onClose={() => setPrinting(false)}
-          lines={exportLines}
-        />
-      )}
       {converting && quoteId && (
         <ConvertQuoteDialog token={token} quoteId={quoteId} warehouses={warehouses} existingOrders={orders.data ?? []}
           productName={skuId => { const row = rowBySku.get(skuId); return row ? productName(row) : skuId }}
@@ -161,7 +168,7 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-40">
             <Download size={13} /> {t('quote.export')}
           </button>
-          <button onClick={() => setPrinting(true)} disabled={priced.length === 0}
+          <button onClick={downloadPdf} disabled={priced.length === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-40">
             <FileText size={13} /> {t('print.button')}
           </button>
@@ -173,7 +180,7 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
         </div>
       </div>
       <div className="flex-1 overflow-auto">
-        {error && <p role="alert" className="px-5 py-2 text-xs text-danger">{error}</p>}
+        {(error || pdfError) && <p role="alert" className="px-5 py-2 text-xs text-danger">{pdfError || error}</p>}
         <table className="w-full text-xs">
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">
             <tr>
