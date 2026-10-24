@@ -9,7 +9,8 @@ import { OrderCustomerSection } from './OrderCustomerSection'
 import { useSalesOrderActivities } from './hooks/useSalesOrderActivities'
 import { useSalesOrderLineChanges } from './hooks/useSalesOrderLineChanges'
 import { groupLineChanges } from './lineChanges/lineChanges'
-import { LineChangeNotes, NotAddedExtras } from './lineChanges/LineChangeNotes'
+import { NotAddedExtras } from './lineChanges/LineChangeNotes'
+import { SalesOrderLinesTable } from './lines/SalesOrderLinesTable'
 import { useBolShipmentConfirmations } from './hooks/useBolShipmentConfirmations'
 import type { SalesOrderStatus } from './types'
 import { PickingListPrintView } from '../pages/print/PickingListPrintView'
@@ -31,7 +32,6 @@ import { OrderPaymentCard } from './OrderPaymentCard'
 import { SalesOrderPaymentsCard } from './SalesOrderPaymentsCard'
 import { ShipmentTrackingSection } from './ShipmentTrackingSection'
 import { BolConfirmationCard } from './BolConfirmationCard'
-import { SoldExpiryNote } from './SoldExpiryNote'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { Money } from '../format/amountVisibility'
 import { apiErrorText } from '../api/apiErrorText'
@@ -296,43 +296,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
               <div className="space-y-5 min-w-0">
                 <div className="rounded-xl border border-line p-4 space-y-3">
                   <h3 className="text-xs font-semibold text-ink">{t('detail.lineItems')}</h3>
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-line">
-                        <th className="text-left py-1.5 font-medium text-ink-4">{t('common:fields.product')}</th>
-                        <th className="text-right py-1.5 font-medium text-ink-4">{t('detail.qty')}</th>
-                        <th className="text-right py-1.5 font-medium text-ink-4">{t('common:fields.price')}</th>
-                        <th className="text-right py-1.5 font-medium text-ink-4">{t('common:fields.total')}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-line/60">
-                      {detail.line_items.map(li => (
-                        <tr key={li.id}>
-                          <td className="py-1.5">
-                            <p className="text-ink">{li.name}</p>
-                            {li.sku_code && (
-                              <p className="text-2xs text-ink-4">{li.sku_code}</p>
-                            )}
-                            {li.barcode && (
-                              <p className="text-2xs text-ink-4">{li.barcode}</p>
-                            )}
-                            <SoldExpiryNote date={li.sold_expiry_date} />
-                            {!li.sku_id && (
-                              <p className="text-2xs text-warning">{t('detail.notLinked')}</p>
-                            )}
-                            <LineChangeNotes changes={changesByLine.byLine.get(li.id) ?? []} linePriceMinor={li.price_minor_units} currency={detail.sales_order.currency_code} />
-                          </td>
-                          <td className="py-1.5 text-right text-ink-2">{li.quantity}</td>
-                          <td className="py-1.5 text-right text-ink-2">
-                            <Money minor={li.price_minor_units} currency={detail.sales_order.currency_code} />
-                          </td>
-                          <td className="py-1.5 text-right font-medium text-ink">
-                            <Money minor={li.total_minor_units} currency={detail.sales_order.currency_code} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <SalesOrderLinesTable lines={detail.line_items} changesByLine={changesByLine.byLine} currency={detail.sales_order.currency_code} />
                   <NotAddedExtras changes={changesByLine.notAdded} />
                   {lineChangesError && <p className="text-2xs text-danger">{lineChangesError}</p>}
 

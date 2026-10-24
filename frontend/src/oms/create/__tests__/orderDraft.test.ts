@@ -89,7 +89,8 @@ describe('toCreateInput', () => {
       shipping_total_minor_units: 695, fee_label: 'Pallet', fee_total_minor_units: 2500,
       total_minor_units: 12100 + 695 + 2500, tax_total_minor_units: 2100 + 121 + 434,
       line_items: [{ sku_id: 's-1', name: 'Feijão', sku_code: 'FEI-1', quantity: 10, price_minor_units: 1210,
-        subtotal_minor_units: 12100, subtotal_tax_minor_units: 2100, total_minor_units: 12100, total_tax_minor_units: 2100 }],
+        subtotal_minor_units: 12100, subtotal_tax_minor_units: 2100, total_minor_units: 12100, total_tax_minor_units: 2100,
+        total_includes_tax: true }],
     })
     expect(input.occurred_at).toBe(new Date('2026-10-24T10:00').toISOString())
   })

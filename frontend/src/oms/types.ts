@@ -106,7 +106,13 @@ export interface SalesOrderLineItem {
   // How much of quantity has been refunded -- the rest is still owed.
   // Optional: older fixtures omit it; missing means 0.
   refunded_quantity?: number
+  refunded_amount_minor_units?: number
   total_tax_minor_units: number
+  // Whether total_minor_units already holds total_tax_minor_units (shop
+  // prices) or has it on top (Woo). Read the totals below instead.
+  total_includes_tax?: boolean
+  total_excl_tax_minor_units?: number
+  total_incl_tax_minor_units?: number
   // What WooCommerce reported as the expiry date sold, snapshotted at
   // import time from the commerceos-woo plugin's order-item meta -- null
   // for every non-Woo line, or a Woo line whose product had no expiry meta
@@ -142,6 +148,9 @@ export interface CreateSalesOrderLineItemInput {
   subtotal_tax_minor_units?: number
   total_minor_units?: number
   total_tax_minor_units?: number
+  // True when total_minor_units already holds the VAT (the shop's prices
+  // include it); false when the VAT comes on top.
+  total_includes_tax?: boolean
 }
 
 export interface CreateSalesOrderInput {
@@ -302,6 +311,9 @@ export interface SalesOrderLineChange {
   original_qty_covered?: number | null
   return_to_stock: boolean
   price_minor_units?: number | null
+  // What the change moved, VAT included: a refund's money back or what an
+  // added extra charged. Null for a substitute or an extra never added.
+  amount_minor_units?: number | null
   // Staff's note; for an extra item, the name it was added as.
   reason: string
   by: string

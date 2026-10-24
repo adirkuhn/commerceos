@@ -96,6 +96,7 @@ export function toCreateInput(d: OrderDraft, ctx: { currency: string; defaultRat
       return {
         sku_id: l.skuId, name: l.label, sku_code: l.skuCode, quantity: l.quantity, price_minor_units: l.unitPrice,
         subtotal_minor_units: total, subtotal_tax_minor_units: tax, total_minor_units: total, total_tax_minor_units: tax,
+        total_includes_tax: ctx.pricesIncludeTax,
       }
     }),
   }

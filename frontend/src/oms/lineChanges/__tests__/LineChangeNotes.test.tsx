@@ -6,7 +6,7 @@ import { change } from './fixtures'
 
 describe('LineChangeNotes', () => {
   it('shows which product replaced the line, how much it covers and why', () => {
-    render(<LineChangeNotes linePriceMinor={249} currency="EUR" changes={[
+    render(<LineChangeNotes currency="EUR" changes={[
       change({ product_name: 'Feijão Preto 1kg', variant_name: 'Feijão Preto 1kg', sku_code: 'FEP-1', quantity: 4,
         original_qty_covered: 4, reason: 'out of stock', return_to_stock: true }),
     ]} />)
@@ -15,14 +15,14 @@ describe('LineChangeNotes', () => {
     expect(screen.getByText(/out of stock/)).toHaveTextContent(/original back to stock/)
   })
 
-  it('shows a refund with its amount at the line price', () => {
-    render(<LineChangeNotes linePriceMinor={199} currency="EUR" changes={[change({ action: 'refund', quantity: 2, reason: 'damaged' })]} />)
+  it('shows a refund with the amount it gives back incl. VAT', () => {
+    render(<LineChangeNotes currency="EUR" changes={[change({ action: 'refund', quantity: 2, reason: 'damaged', amount_minor_units: 398 })]} />)
 
     expect(screen.getByText(/Refunded 2/)).toHaveTextContent(/3[.,]98/)
   })
 
   it('marks free and charged extra items', () => {
-    render(<LineChangeNotes linePriceMinor={0} currency="EUR" changes={[
+    render(<LineChangeNotes currency="EUR" changes={[
       change({ id: 'a', action: 'freebie', reason: 'Guaraná' }),
       change({ id: 'b', action: 'new_item', reason: 'Guaraná', price_minor_units: 150 }),
     ]} />)
@@ -33,13 +33,13 @@ describe('LineChangeNotes', () => {
   })
 
   it('says when the change was made at picking', () => {
-    render(<LineChangeNotes linePriceMinor={0} currency="EUR" changes={[change({ step: 'picking' })]} />)
+    render(<LineChangeNotes currency="EUR" changes={[change({ step: 'picking' })]} />)
 
     expect(screen.getByText(/at picking/)).toBeInTheDocument()
   })
 
   it('renders nothing for an untouched line', () => {
-    const { container } = render(<LineChangeNotes linePriceMinor={0} currency="EUR" changes={[]} />)
+    const { container } = render(<LineChangeNotes currency="EUR" changes={[]} />)
     expect(container).toBeEmptyDOMElement()
   })
 })

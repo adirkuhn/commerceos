@@ -9,24 +9,23 @@ import { changeProductLabel, isExtraItem } from './lineChanges'
 // another product, refunded in part, or added as an extra item.
 interface LineChangeNotesProps {
   changes: SalesOrderLineChange[]
-  linePriceMinor: number
   currency: string
 }
 
-export function LineChangeNotes({ changes, linePriceMinor, currency }: LineChangeNotesProps) {
+export function LineChangeNotes({ changes, currency }: LineChangeNotesProps) {
   if (changes.length === 0) return null
   return (
     <ul className="mt-1 space-y-1">
       {changes.map(c => (
         <li key={c.id}>
-          <LineChangeNote change={c} linePriceMinor={linePriceMinor} currency={currency} />
+          <LineChangeNote change={c} currency={currency} />
         </li>
       ))}
     </ul>
   )
 }
 
-function LineChangeNote({ change: c, linePriceMinor, currency }: { change: SalesOrderLineChange; linePriceMinor: number; currency: string }) {
+function LineChangeNote({ change: c, currency }: { change: SalesOrderLineChange; currency: string }) {
   const { t } = useTranslation('orders')
   const { formatDateTime } = useDateFormat()
   const meta = [
@@ -59,8 +58,8 @@ function LineChangeNote({ change: c, linePriceMinor, currency }: { change: Sales
           </p>
         ) : (
           <p className="text-warning">
-            {t('lineChanges.refunded', { quantity: c.quantity })}{' '}
-            (<Money minor={linePriceMinor * c.quantity} currency={currency} />)
+            {t('lineChanges.refunded', { quantity: c.quantity })}
+            {c.amount_minor_units != null && <> (<Money minor={c.amount_minor_units} currency={currency} />)</>}
           </p>
         )}
         <p className="text-ink-4">{meta}</p>
