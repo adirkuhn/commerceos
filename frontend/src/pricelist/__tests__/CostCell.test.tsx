@@ -2,8 +2,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
-vi.mock('../quotesApi', () => ({ setAutomaticCostPrice: vi.fn() }))
-import * as api from '../quotesApi'
+vi.mock('../api', () => ({ setAutomaticCostPrice: vi.fn() }))
+import * as api from '../api'
 import { CostCell } from '../CostCell'
 
 const row = { sku_id: 's-1', sku_code: 'FEI-1', currency_code: 'EUR', cost_price_minor_units: 500 }

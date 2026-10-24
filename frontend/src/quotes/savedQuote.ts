@@ -1,18 +1,25 @@
 import { encodeQuoteLines } from './quoteLines'
-import { applyDiscount, listPrice } from './pricing'
-import type { PriceListRow, QuoteInput, QuoteLine, SavedQuote } from './types'
+import { applyDiscount, listPrice } from '../pricelist/pricing'
+import type { PriceListRow } from '../pricelist/types'
+import type { QuoteInput, QuoteLine, SavedQuote } from './types'
 
 // Moving between a saved quote (API) and the quote editor (URL).
 
-/** The URL params that open a saved quote in the editor, at its stored prices. */
+/** The editor's URL params for a saved quote: its stored prices and discount. */
 export function savedQuoteParams(q: SavedQuote): Record<string, string> {
-  const params: Record<string, string> = { tab: 'quote', quote: q.id }
+  const params: Record<string, string> = {}
   if (q.discount_basis_points) params.discount = String(q.discount_basis_points / 100)
   const lines = encodeQuoteLines(q.lines.map(l => ({
     productId: l.product_id, skuId: l.sku_id, quantity: l.quantity, unitPrice: l.unit_price_minor_units,
   })))
   if (lines) params.lines = lines
   return params
+}
+
+/** Where a saved quote opens in the editor. */
+export function savedQuotePath(q: SavedQuote): string {
+  const qs = new URLSearchParams(savedQuoteParams(q)).toString()
+  return `/quotes/${encodeURIComponent(q.id)}${qs ? `?${qs}` : ''}`
 }
 
 /**
@@ -44,20 +51,4 @@ export function isSameQuote(a: QuoteInput, b: QuoteInput): boolean {
   const key = (q: QuoteInput) => JSON.stringify([q.name, q.discount_basis_points,
     q.lines.map(l => [l.product_id, l.sku_id, l.quantity, l.unit_price_minor_units])])
   return key(a) === key(b)
-}
-
-const QUOTE_PARAMS = ['quote', 'lines', 'discount'] as const
-
-/** prev with the editor switched to q (other params, like searches, stay). */
-export function withSavedQuote(prev: URLSearchParams, q: SavedQuote): URLSearchParams {
-  const next = withoutQuote(prev)
-  for (const [k, v] of Object.entries(savedQuoteParams(q))) next.set(k, v)
-  return next
-}
-
-/** prev with an empty, unsaved quote in the editor. */
-export function withoutQuote(prev: URLSearchParams): URLSearchParams {
-  const next = new URLSearchParams(prev)
-  for (const k of QUOTE_PARAMS) next.delete(k)
-  return next
 }

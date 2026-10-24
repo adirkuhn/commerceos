@@ -17,7 +17,7 @@ export function QuotePrintView({ reference, name, currency, lines, onClose }: {
   lines: ExportLine[]
   onClose: () => void
 }) {
-  const { t } = useTranslation(['priceList', 'common'])
+  const { t } = useTranslation(['quotes', 'common'])
   const { formatDate } = useDateFormat()
   useEffect(() => { window.print() }, [])
   const money = (minor: number) => formatMoney(minor, currency)

@@ -5,10 +5,11 @@ import { useTranslation } from 'react-i18next'
 import { fromMinorUnits, toMinorUnits } from '../collections/form'
 import { Money } from '../format/amountVisibility'
 import { useDateFormat } from '../format/DateFormatProvider'
-import { unitEconomics } from './pricing'
-import { CostCell } from './CostCell'
-import { belowTargetText, formatQuantity } from './format'
-import type { PriceListRow, QuoteLine } from './types'
+import { unitEconomics } from '../pricelist/pricing'
+import { CostCell } from '../pricelist/CostCell'
+import { belowTargetText, formatQuantity } from '../pricelist/format'
+import type { PriceListRow } from '../pricelist/types'
+import type { QuoteLine } from './types'
 
 const INPUT = 'py-1 px-2 text-xs rounded-md bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-focus tabular-nums text-right'
 
@@ -25,7 +26,7 @@ export interface QuoteLineRowProps {
 }
 
 export function QuoteLineRow({ token, line, row, discountedPrice, pricesIncludeTax, onQuantity, onUnitPrice, onRemove, onCostSaved }: QuoteLineRowProps) {
-  const { t } = useTranslation('priceList')
+  const { t } = useTranslation(['quotes', 'priceList'])
   const { formatDate } = useDateFormat()
   const currency = row.currency_code
   const unitPrice = line.unitPrice ?? discountedPrice
@@ -40,13 +41,13 @@ export function QuoteLineRow({ token, line, row, discountedPrice, pricesIncludeT
       </td>
       <td className="px-3 py-2 text-ink-3 whitespace-nowrap">{row.earliest_expiry ? formatDate(row.earliest_expiry) : '—'}</td>
       <td className={clsx('px-3 py-2 text-right tabular-nums', overStock ? 'text-warning font-medium' : 'text-ink-2')}
-        title={overStock ? t('overStock', { available: formatQuantity(row, row.available_quantity) }) : undefined}>
+        title={overStock ? t('priceList:overStock', { available: formatQuantity(row, row.available_quantity) }) : undefined}>
         {formatQuantity(row, row.available_quantity)}
       </td>
       <CostCell token={token} row={row} onSaved={onCostSaved} />
       <td className="px-3 py-2 text-right">
         <PriceInput value={unitPrice} edited={line.unitPrice !== undefined} onCommit={onUnitPrice}
-          label={`${t('col.unitPrice')} ${row.sku_code}`} />
+          label={`${t('priceList:col.unitPrice')} ${row.sku_code}`} />
         {line.unitPrice !== undefined && line.unitPrice !== discountedPrice && (
           <p className="mt-0.5 text-2xs text-ink-4">{t('quote.currentPrice')} <Money minor={discountedPrice} currency={currency} /></p>
         )}
@@ -56,7 +57,7 @@ export function QuoteLineRow({ token, line, row, discountedPrice, pricesIncludeT
           type="number" min={0} step={1} inputMode="numeric"
           value={line.quantity}
           onChange={e => onQuantity(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
-          aria-label={`${t('col.quantity')} ${row.sku_code}`}
+          aria-label={`${t('priceList:col.quantity')} ${row.sku_code}`}
           className={clsx(INPUT, 'w-20', overStock && 'border-warning')}
         />
       </td>
@@ -64,7 +65,7 @@ export function QuoteLineRow({ token, line, row, discountedPrice, pricesIncludeT
       <td className={clsx('px-3 py-2 text-right tabular-nums', economics.belowTarget ? 'text-danger font-medium' : 'text-ink-2')}>
         <span className="inline-flex items-center gap-1" title={economics.belowTarget ? belowTargetText(row, economics.profit) : undefined}>
           {economics.belowTarget && <AlertTriangle size={12} aria-label={belowTargetText(row, economics.profit)} />}
-          {economics.profit != null ? <Money minor={economics.profit} currency={currency} /> : <span title={t('noCost')}>—</span>}
+          {economics.profit != null ? <Money minor={economics.profit} currency={currency} /> : <span title={t('priceList:noCost')}>—</span>}
         </span>
       </td>
       <td className={clsx('px-3 py-2 text-right tabular-nums', economics.belowTarget ? 'text-danger' : 'text-ink-2')}>
@@ -88,7 +89,7 @@ function PriceInput({ value, edited, onCommit, label }: {
   onCommit: (minor: number | undefined) => void
   label: string
 }) {
-  const { t } = useTranslation('priceList')
+  const { t } = useTranslation(['quotes', 'priceList'])
   const [text, setText] = useState(fromMinorUnits(value))
   useEffect(() => { setText(fromMinorUnits(value)) }, [value])
 

@@ -33,7 +33,7 @@ test('price list: discounted prices and a B2B quote exported as CSV', async ({ p
     await expect(row).toContainText('€4.00')
     await expect(row).toContainText('25')
 
-    await page.getByRole('tab', { name: 'B2B quote' }).click()
+    await page.goto('/quotes/new?discount=30')
     await page.getByRole('textbox', { name: /search products/i }).fill(code)
     await page.getByRole('button', { name: new RegExp(`add .*${code}`, 'i') }).click()
 
@@ -88,7 +88,7 @@ test('price list: set cost, save a quote, reopen and delete it', async ({ page, 
     await row.getByRole('textbox', { name: `Cost of ${code}` }).press('Enter')
     await expect(row).toContainText('€4.00')
 
-    await page.goto(`/price-list?tab=quote&discount=10&lines=${product.id}.${sku.id}.20`)
+    await page.goto(`/quotes/new?discount=10&lines=${product.id}.${sku.id}.20`)
     const quoteName = `E2E customer ${stamp}`
     await page.getByRole('textbox', { name: 'Quote name' }).fill(quoteName)
     await page.getByRole('button', { name: 'Save', exact: true }).click()
@@ -96,14 +96,15 @@ test('price list: set cost, save a quote, reopen and delete it', async ({ page, 
     expect(reference).toMatch(/^Q-\d{4,}$/)
     await expect(page.getByTestId('quote-total')).toContainText('€180.00')
 
-    await page.getByRole('tab', { name: 'Saved quotes' }).click()
+    await page.getByRole('button', { name: 'All quotes' }).click()
     await page.getByRole('textbox', { name: /search quotes/i }).fill(quoteName)
     const saved = page.getByTestId(`saved-quote-${reference}`)
     await expect(saved).toContainText('€180.00')
     await saved.getByRole('button', { name: `Open ${reference}` }).click()
     await expect(page.getByTestId(`quote-line-${sku.id}`).getByRole('textbox', { name: `Unit price ${code}` })).toHaveValue('9.00')
 
-    await page.getByRole('tab', { name: 'Saved quotes' }).click()
+    await page.getByRole('button', { name: 'All quotes' }).click()
+    await page.getByRole('textbox', { name: /search quotes/i }).fill(quoteName)
     await page.getByTestId(`saved-quote-${reference}`).getByRole('button', { name: `Delete ${reference}` }).click()
     await page.getByRole('button', { name: 'Delete quote' }).click()
     await expect(page.getByTestId(`saved-quote-${reference}`)).toHaveCount(0)

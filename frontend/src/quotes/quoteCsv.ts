@@ -1,4 +1,4 @@
-import type { PriceListRow } from './types'
+import type { PriceListRow } from '../pricelist/types'
 
 export interface ExportLine {
   sku: string

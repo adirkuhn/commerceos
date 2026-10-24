@@ -2,6 +2,7 @@ export type NavItem =
   | 'dashboard'
   | 'products'
   | 'price-list'
+  | 'quotes'
   | 'promotions'
   | 'coupons'
   | 'collections'

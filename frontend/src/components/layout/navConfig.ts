@@ -3,7 +3,7 @@ import i18next from 'i18next'
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
   ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag, BarChart3, Ticket, Star,
-  Webhook, MessageSquare, PackageCheck, UserCog, Layers, Mail, CalendarClock, Calculator,
+  Webhook, MessageSquare, PackageCheck, UserCog, Layers, Mail, CalendarClock, Calculator, FileText,
 } from 'lucide-react'
 import type { NavItem } from '../../types'
 import type { Design } from '../../theme/designPreference'
@@ -47,6 +47,7 @@ function group(id: string, label: () => string, items: NavLink[], extra: Partial
 // Every sidebar page, once -- both designs arrange these same links.
 const L = {
   salesOrders: link('sales-orders', () => i18next.t('layout:nav.salesOrders'), ShoppingCart),
+  quotes: link('quotes', () => i18next.t('layout:nav.quotes'), FileText),
   customers: link('customers', () => i18next.t('layout:nav.customers'), Users),
   salesChannels: link('sales-channels', () => i18next.t('layout:nav.salesChannels'), Radio),
   picking: link('picking', () => i18next.t('layout:nav.picking'), ScanBarcode),
@@ -89,7 +90,7 @@ const R = {
 }
 
 const CLASSIC_GROUPS: NavGroup[] = [
-  group('sell', () => i18next.t('layout:group.sell'), [L.salesOrders, L.customers, L.salesChannels]),
+  group('sell', () => i18next.t('layout:group.sell'), [L.salesOrders, L.quotes, L.customers, L.salesChannels]),
   group('fulfill', () => i18next.t('layout:group.fulfill'), [L.picking, L.packing, L.stockIssues]),
   group('catalog', () => i18next.t('layout:group.catalog'), [L.products, L.priceList, L.collections, L.inventory, L.warehouses, L.unmatchedSkus]),
   group('buy', () => i18next.t('layout:group.buy'), [L.suppliers, L.procurement, L.purchasePlanner]),
@@ -108,7 +109,7 @@ const CLASSIC_GROUPS: NavGroup[] = [
 const REPORTS_LINK: NavLink = { id: 'reports-overview', get label() { return i18next.t('layout:group.reports') }, icon: BarChart3 }
 
 const DEPOT_GROUPS: NavGroup[] = [
-  group('orders', () => i18next.t('layout:group.orders'), [L.salesOrders, L.customers]),
+  group('orders', () => i18next.t('layout:group.orders'), [L.salesOrders, L.quotes, L.customers]),
   group('warehouse', () => i18next.t('layout:group.warehouse'), [L.picking, L.packing, L.stockIssues, L.inventory, L.warehouses]),
   group('catalog', () => i18next.t('layout:group.catalog'), [L.products, L.priceList, L.collections, L.unmatchedSkus]),
   group('buying', () => i18next.t('layout:group.buying'), [L.suppliers, L.procurement, L.purchasePlanner]),

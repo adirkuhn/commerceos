@@ -15,7 +15,7 @@ export interface QuoteSaveBarProps {
 
 // Name, number and save actions of the quote in the editor.
 export function QuoteSaveBar({ reference, name, onName, dirty, saving, error, onSave, onSaveAsNew, onNew }: QuoteSaveBarProps) {
-  const { t } = useTranslation('priceList')
+  const { t } = useTranslation(['quotes', 'priceList'])
   const canSave = name.trim() !== '' && !saving && (dirty || reference === null)
 
   return (

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { createQuote, deleteQuote, getQuote, listQuotes, setAutomaticCostPrice, updateQuote } from '../quotesApi'
+import { createQuote, deleteQuote, getQuote, listQuotes, updateQuote } from '../quotesApi'
 import type { QuoteInput, SavedQuote } from '../types'
 
 function mockFetch(body: unknown, status = 200) {
@@ -53,12 +53,4 @@ describe('quotes API', () => {
     await expect(getQuote('tok', 'q-x')).rejects.toMatchObject({ code: 'QUOTE_NOT_FOUND' })
   })
 
-  it('sets a SKU cost that receipts keep updating', async () => {
-    const fetchMock = mockFetch({ data: { id: 's-1' }, error: null })
-
-    await setAutomaticCostPrice('tok', 's-1', 450)
-
-    expect(fetchMock.mock.calls[0][0]).toMatch(/\/pms\/skus\/s-1\/cost-price\/automatic$/)
-    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'PUT', body: JSON.stringify({ cost_price_minor_units: 450 }) })
-  })
 })

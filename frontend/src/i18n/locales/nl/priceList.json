@@ -1,9 +1,4 @@
 {
-  "tabs": {
-    "list": "Prijslijst",
-    "quote": "B2B-offerte",
-    "saved": "Opgeslagen offertes"
-  },
   "discount": {
     "label": "Korting",
     "hint": "Gaat van de prijs en de actieprijs af."
@@ -32,34 +27,6 @@
   "noCost": "Geen kostprijs bekend",
   "overStock": "Slechts {{available}} beschikbaar",
   "grams": "{{value}} g",
-  "quote": {
-    "add": "Toevoegen",
-    "added": "Toegevoegd",
-    "noResults": "Geen producten gevonden.",
-    "empty": "Zoek hierboven en voeg producten toe om een offerte te maken.",
-    "loadingLine": "Laden…",
-    "missingLine": "Geen actief product meer",
-    "remove": "{{name}} verwijderen",
-    "resetPrice": "Terug naar de kortingsprijs",
-    "priceEdited": "Prijs handmatig aangepast",
-    "total": "Totaal offerte",
-    "totalProfit": "Totale winst",
-    "profitPartial": "Zonder regels waarvan de kostprijs onbekend is.",
-    "clear": "Offerte wissen",
-    "export": "CSV exporteren",
-    "fileName": "offerte-{{date}}.csv",
-    "csvQuantity": "Aantal",
-    "name": "Naam offerte",
-    "namePlaceholder": "Naam offerte, bijv. de klant",
-    "nameNeeded": "Geef de offerte een naam om op te slaan",
-    "save": "Opslaan",
-    "saving": "Opslaan…",
-    "saveAsNew": "Opslaan als nieuw",
-    "newQuote": "Nieuwe offerte",
-    "unsaved": "Niet-opgeslagen wijzigingen",
-    "saveFailed": "De offerte kon niet worden opgeslagen.",
-    "currentPrice": "Nu"
-  },
   "cost": {
     "edit": "Kostprijs van {{sku}} instellen",
     "label": "Kostprijs van {{sku}}",
@@ -68,32 +35,5 @@
     "hint": "Stelt de kostprijs van het product overal in. Nieuwe ontvangsten blijven hem bijwerken.",
     "invalid": "Vul een kostprijs van minstens 0 in.",
     "saveFailed": "De kostprijs kon niet worden opgeslagen."
-  },
-  "saved": {
-    "search": "Zoek offertes op naam of nummer",
-    "empty": "Nog geen opgeslagen offertes.",
-    "colReference": "Nummer",
-    "colName": "Naam",
-    "colLines": "Regels",
-    "colDiscount": "Korting",
-    "colTotal": "Totaal",
-    "colUpdated": "Laatst opgeslagen",
-    "open": "{{reference}} openen",
-    "delete": "{{reference}} verwijderen",
-    "deleteTitle": "{{reference}} “{{name}}” verwijderen?",
-    "deleteMessage": "De offerte wordt definitief verwijderd. Het nummer wordt niet opnieuw gebruikt.",
-    "deleteConfirm": "Offerte verwijderen",
-    "deleteFailed": "De offerte kon niet worden verwijderd.",
-    "openFailed": "De offerte kon niet worden geopend."
-  },
-  "print": {
-    "sku": "SKU",
-    "title": "Offerte",
-    "product": "Product",
-    "quantity": "Aantal",
-    "unitPrice": "Stukprijs",
-    "lineTotal": "Regeltotaal",
-    "orderTotal": "Totaal",
-    "button": "PDF downloaden"
   }
 }

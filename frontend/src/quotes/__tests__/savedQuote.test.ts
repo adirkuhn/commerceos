@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { buildQuoteInput, isSameQuote, savedQuoteInput, savedQuoteParams, withSavedQuote, withoutQuote } from '../savedQuote'
-import type { PriceListRow, SavedQuote } from '../types'
+import { buildQuoteInput, isSameQuote, savedQuoteInput, savedQuoteParams, savedQuotePath } from '../savedQuote'
+import type { PriceListRow } from '../../pricelist/types'
+import type { SavedQuote } from '../types'
 
 const row = (sku: string, price: number, sale: number | null = null): PriceListRow => ({
   product_id: `p-${sku}`, product_name: sku, variant_name: '', sku_id: sku, sku_code: sku, unit_type: 'unit',
@@ -19,11 +20,11 @@ const saved: SavedQuote = {
 
 describe('savedQuoteParams', () => {
   it('opens a saved quote with its stored prices and discount', () => {
-    expect(savedQuoteParams(saved)).toEqual({ tab: 'quote', quote: 'q-1', discount: '12.5', lines: 'p-a.a.10.875,p-b.b.0.1200' })
+    expect(savedQuoteParams(saved)).toEqual({ discount: '12.5', lines: 'p-a.a.10.875,p-b.b.0.1200' })
   })
 
   it('leaves a zero discount and no lines out of the URL', () => {
-    expect(savedQuoteParams({ ...saved, discount_basis_points: 0, lines: [] })).toEqual({ tab: 'quote', quote: 'q-1' })
+    expect(savedQuoteParams({ ...saved, discount_basis_points: 0, lines: [] })).toEqual({})
   })
 })
 
@@ -70,15 +71,9 @@ describe('isSameQuote', () => {
   })
 })
 
-describe('withSavedQuote / withoutQuote', () => {
-  it('switches the editor to a saved quote, keeping unrelated params', () => {
-    const prev = new URLSearchParams('tab=saved&qs=sab&discount=30&lines=x.y.1&quote=old')
-    expect(Object.fromEntries(withSavedQuote(prev, { ...saved, discount_basis_points: 0, lines: [] })))
-      .toEqual({ tab: 'quote', qs: 'sab', quote: 'q-1' })
-  })
-
-  it('starts an empty quote', () => {
-    const prev = new URLSearchParams('tab=quote&discount=30&lines=x.y.1&quote=old')
-    expect(Object.fromEntries(withoutQuote(prev))).toEqual({ tab: 'quote' })
+describe('savedQuotePath', () => {
+  it('opens the quote at /quotes/<id> with its lines and discount', () => {
+    expect(decodeURIComponent(savedQuotePath(saved))).toBe('/quotes/q-1?discount=12.5&lines=p-a.a.10.875,p-b.b.0.1200')
+    expect(savedQuotePath({ ...saved, discount_basis_points: 0, lines: [] })).toBe('/quotes/q-1')
   })
 })

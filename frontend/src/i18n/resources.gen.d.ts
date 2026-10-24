@@ -23,6 +23,7 @@ import type ns_priceList from './locales/en/priceList.json'
 import type ns_procurement from './locales/en/procurement.json'
 import type ns_promotions from './locales/en/promotions.json'
 import type ns_purchasePlanning from './locales/en/purchasePlanning.json'
+import type ns_quotes from './locales/en/quotes.json'
 import type ns_reports from './locales/en/reports.json'
 import type ns_reviews from './locales/en/reviews.json'
 import type ns_scanner from './locales/en/scanner.json'
@@ -62,6 +63,7 @@ declare module 'i18next' {
       procurement: typeof ns_procurement
       promotions: typeof ns_promotions
       purchasePlanning: typeof ns_purchasePlanning
+      quotes: typeof ns_quotes
       reports: typeof ns_reports
       reviews: typeof ns_reviews
       scanner: typeof ns_scanner

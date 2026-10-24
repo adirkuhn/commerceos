@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { listPriceList } from '../api'
+import { listPriceList, setAutomaticCostPrice } from '../api'
 import type { PriceListRow } from '../types'
 
 const row: PriceListRow = {
@@ -38,5 +38,16 @@ describe('listPriceList', () => {
     mockFetch({ data: null, error: { code: 'INVALID_REQUEST', message: 'bad product_ids' } }, 400)
 
     await expect(listPriceList('tok', {})).rejects.toThrow('bad product_ids')
+  })
+})
+
+describe('setAutomaticCostPrice', () => {
+  it('sets a SKU cost that receipts keep updating', async () => {
+    const fetchMock = mockFetch({ data: { id: 's-1' }, error: null })
+
+    await setAutomaticCostPrice('tok', 's-1', 450)
+
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/pms\/skus\/s-1\/cost-price\/automatic$/)
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'PUT', body: JSON.stringify({ cost_price_minor_units: 450 }) })
   })
 })

@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Money } from '../format/amountVisibility'
-import { usePriceList } from './hooks/usePriceList'
-import { SearchField } from './SearchField'
-import { applyDiscount, listPrice } from './pricing'
-import { formatQuantity } from './format'
-import type { PriceListRow } from './types'
+import { usePriceList } from '../pricelist/hooks/usePriceList'
+import { SearchField } from '../pricelist/SearchField'
+import { applyDiscount, listPrice } from '../pricelist/pricing'
+import { formatQuantity } from '../pricelist/format'
+import type { PriceListRow } from '../pricelist/types'
 
 const MIN_CHARS = 2
 
@@ -18,7 +18,7 @@ export function QuoteSearch({ token, discount, isAdded, onAdd }: {
   isAdded: (skuId: string) => boolean
   onAdd: (row: PriceListRow) => void
 }) {
-  const { t } = useTranslation('priceList')
+  const { t } = useTranslation(['quotes', 'priceList'])
   const [input, setInput] = useState('')
   const [search, setSearch] = useState('')
   useEffect(() => {
@@ -31,7 +31,7 @@ export function QuoteSearch({ token, discount, isAdded, onAdd }: {
 
   return (
     <div className="relative max-w-xl">
-      <SearchField label={t('search')} value={input} onChange={setInput} />
+      <SearchField label={t('priceList:search')} value={input} onChange={setInput} />
       {error && <p role="alert" className="mt-1 text-xs text-danger">{error}</p>}
       {enabled && !loading && rows.length === 0 && !error && <p className="mt-1 text-xs text-ink-4">{t('quote.noResults')}</p>}
       {rows.length > 0 && (

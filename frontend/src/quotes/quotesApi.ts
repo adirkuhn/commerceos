@@ -45,10 +45,3 @@ export async function updateQuote(token: string, id: string, input: QuoteInput):
 export async function deleteQuote(token: string, id: string): Promise<void> {
   await call<null>(token, `/quotes/${id}`, { method: 'DELETE' })
 }
-
-/** Sets the SKU's cost without pinning it: the next goods receipt still blends into it. */
-export async function setAutomaticCostPrice(token: string, skuId: string, costMinorUnits: number): Promise<void> {
-  await call<unknown>(token, `/pms/skus/${skuId}/cost-price/automatic`, {
-    method: 'PUT', body: JSON.stringify({ cost_price_minor_units: costMinorUnits }),
-  })
-}

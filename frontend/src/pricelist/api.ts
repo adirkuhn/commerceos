@@ -24,3 +24,14 @@ export async function listPriceList(token: string, query: PriceListQuery): Promi
   }
   return { rows: body.data ?? [], total: body.meta?.total ?? 0, pricesIncludeTax: body.meta?.prices_include_tax ?? true }
 }
+
+/** Sets the SKU's cost without pinning it: the next goods receipt still blends into it. */
+export async function setAutomaticCostPrice(token: string, skuId: string, costMinorUnits: number): Promise<void> {
+  const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pms/skus/${skuId}/cost-price/automatic`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ cost_price_minor_units: costMinorUnits }),
+  })
+  const body: { error: { code: string; message: string } | null } = await res.json()
+  if (!res.ok || body.error) throw CodedApiError.fromEnvelope(body.error, res.status)
+}

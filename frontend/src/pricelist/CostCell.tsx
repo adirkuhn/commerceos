@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { apiErrorText } from '../api/apiErrorText'
 import { fromMinorUnits, toMinorUnits } from '../collections/form'
 import { Money } from '../format/amountVisibility'
-import { setAutomaticCostPrice } from './quotesApi'
+import { setAutomaticCostPrice } from './api'
 import type { PriceListRow } from './types'
 
 type CostRow = Pick<PriceListRow, 'sku_id' | 'sku_code' | 'currency_code' | 'cost_price_minor_units'>

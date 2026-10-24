@@ -1,9 +1,4 @@
 {
-  "tabs": {
-    "list": "Price list",
-    "quote": "B2B quote",
-    "saved": "Saved quotes"
-  },
   "discount": {
     "label": "Discount",
     "hint": "Taken off the price and the sale price."
@@ -32,34 +27,6 @@
   "noCost": "No cost known",
   "overStock": "Only {{available}} available",
   "grams": "{{value}} g",
-  "quote": {
-    "add": "Add",
-    "added": "Added",
-    "noResults": "No matching products.",
-    "empty": "Search above and add products to build a quote.",
-    "loadingLine": "Loading…",
-    "missingLine": "No longer an active product",
-    "remove": "Remove {{name}}",
-    "resetPrice": "Back to the discounted price",
-    "priceEdited": "Price typed over the discounted one",
-    "total": "Order total",
-    "totalProfit": "Total profit",
-    "profitPartial": "Leaves out lines with no known cost.",
-    "clear": "Clear quote",
-    "export": "Export CSV",
-    "fileName": "quote-{{date}}.csv",
-    "csvQuantity": "Quantity",
-    "name": "Quote name",
-    "namePlaceholder": "Quote name, e.g. the customer",
-    "nameNeeded": "Give the quote a name to save it",
-    "save": "Save",
-    "saving": "Saving…",
-    "saveAsNew": "Save as new",
-    "newQuote": "New quote",
-    "unsaved": "Unsaved changes",
-    "saveFailed": "The quote couldn't be saved.",
-    "currentPrice": "Now"
-  },
   "cost": {
     "edit": "Set cost of {{sku}}",
     "label": "Cost of {{sku}}",
@@ -68,32 +35,5 @@
     "hint": "Sets the product's cost everywhere. New goods receipts keep updating it.",
     "invalid": "Enter a cost of at least 0.",
     "saveFailed": "The cost couldn't be saved."
-  },
-  "saved": {
-    "search": "Search quotes by name or number",
-    "empty": "No saved quotes yet.",
-    "colReference": "Number",
-    "colName": "Name",
-    "colLines": "Lines",
-    "colDiscount": "Discount",
-    "colTotal": "Total",
-    "colUpdated": "Last saved",
-    "open": "Open {{reference}}",
-    "delete": "Delete {{reference}}",
-    "deleteTitle": "Delete {{reference}} “{{name}}”?",
-    "deleteMessage": "The quote is removed for good. Its number won't be used again.",
-    "deleteConfirm": "Delete quote",
-    "deleteFailed": "The quote couldn't be deleted.",
-    "openFailed": "The quote couldn't be opened."
-  },
-  "print": {
-    "sku": "SKU",
-    "title": "Quote",
-    "product": "Product",
-    "quantity": "Qty",
-    "unitPrice": "Unit price",
-    "lineTotal": "Line total",
-    "orderTotal": "Order total",
-    "button": "Download PDF"
   }
 }

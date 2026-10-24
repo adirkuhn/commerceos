@@ -2,16 +2,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
-import type { PriceListQuery, PriceListRow, QuoteInput, SavedQuote } from '../types'
+import type { PriceListQuery, PriceListRow } from '../../pricelist/types'
+import type { QuoteInput, SavedQuote } from '../types'
 
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ token: 'tok' }) }))
-vi.mock('../api', () => ({ listPriceList: vi.fn() }))
+vi.mock('../../pricelist/api', () => ({ listPriceList: vi.fn(), setAutomaticCostPrice: vi.fn() }))
 vi.mock('../quotesApi', () => ({
-  listQuotes: vi.fn(), getQuote: vi.fn(), createQuote: vi.fn(), updateQuote: vi.fn(), deleteQuote: vi.fn(), setAutomaticCostPrice: vi.fn(),
+  listQuotes: vi.fn(), getQuote: vi.fn(), createQuote: vi.fn(), updateQuote: vi.fn(), deleteQuote: vi.fn(),
 }))
-import * as api from '../api'
+import * as api from '../../pricelist/api'
 import * as quotesApi from '../quotesApi'
-import PriceList from '../../pages/PriceList'
+import Quotes from '../../pages/Quotes'
 
 const P1 = '0b0e7e8e-0000-4000-8000-000000000001'
 const feijao: PriceListRow = {
@@ -60,17 +61,18 @@ beforeEach(() => {
 
 let search = ''
 function LocationProbe() {
-  search = decodeURIComponent(useLocation().search)
+  const l = useLocation()
+  search = decodeURIComponent(l.pathname + l.search)
   return null
 }
 
 function renderPage(url: string) {
-  return render(<MemoryRouter initialEntries={[url]}><PriceList /><LocationProbe /></MemoryRouter>)
+  return render(<MemoryRouter initialEntries={[url]}><Quotes /><LocationProbe /></MemoryRouter>)
 }
 
 describe('saving a quote', () => {
   it('needs a name, then saves the lines at the shown prices and gets a number', async () => {
-    renderPage(`/price-list?tab=quote&discount=20&lines=${P1}.s-fei.10`)
+    renderPage(`/quotes/new?discount=20&lines=${P1}.s-fei.10`)
     await screen.findByTestId('quote-line-s-fei')
     const save = screen.getByRole('button', { name: 'Save' })
     expect(save).toBeDisabled()
@@ -84,7 +86,7 @@ describe('saving a quote', () => {
       name: 'Restaurant Sabor', discount_basis_points: 2000, currency_code: 'EUR',
       lines: [{ product_id: P1, sku_id: 's-fei', quantity: 10, unit_price_minor_units: 800 }],
     })
-    expect(search).toContain('quote=q-1')
+    expect(search).toMatch(/^\/quotes\/q-1\?/)
     expect(search).toContain(`lines=${P1}.s-fei.10.800`)
     await waitFor(() => expect(screen.queryByTestId('quote-unsaved')).not.toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
@@ -94,7 +96,7 @@ describe('saving a quote', () => {
     store['q-1'] = toSaved('q-1', 1, { name: 'Sabor', discount_basis_points: 0, currency_code: 'EUR',
       lines: [{ product_id: P1, sku_id: 's-fei', quantity: 10, unit_price_minor_units: 950 }] })
     nextNumber = 2
-    renderPage(`/price-list?tab=quote&quote=q-1&lines=${P1}.s-fei.10.950`)
+    renderPage(`/quotes/q-1?lines=${P1}.s-fei.10.950`)
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Quote name' })).toHaveValue('Sabor'))
     const line = await screen.findByTestId('quote-line-s-fei')
     expect(screen.queryByTestId('quote-unsaved')).not.toBeInTheDocument()
@@ -111,12 +113,12 @@ describe('saving a quote', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Save as new' }))
     await waitFor(() => expect(screen.getByTestId('quote-reference')).toHaveTextContent('Q-0002'))
-    expect(search).toContain('quote=q-2')
+    expect(search).toMatch(/^\/quotes\/q-2/)
   })
 
   it('New quote empties the editor', async () => {
     store['q-1'] = toSaved('q-1', 1, { name: 'Sabor', discount_basis_points: 0, currency_code: 'EUR', lines: [] })
-    renderPage(`/price-list?tab=quote&quote=q-1&lines=${P1}.s-fei.10.950`)
+    renderPage(`/quotes/q-1?lines=${P1}.s-fei.10.950`)
     await screen.findByTestId('quote-reference')
 
     fireEvent.click(screen.getByRole('button', { name: 'New quote' }))
@@ -124,12 +126,12 @@ describe('saving a quote', () => {
     await waitFor(() => expect(screen.queryByTestId('quote-reference')).not.toBeInTheDocument())
     expect(screen.getByRole('textbox', { name: 'Quote name' })).toHaveValue('')
     expect(search).not.toContain('lines=')
-    expect(search).not.toContain('quote=')
+    expect(search).toMatch(/^\/quotes\/new/)
   })
 
   it('shows a failed save', async () => {
     vi.mocked(quotesApi.createQuote).mockRejectedValue(new Error('boom'))
-    renderPage(`/price-list?tab=quote&lines=${P1}.s-fei.1`)
+    renderPage(`/quotes/new?lines=${P1}.s-fei.1`)
     await screen.findByTestId('quote-line-s-fei')
     fireEvent.change(screen.getByRole('textbox', { name: 'Quote name' }), { target: { value: 'x' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -145,7 +147,7 @@ describe('saved quotes tab', () => {
   })
 
   it('lists quotes and opens one in the editor at its saved prices', async () => {
-    renderPage('/price-list?tab=saved')
+    renderPage('/quotes')
     const row = await screen.findByTestId('saved-quote-Q-0001')
     expect(row).toHaveTextContent('Restaurant Sabor')
     expect(row).toHaveTextContent('€85.00')
@@ -156,24 +158,22 @@ describe('saved quotes tab', () => {
     const line = await screen.findByTestId('quote-line-s-fei')
     expect(within(line).getByRole('textbox', { name: 'Unit price FEI-1' })).toHaveValue('8.50')
     expect(screen.getByRole('spinbutton', { name: 'Discount' })).toHaveValue(15)
-    expect(search).toContain('tab=quote')
+    expect(search).toMatch(/^\/quotes\/q-1/)
   })
 
-  it('deletes after confirming, and an open copy of it becomes a new quote', async () => {
-    renderPage(`/price-list?tab=saved&quote=q-1&lines=${P1}.s-fei.10.850`)
+  it('deletes after confirming', async () => {
+    renderPage('/quotes')
     const row = await screen.findByTestId('saved-quote-Q-0001')
 
     fireEvent.click(within(row).getByRole('button', { name: 'Delete Q-0001' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Delete quote' }))
 
-    // URL updates commit in a router transition -- slow under a loaded run.
-    await waitFor(() => expect(search).not.toContain('quote=q-1'))
     expect(await screen.findByText('No saved quotes yet.')).toBeInTheDocument()
     expect(quotesApi.deleteQuote).toHaveBeenCalledWith('tok', 'q-1')
   })
 
   it('cancelling the confirm keeps the quote', async () => {
-    renderPage('/price-list?tab=saved')
+    renderPage('/quotes')
     fireEvent.click(within(await screen.findByTestId('saved-quote-Q-0001')).getByRole('button', { name: 'Delete Q-0001' }))
     fireEvent.click(await screen.findByRole('button', { name: /cancel/i }))
 
