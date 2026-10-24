@@ -6,16 +6,21 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
 	genquotes "github.com/adirkuhn/commerceos/api/quotes"
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
+	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appquotes "github.com/adirkuhn/commerceos/application/quotes"
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	"github.com/adirkuhn/commerceos/domain/quotes"
+	omshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/oms"
+	pmshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -40,12 +45,22 @@ type deleteUC interface {
 	Execute(ctx context.Context, id string) error
 }
 
+type checkStockUC interface {
+	Execute(ctx context.Context, quoteID, warehouseID string) (*appquotes.StockCheck, error)
+}
+
+type convertUC interface {
+	Execute(ctx context.Context, in appquotes.ConvertQuoteInput) (*appquotes.ConvertQuoteResult, error)
+}
+
 type UseCases struct {
-	Create createUC
-	Update updateUC
-	Get    getUC
-	List   listUC
-	Delete deleteUC
+	Create     createUC
+	Update     updateUC
+	Get        getUC
+	List       listUC
+	Delete     deleteUC
+	CheckStock checkStockUC
+	Convert    convertUC
 }
 
 type Handler struct{ uc UseCases }
@@ -65,6 +80,12 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 		Get:    appquotes.NewGetQuoteUseCase(db, repo),
 		List:   appquotes.NewListQuotesUseCase(db, repo),
 		Delete: appquotes.NewDeleteQuoteUseCase(db, repo, outboxRepo),
+		CheckStock: appquotes.NewCheckQuoteStockUseCase(db, repo,
+			appinventory.NewAllocateSaleStockUseCase(db, repositories.NewStockMovementRepo(db), repositories.NewBatchRepo(db), outboxRepo)),
+		Convert: appquotes.NewConvertQuoteToSalesOrderUseCase(db, appquotes.ConvertQuoteDeps{
+			Quotes: repo, Catalog: pmshandler.NewListPriceListUseCase(db), Customers: customers,
+			Orders: omshandler.NewCreateSalesOrderUseCase(db, outboxRepo), Outbox: outboxRepo, Now: time.Now,
+		}),
 	}))
 }
 
@@ -134,6 +155,46 @@ func (h *Handler) DeleteQuote(c *gin.Context, id genquotes.Id) {
 	c.Status(http.StatusNoContent)
 }
 
+func (h *Handler) CheckQuoteStock(c *gin.Context, id genquotes.Id, params genquotes.CheckQuoteStockParams) {
+	check, err := h.uc.CheckStock.Execute(c.Request.Context(), id.String(), params.WarehouseId.String())
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	lines := make([]genquotes.QuoteStockCheckLine, len(check.Lines))
+	for i, l := range check.Lines {
+		lines[i] = genquotes.QuoteStockCheckLine{ProductId: l.ProductID, SkuId: l.SKUID, Quantity: l.Quantity, Available: l.Available, Short: l.Short}
+	}
+	resp := genquotes.QuoteStockCheckResponse{}
+	resp.Data = &struct {
+		HasShortfall bool                            `json:"has_shortfall"`
+		Lines        []genquotes.QuoteStockCheckLine `json:"lines"`
+	}{HasShortfall: check.HasShortfall(), Lines: lines}
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *Handler) ConvertQuoteToSalesOrder(c *gin.Context, id genquotes.Id) {
+	var req genquotes.ConvertQuoteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
+		return
+	}
+	in := appquotes.ConvertQuoteInput{QuoteID: id.String(), WarehouseID: req.WarehouseId.String()}
+	if req.Number != nil {
+		in.Number = *req.Number
+	}
+	result, err := h.uc.Convert.Execute(c.Request.Context(), in)
+	if err := mapError(c, err); err != nil {
+		return
+	}
+	resp := genquotes.ConvertQuoteResponse{}
+	resp.Data = &struct {
+		NeedsStockReview bool   `json:"needs_stock_review"`
+		Number           string `json:"number"`
+		SalesOrderId     string `json:"sales_order_id"`
+	}{NeedsStockReview: result.NeedsStockReview, Number: result.Number, SalesOrderId: result.SalesOrderID}
+	c.JSON(http.StatusCreated, resp)
+}
+
 func bindInput(c *gin.Context) (quotes.Input, bool) {
 	var req genquotes.QuoteInput
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -197,7 +258,8 @@ func mapError(c *gin.Context, err error) error {
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, quotes.ErrNameRequired), errors.Is(err, quotes.ErrNameTooLong),
 		errors.Is(err, quotes.ErrInvalidDiscount), errors.Is(err, quotes.ErrInvalidCurrency),
-		errors.Is(err, quotes.ErrInvalidLine), errors.Is(err, quotes.ErrDuplicateLine), errors.Is(err, quotes.ErrTooManyLines):
+		errors.Is(err, quotes.ErrInvalidLine), errors.Is(err, quotes.ErrDuplicateLine), errors.Is(err, quotes.ErrTooManyLines),
+		errors.Is(err, quotes.ErrLineUnavailable), errors.Is(err, quotes.ErrNothingToOrder), errors.Is(err, omsDomain.ErrEmptyLineItems):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	default:
 		log.Printf("quotes: unhandled error: %v", err)

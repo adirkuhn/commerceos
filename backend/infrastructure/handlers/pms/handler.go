@@ -278,6 +278,18 @@ func NewHandler(
 
 var _ genpms.ServerInterface = (*Handler)(nil)
 
+// NewListPriceListUseCase is the production ListPriceListUseCase -- also
+// used by the quotes module for SKU names, codes and VAT rates.
+func NewListPriceListUseCase(db *gorm.DB) *apppms.ListPriceListUseCase {
+	variantRepo, skuRepo := repositories.NewVariantRepo(db), repositories.NewSKURepo(db)
+	catalog := apppms.NewListPOSProductCatalogUseCase(db, apppms.NewListProductsUseCase(db, repositories.NewProductRepo(db)),
+		variantRepo, skuRepo, repositories.NewMediaRepo(db), repositories.NewBarcodeAliasRepo(db), repositories.NewScaleCodeAliasRepo(db))
+	return apppms.NewListPriceListUseCase(db, catalog,
+		invapp.NewGetSKUAvailabilityUseCase(db, repositories.NewStockMovementRepo(db), repositories.NewBatchRepo(db)),
+		repositories.NewTenantSettingsRepo(db), repositories.NewCategoryRepo(db),
+		apptax.NewTaxRateResolver(repositories.NewTaxClassRepo(db), repositories.NewTaxRateRepo(db)))
+}
+
 // Register is the production wiring: creates repos + use cases, then
 // mounts the generated routes (matching the OpenAPI spec exactly).
 // fileStorage is the media storage adapter (local disk or S3/MinIO — see
@@ -363,10 +375,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		},
 		apppms.NewSetProductTranslationsUseCase(db, productRepo, outboxRepo),
 		apppms.NewSetProductLowStockThresholdUseCase(db, productRepo, outboxRepo),
-		apppms.NewListPriceListUseCase(db, catalog,
-			invapp.NewGetSKUAvailabilityUseCase(db, movementRepo, batchRepo),
-			settingsRepo, categoryRepo,
-			apptax.NewTaxRateResolver(repositories.NewTaxClassRepo(db), repositories.NewTaxRateRepo(db))),
+		NewListPriceListUseCase(db),
 		apppms.NewSetAutomaticCostPriceUseCase(db, skuRepo, outboxRepo),
 	)
 	genpms.RegisterHandlers(rg, h)

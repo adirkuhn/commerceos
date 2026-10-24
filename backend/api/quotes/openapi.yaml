@@ -98,6 +98,62 @@ paths:
           description: deleted
         '404': { $ref: '#/components/responses/Error' }
 
+  /quotes/{id}/stock-check:
+    get:
+      operationId: checkQuoteStock
+      summary: Which quote lines a warehouse can't fully cover right now
+      description: >-
+        Same stock plan a sales order would take (soonest expiry first,
+        expired lots skipped), without taking anything. Lines with quantity
+        0 are left out.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: warehouse_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteStockCheckResponse'
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /quotes/{id}/sales-orders:
+    post:
+      operationId: convertQuoteToSalesOrder
+      summary: Create a processing sales order from the quote
+      description: >-
+        Lines with a quantity become order lines at the quote's stored
+        prices (VAT split per the shop's setting); the stock is taken from
+        the warehouse. Short lines don't stop it: the order is flagged for
+        Stock issues (needs_stock_review). Without a customer the order's
+        note names the quote. A quote can be converted more than once --
+        each call creates a new order. 422 QUOTE_LINE_UNAVAILABLE when a
+        product is no longer active, QUOTE_NOTHING_TO_ORDER when no line has
+        a quantity.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConvertQuoteRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConvertQuoteResponse'
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
 components:
   parameters:
     id:
@@ -216,6 +272,51 @@ components:
           required: [total]
           properties:
             total: { type: integer, format: int64 }
+        error: { nullable: true }
+
+    QuoteStockCheckLine:
+      type: object
+      required: [product_id, sku_id, quantity, available, short]
+      properties:
+        product_id: { type: string }
+        sku_id: { type: string }
+        quantity: { type: integer, format: int64 }
+        available: { type: integer, format: int64, description: How much of quantity the warehouse can give. }
+        short: { type: integer, format: int64 }
+
+    QuoteStockCheckResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          required: [lines, has_shortfall]
+          properties:
+            lines:
+              type: array
+              items: { $ref: '#/components/schemas/QuoteStockCheckLine' }
+            has_shortfall: { type: boolean }
+        error: { nullable: true }
+
+    ConvertQuoteRequest:
+      type: object
+      required: [warehouse_id]
+      properties:
+        warehouse_id: { type: string, format: uuid }
+        number:
+          type: string
+          maxLength: 64
+          description: The order's own number; omitted or empty for none.
+
+    ConvertQuoteResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          required: [sales_order_id, number, needs_stock_review]
+          properties:
+            sales_order_id: { type: string }
+            number: { type: string }
+            needs_stock_review: { type: boolean, description: Some line was short -- the order is in Stock issues. }
         error: { nullable: true }
 
     ErrorResponse:

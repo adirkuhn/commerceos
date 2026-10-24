@@ -439,5 +439,7 @@
   "QUOTE_INVALID_CURRENCY": "A moeda do orçamento deve ser um código de três letras, como EUR.",
   "QUOTE_INVALID_LINE": "Cada linha do orçamento precisa de um produto, uma quantidade e um preço de pelo menos zero.",
   "QUOTE_DUPLICATE_LINE": "Um produto só pode aparecer uma vez no orçamento.",
-  "QUOTE_TOO_MANY_LINES": "Um orçamento pode ter no máximo 500 linhas."
+  "QUOTE_TOO_MANY_LINES": "Um orçamento pode ter no máximo 500 linhas.",
+  "QUOTE_LINE_UNAVAILABLE": "Um produto deste orçamento não está mais ativo. Remova ou substitua e tente de novo.",
+  "QUOTE_NOTHING_TO_ORDER": "Nenhuma linha deste orçamento tem quantidade para pedir."
 }

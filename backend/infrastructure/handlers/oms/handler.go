@@ -11,6 +11,7 @@ import (
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
+	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/infrastructure/revolut"
@@ -216,6 +217,14 @@ func NewUpdateSalesOrderUseCase(db *gorm.DB) *appoms.UpdateSalesOrderUseCase {
 // sales orders from the admin UI. The POS's own push path
 // (ReceivePOSSalesOrderUseCase) is separate, under api/pos, authenticated
 // by the POS's lm2 license instead -- see api/oms/generate.go's doc comment.
+// NewCreateSalesOrderUseCase is the production CreateSalesOrderUseCase --
+// also used by the quotes module to turn a quote into an order.
+func NewCreateSalesOrderUseCase(db *gorm.DB, outboxRepo outbox.Repository) *appoms.CreateSalesOrderUseCase {
+	return appoms.NewCreateSalesOrderUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewSalesOrderLineItemRepo(db),
+		repositories.NewSalesOrderLineItemStockMovementRepo(db), repositories.NewSKURepo(db),
+		appinventory.NewAllocateSaleStockUseCase(db, repositories.NewStockMovementRepo(db), repositories.NewBatchRepo(db), outboxRepo), outboxRepo)
+}
+
 func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 	lineItemRepo := repositories.NewSalesOrderLineItemRepo(db)
@@ -255,7 +264,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 	h := NewHandler(
 		appoms.NewListSalesOrdersUseCase(db, salesOrderRepo, repositories.NewTenantSettingsRepo(db)),
 		appoms.NewGetSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, repositories.NewSalesOrderPaymentRepo(db)),
-		appoms.NewCreateSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, outboxRepo),
+		NewCreateSalesOrderUseCase(db, outboxRepo),
 		updateSalesOrder,
 		appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement, outboxRepo),
 		appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo, outboxRepo),

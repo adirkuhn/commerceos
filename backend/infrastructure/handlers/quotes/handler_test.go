@@ -39,13 +39,17 @@ func sample() *quotes.Quote {
 }
 
 type stubs struct {
-	gotInput   quotes.Input
-	gotID      string
-	gotList    appquotes.ListQuotesInput
-	out        *quotes.Quote
-	listOut    *appquotes.ListQuotesResult
-	err        error
-	deleteCall bool
+	gotWarehouse string
+	gotConvert   appquotes.ConvertQuoteInput
+	stockOut     *appquotes.StockCheck
+	convertOut   *appquotes.ConvertQuoteResult
+	gotInput     quotes.Input
+	gotID        string
+	gotList      appquotes.ListQuotesInput
+	out          *quotes.Quote
+	listOut      *appquotes.ListQuotesResult
+	err          error
+	deleteCall   bool
 }
 
 func (s *stubs) Create(_ context.Context, in quotes.Input) (*quotes.Quote, error) {
@@ -71,11 +75,13 @@ func (s *stubs) Delete(_ context.Context, id string) error {
 
 // One adapter per use case port over the shared stubs.
 type (
-	createStub struct{ *stubs }
-	updateStub struct{ *stubs }
-	getStub    struct{ *stubs }
-	listStub   struct{ *stubs }
-	deleteStub struct{ *stubs }
+	stockStub   struct{ *stubs }
+	convertStub struct{ *stubs }
+	createStub  struct{ *stubs }
+	updateStub  struct{ *stubs }
+	getStub     struct{ *stubs }
+	listStub    struct{ *stubs }
+	deleteStub  struct{ *stubs }
 )
 
 func (s createStub) Execute(ctx context.Context, in quotes.Input) (*quotes.Quote, error) {
@@ -90,6 +96,14 @@ func (s getStub) Execute(ctx context.Context, id string) (*quotes.Quote, error) 
 func (s listStub) Execute(ctx context.Context, in appquotes.ListQuotesInput) (*appquotes.ListQuotesResult, error) {
 	return s.List(ctx, in)
 }
+func (s stockStub) Execute(_ context.Context, id, warehouseID string) (*appquotes.StockCheck, error) {
+	s.gotID, s.gotWarehouse = id, warehouseID
+	return s.stockOut, s.err
+}
+func (s convertStub) Execute(_ context.Context, in appquotes.ConvertQuoteInput) (*appquotes.ConvertQuoteResult, error) {
+	s.gotConvert = in
+	return s.convertOut, s.err
+}
 func (s deleteStub) Execute(ctx context.Context, id string) error { return s.Delete(ctx, id) }
 
 func newRouter(t *testing.T, s *stubs) *gin.Engine {
@@ -102,6 +116,7 @@ func newRouter(t *testing.T, s *stubs) *gin.Engine {
 	g.Use(ginmiddleware.OapiRequestValidatorWithOptions(spec, &ginmiddleware.Options{SilenceServersWarning: true}))
 	genquotes.RegisterHandlers(g, handler.NewHandler(handler.UseCases{
 		Create: createStub{s}, Update: updateStub{s}, Get: getStub{s}, List: listStub{s}, Delete: deleteStub{s},
+		CheckStock: stockStub{s}, Convert: convertStub{s},
 	}))
 	return r
 }
@@ -283,4 +298,55 @@ func TestCreateQuote_unknownCustomerIs422(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	assert.Contains(t, w.Body.String(), `"code":"CUSTOMER_NOT_FOUND"`)
+}
+
+const warehouseID = "6c5b4a39-2817-4f6e-9d8c-7b6a5f4e3d2c"
+
+func TestCheckQuoteStock(t *testing.T) {
+	s := &stubs{stockOut: &appquotes.StockCheck{Lines: []appquotes.StockCheckLine{
+		{ProductID: prodID, SKUID: skuID, Quantity: 10, Available: 4, Short: 6},
+	}}}
+
+	w := do(t, newRouter(t, s), http.MethodGet, "/api/v1/quotes/"+quoteID+"/stock-check?warehouse_id="+warehouseID, "", true)
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Equal(t, warehouseID, s.gotWarehouse)
+	assert.JSONEq(t, `{"data":{"has_shortfall":true,"lines":[{"product_id":"`+prodID+`","sku_id":"`+skuID+`","quantity":10,"available":4,"short":6}]}}`, w.Body.String())
+}
+
+func TestCheckQuoteStock_needsAWarehouse(t *testing.T) {
+	w := do(t, newRouter(t, &stubs{}), http.MethodGet, "/api/v1/quotes/"+quoteID+"/stock-check", "", true)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestCheckQuoteStock_notFound(t *testing.T) {
+	w := do(t, newRouter(t, &stubs{err: quotes.ErrQuoteNotFound}), http.MethodGet, "/api/v1/quotes/"+quoteID+"/stock-check?warehouse_id="+warehouseID, "", true)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestConvertQuote(t *testing.T) {
+	s := &stubs{convertOut: &appquotes.ConvertQuoteResult{SalesOrderID: "so-1", Number: "B2B-1", NeedsStockReview: true}}
+
+	w := do(t, newRouter(t, s), http.MethodPost, "/api/v1/quotes/"+quoteID+"/sales-orders", `{"warehouse_id":"`+warehouseID+`","number":"B2B-1"}`, true)
+
+	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	assert.Equal(t, appquotes.ConvertQuoteInput{QuoteID: quoteID, WarehouseID: warehouseID, Number: "B2B-1"}, s.gotConvert)
+	assert.JSONEq(t, `{"data":{"sales_order_id":"so-1","number":"B2B-1","needs_stock_review":true}}`, w.Body.String())
+}
+
+func TestConvertQuote_contract(t *testing.T) {
+	r := newRouter(t, &stubs{})
+	assert.Equal(t, http.StatusBadRequest, do(t, r, http.MethodPost, "/api/v1/quotes/"+quoteID+"/sales-orders", `{}`, true).Code, "warehouse required")
+	assert.Equal(t, http.StatusUnauthorized, do(t, r, http.MethodPost, "/api/v1/quotes/"+quoteID+"/sales-orders", `{"warehouse_id":"`+warehouseID+`"}`, false).Code)
+}
+
+func TestConvertQuote_domainErrors(t *testing.T) {
+	for err, status := range map[error]int{
+		quotes.ErrQuoteNotFound:   http.StatusNotFound,
+		quotes.ErrLineUnavailable: http.StatusUnprocessableEntity,
+		quotes.ErrNothingToOrder:  http.StatusUnprocessableEntity,
+	} {
+		w := do(t, newRouter(t, &stubs{err: err}), http.MethodPost, "/api/v1/quotes/"+quoteID+"/sales-orders", `{"warehouse_id":"`+warehouseID+`"}`, true)
+		assert.Equal(t, status, w.Code, err.Error())
+	}
 }

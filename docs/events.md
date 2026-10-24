@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-227 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+228 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -304,6 +304,7 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
+| `quotes.quote.converted` | action | A sales order was created from a quote (it can happen more than once). data: sales_order_id, number, needs_stock_review. | envelope |
 | `quotes.quote.created` | action | A B2B quote was saved for the first time. data: number, name, line_count, total_minor_units, currency_code, customer_id. | envelope |
 | `quotes.quote.deleted` | action | A saved B2B quote was deleted. data: number, name. | envelope |
 | `quotes.quote.updated` | action | A saved B2B quote was saved over (changes: name, customer_id, discount_basis_points, currency_code, line_count, total_minor_units). | envelope |

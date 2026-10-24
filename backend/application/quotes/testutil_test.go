@@ -104,3 +104,20 @@ func newStubCustomers() *stubCustomers {
 		"c-1": {ID: "c-1", FirstName: "Ana", LastName: "Souza", Email: "ana@sabor.nl"},
 	}}
 }
+
+// newMockGormDBN expects n sequential tenant.WithTenant transactions.
+func newMockGormDBN(t *testing.T, n int) *gorm.DB {
+	t.Helper()
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { mockDB.Close() })
+	gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: mockDB}), &gorm.Config{})
+	require.NoError(t, err)
+	mock.MatchExpectationsInOrder(false)
+	for i := 0; i < n; i++ {
+		mock.ExpectBegin()
+		mock.ExpectExec(`SELECT set_config`).WillReturnResult(sqlmock.NewResult(0, 0))
+		mock.ExpectCommit()
+	}
+	return gormDB
+}

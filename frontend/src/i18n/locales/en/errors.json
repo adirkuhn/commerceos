@@ -439,5 +439,7 @@
   "QUOTE_INVALID_CURRENCY": "The quote’s currency must be a three-letter code like EUR.",
   "QUOTE_INVALID_LINE": "Every quote line needs a product, a quantity and a price of at least zero.",
   "QUOTE_DUPLICATE_LINE": "A product can be on a quote only once.",
-  "QUOTE_TOO_MANY_LINES": "A quote can have at most 500 lines."
+  "QUOTE_TOO_MANY_LINES": "A quote can have at most 500 lines.",
+  "QUOTE_LINE_UNAVAILABLE": "A product on this quote is no longer active. Remove or replace it, then try again.",
+  "QUOTE_NOTHING_TO_ORDER": "No line on this quote has a quantity to order."
 }

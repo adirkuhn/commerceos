@@ -20,6 +20,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// ConvertQuoteRequest defines model for ConvertQuoteRequest.
+type ConvertQuoteRequest struct {
+	// Number The order's own number; omitted or empty for none.
+	Number      *string            `json:"number,omitempty"`
+	WarehouseId openapi_types.UUID `json:"warehouse_id"`
+}
+
+// ConvertQuoteResponse defines model for ConvertQuoteResponse.
+type ConvertQuoteResponse struct {
+	Data *struct {
+		// NeedsStockReview Some line was short -- the order is in Stock issues.
+		NeedsStockReview bool   `json:"needs_stock_review"`
+		Number           string `json:"number"`
+		SalesOrderId     string `json:"sales_order_id"`
+	} `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Data  interface{} `json:"data,omitempty"`
@@ -106,6 +124,25 @@ type QuoteResponse struct {
 	Error interface{} `json:"error,omitempty"`
 }
 
+// QuoteStockCheckLine defines model for QuoteStockCheckLine.
+type QuoteStockCheckLine struct {
+	// Available How much of quantity the warehouse can give.
+	Available int64  `json:"available"`
+	ProductId string `json:"product_id"`
+	Quantity  int64  `json:"quantity"`
+	Short     int64  `json:"short"`
+	SkuId     string `json:"sku_id"`
+}
+
+// QuoteStockCheckResponse defines model for QuoteStockCheckResponse.
+type QuoteStockCheckResponse struct {
+	Data *struct {
+		HasShortfall bool                  `json:"has_shortfall"`
+		Lines        []QuoteStockCheckLine `json:"lines"`
+	} `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
 // QuoteSummary defines model for QuoteSummary.
 type QuoteSummary struct {
 	CreatedAt time.Time `json:"created_at"`
@@ -140,11 +177,19 @@ type ListQuotesParams struct {
 	Search *string `form:"search,omitempty" json:"search,omitempty"`
 }
 
+// CheckQuoteStockParams defines parameters for CheckQuoteStock.
+type CheckQuoteStockParams struct {
+	WarehouseId openapi_types.UUID `form:"warehouse_id" json:"warehouse_id"`
+}
+
 // CreateQuoteJSONRequestBody defines body for CreateQuote for application/json ContentType.
 type CreateQuoteJSONRequestBody = QuoteInput
 
 // UpdateQuoteJSONRequestBody defines body for UpdateQuote for application/json ContentType.
 type UpdateQuoteJSONRequestBody = QuoteInput
+
+// ConvertQuoteToSalesOrderJSONRequestBody defines body for ConvertQuoteToSalesOrder for application/json ContentType.
+type ConvertQuoteToSalesOrderJSONRequestBody = ConvertQuoteRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -163,6 +208,12 @@ type ServerInterface interface {
 	// UpdateQuote Save over a quote -- name, discount and every line are replaced
 	// (PUT /quotes/{id})
 	UpdateQuote(c *gin.Context, id Id)
+	// ConvertQuoteToSalesOrder Create a processing sales order from the quote
+	// (POST /quotes/{id}/sales-orders)
+	ConvertQuoteToSalesOrder(c *gin.Context, id Id)
+	// CheckQuoteStock Which quote lines a warehouse can't fully cover right now
+	// (GET /quotes/{id}/stock-check)
+	CheckQuoteStock(c *gin.Context, id Id, params CheckQuoteStockParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -305,6 +356,67 @@ func (siw *ServerInterfaceWrapper) UpdateQuote(c *gin.Context) {
 	siw.Handler.UpdateQuote(c, id)
 }
 
+// ConvertQuoteToSalesOrder operation middleware
+func (siw *ServerInterfaceWrapper) ConvertQuoteToSalesOrder(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ConvertQuoteToSalesOrder(c, id)
+}
+
+// CheckQuoteStock operation middleware
+func (siw *ServerInterfaceWrapper) CheckQuoteStock(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CheckQuoteStockParams
+
+	// ------------- Required query parameter "warehouse_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "warehouse_id", c.Request.URL.Query(), &params.WarehouseId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter warehouse_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CheckQuoteStock(c, id, params)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -337,6 +449,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/quotes/:id", wrapper.DeleteQuote)
 	router.GET(options.BaseURL+"/quotes/:id", wrapper.GetQuote)
 	router.PUT(options.BaseURL+"/quotes/:id", wrapper.UpdateQuote)
+	router.GET(options.BaseURL+"/quotes/:id/stock-check", wrapper.CheckQuoteStock)
+	router.POST(options.BaseURL+"/quotes/:id/sales-orders", wrapper.ConvertQuoteToSalesOrder)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -344,32 +458,43 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"Thzq25oApc7YhI14IUa3h2w5Xf4dAAD//w==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
