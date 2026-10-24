@@ -5,6 +5,7 @@ import (
 	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
@@ -46,4 +47,13 @@ func TestUpdateCustomer_propagatesNotFound(t *testing.T) {
 	_, err := uc.Execute(context.Background(), appcustomers.UpdateCustomerInput{ID: "missing"})
 
 	require.ErrorIs(t, err, customersDomain.ErrCustomerNotFound)
+}
+
+func TestUpdateCustomer_needsSomethingToNameIt(t *testing.T) {
+	repo := &stubCustomerRepo{findResult: &customersDomain.Customer{ID: "c-1", Email: "a@x.nl"}}
+
+	_, err := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{}).
+		Execute(context.Background(), appcustomers.UpdateCustomerInput{ID: "c-1"})
+
+	assert.ErrorIs(t, err, customersDomain.ErrCustomerUnidentified)
 }

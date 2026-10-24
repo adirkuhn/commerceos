@@ -6,6 +6,9 @@ import (
 
 var (
 	ErrCustomerNotFound = errs.New("CUSTOMER_NOT_FOUND", "customer not found")
+	// ErrCustomerUnidentified: email is optional, but a customer needs
+	// something to be told apart by (see Customer.Identifiable).
+	ErrCustomerUnidentified = errs.New("CUSTOMER_UNIDENTIFIED", "a customer needs a name, a company, an email or a phone number")
 	// ErrDuplicateWooCustomerID guards Customer.WooCustomerID: at most one
 	// customer per tenant may be linked to a given Woo customer
 	// (customers_tenant_woo_customer_id_idx). Application code should

@@ -441,5 +441,6 @@
   "QUOTE_DUPLICATE_LINE": "Een product kan maar één keer op een offerte staan.",
   "QUOTE_TOO_MANY_LINES": "Een offerte kan maximaal 500 regels hebben.",
   "QUOTE_LINE_UNAVAILABLE": "Een product op deze offerte is niet meer actief. Verwijder of vervang het en probeer opnieuw.",
-  "QUOTE_NOTHING_TO_ORDER": "Geen regel op deze offerte heeft een aantal om te bestellen."
+  "QUOTE_NOTHING_TO_ORDER": "Geen regel op deze offerte heeft een aantal om te bestellen.",
+  "CUSTOMER_UNIDENTIFIED": "Geef de klant een naam, bedrijf, e-mailadres of telefoonnummer."
 }

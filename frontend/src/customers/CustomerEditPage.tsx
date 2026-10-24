@@ -91,7 +91,7 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
             {t('edit.discard')}
           </button>
           <button
-            type="submit" form="customer-form" disabled={saving || !email.trim()}
+            type="submit" form="customer-form" disabled={saving || !(email.trim() || firstName.trim() || lastName.trim() || billing.company?.trim() || billing.phone?.trim())}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {saving ? t('common:actions.saving') : customer ? t('common:actions.save') : t('edit.create')}
@@ -122,7 +122,7 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
               </div>
               <div>
                 <label htmlFor="customer-email" className={labelClass}>{t('common:fields.email')}</label>
-                <input id="customer-email" type="email" required value={email} onChange={e => setEmail(e.target.value)} className={inputClass} />
+                <input id="customer-email" type="email" value={email} onChange={e => setEmail(e.target.value)} className={inputClass} />
               </div>
               {formError && (
                 <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>

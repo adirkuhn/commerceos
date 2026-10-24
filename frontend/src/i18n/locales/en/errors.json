@@ -441,5 +441,6 @@
   "QUOTE_DUPLICATE_LINE": "A product can be on a quote only once.",
   "QUOTE_TOO_MANY_LINES": "A quote can have at most 500 lines.",
   "QUOTE_LINE_UNAVAILABLE": "A product on this quote is no longer active. Remove or replace it, then try again.",
-  "QUOTE_NOTHING_TO_ORDER": "No line on this quote has a quantity to order."
+  "QUOTE_NOTHING_TO_ORDER": "No line on this quote has a quantity to order.",
+  "CUSTOMER_UNIDENTIFIED": "Give the customer a name, a company, an email or a phone number."
 }

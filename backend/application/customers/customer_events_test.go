@@ -62,10 +62,10 @@ func TestUpdateCustomer_RecordsChangesAndPersonalFieldNamesOnly(t *testing.T) {
 
 func TestUpdateCustomer_NoPersonalChangesNoChangedFields(t *testing.T) {
 	outbox := &eventrecordtest.Outbox{}
-	repo := &stubCustomerRepo{findResult: &customersDomain.Customer{ID: "customer-1", Role: "customer"}}
+	repo := &stubCustomerRepo{findResult: &customersDomain.Customer{ID: "customer-1", FirstName: "Ana", Role: "customer"}}
 	uc := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo, outbox)
 
-	_, err := uc.Execute(context.Background(), appcustomers.UpdateCustomerInput{ID: "customer-1", Role: "subscriber"})
+	_, err := uc.Execute(context.Background(), appcustomers.UpdateCustomerInput{ID: "customer-1", FirstName: "Ana", Role: "subscriber"})
 
 	require.NoError(t, err)
 	e := onlyEvent(t, outbox)
@@ -93,9 +93,9 @@ func TestCustomerUseCases_FailWhenTheEventCantBeRecorded(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	_, err := appcustomers.NewCreateCustomerUseCase(newMockGormDB(t), &stubCustomerRepo{}, failing).Execute(ctx, appcustomers.CreateCustomerInput{})
+	_, err := appcustomers.NewCreateCustomerUseCase(newMockGormDB(t), &stubCustomerRepo{}, failing).Execute(ctx, appcustomers.CreateCustomerInput{Email: "a@x.nl"})
 	assert.ErrorIs(t, err, boom, "create")
-	_, err = appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), found(), failing).Execute(ctx, appcustomers.UpdateCustomerInput{ID: "customer-1"})
+	_, err = appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), found(), failing).Execute(ctx, appcustomers.UpdateCustomerInput{ID: "customer-1", Email: "a@x.nl"})
 	assert.ErrorIs(t, err, boom, "update")
 	assert.ErrorIs(t, appcustomers.NewDeleteCustomerUseCase(newMockGormDB(t), found(), failing).Execute(ctx, "customer-1"), boom, "delete")
 }

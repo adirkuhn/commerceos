@@ -5,6 +5,7 @@ import (
 	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	appcustomers "github.com/adirkuhn/commerceos/application/customers"
@@ -50,4 +51,20 @@ func TestCreateCustomer_propagatesRepoError(t *testing.T) {
 	_, err := uc.Execute(context.Background(), appcustomers.CreateCustomerInput{Email: "jane@example.com"})
 
 	require.Error(t, err)
+}
+
+func TestCreateCustomer_withoutEmailIsFine(t *testing.T) {
+	repo := &stubCustomerRepo{}
+	c, err := appcustomers.NewCreateCustomerUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{}).
+		Execute(context.Background(), appcustomers.CreateCustomerInput{FirstName: "Ana", Billing: customersDomain.Address{Company: "Sabor"}})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Ana", c.FirstName)
+}
+
+func TestCreateCustomer_needsSomethingToNameIt(t *testing.T) {
+	_, err := appcustomers.NewCreateCustomerUseCase(nil, &stubCustomerRepo{}, &eventrecordtest.Outbox{}).
+		Execute(context.Background(), appcustomers.CreateCustomerInput{})
+
+	assert.ErrorIs(t, err, customersDomain.ErrCustomerUnidentified)
 }

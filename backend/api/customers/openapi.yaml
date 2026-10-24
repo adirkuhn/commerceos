@@ -159,7 +159,7 @@ components:
 
     CreateCustomerRequest:
       type: object
-      required: [email]
+      description: Email is optional; a customer needs a name, a company (billing), an email or a phone number -- else 422 CUSTOMER_UNIDENTIFIED.
       properties:
         woo_customer_id: { type: integer, format: int64, nullable: true }
         email: { type: string }
@@ -175,7 +175,7 @@ components:
 
     UpdateCustomerRequest:
       type: object
-      required: [email]
+      description: Email is optional; a customer needs a name, a company (billing), an email or a phone number -- else 422 CUSTOMER_UNIDENTIFIED.
       properties:
         woo_customer_id: { type: integer, format: int64, nullable: true }
         email: { type: string }

@@ -13,3 +13,10 @@ func (c Customer) DisplayName() string {
 	}
 	return c.Email
 }
+
+// Identifiable is whether there's anything to tell this customer apart by:
+// a name, company or email (DisplayName), or a phone number. Email is
+// optional -- walk-in and B2B customers often have none.
+func (c Customer) Identifiable() bool {
+	return strings.TrimSpace(c.DisplayName()) != "" || c.PhoneE164 != "" || strings.TrimSpace(c.Billing.Phone) != ""
+}

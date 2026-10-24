@@ -441,5 +441,6 @@
   "QUOTE_DUPLICATE_LINE": "Um produto só pode aparecer uma vez no orçamento.",
   "QUOTE_TOO_MANY_LINES": "Um orçamento pode ter no máximo 500 linhas.",
   "QUOTE_LINE_UNAVAILABLE": "Um produto deste orçamento não está mais ativo. Remova ou substitua e tente de novo.",
-  "QUOTE_NOTHING_TO_ORDER": "Nenhuma linha deste orçamento tem quantidade para pedir."
+  "QUOTE_NOTHING_TO_ORDER": "Nenhuma linha deste orçamento tem quantidade para pedir.",
+  "CUSTOMER_UNIDENTIFIED": "Informe um nome, empresa, e-mail ou telefone para o cliente."
 }

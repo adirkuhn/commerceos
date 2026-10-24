@@ -41,6 +41,10 @@ func NewCreateCustomerUseCase(db *gorm.DB, customerRepo customersDomain.Customer
 }
 
 func (uc *CreateCustomerUseCase) Execute(ctx context.Context, in CreateCustomerInput) (*customersDomain.Customer, error) {
+	probe := customersDomain.Customer{Email: in.Email, FirstName: in.FirstName, LastName: in.LastName, PhoneE164: in.PhoneE164, Billing: in.Billing}
+	if !probe.Identifiable() {
+		return nil, fmt.Errorf("createCustomer: %w", customersDomain.ErrCustomerUnidentified)
+	}
 	var customer customersDomain.Customer
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		now := time.Now()

@@ -3,7 +3,6 @@ package customers
 import (
 	"context"
 	"errors"
-	"github.com/adirkuhn/commerceos/infrastructure/httperrs"
 	"log"
 	"net/http"
 
@@ -100,12 +99,8 @@ func (h *Handler) CreateCustomer(c *gin.Context) {
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
-	if req.Email == "" {
-		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
-		return
-	}
 	cust, err := h.createCustomer.Execute(c.Request.Context(), appcustomers.CreateCustomerInput{
-		WooCustomerID: req.WooCustomerId, Email: req.Email, FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
+		WooCustomerID: req.WooCustomerId, Email: strPtrOr(req.Email), FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
 		Username: strPtrOr(req.Username), Role: strPtrOr(req.Role), Billing: toDomainAddress(req.Billing), Shipping: toDomainAddress(req.Shipping),
 		IsPayingCustomer: boolPtrOr(req.IsPayingCustomer), AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
 	})
@@ -122,12 +117,8 @@ func (h *Handler) UpdateCustomer(c *gin.Context, id gencustomers.Id) {
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
-	if req.Email == "" {
-		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", httperrs.ErrRequiredFieldsMissing)
-		return
-	}
 	cust, err := h.updateCustomer.Execute(c.Request.Context(), appcustomers.UpdateCustomerInput{
-		ID: id, WooCustomerID: req.WooCustomerId, Email: req.Email, FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
+		ID: id, WooCustomerID: req.WooCustomerId, Email: strPtrOr(req.Email), FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
 		Username: strPtrOr(req.Username), Role: strPtrOr(req.Role), Billing: toDomainAddress(req.Billing), Shipping: toDomainAddress(req.Shipping),
 		IsPayingCustomer: boolPtrOr(req.IsPayingCustomer), AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
 	})
@@ -226,6 +217,8 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, customersDomain.ErrCustomerNotFound):
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
+	case errors.Is(err, customersDomain.ErrCustomerUnidentified):
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, customersDomain.ErrDuplicateWooCustomerID):
 		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)
 	default:

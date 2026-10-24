@@ -114,23 +114,34 @@ func TestListCustomers_success(t *testing.T) {
 
 func TestCreateCustomer_success(t *testing.T) {
 	create := &stubCreateCustomer{}
-	body := gencustomers.CreateCustomerRequest{Email: "jane@example.com"}
+	body := gencustomers.CreateCustomerRequest{Email: ptr("jane@example.com")}
 	w := doRequest(newTestRouter(&stubListCustomers{}, create, &stubUpdateCustomer{}, &stubDeleteCustomer{}), "POST", "/api/v1/customers", body)
 
 	require.Equal(t, http.StatusCreated, w.Code)
 	assert.Equal(t, "jane@example.com", create.gotInput.Email)
 }
 
-func TestCreateCustomer_rejectsMissingEmail(t *testing.T) {
-	w := doRequest(newTestRouter(&stubListCustomers{}, &stubCreateCustomer{}, &stubUpdateCustomer{}, &stubDeleteCustomer{}), "POST", "/api/v1/customers", gencustomers.CreateCustomerRequest{})
+func TestCreateCustomer_withoutEmail(t *testing.T) {
+	create := &stubCreateCustomer{}
+	first := "Ana"
+	w := doRequest(newTestRouter(&stubListCustomers{}, create, &stubUpdateCustomer{}, &stubDeleteCustomer{}), "POST", "/api/v1/customers", gencustomers.CreateCustomerRequest{FirstName: &first})
+
+	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	assert.Equal(t, "Ana", create.gotInput.FirstName)
+}
+
+func TestCreateCustomer_unidentifiedIs422(t *testing.T) {
+	create := &stubCreateCustomer{err: customersDomain.ErrCustomerUnidentified}
+	w := doRequest(newTestRouter(&stubListCustomers{}, create, &stubUpdateCustomer{}, &stubDeleteCustomer{}), "POST", "/api/v1/customers", gencustomers.CreateCustomerRequest{})
 
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), "CUSTOMER_UNIDENTIFIED")
 }
 
 func TestCreateCustomer_roundTripsBillingAddress(t *testing.T) {
 	create := &stubCreateCustomer{}
 	addr1 := "123 Main St"
-	body := gencustomers.CreateCustomerRequest{Email: "jane@example.com", Billing: &gencustomers.Address{Address1: &addr1}}
+	body := gencustomers.CreateCustomerRequest{Email: ptr("jane@example.com"), Billing: &gencustomers.Address{Address1: &addr1}}
 	doRequest(newTestRouter(&stubListCustomers{}, create, &stubUpdateCustomer{}, &stubDeleteCustomer{}), "POST", "/api/v1/customers", body)
 
 	assert.Equal(t, "123 Main St", create.gotInput.Billing.Address1)
@@ -138,7 +149,7 @@ func TestCreateCustomer_roundTripsBillingAddress(t *testing.T) {
 
 func TestUpdateCustomer_success(t *testing.T) {
 	update := &stubUpdateCustomer{}
-	body := gencustomers.UpdateCustomerRequest{Email: "new@example.com"}
+	body := gencustomers.UpdateCustomerRequest{Email: ptr("new@example.com")}
 	w := doRequest(newTestRouter(&stubListCustomers{}, &stubCreateCustomer{}, update, &stubDeleteCustomer{}), "PATCH", "/api/v1/customers/c1", body)
 
 	require.Equal(t, http.StatusOK, w.Code)
@@ -148,7 +159,7 @@ func TestUpdateCustomer_success(t *testing.T) {
 
 func TestUpdateCustomer_notFound(t *testing.T) {
 	update := &stubUpdateCustomer{err: customersDomain.ErrCustomerNotFound}
-	body := gencustomers.UpdateCustomerRequest{Email: "new@example.com"}
+	body := gencustomers.UpdateCustomerRequest{Email: ptr("new@example.com")}
 	w := doRequest(newTestRouter(&stubListCustomers{}, &stubCreateCustomer{}, update, &stubDeleteCustomer{}), "PATCH", "/api/v1/customers/missing", body)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
@@ -215,3 +226,4 @@ func TestGetCustomer_notFound(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, doRequest(r, "GET", "/api/v1/customers/missing", nil).Code)
 }
+func ptr(s string) *string { return &s }

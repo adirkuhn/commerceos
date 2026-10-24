@@ -56,6 +56,9 @@ func (uc *UpdateCustomerUseCase) Execute(ctx context.Context, in UpdateCustomerI
 		existing.AvatarURL = in.AvatarURL
 		existing.CustomerNote = in.CustomerNote
 		existing.DateModified = time.Now()
+		if !existing.Identifiable() {
+			return customersDomain.ErrCustomerUnidentified
+		}
 		if err := uc.customerRepo.Update(ctx, existing); err != nil {
 			return err
 		}
