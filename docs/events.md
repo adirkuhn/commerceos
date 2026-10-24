@@ -304,9 +304,9 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
-| `quotes.quote.created` | action | A B2B quote was saved for the first time. data: number, name, line_count, total_minor_units, currency_code. | envelope |
+| `quotes.quote.created` | action | A B2B quote was saved for the first time. data: number, name, line_count, total_minor_units, currency_code, customer_id. | envelope |
 | `quotes.quote.deleted` | action | A saved B2B quote was deleted. data: number, name. | envelope |
-| `quotes.quote.updated` | action | A saved B2B quote was saved over (changes: name, discount_basis_points, currency_code, line_count, total_minor_units). | envelope |
+| `quotes.quote.updated` | action | A saved B2B quote was saved over (changes: name, customer_id, discount_basis_points, currency_code, line_count, total_minor_units). | envelope |
 
 ### reviews
 

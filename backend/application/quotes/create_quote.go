@@ -7,25 +7,36 @@ import (
 	"time"
 
 	"github.com/adirkuhn/commerceos/application/eventrecord"
+	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	"github.com/adirkuhn/commerceos/domain/events"
 	"github.com/adirkuhn/commerceos/domain/quotes"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"gorm.io/gorm"
 )
 
-type CreateQuoteUseCase struct {
-	db     *gorm.DB
-	repo   quotes.Repository
-	outbox eventrecord.Enqueuer
+// customerReader is customers' GetCustomerUseCase -- a quote's customer
+// is checked and named through it, never through the customers repo.
+type customerReader interface {
+	Execute(ctx context.Context, id string) (*customersDomain.Customer, error)
 }
 
-func NewCreateQuoteUseCase(db *gorm.DB, repo quotes.Repository, outbox eventrecord.Enqueuer) *CreateQuoteUseCase {
-	return &CreateQuoteUseCase{db: db, repo: repo, outbox: outbox}
+type CreateQuoteUseCase struct {
+	db        *gorm.DB
+	repo      quotes.Repository
+	customers customerReader
+	outbox    eventrecord.Enqueuer
+}
+
+func NewCreateQuoteUseCase(db *gorm.DB, repo quotes.Repository, customers customerReader, outbox eventrecord.Enqueuer) *CreateQuoteUseCase {
+	return &CreateQuoteUseCase{db: db, repo: repo, customers: customers, outbox: outbox}
 }
 
 func (uc *CreateQuoteUseCase) Execute(ctx context.Context, in quotes.Input) (*quotes.Quote, error) {
 	q, err := quotes.NewQuote(tenant.IDFromContext(ctx), in, tenant.UserIDFromContext(ctx), time.Now().UTC())
 	if err != nil {
+		return nil, fmt.Errorf("createQuote: %w", err)
+	}
+	if err := nameCustomer(ctx, uc.customers, q); err != nil {
 		return nil, fmt.Errorf("createQuote: %w", err)
 	}
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -34,11 +45,26 @@ func (uc *CreateQuoteUseCase) Execute(ctx context.Context, in quotes.Input) (*qu
 		}
 		return eventrecord.Record(ctx, uc.outbox, events.QuoteCreated, q.ID, eventrecord.Data{
 			"number": q.Number, "name": q.Name, "line_count": len(q.Lines),
-			"total_minor_units": q.Total(), "currency_code": q.CurrencyCode,
+			"total_minor_units": q.Total(), "currency_code": q.CurrencyCode, "customer_id": q.CustomerID(),
 		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createQuote: %w", err)
 	}
 	return q, nil
+}
+
+// nameCustomer checks the quote's customer exists (for this tenant) and
+// fills in its name and email. It reads in its own transaction, before the
+// write's, like every cross-module read.
+func nameCustomer(ctx context.Context, customers customerReader, q *quotes.Quote) error {
+	if q.Customer == nil {
+		return nil
+	}
+	c, err := customers.Execute(ctx, q.Customer.ID)
+	if err != nil {
+		return err
+	}
+	q.Customer.Name, q.Customer.Email = c.DisplayName(), c.Email
+	return nil
 }

@@ -10,6 +10,7 @@ import (
 
 	"gorm.io/gorm"
 
+	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	"github.com/adirkuhn/commerceos/domain/quotes"
 	"github.com/adirkuhn/commerceos/internal/txctx"
 )
@@ -27,6 +28,7 @@ type quoteModel struct {
 	TenantID            string    `gorm:"column:tenant_id"`
 	Number              int64     `gorm:"column:number"`
 	Name                string    `gorm:"column:name"`
+	CustomerID          *string   `gorm:"column:customer_id"`
 	DiscountBasisPoints int       `gorm:"column:discount_basis_points"`
 	CurrencyCode        string    `gorm:"column:currency_code"`
 	CreatedBy           string    `gorm:"column:created_by"`
@@ -94,6 +96,14 @@ func (r *QuoteRepo) FindByID(ctx context.Context, id string) (*quotes.Quote, err
 		return nil, fmt.Errorf("quoteRepo.FindByID: lines: %w", err)
 	}
 	q := toQuoteDomain(m)
+	if q.Customer != nil {
+		var c customerNameRow
+		if err := tx.Raw(`SELECT first_name, last_name, billing_company, email FROM customers WHERE id = ?`, q.Customer.ID).
+			Scan(&c).Error; err != nil {
+			return nil, fmt.Errorf("quoteRepo.FindByID: customer: %w", err)
+		}
+		q.Customer.Name, q.Customer.Email = c.displayName(), c.Email
+	}
 	q.Lines = make([]quotes.Line, len(lines))
 	for i, l := range lines {
 		q.Lines[i] = quotes.Line{ProductID: l.ProductID, SKUID: l.SKUID, Quantity: l.Quantity, UnitPriceMinorUnits: l.UnitPriceMinorUnits}
@@ -101,10 +111,29 @@ func (r *QuoteRepo) FindByID(ctx context.Context, id string) (*quotes.Quote, err
 	return q, nil
 }
 
+// customerNameRow is the slice of customers a quote shows; named the same
+// way as customersDomain.Customer.DisplayName.
+type customerNameRow struct {
+	FirstName      string `gorm:"column:first_name"`
+	LastName       string `gorm:"column:last_name"`
+	BillingCompany string `gorm:"column:billing_company"`
+	Email          string `gorm:"column:email"`
+}
+
+func (c customerNameRow) displayName() string {
+	return customersDomain.Customer{FirstName: c.FirstName, LastName: c.LastName, Email: c.Email,
+		Billing: customersDomain.Address{Company: c.BillingCompany}}.DisplayName()
+}
+
 type quoteSummaryRow struct {
 	ID                  string    `gorm:"column:id"`
 	Number              int64     `gorm:"column:number"`
 	Name                string    `gorm:"column:name"`
+	CustomerID          *string   `gorm:"column:customer_id"`
+	FirstName           string    `gorm:"column:first_name"`
+	LastName            string    `gorm:"column:last_name"`
+	BillingCompany      string    `gorm:"column:billing_company"`
+	Email               string    `gorm:"column:email"`
 	DiscountBasisPoints int       `gorm:"column:discount_basis_points"`
 	CurrencyCode        string    `gorm:"column:currency_code"`
 	CreatedAt           time.Time `gorm:"column:created_at"`
@@ -120,8 +149,10 @@ func (r *QuoteRepo) List(ctx context.Context, filter quotes.ListFilter) ([]quote
 	}
 	base := tx.Model(&quoteModel{})
 	if filter.Search != "" {
-		where := "quotes.name ILIKE ?"
-		args := []any{"%" + escapeLike(filter.Search) + "%"}
+		like := "%" + escapeLike(filter.Search) + "%"
+		where := `quotes.name ILIKE ? OR quotes.customer_id IN (SELECT id FROM customers WHERE
+			first_name || ' ' || last_name ILIKE ? OR billing_company ILIKE ? OR email ILIKE ?)`
+		args := []any{like, like, like, like}
 		if n, ok := searchedNumber(filter.Search); ok {
 			where += " OR quotes.number = ?"
 			args = append(args, n)
@@ -134,10 +165,14 @@ func (r *QuoteRepo) List(ctx context.Context, filter quotes.ListFilter) ([]quote
 	}
 	var rows []quoteSummaryRow
 	if err := base.Session(&gorm.Session{}).
-		Select(`quotes.id, quotes.number, quotes.name, quotes.discount_basis_points, quotes.currency_code,
-			quotes.created_at, quotes.updated_at, COUNT(quote_lines.sku_id) AS line_count,
+		Select(`quotes.id, quotes.number, quotes.name, quotes.customer_id, quotes.discount_basis_points, quotes.currency_code,
+			quotes.created_at, quotes.updated_at,
+			COALESCE(MAX(customers.first_name), '') AS first_name, COALESCE(MAX(customers.last_name), '') AS last_name,
+			COALESCE(MAX(customers.billing_company), '') AS billing_company, COALESCE(MAX(customers.email), '') AS email,
+			COUNT(quote_lines.sku_id) AS line_count,
 			COALESCE(SUM(quote_lines.quantity * quote_lines.unit_price_minor_units), 0) AS total_minor_units`).
 		Joins("LEFT JOIN quote_lines ON quote_lines.quote_id = quotes.id").
+		Joins("LEFT JOIN customers ON customers.id = quotes.customer_id").
 		Group("quotes.id").
 		Order("quotes.updated_at DESC, quotes.number DESC").
 		Limit(filter.Limit).Offset(filter.Offset).
@@ -148,11 +183,20 @@ func (r *QuoteRepo) List(ctx context.Context, filter quotes.ListFilter) ([]quote
 	for i, row := range rows {
 		out[i] = quotes.Summary{
 			ID: row.ID, Number: row.Number, Name: row.Name, CurrencyCode: row.CurrencyCode,
+			Customer:            summaryCustomer(row),
 			DiscountBasisPoints: row.DiscountBasisPoints, LineCount: row.LineCount, TotalMinorUnits: row.TotalMinorUnits,
 			CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 		}
 	}
 	return out, total, nil
+}
+
+func summaryCustomer(row quoteSummaryRow) *quotes.CustomerRef {
+	if row.CustomerID == nil {
+		return nil
+	}
+	name := customerNameRow{FirstName: row.FirstName, LastName: row.LastName, BillingCompany: row.BillingCompany, Email: row.Email}
+	return &quotes.CustomerRef{ID: *row.CustomerID, Name: name.displayName(), Email: row.Email}
 }
 
 // searchedNumber reads "Q-0007", "q7" or "7" as quote number 7.
@@ -168,7 +212,7 @@ func (r *QuoteRepo) Update(ctx context.Context, q *quotes.Quote) error {
 		return err
 	}
 	res := tx.Model(&quoteModel{}).Where("id = ?", q.ID).Updates(map[string]any{
-		"name": q.Name, "discount_basis_points": q.DiscountBasisPoints,
+		"name": q.Name, "customer_id": q.CustomerID(), "discount_basis_points": q.DiscountBasisPoints,
 		"currency_code": q.CurrencyCode, "updated_at": q.UpdatedAt,
 	})
 	if res.Error != nil {
@@ -217,14 +261,20 @@ func (r *QuoteRepo) insertLines(tx *gorm.DB, q *quotes.Quote) error {
 
 func toQuoteModel(q *quotes.Quote) quoteModel {
 	return quoteModel{
-		ID: q.ID, TenantID: q.TenantID, Number: q.Number, Name: q.Name, DiscountBasisPoints: q.DiscountBasisPoints,
-		CurrencyCode: q.CurrencyCode, CreatedBy: q.CreatedBy, CreatedAt: q.CreatedAt, UpdatedAt: q.UpdatedAt,
+		ID: q.ID, TenantID: q.TenantID, Number: q.Number, Name: q.Name, CustomerID: q.CustomerID(),
+		DiscountBasisPoints: q.DiscountBasisPoints, CurrencyCode: q.CurrencyCode, CreatedBy: q.CreatedBy,
+		CreatedAt: q.CreatedAt, UpdatedAt: q.UpdatedAt,
 	}
 }
 
 func toQuoteDomain(m quoteModel) *quotes.Quote {
+	var customer *quotes.CustomerRef
+	if m.CustomerID != nil {
+		customer = &quotes.CustomerRef{ID: *m.CustomerID}
+	}
 	return &quotes.Quote{
-		ID: m.ID, TenantID: m.TenantID, Number: m.Number, Name: m.Name, DiscountBasisPoints: m.DiscountBasisPoints,
+		Customer: customer,
+		ID:       m.ID, TenantID: m.TenantID, Number: m.Number, Name: m.Name, DiscountBasisPoints: m.DiscountBasisPoints,
 		CurrencyCode: m.CurrencyCode, CreatedBy: m.CreatedBy, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }

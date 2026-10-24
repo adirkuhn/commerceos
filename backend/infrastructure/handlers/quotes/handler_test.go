@@ -16,6 +16,7 @@ import (
 
 	genquotes "github.com/adirkuhn/commerceos/api/quotes"
 	appquotes "github.com/adirkuhn/commerceos/application/quotes"
+	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	"github.com/adirkuhn/commerceos/domain/quotes"
 	handler "github.com/adirkuhn/commerceos/infrastructure/handlers/quotes"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
@@ -126,7 +127,7 @@ func do(t *testing.T, r *gin.Engine, method, path, body string, withToken bool) 
 const validBody = `{"name":"Restaurant Sabor","discount_basis_points":3000,"currency_code":"EUR",
 	"lines":[{"product_id":"` + prodID + `","sku_id":"` + skuID + `","quantity":100,"unit_price_minor_units":871}]}`
 
-const sampleJSON = `{"id":"` + quoteID + `","number":7,"reference":"Q-0007","name":"Restaurant Sabor","currency_code":"EUR",
+const sampleJSON = `{"id":"` + quoteID + `","number":7,"reference":"Q-0007","name":"Restaurant Sabor","customer":null,"currency_code":"EUR",
 	"discount_basis_points":3000,"line_count":1,"total_minor_units":87100,
 	"created_at":"2026-10-23T10:00:00Z","updated_at":"2026-10-23T10:00:00Z",
 	"lines":[{"product_id":"` + prodID + `","sku_id":"` + skuID + `","quantity":100,"unit_price_minor_units":871,"line_total_minor_units":87100}]}`
@@ -235,6 +236,7 @@ func TestDeleteQuote_notFound(t *testing.T) {
 func TestListQuotes(t *testing.T) {
 	s := &stubs{listOut: &appquotes.ListQuotesResult{Total: 61, Quotes: []quotes.Summary{{
 		ID: quoteID, Number: 7, Name: "Restaurant Sabor", CurrencyCode: "EUR", DiscountBasisPoints: 3000,
+		Customer:  &quotes.CustomerRef{ID: "c-1", Name: "Ana Souza", Email: "ana@sabor.nl"},
 		LineCount: 1, TotalMinorUnits: 87100, CreatedAt: stamp, UpdatedAt: stamp,
 	}}}}
 
@@ -242,7 +244,8 @@ func TestListQuotes(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, appquotes.ListQuotesInput{Page: 2, PerPage: 25, Search: "sabor"}, s.gotList)
-	assert.JSONEq(t, `{"data":[{"id":"`+quoteID+`","number":7,"reference":"Q-0007","name":"Restaurant Sabor","currency_code":"EUR",
+	assert.JSONEq(t, `{"data":[{"id":"`+quoteID+`","number":7,"reference":"Q-0007","name":"Restaurant Sabor",
+		"customer":{"id":"c-1","name":"Ana Souza","email":"ana@sabor.nl"},"currency_code":"EUR",
 		"discount_basis_points":3000,"line_count":1,"total_minor_units":87100,
 		"created_at":"2026-10-23T10:00:00Z","updated_at":"2026-10-23T10:00:00Z"}],"meta":{"total":61}}`, w.Body.String())
 }
@@ -259,4 +262,25 @@ func TestListQuotes_emptyIsList(t *testing.T) {
 func TestListQuotes_perPageCappedByContract(t *testing.T) {
 	w := do(t, newRouter(t, &stubs{}), http.MethodGet, "/api/v1/quotes?per_page=1000", "", true)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestCreateQuote_forACustomer(t *testing.T) {
+	const customerID = "9d1e2f3a-4b5c-4d6e-8f7a-1b2c3d4e5f60"
+	s := &stubs{out: sample()}
+	body := `{"name":"x","customer_id":"` + customerID + `","discount_basis_points":0,"lines":[]}`
+
+	w := do(t, newRouter(t, s), http.MethodPost, "/api/v1/quotes", body, true)
+
+	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	require.NotNil(t, s.gotInput.CustomerID)
+	assert.Equal(t, customerID, *s.gotInput.CustomerID)
+}
+
+func TestCreateQuote_unknownCustomerIs422(t *testing.T) {
+	s := &stubs{err: customersDomain.ErrCustomerNotFound}
+
+	w := do(t, newRouter(t, s), http.MethodPost, "/api/v1/quotes", validBody, true)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), `"code":"CUSTOMER_NOT_FOUND"`)
 }

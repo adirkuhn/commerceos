@@ -10,6 +10,7 @@ type Summary struct {
 	ID                  string
 	Number              int64
 	Name                string
+	Customer            *CustomerRef
 	CurrencyCode        string
 	DiscountBasisPoints int
 	LineCount           int
@@ -31,7 +32,7 @@ type Repository interface {
 	Create(ctx context.Context, q *Quote) error
 	FindByID(ctx context.Context, id string) (*Quote, error)
 	List(ctx context.Context, filter ListFilter) ([]Summary, int64, error)
-	// Update saves name, discount, currency, lines and UpdatedAt.
+	// Update saves name, customer, discount, currency, lines and UpdatedAt.
 	Update(ctx context.Context, q *Quote) error
 	Delete(ctx context.Context, id string) error
 }

@@ -103,3 +103,27 @@ func TestReference(t *testing.T) {
 	assert.Equal(t, "Q-0007", quotes.Reference(7))
 	assert.Equal(t, "Q-12345", quotes.Reference(12345))
 }
+
+func TestQuoteCustomer(t *testing.T) {
+	id := "c-1"
+	in := validInput()
+	in.CustomerID = &id
+
+	q, err := quotes.NewQuote("t-1", in, "user-1", now)
+	require.NoError(t, err)
+	assert.Equal(t, &quotes.CustomerRef{ID: "c-1"}, q.Customer)
+
+	// Keeping the same customer keeps what was read about it.
+	q.Customer.Name = "Ana Souza"
+	require.NoError(t, q.Revise(in, now))
+	assert.Equal(t, "Ana Souza", q.Customer.Name)
+
+	blank := ""
+	in.CustomerID = &blank
+	require.NoError(t, q.Revise(in, now))
+	assert.Nil(t, q.Customer, "a blank id means no customer")
+
+	in.CustomerID = nil
+	require.NoError(t, q.Revise(in, now))
+	assert.Nil(t, q.Customer)
+}

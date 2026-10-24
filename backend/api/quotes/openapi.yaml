@@ -134,6 +134,11 @@ components:
       required: [name, discount_basis_points, lines]
       properties:
         name: { type: string, minLength: 1, maxLength: 200 }
+        customer_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The customer the quote is for; null or omitted for none. 422 CUSTOMER_NOT_FOUND when unknown.
         discount_basis_points:
           type: integer
           minimum: 0
@@ -158,14 +163,25 @@ components:
         unit_price_minor_units: { type: integer, format: int64 }
         line_total_minor_units: { type: integer, format: int64 }
 
+    QuoteCustomer:
+      type: object
+      required: [id, name, email]
+      properties:
+        id: { type: string }
+        name: { type: string, description: 'Person name, else billing company, else email.' }
+        email: { type: string }
+
     QuoteSummary:
       type: object
-      required: [id, number, reference, name, currency_code, discount_basis_points, line_count, total_minor_units, created_at, updated_at]
+      required: [id, number, reference, name, customer, currency_code, discount_basis_points, line_count, total_minor_units, created_at, updated_at]
       properties:
         id: { type: string }
         number: { type: integer, format: int64 }
         reference: { type: string, description: 'Shown number, e.g. Q-0007.' }
         name: { type: string }
+        customer:
+          allOf: [{ $ref: '#/components/schemas/QuoteCustomer' }]
+          nullable: true
         currency_code: { type: string, description: Empty for a quote without lines. }
         discount_basis_points: { type: integer }
         line_count: { type: integer }

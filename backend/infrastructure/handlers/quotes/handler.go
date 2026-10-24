@@ -11,7 +11,9 @@ import (
 	"gorm.io/gorm"
 
 	genquotes "github.com/adirkuhn/commerceos/api/quotes"
+	appcustomers "github.com/adirkuhn/commerceos/application/customers"
 	appquotes "github.com/adirkuhn/commerceos/application/quotes"
+	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	"github.com/adirkuhn/commerceos/domain/quotes"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
@@ -56,9 +58,10 @@ var _ genquotes.ServerInterface = (*Handler)(nil)
 // authenticated role may work quotes (owner's call, 2026-10-23).
 func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 	repo := repositories.NewQuoteRepo(db)
+	customers := appcustomers.NewGetCustomerUseCase(db, repositories.NewCustomerRepo(db))
 	genquotes.RegisterHandlers(rg, NewHandler(UseCases{
-		Create: appquotes.NewCreateQuoteUseCase(db, repo, outboxRepo),
-		Update: appquotes.NewUpdateQuoteUseCase(db, repo, outboxRepo),
+		Create: appquotes.NewCreateQuoteUseCase(db, repo, customers, outboxRepo),
+		Update: appquotes.NewUpdateQuoteUseCase(db, repo, customers, outboxRepo),
 		Get:    appquotes.NewGetQuoteUseCase(db, repo),
 		List:   appquotes.NewListQuotesUseCase(db, repo),
 		Delete: appquotes.NewDeleteQuoteUseCase(db, repo, outboxRepo),
@@ -141,6 +144,10 @@ func bindInput(c *gin.Context) (quotes.Input, bool) {
 	if req.CurrencyCode != nil {
 		in.CurrencyCode = *req.CurrencyCode
 	}
+	if req.CustomerId != nil {
+		id := req.CustomerId.String()
+		in.CustomerID = &id
+	}
 	for i, l := range req.Lines {
 		in.Lines[i] = quotes.Line{ProductID: l.ProductId.String(), SKUID: l.SkuId.String(), Quantity: l.Quantity, UnitPriceMinorUnits: l.UnitPriceMinorUnits}
 	}
@@ -149,7 +156,8 @@ func bindInput(c *gin.Context) (quotes.Input, bool) {
 
 func toGenSummary(s quotes.Summary) genquotes.QuoteSummary {
 	return genquotes.QuoteSummary{
-		Id: s.ID, Number: s.Number, Reference: quotes.Reference(s.Number), Name: s.Name, CurrencyCode: s.CurrencyCode,
+		Id: s.ID, Number: s.Number, Reference: quotes.Reference(s.Number), Name: s.Name, Customer: toGenCustomer(s.Customer),
+		CurrencyCode:        s.CurrencyCode,
 		DiscountBasisPoints: s.DiscountBasisPoints, LineCount: s.LineCount, TotalMinorUnits: s.TotalMinorUnits,
 		CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt,
 	}
@@ -164,10 +172,18 @@ func toGenQuote(q *quotes.Quote) genquotes.Quote {
 		}
 	}
 	return genquotes.Quote{
-		Id: q.ID, Number: q.Number, Reference: quotes.Reference(q.Number), Name: q.Name, CurrencyCode: q.CurrencyCode,
+		Id: q.ID, Number: q.Number, Reference: quotes.Reference(q.Number), Name: q.Name, Customer: toGenCustomer(q.Customer),
+		CurrencyCode:        q.CurrencyCode,
 		DiscountBasisPoints: q.DiscountBasisPoints, LineCount: len(q.Lines), TotalMinorUnits: q.Total(),
 		CreatedAt: q.CreatedAt, UpdatedAt: q.UpdatedAt, Lines: lines,
 	}
+}
+
+func toGenCustomer(c *quotes.CustomerRef) *genquotes.QuoteCustomer {
+	if c == nil {
+		return nil
+	}
+	return &genquotes.QuoteCustomer{Id: c.ID, Name: c.Name, Email: c.Email}
 }
 
 func mapError(c *gin.Context, err error) error {
@@ -177,6 +193,8 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, quotes.ErrQuoteNotFound):
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
+	case errors.Is(err, customersDomain.ErrCustomerNotFound):
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, quotes.ErrNameRequired), errors.Is(err, quotes.ErrNameTooLong),
 		errors.Is(err, quotes.ErrInvalidDiscount), errors.Is(err, quotes.ErrInvalidCurrency),
 		errors.Is(err, quotes.ErrInvalidLine), errors.Is(err, quotes.ErrDuplicateLine), errors.Is(err, quotes.ErrTooManyLines):

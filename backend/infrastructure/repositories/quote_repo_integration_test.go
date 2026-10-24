@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	"github.com/adirkuhn/commerceos/domain/quotes"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/idgen"
@@ -130,6 +131,38 @@ func TestQuoteRepo_Integration_UpdateMissingIsNotFound(t *testing.T) {
 
 	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		assert.ErrorIs(t, repo.Update(ctx, q), quotes.ErrQuoteNotFound)
+		return nil
+	}))
+}
+
+func TestQuoteRepo_Integration_Customer(t *testing.T) {
+	_, dsn := newIntegrationDBAndDSN(t)
+	db := newAppRoleDB(t, dsn)
+	repo := repositories.NewQuoteRepo(db)
+	customerRepo := repositories.NewCustomerRepo(db)
+	tenantID, ctx := newTestTenant()
+
+	q := newQuote(t, tenantID, "For Ana", quoteLine(1, 100))
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		c := &customersDomain.Customer{TenantID: tenantID, FirstName: "Ana", LastName: "Souza", Email: "ana@sabor.nl"}
+		require.NoError(t, customerRepo.Create(ctx, c))
+		id := c.ID
+		require.NoError(t, q.Revise(quotes.Input{Name: "For Ana", CustomerID: &id, CurrencyCode: "EUR", Lines: q.Lines}, time.Now().UTC()))
+		require.NoError(t, repo.Create(ctx, q))
+
+		got, err := repo.FindByID(ctx, q.ID)
+		require.NoError(t, err)
+		assert.Equal(t, &quotes.CustomerRef{ID: id, Name: "Ana Souza", Email: "ana@sabor.nl"}, got.Customer)
+
+		list, _, err := repo.List(ctx, quotes.ListFilter{Search: "souza", Limit: 10})
+		require.NoError(t, err)
+		require.Len(t, list, 1, "search finds a quote by its customer")
+		assert.Equal(t, "Ana Souza", list[0].Customer.Name)
+
+		require.NoError(t, customerRepo.Delete(ctx, id))
+		got, err = repo.FindByID(ctx, q.ID)
+		require.NoError(t, err)
+		assert.Nil(t, got.Customer, "deleting the customer keeps the quote")
 		return nil
 	}))
 }

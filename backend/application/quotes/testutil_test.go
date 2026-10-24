@@ -9,6 +9,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	"github.com/adirkuhn/commerceos/domain/quotes"
 )
 
@@ -85,4 +86,21 @@ func (r *stubRepo) Delete(_ context.Context, id string) error {
 	}
 	r.deleted = append(r.deleted, id)
 	return nil
+}
+
+type stubCustomers struct {
+	byID map[string]*customersDomain.Customer
+}
+
+func (s *stubCustomers) Execute(_ context.Context, id string) (*customersDomain.Customer, error) {
+	if c, ok := s.byID[id]; ok {
+		return c, nil
+	}
+	return nil, customersDomain.ErrCustomerNotFound
+}
+
+func newStubCustomers() *stubCustomers {
+	return &stubCustomers{byID: map[string]*customersDomain.Customer{
+		"c-1": {ID: "c-1", FirstName: "Ana", LastName: "Souza", Email: "ana@sabor.nl"},
+	}}
 }

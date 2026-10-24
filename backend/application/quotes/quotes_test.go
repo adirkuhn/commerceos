@@ -11,6 +11,7 @@ import (
 
 	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appquotes "github.com/adirkuhn/commerceos/application/quotes"
+	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	"github.com/adirkuhn/commerceos/domain/quotes"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -34,7 +35,7 @@ func saved() *quotes.Quote {
 func TestCreateQuote_storesNumberedQuoteAndRecordsEvent(t *testing.T) {
 	repo, outbox := newStubRepo(), &eventrecordtest.Outbox{}
 
-	q, err := appquotes.NewCreateQuoteUseCase(newMockGormDB(t), repo, outbox).Execute(ctxFor(), input())
+	q, err := appquotes.NewCreateQuoteUseCase(newMockGormDB(t), repo, newStubCustomers(), outbox).Execute(ctxFor(), input())
 
 	require.NoError(t, err)
 	assert.Equal(t, "q-new", q.ID)
@@ -45,7 +46,7 @@ func TestCreateQuote_storesNumberedQuoteAndRecordsEvent(t *testing.T) {
 	event, err := outbox.Only()
 	require.NoError(t, err)
 	assert.Equal(t, "quotes.quote.created", event.Subject)
-	assert.Equal(t, map[string]any{"number": float64(12), "name": "Restaurant Sabor", "line_count": float64(1), "total_minor_units": float64(87100), "currency_code": "EUR"}, event.Data())
+	assert.Equal(t, map[string]any{"number": float64(12), "name": "Restaurant Sabor", "line_count": float64(1), "total_minor_units": float64(87100), "currency_code": "EUR", "customer_id": nil}, event.Data())
 }
 
 func TestCreateQuote_invalidInputStoresNothing(t *testing.T) {
@@ -53,7 +54,7 @@ func TestCreateQuote_invalidInputStoresNothing(t *testing.T) {
 	in := input()
 	in.Name = ""
 
-	_, err := appquotes.NewCreateQuoteUseCase(nil, repo, outbox).Execute(ctxFor(), in)
+	_, err := appquotes.NewCreateQuoteUseCase(nil, repo, newStubCustomers(), outbox).Execute(ctxFor(), in)
 
 	assert.ErrorIs(t, err, quotes.ErrNameRequired)
 	assert.Empty(t, repo.created)
@@ -64,7 +65,7 @@ func TestCreateQuote_wrapsRepoError(t *testing.T) {
 	repo := newStubRepo()
 	repo.err = errors.New("boom")
 
-	_, err := appquotes.NewCreateQuoteUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{}).Execute(ctxFor(), input())
+	_, err := appquotes.NewCreateQuoteUseCase(newMockGormDB(t), repo, newStubCustomers(), &eventrecordtest.Outbox{}).Execute(ctxFor(), input())
 
 	assert.ErrorContains(t, err, "createQuote")
 }
@@ -72,7 +73,7 @@ func TestCreateQuote_wrapsRepoError(t *testing.T) {
 func TestUpdateQuote_savesOverAndRecordsChanges(t *testing.T) {
 	repo, outbox := newStubRepo(saved()), &eventrecordtest.Outbox{}
 
-	q, err := appquotes.NewUpdateQuoteUseCase(newMockGormDB(t), repo, outbox).Execute(ctxFor(), "q-1", input())
+	q, err := appquotes.NewUpdateQuoteUseCase(newMockGormDB(t), repo, newStubCustomers(), outbox).Execute(ctxFor(), "q-1", input())
 
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), q.Number)
@@ -90,7 +91,7 @@ func TestUpdateQuote_savesOverAndRecordsChanges(t *testing.T) {
 }
 
 func TestUpdateQuote_notFound(t *testing.T) {
-	_, err := appquotes.NewUpdateQuoteUseCase(newMockGormDB(t), newStubRepo(), &eventrecordtest.Outbox{}).Execute(ctxFor(), "missing", input())
+	_, err := appquotes.NewUpdateQuoteUseCase(newMockGormDB(t), newStubRepo(), newStubCustomers(), &eventrecordtest.Outbox{}).Execute(ctxFor(), "missing", input())
 
 	assert.ErrorIs(t, err, quotes.ErrQuoteNotFound)
 }
@@ -100,7 +101,7 @@ func TestUpdateQuote_invalidInput(t *testing.T) {
 	in := input()
 	in.DiscountBasisPoints = 20000
 
-	_, err := appquotes.NewUpdateQuoteUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{}).Execute(ctxFor(), "q-1", in)
+	_, err := appquotes.NewUpdateQuoteUseCase(newMockGormDB(t), repo, newStubCustomers(), &eventrecordtest.Outbox{}).Execute(ctxFor(), "q-1", in)
 
 	assert.ErrorIs(t, err, quotes.ErrInvalidDiscount)
 	assert.Empty(t, repo.updated)
@@ -158,4 +159,48 @@ func TestListQuotes_defaultPage(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, quotes.ListFilter{Limit: 50, Offset: 0}, repo.gotFilter)
+}
+
+func TestCreateQuote_forACustomerCarriesItsName(t *testing.T) {
+	repo, outbox := newStubRepo(), &eventrecordtest.Outbox{}
+	in := input()
+	id := "c-1"
+	in.CustomerID = &id
+
+	q, err := appquotes.NewCreateQuoteUseCase(newMockGormDB(t), repo, newStubCustomers(), outbox).Execute(ctxFor(), in)
+
+	require.NoError(t, err)
+	assert.Equal(t, &quotes.CustomerRef{ID: "c-1", Name: "Ana Souza", Email: "ana@sabor.nl"}, q.Customer)
+	event, err := outbox.Only()
+	require.NoError(t, err)
+	assert.Equal(t, "c-1", event.Data()["customer_id"])
+}
+
+func TestCreateQuote_unknownCustomerStoresNothing(t *testing.T) {
+	repo := newStubRepo()
+	in := input()
+	id := "c-unknown"
+	in.CustomerID = &id
+
+	_, err := appquotes.NewCreateQuoteUseCase(nil, repo, newStubCustomers(), &eventrecordtest.Outbox{}).Execute(ctxFor(), in)
+
+	assert.ErrorIs(t, err, customersDomain.ErrCustomerNotFound)
+	assert.Empty(t, repo.created)
+}
+
+func TestUpdateQuote_changingTheCustomerIsRecorded(t *testing.T) {
+	repo, outbox := newStubRepo(saved()), &eventrecordtest.Outbox{}
+	in := input()
+	id := "c-1"
+	in.CustomerID = &id
+	in.Name, in.DiscountBasisPoints = "Old name", 1000
+	in.Lines = []quotes.Line{{ProductID: "p-1", SKUID: "s-1", Quantity: 10, UnitPriceMinorUnits: 900}}
+
+	q, err := appquotes.NewUpdateQuoteUseCase(newMockGormDB(t), repo, newStubCustomers(), outbox).Execute(ctxFor(), "q-1", in)
+
+	require.NoError(t, err)
+	assert.Equal(t, "Ana Souza", q.Customer.Name)
+	event, err := outbox.Only()
+	require.NoError(t, err)
+	assert.Equal(t, map[string][2]any{"customer_id": {nil, "c-1"}}, event.Changes())
 }

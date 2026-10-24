@@ -34,13 +34,14 @@ type Quote struct {
 	CreatedAt time.Time `json:"created_at"`
 
 	// CurrencyCode Empty for a quote without lines.
-	CurrencyCode        string      `json:"currency_code"`
-	DiscountBasisPoints int         `json:"discount_basis_points"`
-	Id                  string      `json:"id"`
-	LineCount           int         `json:"line_count"`
-	Lines               []QuoteLine `json:"lines"`
-	Name                string      `json:"name"`
-	Number              int64       `json:"number"`
+	CurrencyCode        string         `json:"currency_code"`
+	Customer            *QuoteCustomer `json:"customer"`
+	DiscountBasisPoints int            `json:"discount_basis_points"`
+	Id                  string         `json:"id"`
+	LineCount           int            `json:"line_count"`
+	Lines               []QuoteLine    `json:"lines"`
+	Name                string         `json:"name"`
+	Number              int64          `json:"number"`
 
 	// Reference Shown number, e.g. Q-0007.
 	Reference       string    `json:"reference"`
@@ -48,10 +49,22 @@ type Quote struct {
 	UpdatedAt       time.Time `json:"updated_at"`
 }
 
+// QuoteCustomer defines model for QuoteCustomer.
+type QuoteCustomer struct {
+	Email string `json:"email"`
+	Id    string `json:"id"`
+
+	// Name Person name, else billing company, else email.
+	Name string `json:"name"`
+}
+
 // QuoteInput defines model for QuoteInput.
 type QuoteInput struct {
 	// CurrencyCode Required once the quote has lines.
 	CurrencyCode *string `json:"currency_code,omitempty"`
+
+	// CustomerId The customer the quote is for; null or omitted for none. 422 CUSTOMER_NOT_FOUND when unknown.
+	CustomerId *openapi_types.UUID `json:"customer_id,omitempty"`
 
 	// DiscountBasisPoints The discount the quote was built with (3000 = 30%).
 	DiscountBasisPoints int              `json:"discount_basis_points"`
@@ -98,12 +111,13 @@ type QuoteSummary struct {
 	CreatedAt time.Time `json:"created_at"`
 
 	// CurrencyCode Empty for a quote without lines.
-	CurrencyCode        string `json:"currency_code"`
-	DiscountBasisPoints int    `json:"discount_basis_points"`
-	Id                  string `json:"id"`
-	LineCount           int    `json:"line_count"`
-	Name                string `json:"name"`
-	Number              int64  `json:"number"`
+	CurrencyCode        string         `json:"currency_code"`
+	Customer            *QuoteCustomer `json:"customer"`
+	DiscountBasisPoints int            `json:"discount_basis_points"`
+	Id                  string         `json:"id"`
+	LineCount           int            `json:"line_count"`
+	Name                string         `json:"name"`
+	Number              int64          `json:"number"`
 
 	// Reference Shown number, e.g. Q-0007.
 	Reference       string    `json:"reference"`
@@ -330,29 +344,32 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"Thzq25oApc7YhI14IUa3h2w5Xf4dAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -28,9 +28,19 @@ type Line struct {
 	UnitPriceMinorUnits int64
 }
 
+// CustomerRef is the customer a quote is for. Only ID is stored; Name and
+// Email are filled in when the quote is read, for display.
+type CustomerRef struct {
+	ID    string
+	Name  string
+	Email string
+}
+
 type Quote struct {
 	ID       string
 	TenantID string
+	// Customer is nil for a quote that only has a name.
+	Customer *CustomerRef
 	// Number is the shop's running quote number (see Reference), assigned
 	// when the quote is first stored; 0 before that.
 	Number int64
@@ -49,6 +59,8 @@ type Quote struct {
 // Input is a quote's editable content -- what both creating and saving
 // over an existing quote take.
 type Input struct {
+	// CustomerID nil or "" means no customer.
+	CustomerID          *string
 	Name                string
 	DiscountBasisPoints int
 	CurrencyCode        string
@@ -71,6 +83,7 @@ func (q *Quote) Revise(in Input, now time.Time) error {
 		return err
 	}
 	q.Name = name
+	q.Customer = reviseCustomer(q.Customer, in.CustomerID)
 	q.DiscountBasisPoints = in.DiscountBasisPoints
 	q.CurrencyCode = in.CurrencyCode
 	q.Lines = append([]Line(nil), in.Lines...)
@@ -102,6 +115,25 @@ func validate(name string, in Input) error {
 		seen[l.SKUID] = true
 	}
 	return nil
+}
+
+func reviseCustomer(current *CustomerRef, id *string) *CustomerRef {
+	if id == nil || *id == "" {
+		return nil
+	}
+	if current != nil && current.ID == *id {
+		return current
+	}
+	return &CustomerRef{ID: *id}
+}
+
+// CustomerID is the quote's customer id, nil when it has none.
+func (q Quote) CustomerID() *string {
+	if q.Customer == nil {
+		return nil
+	}
+	id := q.Customer.ID
+	return &id
 }
 
 // Total is the sum of every line's quantity times its price.
