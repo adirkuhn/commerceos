@@ -89,6 +89,7 @@ export function SavedQuotesList({ token, onOpen, onNew }: { token: string; onOpe
             <tr>
               <th className={`${TH} text-left`}>{t('list.colReference')}</th>
               <th className={`${TH} text-left`}>{t('list.colName')}</th>
+              <th className={`${TH} text-left`}>{t('list.colCustomer')}</th>
               <th className={`${TH} text-right`}>{t('list.colLines')}</th>
               <th className={`${TH} text-right`}>{t('list.colDiscount')}</th>
               <th className={`${TH} text-right`}>{t('list.colTotal')}</th>
@@ -98,10 +99,10 @@ export function SavedQuotesList({ token, onOpen, onNew }: { token: string; onOpe
           </thead>
           <tbody className="divide-y divide-line/60">
             {loading && quotes.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">{t('common:status.loading')}</td></tr>
+              <tr><td colSpan={8} className="px-4 py-6 text-center text-ink-4">{t('common:status.loading')}</td></tr>
             )}
             {!loading && quotes.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-ink-4">{t('list.empty')}</td></tr>
+              <tr><td colSpan={8} className="px-4 py-6 text-center text-ink-4">{t('list.empty')}</td></tr>
             )}
             {quotes.map(q => (
               <tr key={q.id} data-testid={`saved-quote-${q.reference}`} className="hover:bg-hover/60">
@@ -111,6 +112,7 @@ export function SavedQuotesList({ token, onOpen, onNew }: { token: string; onOpe
                     {q.name}
                   </button>
                 </td>
+                <td className="px-3 py-2 text-ink-2">{q.customer?.name ?? '—'}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-ink-2">{q.line_count}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-ink-3">{q.discount_basis_points ? `${q.discount_basis_points / 100}%` : '—'}</td>
                 <td className="px-3 py-2 text-right tabular-nums font-medium text-ink">

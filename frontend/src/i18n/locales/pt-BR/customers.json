@@ -93,5 +93,11 @@
   },
   "whatsapp": {
     "title": "Conversa no WhatsApp"
+  },
+  "picker": {
+    "label": "Cliente",
+    "placeholder": "Cliente (opcional) — busque nome ou e-mail",
+    "remove": "Remover cliente",
+    "searchFailed": "Não foi possível buscar clientes."
   }
 }

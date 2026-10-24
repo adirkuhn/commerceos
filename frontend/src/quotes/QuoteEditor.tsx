@@ -9,6 +9,7 @@ import { Money } from '../format/amountVisibility'
 import { downloadBlob } from '../newsletter/download'
 import { useQueryString } from '../routing/useQueryState'
 import { DiscountField } from '../pricelist/DiscountField'
+import { CustomerPicker, type PickedCustomer } from '../customers/CustomerPicker'
 import { usePriceList } from '../pricelist/hooks/usePriceList'
 import { useQuoteLines } from './hooks/useQuoteLines'
 import { useSavedQuote } from './hooks/useSavedQuotes'
@@ -41,14 +42,19 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
 
   const saved = useSavedQuote(token, quoteId)
   const [name, setName] = useState('')
-  useEffect(() => { if (saved.data) setName(saved.data.name) }, [saved.data])
+  const [customer, setCustomer] = useState<PickedCustomer | null>(null)
+  useEffect(() => {
+    if (!saved.data) return
+    setName(saved.data.name)
+    setCustomer(saved.data.customer)
+  }, [saved.data])
   const [saving, setSaving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const input = buildQuoteInput(name, discount, quote.lines, rowBySku, saved.data?.currency_code)
+  const input = buildQuoteInput(name, customer?.id ?? null, discount, quote.lines, rowBySku, saved.data?.currency_code)
   const dirty = quoteId
     ? saved.data !== null && !isSameQuote(input, savedQuoteInput(saved.data))
-    : quote.lines.length > 0 || name.trim() !== ''
+    : quote.lines.length > 0 || name.trim() !== '' || customer !== null
 
   async function persist(asNew: boolean) {
     setSaving(true)
@@ -67,6 +73,7 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
   function startNew() {
     navigate('/quotes/new')
     setName('')
+    setCustomer(null)
     setSaveError('')
   }
 
@@ -102,6 +109,7 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
       <QuoteSaveBar
         reference={saved.data && saved.data.id === quoteId ? saved.data.reference : null}
         name={name} onName={setName} dirty={dirty} saving={saving}
+        customer={<CustomerPicker token={token} value={customer} onChange={setCustomer} />}
         error={saveError || (quoteId && saved.error) || ''}
         onSave={() => persist(false)} onSaveAsNew={() => persist(true)} onNew={startNew}
       />

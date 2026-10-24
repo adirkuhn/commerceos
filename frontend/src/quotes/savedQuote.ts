@@ -28,7 +28,8 @@ export function savedQuotePath(q: SavedQuote): string {
  * listed is kept only if its price is known.
  */
 export function buildQuoteInput(
-  name: string, discountPercent: number, lines: QuoteLine[], rowBySku: ReadonlyMap<string, PriceListRow>, fallbackCurrency?: string,
+  name: string, customerId: string | null, discountPercent: number, lines: QuoteLine[],
+  rowBySku: ReadonlyMap<string, PriceListRow>, fallbackCurrency?: string,
 ): QuoteInput {
   const out = lines.flatMap(l => {
     const row = rowBySku.get(l.skuId)
@@ -36,19 +37,22 @@ export function buildQuoteInput(
     return price === undefined ? [] : [{ product_id: l.productId, sku_id: l.skuId, quantity: l.quantity, unit_price_minor_units: price }]
   })
   const currency = lines.map(l => rowBySku.get(l.skuId)?.currency_code).find(Boolean) ?? (out.length ? fallbackCurrency : undefined)
-  return { name: name.trim(), discount_basis_points: Math.round(discountPercent * 100), currency_code: currency || undefined, lines: out }
+  return {
+    name: name.trim(), customer_id: customerId, discount_basis_points: Math.round(discountPercent * 100),
+    currency_code: currency || undefined, lines: out,
+  }
 }
 
 export function savedQuoteInput(q: SavedQuote): QuoteInput {
   return {
-    name: q.name, discount_basis_points: q.discount_basis_points, currency_code: q.currency_code || undefined,
+    name: q.name, customer_id: q.customer?.id ?? null, discount_basis_points: q.discount_basis_points, currency_code: q.currency_code || undefined,
     lines: q.lines.map(({ line_total_minor_units: _total, ...l }) => l),
   }
 }
 
 /** Unsaved changes check; currency follows the lines, so it's left out. */
 export function isSameQuote(a: QuoteInput, b: QuoteInput): boolean {
-  const key = (q: QuoteInput) => JSON.stringify([q.name, q.discount_basis_points,
+  const key = (q: QuoteInput) => JSON.stringify([q.name, q.customer_id ?? null, q.discount_basis_points,
     q.lines.map(l => [l.product_id, l.sku_id, l.quantity, l.unit_price_minor_units])])
   return key(a) === key(b)
 }

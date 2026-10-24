@@ -10,7 +10,7 @@ function mockFetch(body: unknown, status = 200) {
 }
 
 const quote: SavedQuote = {
-  id: 'q-1', number: 7, reference: 'Q-0007', name: 'Sabor', currency_code: 'EUR', discount_basis_points: 3000,
+  id: 'q-1', number: 7, reference: 'Q-0007', name: 'Sabor', customer: null, currency_code: 'EUR', discount_basis_points: 3000,
   line_count: 0, total_minor_units: 0, created_at: '', updated_at: '', lines: [],
 }
 const input: QuoteInput = { name: 'Sabor', discount_basis_points: 3000, currency_code: 'EUR', lines: [] }

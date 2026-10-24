@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { CopyPlus, FilePlus2, Save } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -5,6 +6,8 @@ export interface QuoteSaveBarProps {
   reference: string | null
   name: string
   onName: (name: string) => void
+  // The customer picker, beside the name.
+  customer: ReactNode
   dirty: boolean
   saving: boolean
   error: string
@@ -14,7 +17,7 @@ export interface QuoteSaveBarProps {
 }
 
 // Name, number and save actions of the quote in the editor.
-export function QuoteSaveBar({ reference, name, onName, dirty, saving, error, onSave, onSaveAsNew, onNew }: QuoteSaveBarProps) {
+export function QuoteSaveBar({ reference, name, onName, customer, dirty, saving, error, onSave, onSaveAsNew, onNew }: QuoteSaveBarProps) {
   const { t } = useTranslation(['quotes', 'priceList'])
   const canSave = name.trim() !== '' && !saving && (dirty || reference === null)
 
@@ -30,6 +33,7 @@ export function QuoteSaveBar({ reference, name, onName, dirty, saving, error, on
         maxLength={200}
         className="w-64 py-1.5 px-2.5 text-xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
       />
+      {customer}
       {dirty && <span data-testid="quote-unsaved" className="text-2xs text-warning">● {t('quote.unsaved')}</span>}
       {error && <span role="alert" className="text-xs text-danger">{error}</span>}
       <div className="flex items-center gap-2 ml-auto">

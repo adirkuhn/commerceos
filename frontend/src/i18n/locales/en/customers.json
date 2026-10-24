@@ -87,5 +87,11 @@
   },
   "whatsapp": {
     "title": "WhatsApp conversation"
+  },
+  "picker": {
+    "label": "Customer",
+    "placeholder": "Customer (optional) — search name or email",
+    "remove": "Remove customer",
+    "searchFailed": "Couldn't search customers."
   }
 }

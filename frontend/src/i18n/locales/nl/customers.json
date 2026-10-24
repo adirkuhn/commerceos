@@ -87,5 +87,11 @@
   },
   "whatsapp": {
     "title": "WhatsApp-gesprek"
+  },
+  "picker": {
+    "label": "Klant",
+    "placeholder": "Klant (optioneel) — zoek op naam of e-mail",
+    "remove": "Klant verwijderen",
+    "searchFailed": "Klanten zoeken mislukt."
   }
 }

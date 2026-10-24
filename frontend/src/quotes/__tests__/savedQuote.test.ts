@@ -10,7 +10,7 @@ const row = (sku: string, price: number, sale: number | null = null): PriceListR
 })
 
 const saved: SavedQuote = {
-  id: 'q-1', number: 7, reference: 'Q-0007', name: 'Sabor', currency_code: 'EUR', discount_basis_points: 1250,
+  id: 'q-1', number: 7, reference: 'Q-0007', name: 'Sabor', customer: { id: 'c-1', name: 'Ana', email: '' }, currency_code: 'EUR', discount_basis_points: 1250,
   line_count: 2, total_minor_units: 0, created_at: '', updated_at: '',
   lines: [
     { product_id: 'p-a', sku_id: 'a', quantity: 10, unit_price_minor_units: 875, line_total_minor_units: 8750 },
@@ -31,13 +31,13 @@ describe('savedQuoteParams', () => {
 describe('buildQuoteInput', () => {
   it('stores each line at its shown price: typed, else the discounted (sale) price', () => {
     const rows = new Map([['a', row('a', 1000)], ['b', row('b', 2000, 1600)]])
-    const input = buildQuoteInput('  Sabor ', 25, [
+    const input = buildQuoteInput('  Sabor ', 'c-1', 25, [
       { productId: 'p-a', skuId: 'a', quantity: 3, unitPrice: 999 },
       { productId: 'p-b', skuId: 'b', quantity: 2 },
     ], rows)
 
     expect(input).toEqual({
-      name: 'Sabor', discount_basis_points: 2500, currency_code: 'EUR',
+      name: 'Sabor', customer_id: 'c-1', discount_basis_points: 2500, currency_code: 'EUR',
       lines: [
         { product_id: 'p-a', sku_id: 'a', quantity: 3, unit_price_minor_units: 999 },
         { product_id: 'p-b', sku_id: 'b', quantity: 2, unit_price_minor_units: 1200 },
@@ -46,7 +46,7 @@ describe('buildQuoteInput', () => {
   })
 
   it('keeps a line whose product is gone only when its price is known', () => {
-    const input = buildQuoteInput('x', 0, [
+    const input = buildQuoteInput('x', null, 0, [
       { productId: 'p-gone', skuId: 'gone', quantity: 1, unitPrice: 500 },
       { productId: 'p-unknown', skuId: 'unknown', quantity: 1 },
     ], new Map(), 'EUR')
@@ -56,7 +56,7 @@ describe('buildQuoteInput', () => {
   })
 
   it('an empty quote has no currency', () => {
-    expect(buildQuoteInput('x', 0, [], new Map()).currency_code).toBeUndefined()
+    expect(buildQuoteInput('x', null, 0, [], new Map()).currency_code).toBeUndefined()
   })
 })
 
@@ -66,6 +66,7 @@ describe('isSameQuote', () => {
     expect(isSameQuote(asSaved, savedQuoteInput(saved))).toBe(true)
     expect(isSameQuote({ ...asSaved, currency_code: undefined }, asSaved)).toBe(true)
     expect(isSameQuote({ ...asSaved, name: 'Other' }, asSaved)).toBe(false)
+    expect(isSameQuote({ ...asSaved, customer_id: null }, asSaved)).toBe(false)
     expect(isSameQuote({ ...asSaved, discount_basis_points: 0 }, asSaved)).toBe(false)
     expect(isSameQuote({ ...asSaved, lines: [{ ...asSaved.lines[0], quantity: 11 }, asSaved.lines[1]] }, asSaved)).toBe(false)
   })

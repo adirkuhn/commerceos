@@ -32,6 +32,7 @@
     "empty": "Nenhum orçamento salvo ainda.",
     "colReference": "Número",
     "colName": "Nome",
+    "colCustomer": "Cliente",
     "colLines": "Linhas",
     "colDiscount": "Desconto",
     "colTotal": "Total",

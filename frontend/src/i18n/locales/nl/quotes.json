@@ -32,6 +32,7 @@
     "empty": "Nog geen opgeslagen offertes.",
     "colReference": "Nummer",
     "colName": "Naam",
+    "colCustomer": "Klant",
     "colLines": "Regels",
     "colDiscount": "Korting",
     "colTotal": "Totaal",

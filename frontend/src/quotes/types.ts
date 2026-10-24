@@ -10,11 +10,18 @@ export interface QuoteLine {
 }
 
 // Mirrors backend/api/quotes/openapi.yaml.
+export interface QuoteCustomer {
+  id: string
+  name: string
+  email: string
+}
+
 export interface SavedQuoteSummary {
   id: string
   number: number
   reference: string
   name: string
+  customer: QuoteCustomer | null
   currency_code: string
   discount_basis_points: number
   line_count: number
@@ -37,6 +44,7 @@ export interface SavedQuote extends SavedQuoteSummary {
 
 export interface QuoteInput {
   name: string
+  customer_id?: string | null
   discount_basis_points: number
   currency_code?: string
   lines: Omit<SavedQuoteLine, 'line_total_minor_units'>[]

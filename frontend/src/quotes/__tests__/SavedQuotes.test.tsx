@@ -10,6 +10,9 @@ vi.mock('../../pricelist/api', () => ({ listPriceList: vi.fn(), setAutomaticCost
 vi.mock('../quotesApi', () => ({
   listQuotes: vi.fn(), getQuote: vi.fn(), createQuote: vi.fn(), updateQuote: vi.fn(), deleteQuote: vi.fn(),
 }))
+vi.mock('../../search/api', () => ({ globalSearch: vi.fn(async () => ({
+  products: [], suppliers: [], sales_orders: [], customers: [{ id: 'c-1', first_name: 'Ana', last_name: 'Souza', email: 'ana@sabor.nl' }],
+})) }))
 import * as api from '../../pricelist/api'
 import * as quotesApi from '../quotesApi'
 import Quotes from '../../pages/Quotes'
@@ -27,7 +30,8 @@ let nextNumber: number
 function toSaved(id: string, number: number, input: QuoteInput): SavedQuote {
   const lines = input.lines.map(l => ({ ...l, line_total_minor_units: l.quantity * l.unit_price_minor_units }))
   return {
-    id, number, reference: `Q-${String(number).padStart(4, '0')}`, name: input.name, currency_code: input.currency_code ?? '',
+    id, number, reference: `Q-${String(number).padStart(4, '0')}`, name: input.name,
+    customer: input.customer_id ? { id: input.customer_id, name: 'Ana Souza', email: '' } : null, currency_code: input.currency_code ?? '',
     discount_basis_points: input.discount_basis_points, line_count: lines.length,
     total_minor_units: lines.reduce((s, l) => s + l.line_total_minor_units, 0), created_at: '2026-10-23T10:00:00Z', updated_at: '2026-10-23T10:00:00Z', lines,
   }
@@ -83,13 +87,26 @@ describe('saving a quote', () => {
 
     await waitFor(() => expect(screen.getByTestId('quote-reference')).toHaveTextContent('Q-0001'))
     expect(quotesApi.createQuote).toHaveBeenCalledWith('tok', {
-      name: 'Restaurant Sabor', discount_basis_points: 2000, currency_code: 'EUR',
+      name: 'Restaurant Sabor', customer_id: null, discount_basis_points: 2000, currency_code: 'EUR',
       lines: [{ product_id: P1, sku_id: 's-fei', quantity: 10, unit_price_minor_units: 800 }],
     })
     expect(search).toMatch(/^\/quotes\/q-1\?/)
     expect(search).toContain(`lines=${P1}.s-fei.10.800`)
     await waitFor(() => expect(screen.queryByTestId('quote-unsaved')).not.toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+  })
+
+  it('saves the quote for a picked customer and shows it in the list', async () => {
+    renderPage(`/quotes/new?lines=${P1}.s-fei.1`)
+    await screen.findByTestId('quote-line-s-fei')
+    fireEvent.change(screen.getByRole('textbox', { name: 'Quote name' }), { target: { value: 'Sabor' } })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Customer' }), { target: { value: 'ana' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Ana Souza/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(quotesApi.createQuote).toHaveBeenCalledWith('tok', expect.objectContaining({ customer_id: 'c-1' })))
+    fireEvent.click(await screen.findByRole('button', { name: 'All quotes' }))
+    expect(await screen.findByTestId('saved-quote-Q-0001')).toHaveTextContent('Ana Souza')
   })
 
   it('saves changes over the open quote, or as a new one', async () => {
