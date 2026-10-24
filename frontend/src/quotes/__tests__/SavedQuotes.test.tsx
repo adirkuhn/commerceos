@@ -138,6 +138,17 @@ describe('saving a quote', () => {
     expect(search).toMatch(/^\/quotes\/q-2/)
   })
 
+  it('a bare /quotes/<id> link (e.g. from its sales order) opens the saved lines', async () => {
+    store['q-1'] = toSaved('q-1', 1, { name: 'Sabor', discount_basis_points: 1000, currency_code: 'EUR',
+      lines: [{ product_id: P1, sku_id: 's-fei', quantity: 4, unit_price_minor_units: 950 }] })
+    renderPage('/quotes/q-1')
+
+    const line = await screen.findByTestId('quote-line-s-fei')
+    expect(within(line).getByRole('spinbutton', { name: 'Qty FEI-1' })).toHaveValue(4)
+    expect(search).toContain('discount=10')
+    expect(screen.queryByTestId('quote-unsaved')).not.toBeInTheDocument()
+  })
+
   it('New quote empties the editor', async () => {
     store['q-1'] = toSaved('q-1', 1, { name: 'Sabor', discount_basis_points: 0, currency_code: 'EUR', lines: [] })
     renderPage(`/quotes/q-1?lines=${P1}.s-fei.10.950`)

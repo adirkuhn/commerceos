@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
 import { ArrowLeft, Trash2, Printer, Edit3 } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { activityText } from './activityText'
 import { useAuth } from '../auth/AuthContext'
 import { useSalesOrderDetail } from './hooks/useSalesOrderDetail'
+import { OrderCustomerSection } from './OrderCustomerSection'
 import { useSalesOrderActivities } from './hooks/useSalesOrderActivities'
 import { useBolShipmentConfirmations } from './hooks/useBolShipmentConfirmations'
 import type { SalesOrderStatus } from './types'
@@ -22,7 +22,7 @@ import { LabelConnectionPicker } from '../shipping/ShippingProviderPicker'
 import { providerLabel } from '../webhooks/providerLabel'
 import type { RecipientAddress, Shipment } from '../shipping/types'
 import { useConfirm } from '../components/common/useConfirm'
-import { STATUS_OPTIONS, addressesEqual, customerName } from './salesOrderDisplay'
+import { STATUS_OPTIONS, addressesEqual } from './salesOrderDisplay'
 import { salesOrderStatusLabel } from './statusLabel'
 import { OrderPaymentCard } from './OrderPaymentCard'
 import { SalesOrderPaymentsCard } from './SalesOrderPaymentsCard'
@@ -428,15 +428,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
 
                 <div className="rounded-xl border border-line p-4 space-y-3 text-xs">
                   <h3 className="text-xs font-semibold text-ink">{t('detail.customer')}</h3>
-                  <p>
-                    {detail.sales_order.customer_id ? (
-                      <Link to={`/customers/${detail.sales_order.customer_id}`} className="text-accent hover:underline">
-                        {customerName(detail.sales_order)}
-                      </Link>
-                    ) : (
-                      <span className="text-ink">{customerName(detail.sales_order)}</span>
-                    )}
-                  </p>
+                  <OrderCustomerSection token={token ?? ''} order={detail.sales_order} onUpdate={update} />
 
                   {detail.sales_order.billing?.email && (
                     <div>

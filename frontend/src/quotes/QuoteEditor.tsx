@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Download, FileText, ShoppingCart, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
@@ -51,6 +51,15 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
     setName(saved.data.name)
     setCustomer(saved.data.customer)
   }, [saved.data])
+  // A bare /quotes/<id> link (the order page's "From quote") carries no
+  // lines: open the quote as saved.
+  const [searchParams] = useSearchParams()
+  const bare = !searchParams.has('lines') && !searchParams.has('discount')
+  useEffect(() => {
+    if (saved.data && saved.data.id === quoteId && bare && saved.data.lines.length > 0) {
+      navigate(savedQuotePath(saved.data), { replace: true })
+    }
+  }, [saved.data]) // eslint-disable-line react-hooks/exhaustive-deps
   const [saving, setSaving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [converting, setConverting] = useState(false)

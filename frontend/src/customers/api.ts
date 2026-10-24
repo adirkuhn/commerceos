@@ -29,6 +29,10 @@ export function listCustomers(token: string): Promise<Customer[]> {
   return request<Customer[]>(`${base()}`, { method: 'GET' }, token)
 }
 
+export function getCustomer(token: string, id: string): Promise<Customer> {
+  return request<Customer>(`${base()}/${id}`, { method: 'GET' }, token)
+}
+
 export function createCustomer(token: string, input: CustomerInput): Promise<Customer> {
   return request<Customer>(`${base()}`, { method: 'POST', body: JSON.stringify(input) }, token)
 }

@@ -146,7 +146,11 @@
     "transaction": "Transação:",
     "paidOn": "Pago em:",
     "copyTransaction": "Copiar id da transação",
-    "copied": "Copiado"
+    "copied": "Copiado",
+    "chooseCustomer": "Escolher cliente",
+    "chooseCustomerHint": "Os endereços de cobrança e entrega do cliente substituem os do pedido.",
+    "customerChangeFailed": "Não foi possível trocar o cliente.",
+    "fromQuote": "Do orçamento"
   },
   "errors": {
     "loadOrders": "Não foi possível carregar os pedidos",

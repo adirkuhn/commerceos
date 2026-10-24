@@ -146,7 +146,11 @@
     "transaction": "Transactie:",
     "paidOn": "Betaald op:",
     "copyTransaction": "Transactie-id kopiëren",
-    "copied": "Gekopieerd"
+    "copied": "Gekopieerd",
+    "chooseCustomer": "Klant kiezen",
+    "chooseCustomerHint": "Het factuur- en verzendadres van de klant vervangen die van de order.",
+    "customerChangeFailed": "De klant kon niet worden gewijzigd.",
+    "fromQuote": "Van offerte"
   },
   "errors": {
     "loadOrders": "Orders laden mislukt",

@@ -146,7 +146,11 @@
     "transaction": "Transaction:",
     "paidOn": "Paid on:",
     "copyTransaction": "Copy transaction id",
-    "copied": "Copied"
+    "copied": "Copied",
+    "chooseCustomer": "Choose customer",
+    "chooseCustomerHint": "The customer's billing and shipping address replace the order's.",
+    "customerChangeFailed": "The customer couldn't be changed.",
+    "fromQuote": "From quote"
   },
   "errors": {
     "loadOrders": "Failed to load orders",
