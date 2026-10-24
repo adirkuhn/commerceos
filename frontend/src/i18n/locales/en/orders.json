@@ -311,5 +311,16 @@
     "phone": "Phone",
     "needItems": "Add at least one product.",
     "needWarehouse": "Choose a warehouse."
+  },
+  "lineChanges": {
+    "replacedBy": "Replaced by {{product}} × {{quantity}}",
+    "covers_one": "covers {{count}} of this line",
+    "covers_other": "covers {{count}} of this line",
+    "backToStock": "original back to stock",
+    "refunded": "Refunded {{quantity}}",
+    "extraFree": "Extra · free",
+    "extraCharged": "Extra · charged",
+    "notAdded": "Not added (no stock): {{product}} × {{quantity}}",
+    "atPicking": "at picking"
   }
 }

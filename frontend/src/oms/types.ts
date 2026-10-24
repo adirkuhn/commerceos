@@ -280,3 +280,30 @@ export interface OrderQueue {
   entries: QueueEntry[]
   total: number
 }
+
+// One order change picking or packing applied -- GET
+// /sales-orders/{id}/line-changes.
+export type LineChangeAction = 'substitute' | 'freebie' | 'new_item' | 'refund'
+
+export interface SalesOrderLineChange {
+  id: string
+  step: 'picking' | 'packing'
+  action: LineChangeAction
+  // The line replaced or refunded, or the line an extra item became; null
+  // for an extra shipped without (no stock).
+  line_item_id?: string | null
+  // The product packed: the substitute, the extra item or the refunded
+  // line's own SKU. Empty strings when the SKU was deleted.
+  sku_id: string
+  sku_code: string
+  product_name: string
+  variant_name: string
+  quantity: number
+  original_qty_covered?: number | null
+  return_to_stock: boolean
+  price_minor_units?: number | null
+  // Staff's note; for an extra item, the name it was added as.
+  reason: string
+  by: string
+  at: string
+}

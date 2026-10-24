@@ -311,5 +311,16 @@
     "phone": "Telefoon",
     "needItems": "Voeg minstens één product toe.",
     "needWarehouse": "Kies een magazijn."
+  },
+  "lineChanges": {
+    "replacedBy": "Vervangen door {{product}} × {{quantity}}",
+    "covers_one": "dekt {{count}} van deze regel",
+    "covers_other": "dekt {{count}} van deze regel",
+    "backToStock": "origineel terug op voorraad",
+    "refunded": "{{quantity}} terugbetaald",
+    "extraFree": "Extra · gratis",
+    "extraCharged": "Extra · betaald",
+    "notAdded": "Niet toegevoegd (geen voorraad): {{product}} × {{quantity}}",
+    "atPicking": "bij picken"
   }
 }

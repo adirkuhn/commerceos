@@ -314,5 +314,16 @@
     "phone": "Telefone",
     "needItems": "Adicione ao menos um produto.",
     "needWarehouse": "Escolha um depósito."
+  },
+  "lineChanges": {
+    "replacedBy": "Substituído por {{product}} × {{quantity}}",
+    "covers_one": "cobre {{count}} desta linha",
+    "covers_other": "cobre {{count}} desta linha",
+    "backToStock": "original devolvido ao estoque",
+    "refunded": "{{quantity}} reembolsado(s)",
+    "extraFree": "Extra · grátis",
+    "extraCharged": "Extra · cobrado",
+    "notAdded": "Não adicionado (sem estoque): {{product}} × {{quantity}}",
+    "atPicking": "na separação"
   }
 }

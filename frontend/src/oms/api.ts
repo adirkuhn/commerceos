@@ -1,4 +1,4 @@
-import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, SalesOrderSource, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity, PickList, OrderQueue } from './types'
+import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, SalesOrderSource, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity, SalesOrderLineChange, PickList, OrderQueue } from './types'
 import { CodedApiError } from '../api/codedApiError'
 
 function base(): string {
@@ -124,6 +124,11 @@ export function getSalesOrder(token: string, id: string): Promise<SalesOrderDeta
 
 export function listSalesOrderActivities(token: string, id: string): Promise<{ activities: SalesOrderActivity[] }> {
   return request<{ activities: SalesOrderActivity[] }>(`${base()}/${id}/activities`, token)
+}
+
+export async function listSalesOrderLineChanges(token: string, id: string): Promise<SalesOrderLineChange[]> {
+  const res = await request<{ changes: SalesOrderLineChange[] }>(`${base()}/${id}/line-changes`, token)
+  return res.changes
 }
 
 export function createSalesOrder(token: string, input: CreateSalesOrderInput): Promise<SalesOrderDetail> {

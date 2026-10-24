@@ -7,6 +7,9 @@ import { useAuth } from '../auth/AuthContext'
 import { useSalesOrderDetail } from './hooks/useSalesOrderDetail'
 import { OrderCustomerSection } from './OrderCustomerSection'
 import { useSalesOrderActivities } from './hooks/useSalesOrderActivities'
+import { useSalesOrderLineChanges } from './hooks/useSalesOrderLineChanges'
+import { groupLineChanges } from './lineChanges/lineChanges'
+import { LineChangeNotes, NotAddedExtras } from './lineChanges/LineChangeNotes'
 import { useBolShipmentConfirmations } from './hooks/useBolShipmentConfirmations'
 import type { SalesOrderStatus } from './types'
 import { PickingListPrintView } from '../pages/print/PickingListPrintView'
@@ -46,6 +49,8 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
   const { token } = useAuth()
   const { detail, loading, error, update, remove } = useSalesOrderDetail(token ?? '', salesOrderId)
   const { activities, refresh: refreshActivities } = useSalesOrderActivities(token ?? '', salesOrderId)
+  const { changes: lineChanges, error: lineChangesError } = useSalesOrderLineChanges(token ?? '', salesOrderId)
+  const changesByLine = groupLineChanges(lineChanges)
   const isBolOrder = detail?.sales_order.source === 'bol'
   const bolConfirmations = useBolShipmentConfirmations(token ?? '', salesOrderId, isBolOrder)
   const [savingStatus, setSavingStatus] = useState(false)
@@ -315,6 +320,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                             {!li.sku_id && (
                               <p className="text-2xs text-warning">{t('detail.notLinked')}</p>
                             )}
+                            <LineChangeNotes changes={changesByLine.byLine.get(li.id) ?? []} linePriceMinor={li.price_minor_units} currency={detail.sales_order.currency_code} />
                           </td>
                           <td className="py-1.5 text-right text-ink-2">{li.quantity}</td>
                           <td className="py-1.5 text-right text-ink-2">
@@ -327,6 +333,8 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                       ))}
                     </tbody>
                   </table>
+                  <NotAddedExtras changes={changesByLine.notAdded} />
+                  {lineChangesError && <p className="text-2xs text-danger">{lineChangesError}</p>}
 
                   <div className="pt-2 border-t border-line space-y-1 text-xs">
                     <div className="flex justify-between text-ink-3">
