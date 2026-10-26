@@ -447,5 +447,6 @@
   "CUSTOMER_INVALID_TYPE": "Een klant is een bedrijf of particulier.",
   "CUSTOMER_DUPLICATE_CLIENT_NUMBER": "Een andere klant heeft dit klantnummer al.",
   "CONTACT_PERSON_NOT_FOUND": "Contactpersoon niet gevonden.",
-  "CONTACT_PERSON_NAME_REQUIRED": "Geef de contactpersoon een voor- of achternaam."
+  "CONTACT_PERSON_NAME_REQUIRED": "Geef de contactpersoon een voor- of achternaam.",
+  "SALES_ORDER_NOT_EDITABLE": "Deze order kan niet meer worden bewerkt: hij komt van een verkoopkanaal, of is al gepickt, verzonden of afgesloten."
 }

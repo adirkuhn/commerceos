@@ -447,5 +447,6 @@
   "CUSTOMER_INVALID_TYPE": "Um cliente é empresa ou pessoa física.",
   "CUSTOMER_DUPLICATE_CLIENT_NUMBER": "Outro cliente já tem este número de cliente.",
   "CONTACT_PERSON_NOT_FOUND": "Pessoa de contato não encontrada.",
-  "CONTACT_PERSON_NAME_REQUIRED": "Informe o nome ou sobrenome da pessoa de contato."
+  "CONTACT_PERSON_NAME_REQUIRED": "Informe o nome ou sobrenome da pessoa de contato.",
+  "SALES_ORDER_NOT_EDITABLE": "Este pedido não pode mais ser editado: veio de um canal de venda, ou já foi separado, enviado ou encerrado."
 }

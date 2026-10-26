@@ -447,5 +447,6 @@
   "CUSTOMER_INVALID_TYPE": "A customer is either a company or private.",
   "CUSTOMER_DUPLICATE_CLIENT_NUMBER": "Another customer already has this client number.",
   "CONTACT_PERSON_NOT_FOUND": "Contact person not found.",
-  "CONTACT_PERSON_NAME_REQUIRED": "Give the contact person a first or last name."
+  "CONTACT_PERSON_NAME_REQUIRED": "Give the contact person a first or last name.",
+  "SALES_ORDER_NOT_EDITABLE": "This order can no longer be edited: it is from a sales channel, or already picked, shipped or closed."
 }

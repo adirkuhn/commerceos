@@ -253,6 +253,37 @@ paths:
                 $ref: '#/components/schemas/SalesOrderDetailResponse'
         '404':
           $ref: '#/components/responses/Error'
+    put:
+      operationId: editSalesOrder
+      summary: >
+        Edit a manual sales order before it is picked: replaces its lines,
+        addresses, note and totals the way the order form sends them. Sold
+        stock is put back and taken again for the new lines.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditSalesOrderRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesOrderDetailResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          description: SALES_ORDER_NOT_EDITABLE (not a manual order, fulfilled, or past on-hold), or picking/packing in progress.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/Error'
     patch:
       operationId: updateSalesOrder
       summary: Update a sales order's header fields (status, customer, notes, etc) -- never line items
@@ -1575,6 +1606,29 @@ components:
         transaction_id: { type: string }
         date_paid: { type: string, format: date-time, nullable: true }
         date_completed: { type: string, format: date-time, nullable: true }
+        occurred_at: { type: string, format: date-time }
+        line_items:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/CreateSalesOrderLineItem' }
+
+    EditSalesOrderRequest:
+      type: object
+      required: [warehouse_id, occurred_at, line_items]
+      properties:
+        number:
+          type: string
+          description: Left empty, the order keeps its number.
+        warehouse_id: { type: string }
+        customer_id: { type: string, nullable: true }
+        billing: { $ref: '#/components/schemas/Address' }
+        shipping: { $ref: '#/components/schemas/Address' }
+        customer_note: { type: string }
+        shipping_total_minor_units: { type: integer, format: int64 }
+        fee_label: { type: string, maxLength: 100 }
+        fee_total_minor_units: { type: integer, format: int64, minimum: 0 }
+        tax_total_minor_units: { type: integer, format: int64 }
+        total_minor_units: { type: integer, format: int64 }
         occurred_at: { type: string, format: date-time }
         line_items:
           type: array

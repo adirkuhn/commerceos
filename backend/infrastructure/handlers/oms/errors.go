@@ -44,7 +44,7 @@ func mapError(c *gin.Context, err error) error {
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, omsDomain.ErrPickingSessionLocked), errors.Is(err, omsDomain.ErrPackingSessionLocked),
 		errors.Is(err, omsDomain.ErrOrderPickingInProgress), errors.Is(err, omsDomain.ErrOrderPackingInProgress),
-		errors.Is(err, omsDomain.ErrPickingSessionHasPendingChanges):
+		errors.Is(err, omsDomain.ErrPickingSessionHasPendingChanges), errors.Is(err, omsDomain.ErrSalesOrderNotEditable):
 		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)
 	case errors.Is(err, omsDomain.ErrPermissionDenied):
 		middleware.FailErr(c, http.StatusForbidden, "FORBIDDEN", err)

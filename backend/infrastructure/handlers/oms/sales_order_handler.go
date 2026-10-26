@@ -89,15 +89,7 @@ func (h *Handler) CreateSalesOrder(c *gin.Context) {
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
-	lineItems := make([]appoms.CreateSalesOrderLineItemInput, len(req.LineItems))
-	for i, li := range req.LineItems {
-		lineItems[i] = appoms.CreateSalesOrderLineItemInput{
-			SKUID: li.SkuId, Name: strOrEmpty(li.Name), SKUCode: strOrEmpty(li.SkuCode), Quantity: li.Quantity,
-			PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: int64OrZero(li.SubtotalMinorUnits),
-			SubtotalTaxMinorUnits: int64OrZero(li.SubtotalTaxMinorUnits), TotalMinorUnits: int64OrZero(li.TotalMinorUnits),
-			TotalTaxMinorUnits: int64OrZero(li.TotalTaxMinorUnits), TotalIncludesTax: li.TotalIncludesTax != nil && *li.TotalIncludesTax,
-		}
-	}
+	lineItems := fromGenCreateLineItems(req.LineItems)
 	var status omsDomain.SalesOrderStatus
 	if req.Status != nil {
 		status = omsDomain.SalesOrderStatus(*req.Status)
@@ -125,6 +117,19 @@ func (h *Handler) CreateSalesOrder(c *gin.Context) {
 	}
 	resp := genoms.SalesOrderDetail{SalesOrder: toGenSalesOrder(result.SalesOrder), LineItems: lineItemsResp, Payments: toGenSalesOrderPayments(result.SalesOrder.Payments)}
 	c.JSON(http.StatusCreated, genoms.SalesOrderDetailResponse{Data: &resp})
+}
+
+func fromGenCreateLineItems(in []genoms.CreateSalesOrderLineItem) []appoms.CreateSalesOrderLineItemInput {
+	out := make([]appoms.CreateSalesOrderLineItemInput, len(in))
+	for i, li := range in {
+		out[i] = appoms.CreateSalesOrderLineItemInput{
+			SKUID: li.SkuId, Name: strOrEmpty(li.Name), SKUCode: strOrEmpty(li.SkuCode), Quantity: li.Quantity,
+			PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: int64OrZero(li.SubtotalMinorUnits),
+			SubtotalTaxMinorUnits: int64OrZero(li.SubtotalTaxMinorUnits), TotalMinorUnits: int64OrZero(li.TotalMinorUnits),
+			TotalTaxMinorUnits: int64OrZero(li.TotalTaxMinorUnits), TotalIncludesTax: li.TotalIncludesTax != nil && *li.TotalIncludesTax,
+		}
+	}
+	return out
 }
 
 func (h *Handler) UpdateSalesOrder(c *gin.Context, id genoms.Id) {

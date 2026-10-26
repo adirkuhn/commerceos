@@ -103,6 +103,7 @@ type Handler struct {
 	createSalesOrder           createSalesOrderUC
 	updateSalesOrder           updateSalesOrderUC
 	deleteSalesOrder           deleteSalesOrderUC
+	editSalesOrder             editSalesOrderUC
 	linkLineItemSKU            linkLineItemSKUUC
 	retryStockDecrement        retryStockDecrementUC
 	forceAcceptStock           forceAcceptStockUC
@@ -319,6 +320,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewListPickingQueueUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo, packScanRepo),
 		appoms.NewListSalesOrderLineChangesUseCase(db, appoms.LineChangeSources{Packing: packScanRepo, Picking: pickScanRepo},
 			lineItemRepo, skuRepo, variantRepo, productRepo),
-	)
+	).WithEditSalesOrder(appoms.NewEditSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, recordMovement,
+		pickingSessionRepo, packingSessionRepo, outboxRepo))
 	genoms.RegisterHandlers(rg, h)
 }

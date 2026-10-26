@@ -166,23 +166,7 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 			return err
 		}
 		for _, li := range in.LineItems {
-			// Best-effort only: unlike the POS/Woo paths, this use case has
-			// never validated SKUID against the skus table (the FK
-			// constraint is the only thing that ever has) -- a lookup
-			// failure here must not turn into a new way for order creation
-			// to fail. TaxClassID just stays nil (see its doc comment).
-			var taxClassID *string
-			if sku, err := uc.skuRepo.FindByID(ctx, li.SKUID); err == nil {
-				taxClassID = sku.TaxClassID
-			}
-			skuID := li.SKUID
-			lineItem := omsDomain.SalesOrderLineItem{
-				TenantID: tenant.IDFromContext(ctx), SalesOrderID: newOrder.ID, SKUID: &skuID,
-				Name: li.Name, SKUCode: li.SKUCode, Quantity: li.Quantity,
-				PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
-				SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
-				TotalTaxMinorUnits: li.TotalTaxMinorUnits, TotalIncludesTax: li.TotalIncludesTax, TaxClassID: taxClassID, CreatedAt: now,
-			}
+			lineItem := newOrderLineItem(ctx, uc.skuRepo, newOrder.ID, li, now)
 			if err := uc.lineItemRepo.Create(ctx, &lineItem); err != nil {
 				return err
 			}
@@ -219,4 +203,25 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 		}
 	}
 	return result, nil
+}
+
+// newOrderLineItem is a line as the admin form sent it, with the SKU's tax
+// class snapshotted. Best-effort only: unlike the POS/Woo paths, this has
+// never validated SKUID against the skus table (the FK constraint is the
+// only thing that ever has) -- a lookup failure here must not turn into a
+// new way for an order write to fail. TaxClassID just stays nil (see its
+// doc comment).
+func newOrderLineItem(ctx context.Context, skuRepo skuLookupRepo, orderID string, li CreateSalesOrderLineItemInput, now time.Time) omsDomain.SalesOrderLineItem {
+	var taxClassID *string
+	if sku, err := skuRepo.FindByID(ctx, li.SKUID); err == nil {
+		taxClassID = sku.TaxClassID
+	}
+	skuID := li.SKUID
+	return omsDomain.SalesOrderLineItem{
+		TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, SKUID: &skuID,
+		Name: li.Name, SKUCode: li.SKUCode, Quantity: li.Quantity,
+		PriceMinorUnits: li.PriceMinorUnits, SubtotalMinorUnits: li.SubtotalMinorUnits,
+		SubtotalTaxMinorUnits: li.SubtotalTaxMinorUnits, TotalMinorUnits: li.TotalMinorUnits,
+		TotalTaxMinorUnits: li.TotalTaxMinorUnits, TotalIncludesTax: li.TotalIncludesTax, TaxClassID: taxClassID, CreatedAt: now,
+	}
 }

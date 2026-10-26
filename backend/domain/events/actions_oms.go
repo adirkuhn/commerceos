@@ -7,6 +7,8 @@ var (
 		"A sales order was created. data: source (manual, pos, ...), status, number, currency_code, total_minor_units, customer_id, sales_channel_id, warehouse_id, line_count.")
 	SalesOrderUpdated = defineAction("oms.sales_order.updated",
 		"A sales order's flags or totals changed (changes: fulfilled, packed, needs_sku_review, needs_stock_review, total_minor_units). data.reason says why: picking_completed, packing_completed, marked_picked, line_item_added, line_items_linked, stock_shortfall, stock_restored, stock_review_repair.")
+	SalesOrderEdited = defineAction("oms.sales_order.edited",
+		"Staff edited a manual sales order: its lines were replaced and its addresses, note and totals set (changes: number, warehouse_id, customer_id, shipping_total_minor_units, fee_total_minor_units, tax_total_minor_units, total_minor_units). Sold stock is put back and taken again; inventory raises its own events. data: line_count.")
 	SalesOrderDeleted = defineAction("oms.sales_order.deleted",
 		"A sales order was deleted with its lines (sold stock is put back; inventory raises its own events). data: source, number, status, stock_restored.")
 	SalesOrderLineItemAdded = defineAction("oms.sales_order_line_item.added",
