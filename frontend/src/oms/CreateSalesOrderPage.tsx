@@ -3,7 +3,7 @@ import { ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { apiErrorText } from '../api/apiErrorText'
-import type { Customer } from '../customers/types'
+import type { ContactPerson, Customer } from '../customers/types'
 import { useWarehouses } from '../inventory/hooks/useWarehouses'
 import { resolveSkuTaxRate } from '../pms/skuTax'
 import { useTenantSettings } from '../settings/hooks/useTenantSettings'
@@ -73,6 +73,15 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
     }))
   }
 
+  // A company order is addressed to its contact person: the billing name
+  // (printed as "Attn." under the company) and, when known, their email.
+  function chooseContactPerson(p: ContactPerson | null) {
+    if (!p) return
+    setDraft(d => ({
+      ...d, billing: { ...d.billing, first_name: p.first_name, last_name: p.last_name, email: p.email || d.billing.email },
+    }))
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!draft.warehouseId) return setFormError(t('form.needWarehouse'))
@@ -116,7 +125,7 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
         <form id="create-sales-order-form" onSubmit={submit} className="max-w-6xl mx-auto p-6 grid gap-5 lg:grid-cols-3 items-start">
           <div className="lg:col-span-2 space-y-5">
             {formError && <p role="alert" className="text-xs text-danger bg-danger/10 rounded-lg px-3 py-2">{formError}</p>}
-            <OrderCustomerCard token={token ?? ''} customer={customer} onChange={chooseCustomer} />
+            <OrderCustomerCard token={token ?? ''} customer={customer} onChange={chooseCustomer} onContactPerson={chooseContactPerson} />
             <OrderItemsCard token={token ?? ''} lines={draft.lines} lineTotals={totals.lineTotals} currency={currency} onChange={l => set('lines', l)} />
             <section className="rounded-xl border border-line bg-surface p-4 space-y-4">
               <h3 className="text-xs font-semibold text-ink">{t('form.addresses')}</h3>

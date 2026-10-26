@@ -210,6 +210,7 @@
     "cancelled_unpaid": "Cancelled, unpaid"
   },
   "print": {
+    "attn": "Attn. {{name}}",
     "billing": "Billing",
     "coc": "Chamber of Commerce: {{value}}",
     "iban": "IBAN: {{value}}",
@@ -270,6 +271,7 @@
     "failed": "The customer couldn't be created."
   },
   "form": {
+    "contactPerson": "Contact person",
     "customer": "Customer",
     "newCustomer": "New customer",
     "noCustomer": "No customer — a walk-in or one-off order.",

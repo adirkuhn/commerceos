@@ -7,12 +7,15 @@ import type { CompanyProfile } from '../../settings/company/types'
 import { formatMoney } from '../../format/money'
 import { useDateFormat } from '../../format/DateFormatProvider'
 
+// A company is addressed first, its contact person below as "Attn.".
 function addressBlock(address?: Address): string[] {
   if (!address) return []
   const name = [address.first_name, address.last_name].filter(Boolean).join(' ')
+  const recipient = address.company
+    ? [address.company, name && i18next.t('orders:print.attn', { name })]
+    : [name]
   return [
-    name,
-    address.company,
+    ...recipient,
     address.address_1,
     address.address_2,
     [address.city, address.state, address.postcode].filter(Boolean).join(', '),

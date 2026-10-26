@@ -47,3 +47,21 @@ describe('InvoicePrintView seller block', () => {
     expect(hint.closest('.print\\:hidden')).not.toBeNull()
   })
 })
+
+describe('InvoicePrintView customer block', () => {
+  it('addresses a company first, then its contact person as Attn.', () => {
+    const b2b = { ...order, billing: { company: 'Claus Hoofddorp B.V.', first_name: 'Kylian', last_name: 'Klockenbrink', address_1: 'Bosweg 19', city: 'Hoofddorp' } } as SalesOrder
+    render(<InvoicePrintView order={b2b} lineItems={[]} seller={seller} onClose={vi.fn()} />)
+
+    const company = screen.getByText('Claus Hoofddorp B.V.')
+    const attn = screen.getByText('Attn. Kylian Klockenbrink')
+    expect(company.compareDocumentPosition(attn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('addresses a private customer by name', () => {
+    const b2c = { ...order, billing: { first_name: 'Ana', last_name: 'Souza', city: 'Utrecht' } } as SalesOrder
+    render(<InvoicePrintView order={b2c} lineItems={[]} seller={seller} onClose={vi.fn()} />)
+    expect(screen.getByText('Ana Souza')).toBeInTheDocument()
+    expect(screen.queryByText(/Attn\./)).not.toBeInTheDocument()
+  })
+})

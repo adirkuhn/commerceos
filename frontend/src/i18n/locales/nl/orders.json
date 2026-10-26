@@ -210,6 +210,7 @@
     "cancelled_unpaid": "Geannuleerd, onbetaald"
   },
   "print": {
+    "attn": "T.a.v. {{name}}",
     "billing": "Factuuradres",
     "coc": "KvK-nummer: {{value}}",
     "iban": "IBAN: {{value}}",
@@ -270,6 +271,7 @@
     "failed": "De klant kon niet worden aangemaakt."
   },
   "form": {
+    "contactPerson": "Contactpersoon",
     "customer": "Klant",
     "newCustomer": "Nieuwe klant",
     "noCustomer": "Geen klant — losse verkoop.",

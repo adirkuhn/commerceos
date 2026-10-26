@@ -58,7 +58,7 @@ vi.mock('../../shipping/api', () => ({
 }))
 
 vi.mock('../../pricelist/api', () => ({ listPriceList: vi.fn(async () => ({ rows: [], total: 0, pricesIncludeTax: true })), setAutomaticCostPrice: vi.fn() }))
-vi.mock('../../customers/api', () => ({ createCustomer: vi.fn(), getCustomer: vi.fn() }))
+vi.mock('../../customers/api', () => ({ createCustomer: vi.fn(), getCustomer: vi.fn(), listContactPersons: vi.fn().mockResolvedValue([]) }))
 vi.mock('../../tax/api', () => ({
   listTaxClasses: vi.fn(),
   createTaxClass: vi.fn(),
@@ -1370,6 +1370,29 @@ describe('Create sales order', () => {
     expect(vi.mocked(customersApi.createCustomer).mock.calls[0][1]).toMatchObject({ customer_type: 'company', company_name: 'Padaria Lima', email: '' })
     expect(screen.getByLabelText('City', { selector: '#billing-city' })).toHaveValue('Delft')
     expect(screen.getByLabelText('Company', { selector: '#billing-company' })).toHaveValue('Padaria Lima')
+  })
+
+  it('addresses a company order to its contact person', async () => {
+    vi.mocked(customersApi.createCustomer).mockResolvedValue({
+      id: 'c-9', tenant_id: 'tenant-1', email: '', first_name: '', last_name: '', is_paying_customer: false, date_created: '', date_modified: '',
+      customer_type: 'company', company_name: 'Claus B.V.', display_name: 'Claus B.V.',
+      billing: { company: 'Claus B.V.', city: 'Hoofddorp', country: 'NL' },
+    })
+    vi.mocked(customersApi.listContactPersons).mockResolvedValue([
+      { id: 'cp-1', customer_id: 'c-9', first_name: 'Kylian', last_name: 'Klockenbrink', role: '', email: 'kylian@claus.nl', phone: '', created_at: '' },
+      { id: 'cp-2', customer_id: 'c-9', first_name: 'Sara', last_name: 'Dijk', role: 'Accounts', email: '', phone: '', created_at: '' },
+    ])
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
+    await userEvent.click(screen.getByRole('button', { name: 'New customer' }))
+    await userEvent.type(screen.getByLabelText('Company name', { selector: '#new-customer-company_name' }), 'Claus B.V.')
+    await userEvent.click(screen.getByRole('button', { name: 'Create customer' }))
+
+    await waitFor(() => expect(screen.getByLabelText('First name', { selector: '#billing-first_name' })).toHaveValue('Kylian'))
+    expect(screen.getByLabelText('Last name', { selector: '#billing-last_name' })).toHaveValue('Klockenbrink')
+
+    await userEvent.selectOptions(screen.getByLabelText('Contact person'), 'cp-2')
+    expect(screen.getByLabelText('First name', { selector: '#billing-first_name' })).toHaveValue('Sara')
   })
 
 })

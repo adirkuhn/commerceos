@@ -213,6 +213,7 @@
     "cancelled_unpaid": "Cancelado, não pago"
   },
   "print": {
+    "attn": "A/C {{name}}",
     "billing": "Cobrança",
     "coc": "Registro comercial (KvK): {{value}}",
     "iban": "IBAN: {{value}}",
@@ -273,6 +274,7 @@
     "failed": "Não foi possível criar o cliente."
   },
   "form": {
+    "contactPerson": "Pessoa de contato",
     "customer": "Cliente",
     "newCustomer": "Novo cliente",
     "noCustomer": "Sem cliente — venda avulsa.",
