@@ -1,4 +1,4 @@
-import type { Customer, CustomerInput, WhatsAppMessage, APIResponse } from './types'
+import type { ContactPerson, ContactPersonInput, Customer, CustomerInput, WhatsAppMessage, APIResponse } from './types'
 import { CodedApiError } from '../api/codedApiError'
 
 function base(): string {
@@ -47,4 +47,20 @@ export function deleteCustomer(token: string, id: string): Promise<null> {
 
 export function listCustomerWhatsAppMessages(token: string, id: string): Promise<WhatsAppMessage[]> {
   return request<WhatsAppMessage[]>(`${base()}/${id}/whatsapp-messages`, { method: 'GET' }, token)
+}
+
+export function listContactPersons(token: string, customerId: string): Promise<ContactPerson[]> {
+  return request<ContactPerson[]>(`${base()}/${customerId}/contact-persons`, { method: 'GET' }, token)
+}
+
+export function addContactPerson(token: string, customerId: string, input: ContactPersonInput): Promise<ContactPerson> {
+  return request<ContactPerson>(`${base()}/${customerId}/contact-persons`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+export function updateContactPerson(token: string, customerId: string, id: string, input: ContactPersonInput): Promise<ContactPerson> {
+  return request<ContactPerson>(`${base()}/${customerId}/contact-persons/${id}`, { method: 'PATCH', body: JSON.stringify(input) }, token)
+}
+
+export function removeContactPerson(token: string, customerId: string, id: string): Promise<null> {
+  return request<null>(`${base()}/${customerId}/contact-persons/${id}`, { method: 'DELETE' }, token)
 }

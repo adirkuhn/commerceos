@@ -264,7 +264,8 @@
     "postcode": "Postcode",
     "city": "City",
     "country": "Country",
-    "hint": "A name, company, email or phone is enough. The address is used for billing and shipping.",
+    "hint": "A company needs its company name; a private customer a name, email or phone. Email is optional. The address is used for billing and shipping.",
+    "address": "Address",
     "submit": "Create customer",
     "failed": "The customer couldn't be created."
   },

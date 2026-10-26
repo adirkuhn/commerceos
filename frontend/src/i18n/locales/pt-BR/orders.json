@@ -267,7 +267,8 @@
     "postcode": "CEP",
     "city": "Cidade",
     "country": "País",
-    "hint": "Um nome, empresa, e-mail ou telefone basta. O endereço vale para cobrança e entrega.",
+    "hint": "Uma empresa precisa do nome da empresa; uma pessoa física de nome, e-mail ou telefone. O e-mail é opcional. O endereço é usado para cobrança e entrega.",
+    "address": "Endereço",
     "submit": "Criar cliente",
     "failed": "Não foi possível criar o cliente."
   },

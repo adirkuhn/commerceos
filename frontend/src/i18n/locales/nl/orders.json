@@ -264,7 +264,8 @@
     "postcode": "Postcode",
     "city": "Plaats",
     "country": "Land",
-    "hint": "Een naam, bedrijf, e-mail of telefoon is genoeg. Het adres wordt gebruikt voor factuur en verzending.",
+    "hint": "Een bedrijf heeft een bedrijfsnaam nodig; een particulier een naam, e-mail of telefoon. E-mail is optioneel. Het adres wordt gebruikt voor factuur en verzending.",
+    "address": "Adres",
     "submit": "Klant aanmaken",
     "failed": "De klant kon niet worden aangemaakt."
   },

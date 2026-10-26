@@ -9,13 +9,17 @@ export interface PickedCustomer {
   id: string
   name: string
   email: string
+  clientNumber?: string
 }
 
 const MIN_CHARS = 2
 
+// A company by its company name (display_name); older results by the person.
 function toPicked(c: SearchCustomerResult): PickedCustomer {
-  const name = `${c.first_name} ${c.last_name}`.trim()
-  return { id: c.id, name: name || c.email || c.id, email: c.email ?? '' }
+  const name = c.display_name || `${c.first_name} ${c.last_name}`.trim()
+  const picked: PickedCustomer = { id: c.id, name: name || c.email || c.id, email: c.email ?? '' }
+  if (c.client_number) picked.clientNumber = c.client_number
+  return picked
 }
 
 // Picks an existing customer by name or email (global search's customers),
@@ -84,6 +88,7 @@ export function CustomerPicker({ token, value, onChange }: {
                 className="w-full text-left px-3 py-2 text-xs hover:bg-hover"
               >
                 <span className="text-ink">{c.name}</span>
+                {c.clientNumber && <span className="ml-1.5 text-2xs text-ink-4 tabular-nums">#{c.clientNumber}</span>}
                 {c.email && c.email !== c.name && <span className="block text-2xs text-ink-4">{c.email}</span>}
               </button>
             </li>

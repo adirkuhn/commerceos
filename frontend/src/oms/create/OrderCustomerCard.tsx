@@ -6,9 +6,9 @@ import { getCustomer } from '../../customers/api'
 import { CustomerPicker } from '../../customers/CustomerPicker'
 import type { Customer } from '../../customers/types'
 import { NewCustomerDialog } from './NewCustomerDialog'
+import { customerName } from '../../customers/identity/customerIdentity'
 
-const displayName = (c: Customer) =>
-  `${c.first_name} ${c.last_name}`.trim() || c.billing?.company || c.email || c.billing?.phone || c.id
+const displayName = (c: Customer) => customerName(c) || c.billing?.phone || c.id
 
 // Picks an existing customer or creates one; the page copies its addresses.
 export function OrderCustomerCard({ token, customer, onChange }: { token: string; customer: Customer | null; onChange: (c: Customer | null) => void }) {

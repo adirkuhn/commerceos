@@ -9,7 +9,10 @@ import * as omsApi from '../oms/api'
 import type { SalesOrder } from '../oms/types'
 import { Money, useMoneyFormat } from '../format/amountVisibility'
 import { addressesEqual } from '../oms/salesOrderDisplay'
-import { fullName } from '../format/personName'
+import { customerName } from './identity/customerIdentity'
+import { useContactPersons } from './hooks/useContactPersons'
+import { ContactPersonsCard } from './contactPersons/ContactPersonsCard'
+import { CompanyDetailsCard } from './contactPersons/CompanyDetailsCard'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
 
@@ -92,6 +95,8 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
   const [orders, setOrders] = useState<SalesOrder[]>([])
   const [ordersTotal, setOrdersTotal] = useState(0)
   const [ordersError, setOrdersError] = useState('')
+  const isCompany = customer?.customer_type === 'company'
+  const contactPersons = useContactPersons(token, isCompany ? customer?.id ?? null : null)
 
   // Fetched directly (not via useSalesOrders) so this can wait for
   // `customer` to actually be loaded -- a deep link (search/refresh) mounts
@@ -153,8 +158,11 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
             <ArrowLeft size={11} /> {t('detail.back')}
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {customer ? fullName(customer) : t('detail.title')}
+            {customer ? customerName(customer) : t('detail.title')}
           </h1>
+          {customer?.client_number && (
+            <p className="text-2xs text-ink-4 tabular-nums">{t('detail.clientNumber', { number: customer.client_number })}</p>
+          )}
         </div>
         {customer && (
           <button
@@ -214,6 +222,11 @@ export function CustomerDetailPage({ customer, loading, token, onEdit, onClose, 
 
               {/* Aside column */}
               <div className="space-y-5 min-w-0">
+                {(isCompany || customer.client_number) && <CompanyDetailsCard customer={customer} />}
+                {isCompany && (
+                  <ContactPersonsCard persons={contactPersons.persons} error={contactPersons.error}
+                    onAdd={contactPersons.add} onUpdate={contactPersons.update} onRemove={contactPersons.remove} />
+                )}
                 <div className="rounded-xl border border-line p-4 space-y-2 text-xs">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-semibold text-ink">{t('detail.notes')}</h3>

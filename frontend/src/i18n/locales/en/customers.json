@@ -1,5 +1,6 @@
 {
   "detail": {
+    "clientNumber": "Client number: {{number}}",
     "amountSpent": "Amount spent",
     "back": "Customers",
     "billingAddress": "Billing address",
@@ -93,5 +94,43 @@
     "placeholder": "Customer (optional) — search name or email",
     "remove": "Remove customer",
     "searchFailed": "Couldn't search customers."
+  },
+  "identity": {
+    "type": "Type",
+    "types": {
+      "company": "Company",
+      "private": "Private"
+    },
+    "companyName": "Company name",
+    "kvkNumber": "KVK number",
+    "vatNumber": "VAT ID",
+    "email": "Email (optional)",
+    "phone": "Phone",
+    "clientNumber": "Client number",
+    "automatic": "Automatic",
+    "contactPerson": "Contact person",
+    "contactFirstName": "Contact first name",
+    "contactLastName": "Contact last name"
+  },
+  "contactPersons": {
+    "title": "Contact persons",
+    "empty": "No contact persons yet.",
+    "add": "Add contact person",
+    "edit": "Edit {{name}}",
+    "remove": "Remove",
+    "removeTitle": "Remove {{name}}?",
+    "removeMessage": "The contact person is removed from this customer.",
+    "failed": "The contact person couldn't be saved.",
+    "fields": {
+      "first_name": "First name",
+      "last_name": "Last name",
+      "role": "Role",
+      "email": "Email",
+      "phone": "Phone"
+    }
+  },
+  "company": {
+    "title": "Company",
+    "openMap": "Open address in Google Maps"
   }
 }

@@ -1353,19 +1353,21 @@ describe('Create sales order', () => {
     expect(omsApi.createSalesOrder).not.toHaveBeenCalled()
   })
 
-  it('creates a new customer without an email and fills the addresses from it', async () => {
+  it('creates a new company customer without a person or email and fills the addresses from it', async () => {
     vi.mocked(customersApi.createCustomer).mockResolvedValue({
-      id: 'c-9', tenant_id: 'tenant-1', email: '', first_name: 'Bruno', last_name: '', is_paying_customer: false, date_created: '', date_modified: '',
-      billing: { first_name: 'Bruno', company: 'Padaria Lima', city: 'Delft', country: 'NL' }, shipping: { first_name: 'Bruno', company: 'Padaria Lima', city: 'Delft', country: 'NL' },
+      id: 'c-9', tenant_id: 'tenant-1', email: '', first_name: '', last_name: '', is_paying_customer: false, date_created: '', date_modified: '',
+      customer_type: 'company', company_name: 'Padaria Lima', display_name: 'Padaria Lima', client_number: '12',
+      billing: { company: 'Padaria Lima', city: 'Delft', country: 'NL' }, shipping: { company: 'Padaria Lima', city: 'Delft', country: 'NL' },
     })
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
 
     await userEvent.click(screen.getByRole('button', { name: 'New customer' }))
-    await userEvent.type(screen.getByLabelText('First name', { selector: 'input:not([id])' }), 'Bruno')
+    await userEvent.type(screen.getByLabelText('Company name', { selector: '#new-customer-company_name' }), 'Padaria Lima')
     await userEvent.click(screen.getByRole('button', { name: 'Create customer' }))
 
-    expect(await screen.findByText('Bruno')).toBeInTheDocument()
+    expect(await screen.findByText('Padaria Lima', { selector: 'p, span' })).toBeInTheDocument()
+    expect(vi.mocked(customersApi.createCustomer).mock.calls[0][1]).toMatchObject({ customer_type: 'company', company_name: 'Padaria Lima', email: '' })
     expect(screen.getByLabelText('City', { selector: '#billing-city' })).toHaveValue('Delft')
     expect(screen.getByLabelText('Company', { selector: '#billing-company' })).toHaveValue('Padaria Lima')
   })

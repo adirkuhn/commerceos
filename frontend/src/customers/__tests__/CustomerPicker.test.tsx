@@ -48,3 +48,21 @@ describe('CustomerPicker', () => {
     await waitFor(() => expect(searchApi.globalSearch).not.toHaveBeenCalled())
   })
 })
+
+describe('CustomerPicker with companies', () => {
+  it('names a company customer by its company and shows its client number', async () => {
+    vi.mocked(searchApi.globalSearch).mockResolvedValue({
+      products: [], suppliers: [], sales_orders: [],
+      customers: [{ id: 'c-3', first_name: '', last_name: '', email: '', display_name: 'Claus B.V.', customer_type: 'company', company_name: 'Claus B.V.', client_number: '3286' }],
+    })
+    const onChange = vi.fn()
+    render(<CustomerPicker token="tok" value={null} onChange={onChange} />)
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Customer' }), { target: { value: 'claus' } })
+    const option = await screen.findByRole('button', { name: /Claus B\.V\./ })
+    expect(option).toHaveTextContent('3286')
+    fireEvent.click(option)
+
+    expect(onChange).toHaveBeenCalledWith({ id: 'c-3', name: 'Claus B.V.', email: '', clientNumber: '3286' })
+  })
+})

@@ -15,10 +15,23 @@ export interface Address {
   phone?: string
 }
 
+// A company is named by its company name and has contact persons; a private
+// customer by the person.
+export type CustomerType = 'private' | 'company'
+
 export interface Customer {
   id: string
   tenant_id: string
   woo_customer_id?: number | null
+  // Optional: older responses and fixtures omit them.
+  customer_type?: CustomerType
+  // The company name for a company; else the person, billing company or email.
+  display_name?: string
+  company_name?: string
+  // The shop's own number for the customer, unique per shop.
+  client_number?: string
+  kvk_number?: string
+  vat_number?: string
   email: string
   first_name: string
   last_name: string
@@ -35,6 +48,15 @@ export interface Customer {
 
 export interface CustomerInput {
   woo_customer_id?: number | null
+  customer_type?: CustomerType
+  // Required for a company.
+  company_name?: string
+  // Generated when empty on create.
+  client_number?: string
+  kvk_number?: string
+  vat_number?: string
+  // Added with a new customer; the first is the main one.
+  contact_persons?: ContactPersonInput[]
   // Optional: a customer needs a name, company, email or phone.
   email?: string
   first_name?: string
@@ -46,6 +68,28 @@ export interface CustomerInput {
   is_paying_customer?: boolean
   avatar_url?: string
   customer_note?: string
+}
+
+// Someone to deal with at a company customer.
+export interface ContactPerson {
+  id: string
+  customer_id: string
+  first_name: string
+  last_name: string
+  // Free text, e.g. "Purchasing".
+  role: string
+  email: string
+  phone: string
+  created_at: string
+}
+
+// A first or last name is required; the rest is optional.
+export interface ContactPersonInput {
+  first_name?: string
+  last_name?: string
+  role?: string
+  email?: string
+  phone?: string
 }
 
 export type WhatsAppMessageDirection = 'inbound' | 'outbound'

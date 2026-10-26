@@ -15,6 +15,12 @@ export interface SearchCustomerResult {
   first_name: string
   last_name: string
   email?: string
+  // The company name for a company; else the person, billing company or email.
+  // Optional: older responses and fixtures omit them.
+  display_name?: string
+  customer_type?: 'private' | 'company'
+  company_name?: string
+  client_number?: string
 }
 
 export interface SearchSalesOrderResult {

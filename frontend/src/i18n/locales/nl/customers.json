@@ -1,5 +1,6 @@
 {
   "detail": {
+    "clientNumber": "Klantnummer: {{number}}",
     "amountSpent": "Uitgegeven bedrag",
     "back": "Klanten",
     "billingAddress": "Factuuradres",
@@ -93,5 +94,43 @@
     "placeholder": "Klant (optioneel) — zoek op naam of e-mail",
     "remove": "Klant verwijderen",
     "searchFailed": "Klanten zoeken mislukt."
+  },
+  "identity": {
+    "type": "Soort",
+    "types": {
+      "company": "Bedrijf",
+      "private": "Particulier"
+    },
+    "companyName": "Bedrijfsnaam",
+    "kvkNumber": "KVK-nummer",
+    "vatNumber": "Btw-nummer",
+    "email": "E-mail (optioneel)",
+    "phone": "Telefoon",
+    "clientNumber": "Klantnummer",
+    "automatic": "Automatisch",
+    "contactPerson": "Contactpersoon",
+    "contactFirstName": "Voornaam contactpersoon",
+    "contactLastName": "Achternaam contactpersoon"
+  },
+  "contactPersons": {
+    "title": "Contactpersonen",
+    "empty": "Nog geen contactpersonen.",
+    "add": "Contactpersoon toevoegen",
+    "edit": "{{name}} bewerken",
+    "remove": "Verwijderen",
+    "removeTitle": "{{name}} verwijderen?",
+    "removeMessage": "De contactpersoon wordt van deze klant verwijderd.",
+    "failed": "De contactpersoon kon niet worden opgeslagen.",
+    "fields": {
+      "first_name": "Voornaam",
+      "last_name": "Achternaam",
+      "role": "Functie",
+      "email": "E-mail",
+      "phone": "Telefoon"
+    }
+  },
+  "company": {
+    "title": "Bedrijf",
+    "openMap": "Adres openen in Google Maps"
   }
 }

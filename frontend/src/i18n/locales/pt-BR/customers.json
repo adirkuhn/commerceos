@@ -1,5 +1,6 @@
 {
   "detail": {
+    "clientNumber": "Número do cliente: {{number}}",
     "amountSpent": "Valor gasto",
     "back": "Clientes",
     "billingAddress": "Endereço de cobrança",
@@ -99,5 +100,43 @@
     "placeholder": "Cliente (opcional) — busque nome ou e-mail",
     "remove": "Remover cliente",
     "searchFailed": "Não foi possível buscar clientes."
+  },
+  "identity": {
+    "type": "Tipo",
+    "types": {
+      "company": "Empresa",
+      "private": "Pessoa física"
+    },
+    "companyName": "Nome da empresa",
+    "kvkNumber": "Número KVK",
+    "vatNumber": "Número de IVA",
+    "email": "E-mail (opcional)",
+    "phone": "Telefone",
+    "clientNumber": "Número do cliente",
+    "automatic": "Automático",
+    "contactPerson": "Pessoa de contato",
+    "contactFirstName": "Nome do contato",
+    "contactLastName": "Sobrenome do contato"
+  },
+  "contactPersons": {
+    "title": "Pessoas de contato",
+    "empty": "Nenhuma pessoa de contato ainda.",
+    "add": "Adicionar pessoa de contato",
+    "edit": "Editar {{name}}",
+    "remove": "Remover",
+    "removeTitle": "Remover {{name}}?",
+    "removeMessage": "A pessoa de contato é removida deste cliente.",
+    "failed": "Não foi possível salvar a pessoa de contato.",
+    "fields": {
+      "first_name": "Nome",
+      "last_name": "Sobrenome",
+      "role": "Função",
+      "email": "E-mail",
+      "phone": "Telefone"
+    }
+  },
+  "company": {
+    "title": "Empresa",
+    "openMap": "Abrir endereço no Google Maps"
   }
 }

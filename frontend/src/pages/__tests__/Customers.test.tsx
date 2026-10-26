@@ -28,6 +28,10 @@ vi.mock('../../customers/api', () => ({
   updateCustomer: vi.fn(),
   deleteCustomer: vi.fn(),
   listCustomerWhatsAppMessages: vi.fn(),
+  listContactPersons: vi.fn(),
+  addContactPerson: vi.fn(),
+  updateContactPerson: vi.fn(),
+  removeContactPerson: vi.fn(),
 }))
 
 vi.mock('../../oms/api', () => ({
@@ -62,6 +66,7 @@ beforeEach(() => {
   vi.mocked(customersApi.listCustomers).mockResolvedValue([])
   vi.mocked(omsApi.listSalesOrders).mockResolvedValue({ salesOrders: [], total: 0 })
   vi.mocked(customersApi.listCustomerWhatsAppMessages).mockResolvedValue([])
+  vi.mocked(customersApi.listContactPersons).mockResolvedValue([])
 })
 
 describe('Customers list', () => {
@@ -144,6 +149,32 @@ describe('Customers list', () => {
 })
 
 describe('Customer detail page', () => {
+  it('shows a company by its company name, client number, KVK and contact persons', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer({
+      first_name: '', last_name: '', email: '', customer_type: 'company', company_name: 'Claus Hoofddorp B.V.', display_name: 'Claus Hoofddorp B.V.',
+      client_number: '3286', kvk_number: '34073293',
+    })])
+    vi.mocked(customersApi.listContactPersons).mockResolvedValue([
+      { id: 'cp-1', customer_id: 'customer-1', first_name: 'Kylian', last_name: 'Klockenbrink', role: 'Employee', email: '', phone: '', created_at: '' },
+    ])
+
+    renderAt(<Customers />, '/customers', '/customers/customer-1')
+
+    expect(await screen.findByRole('heading', { name: 'Claus Hoofddorp B.V.' })).toBeInTheDocument()
+    expect(screen.getByText('Client number: 3286')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /34073293/ })).toBeInTheDocument()
+    expect(await screen.findByText('Kylian Klockenbrink')).toBeInTheDocument()
+    expect(customersApi.listContactPersons).toHaveBeenCalledWith('test-token', 'customer-1')
+  })
+
+  it('does not load contact persons for a private customer', async () => {
+    vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
+    renderAt(<Customers />, '/customers', '/customers/customer-1')
+    expect(await screen.findByRole('heading', { name: 'Jane Doe' })).toBeInTheDocument()
+    expect(screen.queryByText('Contact persons')).not.toBeInTheDocument()
+    expect(customersApi.listContactPersons).not.toHaveBeenCalled()
+  })
+
   it('opens the detail view when clicking a row, and the edit form via its Edit button', async () => {
     vi.mocked(customersApi.listCustomers).mockResolvedValue([customer()])
 
@@ -151,11 +182,11 @@ describe('Customer detail page', () => {
     await userEvent.click(await screen.findByText('Jane Doe'))
 
     expect(await screen.findByText('jane@example.com')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Email (optional)')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
-    expect(await screen.findByLabelText('Email')).toHaveValue('jane@example.com')
+    expect(await screen.findByLabelText('Email (optional)')).toHaveValue('jane@example.com')
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
   })
 
@@ -292,7 +323,7 @@ describe('Customer edit page', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Add customer' }))
 
     expect(await screen.findByText('New customer', { selector: 'h1' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Email')).toHaveValue('')
+    expect(screen.getByLabelText('Email (optional)')).toHaveValue('')
     expect(screen.getByRole('button', { name: 'Create customer' })).toBeInTheDocument()
   })
 
@@ -305,7 +336,7 @@ describe('Customer edit page', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Add customer' }))
     await userEvent.type(await screen.findByLabelText('First name'), 'Bob')
     await userEvent.type(screen.getByLabelText('Last name'), 'Smith')
-    await userEvent.type(screen.getByLabelText('Email'), 'bob@example.com')
+    await userEvent.type(screen.getByLabelText('Email (optional)'), 'bob@example.com')
     await userEvent.click(screen.getByRole('button', { name: 'Create customer' }))
 
     await waitFor(() => expect(customersApi.createCustomer).toHaveBeenCalledWith('test-token', expect.objectContaining({
@@ -323,7 +354,7 @@ describe('Customer edit page', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Add customer' }))
     await userEvent.type(await screen.findByLabelText('First name'), 'Bob')
     await userEvent.type(screen.getByLabelText('Last name'), 'Smith')
-    await userEvent.type(screen.getByLabelText('Email'), 'bob@example.com')
+    await userEvent.type(screen.getByLabelText('Email (optional)'), 'bob@example.com')
     await userEvent.type(screen.getByLabelText('Billing city'), 'Rotterdam')
     await userEvent.click(screen.getByRole('button', { name: 'Create customer' }))
 
@@ -337,11 +368,11 @@ describe('Customer edit page', () => {
 
     render(<MemoryRouter><Customers /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'Add customer' }))
-    await userEvent.type(await screen.findByLabelText('Email'), 'bob@example.com')
+    await userEvent.type(await screen.findByLabelText('Email (optional)'), 'bob@example.com')
     await userEvent.click(screen.getByRole('button', { name: 'Create customer' }))
 
     expect(await screen.findByText('email already taken')).toBeInTheDocument()
-    expect(screen.getByLabelText('Email')).toBeInTheDocument()
+    expect(screen.getByLabelText('Email (optional)')).toBeInTheDocument()
   })
 
   it('renames a customer and returns to the detail view', async () => {
@@ -377,7 +408,7 @@ describe('Customer edit page', () => {
     await userEvent.click(await screen.findByText('Jane Doe'))
     await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
 
-    expect(await screen.findByLabelText('Email')).toHaveValue('jane@example.com')
+    expect(await screen.findByLabelText('Email (optional)')).toHaveValue('jane@example.com')
     expect(screen.getByLabelText('Billing city')).toHaveValue('Rotterdam')
     expect(screen.getByLabelText('Billing country')).toHaveValue('NL')
     expect(screen.getByLabelText('Billing phone')).toHaveValue('+31 6 1234 5678')
@@ -396,7 +427,7 @@ describe('Customer edit page', () => {
 
     render(<MemoryRouter initialEntries={['/customers/customer-1?edit=1']}><Customers /></MemoryRouter>)
 
-    expect(await screen.findByLabelText('Email')).toHaveValue('jane@example.com')
+    expect(await screen.findByLabelText('Email (optional)')).toHaveValue('jane@example.com')
     expect(screen.getByLabelText('Billing city')).toHaveValue('Rotterdam')
     expect(screen.getByLabelText('Billing country')).toHaveValue('NL')
   })
@@ -420,7 +451,7 @@ describe('Customer edit page', () => {
     await userEvent.click(screen.getByText('simulate search result click'))
 
     expect(await screen.findByText('jane@example.com')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Email (optional)')).not.toBeInTheDocument()
   })
 
   it('Discard returns to the detail view without saving', async () => {

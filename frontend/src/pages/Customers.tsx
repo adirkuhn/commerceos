@@ -15,7 +15,7 @@ import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus
 import { useConfirm } from '../components/common/useConfirm'
 import { CustomerDetailPage } from '../customers/CustomerDetailPage'
 import { CustomerEditPage } from '../customers/CustomerEditPage'
-import { fullName } from '../format/personName'
+import { customerName } from '../customers/identity/customerIdentity'
 import { apiErrorText } from '../api/apiErrorText'
 
 const PAGE_SIZE = 20
@@ -66,12 +66,12 @@ export default function Customers() {
   }
 
   const filtered = customers.filter(c =>
-    fullName(c).toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase()),
+    [customerName(c), c.email, c.client_number ?? '', c.kvk_number ?? ''].some(v => v.toLowerCase().includes(search.toLowerCase())),
   )
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   async function handleDelete(c: Customer) {
-    if (!(await confirm({ title: t('list.deleteTitle', { name: fullName(c) }), message: t('list.deleteMessage'), confirmLabel: t('list.deleteConfirm'), destructive: true }))) return
+    if (!(await confirm({ title: t('list.deleteTitle', { name: customerName(c) }), message: t('list.deleteMessage'), confirmLabel: t('list.deleteConfirm'), destructive: true }))) return
     setDeleteError('')
     try {
       await remove(c.id)
@@ -172,8 +172,14 @@ export default function Customers() {
                   </div>
                 </td>
                 <td className="px-3 py-2.5 max-w-[280px]">
-                  <p className="font-medium text-ink truncate">{fullName(c)}</p>
-                  <p className="text-2xs text-ink-4 truncate">{c.email}</p>
+                  <p className="font-medium text-ink truncate">
+                    {customerName(c)}
+                    {c.client_number && <span className="ml-1.5 text-2xs font-normal text-ink-4 tabular-nums">#{c.client_number}</span>}
+                  </p>
+                  <p className="text-2xs text-ink-4 truncate">
+                    {c.customer_type === 'company' && <span className="mr-1.5">{t('identity.types.company')}</span>}
+                    {c.email}
+                  </p>
                 </td>
                 <td className="px-3 py-2.5 text-ink-3">
                   {[c.billing?.city, c.billing?.country].filter(Boolean).join(', ') || '—'}

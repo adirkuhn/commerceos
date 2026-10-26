@@ -4,6 +4,8 @@ import i18next from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { Customer, CustomerInput, Address } from './types'
 import { apiErrorText } from '../api/apiErrorText'
+import { CustomerIdentityFields } from './identity/CustomerIdentityFields'
+import { customerName, emptyIdentity, identityComplete, identityFromCustomer, identityToInput, type IdentityDraft } from './identity/customerIdentity'
 
 // ── Customer Edit Page ───────────────────────────────────────────────────────
 
@@ -20,9 +22,7 @@ function emptyAddress(): Address {
 
 export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: CustomerEditPageProps) {
   const { t } = useTranslation(['customers', 'common'])
-  const [firstName, setFirstName] = useState(customer?.first_name ?? '')
-  const [lastName, setLastName] = useState(customer?.last_name ?? '')
-  const [email, setEmail] = useState(customer?.email ?? '')
+  const [identity, setIdentity] = useState<IdentityDraft>(() => customer ? identityFromCustomer(customer) : emptyIdentity('private'))
   const [billing, setBilling] = useState<Address>({ ...emptyAddress(), ...customer?.billing })
   const [shipping, setShipping] = useState<Address>({ ...emptyAddress(), ...customer?.shipping })
   const [isPayingCustomer, setIsPayingCustomer] = useState(customer?.is_paying_customer ?? false)
@@ -36,9 +36,7 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
   // this, the fields stay blank forever since useState never re-runs.
   const [hydrated, setHydrated] = useState(false)
   if (!hydrated && customer) {
-    setFirstName(customer.first_name ?? '')
-    setLastName(customer.last_name ?? '')
-    setEmail(customer.email ?? '')
+    setIdentity(identityFromCustomer(customer))
     setBilling({ ...emptyAddress(), ...customer.billing })
     setShipping({ ...emptyAddress(), ...customer.shipping })
     setIsPayingCustomer(customer.is_paying_customer ?? false)
@@ -50,8 +48,12 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
     setFormError('')
     setSaving(true)
     try {
+      // A new company's person becomes its first contact person; the
+      // billing address names the company unless it already names one.
+      const billingCompany = identity.type === 'company' && !billing.company?.trim() ? { company: identity.company_name.trim() } : {}
       const input: CustomerInput = {
-        email, first_name: firstName, last_name: lastName, billing, shipping, is_paying_customer: isPayingCustomer,
+        ...identityToInput(identity, { withContactPerson: !customer }),
+        billing: { ...billing, ...billingCompany }, shipping, is_paying_customer: isPayingCustomer,
       }
       if (customer) {
         await onUpdate(customer.id, input)
@@ -66,8 +68,6 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
     }
   }
 
-  const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1.5'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus transition-shadow'
 
   return (
     <div className="flex flex-col h-full">
@@ -80,7 +80,7 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
             <ArrowLeft size={11} /> {t('edit.back')}
           </button>
           <h1 className="text-xl font-semibold text-ink leading-tight">
-            {customer ? [firstName, lastName].filter(Boolean).join(' ') || t('edit.editTitle') : t('edit.newTitle')}
+            {customer ? customerName(customer) || t('edit.editTitle') : t('edit.newTitle')}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -91,7 +91,7 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
             {t('edit.discard')}
           </button>
           <button
-            type="submit" form="customer-form" disabled={saving || !(email.trim() || firstName.trim() || lastName.trim() || billing.company?.trim() || billing.phone?.trim())}
+            type="submit" form="customer-form" disabled={saving || !(identityComplete(identity) || (identity.type === 'private' && billing.phone?.trim()))}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
           >
             {saving ? t('common:actions.saving') : customer ? t('common:actions.save') : t('edit.create')}
@@ -110,20 +110,7 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
                   {t('edit.paying')}
                 </label>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="customer-first-name" className={labelClass}>{t('edit.firstName')}</label>
-                  <input id="customer-first-name" type="text" autoFocus value={firstName} onChange={e => setFirstName(e.target.value)} className={inputClass} />
-                </div>
-                <div>
-                  <label htmlFor="customer-last-name" className={labelClass}>{t('edit.lastName')}</label>
-                  <input id="customer-last-name" type="text" value={lastName} onChange={e => setLastName(e.target.value)} className={inputClass} />
-                </div>
-              </div>
-              <div>
-                <label htmlFor="customer-email" className={labelClass}>{t('common:fields.email')}</label>
-                <input id="customer-email" type="email" value={email} onChange={e => setEmail(e.target.value)} className={inputClass} />
-              </div>
+              <CustomerIdentityFields idPrefix="customer" value={identity} onChange={setIdentity} showContactPerson={!customer} />
               {formError && (
                 <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
               )}
