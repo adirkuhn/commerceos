@@ -1373,6 +1373,35 @@ describe('Create sales order', () => {
     expect(screen.getByLabelText('Company', { selector: '#billing-company' })).toHaveValue('Padaria Lima')
   })
 
+  it('warns when no tax class is the default, so the order would get no VAT', async () => {
+    vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+      tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
+      prices_include_tax: true, default_tax_country: 'NL', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
+    } as never)
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([{ id: 'class-1', name: 'Standard', is_default: false, created_at: '', updated_at: '' }])
+    vi.mocked(taxApi.listTaxRates).mockResolvedValue([{ id: 'rate-1', tax_class_id: 'class-1', country: 'NL', rate_basis_points: 900, created_at: '', updated_at: '' }])
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
+
+    expect(await screen.findByText(/No tax class is marked as default/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Set it up in Settings → Tax' })).toHaveAttribute('href', '/settings/tax')
+  })
+
+  it('shows no VAT warning when the default class has a rate', async () => {
+    vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
+      tenant_id: 'tenant-1', default_currency: 'EUR', timezone: '', date_format: '', language: '',
+      prices_include_tax: true, default_tax_country: 'NL', inventory_sync_rules_enabled: false, batch_expiry_threshold_days: 0, default_target_markup_basis_points: 0, updated_at: '',
+    } as never)
+    vi.mocked(taxApi.listTaxClasses).mockResolvedValue([{ id: 'class-1', name: 'Standard', is_default: true, created_at: '', updated_at: '' }])
+    vi.mocked(taxApi.listTaxRates).mockResolvedValue([{ id: 'rate-1', tax_class_id: 'class-1', country: 'NL', rate_basis_points: 900, created_at: '', updated_at: '' }])
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
+    await screen.findByRole('button', { name: 'Create sales order' })
+
+    await waitFor(() => expect(taxApi.listTaxRates).toHaveBeenCalled())
+    expect(screen.queryByRole('link', { name: 'Set it up in Settings → Tax' })).not.toBeInTheDocument()
+  })
+
   it('opens the new customer as a private customer', async () => {
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))

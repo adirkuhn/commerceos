@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { apiErrorText } from '../api/apiErrorText'
 import type { ContactPerson, Customer } from '../customers/types'
@@ -13,6 +14,7 @@ import { AddressFields } from './create/AddressFields'
 import { OrderCustomerCard } from './create/OrderCustomerCard'
 import { OrderItemsCard } from './create/OrderItemsCard'
 import { OrderSummaryCard } from './create/OrderSummaryCard'
+import { taxSetupGap } from './create/taxSetupGap'
 import { draftTotals, pricesIncludeTax, toCreateInput, type OrderDraft } from './create/orderDraft'
 import { STATUS_OPTIONS } from './salesOrderDisplay'
 import { salesOrderStatusLabel } from './statusLabel'
@@ -38,9 +40,9 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
   const { token } = useAuth()
   const { t } = useTranslation(['orders', 'common'])
   const { warehouses } = useWarehouses(token ?? '')
-  const { classes } = useTaxClasses(token ?? '')
-  const { rates } = useTaxRates(token ?? '')
-  const { settings } = useTenantSettings(token ?? '')
+  const { classes, loading: classesLoading } = useTaxClasses(token ?? '')
+  const { rates, loading: ratesLoading } = useTaxRates(token ?? '')
+  const { settings, loading: settingsLoading } = useTenantSettings(token ?? '')
   const [draft, setDraft] = useState<OrderDraft>(emptyDraft)
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [saving, setSaving] = useState(false)
@@ -54,6 +56,7 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
   const currency = settings?.default_currency || 'EUR'
   const inclusive = pricesIncludeTax(settings)
   const defaultRate = resolveSkuTaxRate(rates, classes, null, settings?.default_tax_country)?.rate_basis_points ?? 0
+  const taxGap = classesLoading || ratesLoading || settingsLoading ? null : taxSetupGap(classes, rates, settings?.default_tax_country)
   const totals = useMemo(() => draftTotals({
     lines: draft.lines, shipping: draft.shipping_cost, fee: draft.fee, defaultRateBasisPoints: defaultRate, pricesIncludeTax: inclusive,
   }), [draft.lines, draft.shipping_cost, draft.fee, defaultRate, inclusive])
@@ -125,6 +128,12 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
         <form id="create-sales-order-form" onSubmit={submit} className="max-w-6xl mx-auto p-6 grid gap-5 lg:grid-cols-3 items-start">
           <div className="lg:col-span-2 space-y-5">
             {formError && <p role="alert" className="text-xs text-danger bg-danger/10 rounded-lg px-3 py-2">{formError}</p>}
+            {taxGap && (
+              <p role="status" className="text-xs text-ink-2 bg-warning/10 rounded-lg px-3 py-2">
+                {t(`form.taxGap.${taxGap}`, { country: settings?.default_tax_country })}{' '}
+                <Link to="/settings/tax" className="underline">{t('form.taxGap.fix')}</Link>
+              </p>
+            )}
             <OrderCustomerCard token={token ?? ''} customer={customer} onChange={chooseCustomer} onContactPerson={chooseContactPerson} />
             <OrderItemsCard token={token ?? ''} lines={draft.lines} lineTotals={totals.lineTotals} currency={currency} onChange={l => set('lines', l)} />
             <section className="rounded-xl border border-line bg-surface p-4 space-y-4">

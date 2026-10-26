@@ -320,7 +320,13 @@
     "email": "E-mail",
     "phone": "Telefone",
     "needItems": "Adicione ao menos um produto.",
-    "needWarehouse": "Escolha um depósito."
+    "needWarehouse": "Escolha um depósito.",
+    "taxGap": {
+      "country": "Nenhum país fiscal padrão definido, então este pedido fica sem IVA.",
+      "defaultClass": "Nenhuma classe de imposto está marcada como padrão, então produtos no padrão da empresa e o frete ficam sem IVA.",
+      "rate": "A classe de imposto padrão não tem alíquota para {{country}}, então produtos nela e o frete ficam sem IVA.",
+      "fix": "Configure em Configurações → Impostos"
+    }
   },
   "lineChanges": {
     "replacedBy": "Substituído por {{product}} × {{quantity}}",

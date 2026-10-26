@@ -317,7 +317,13 @@
     "email": "Email",
     "phone": "Phone",
     "needItems": "Add at least one product.",
-    "needWarehouse": "Choose a warehouse."
+    "needWarehouse": "Choose a warehouse.",
+    "taxGap": {
+      "country": "No default tax country is set, so this order gets no VAT.",
+      "defaultClass": "No tax class is marked as default, so products on the company default and shipping get no VAT.",
+      "rate": "The default tax class has no rate for {{country}}, so products on it and shipping get no VAT.",
+      "fix": "Set it up in Settings → Tax"
+    }
   },
   "lineChanges": {
     "replacedBy": "Replaced by {{product}} × {{quantity}}",

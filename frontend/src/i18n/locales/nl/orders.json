@@ -317,7 +317,13 @@
     "email": "E-mail",
     "phone": "Telefoon",
     "needItems": "Voeg minstens één product toe.",
-    "needWarehouse": "Kies een magazijn."
+    "needWarehouse": "Kies een magazijn.",
+    "taxGap": {
+      "country": "Er is geen standaard belastingland ingesteld, dus deze order krijgt geen btw.",
+      "defaultClass": "Geen belastingklasse is als standaard gemarkeerd, dus producten op de bedrijfsstandaard en verzending krijgen geen btw.",
+      "rate": "De standaard belastingklasse heeft geen tarief voor {{country}}, dus producten daarop en verzending krijgen geen btw.",
+      "fix": "Stel het in bij Instellingen → Belasting"
+    }
   },
   "lineChanges": {
     "replacedBy": "Vervangen door {{product}} × {{quantity}}",
