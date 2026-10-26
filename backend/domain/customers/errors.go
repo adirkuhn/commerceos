@@ -12,7 +12,9 @@ var (
 	ErrCompanyNameRequired  = errs.New("CUSTOMER_COMPANY_NAME_REQUIRED", "a company customer needs a company name")
 	ErrInvalidCustomerType  = errs.New("CUSTOMER_INVALID_TYPE", "a customer is a company or private")
 	// ErrDuplicateClientNumber: client numbers are unique per tenant.
-	ErrDuplicateClientNumber = errs.New("CUSTOMER_DUPLICATE_CLIENT_NUMBER", "another customer already has this client number")
+	ErrDuplicateClientNumber     = errs.New("CUSTOMER_DUPLICATE_CLIENT_NUMBER", "another customer already has this client number")
+	ErrContactPersonNotFound     = errs.New("CONTACT_PERSON_NOT_FOUND", "contact person not found")
+	ErrContactPersonNameRequired = errs.New("CONTACT_PERSON_NAME_REQUIRED", "a contact person needs a first or last name")
 	// ErrDuplicateWooCustomerID guards Customer.WooCustomerID: at most one
 	// customer per tenant may be linked to a given Woo customer
 	// (customers_tenant_woo_customer_id_idx). Application code should

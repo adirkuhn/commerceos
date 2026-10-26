@@ -445,5 +445,7 @@
   "CUSTOMER_UNIDENTIFIED": "Give the customer a name, a company, an email or a phone number.",
   "CUSTOMER_COMPANY_NAME_REQUIRED": "A company customer needs a company name.",
   "CUSTOMER_INVALID_TYPE": "A customer is either a company or private.",
-  "CUSTOMER_DUPLICATE_CLIENT_NUMBER": "Another customer already has this client number."
+  "CUSTOMER_DUPLICATE_CLIENT_NUMBER": "Another customer already has this client number.",
+  "CONTACT_PERSON_NOT_FOUND": "Contact person not found.",
+  "CONTACT_PERSON_NAME_REQUIRED": "Give the contact person a first or last name."
 }

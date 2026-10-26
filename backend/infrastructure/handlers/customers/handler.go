@@ -47,6 +47,7 @@ type Handler struct {
 	deleteCustomer               deleteCustomerUC
 	listCustomerWhatsAppMessages listCustomerWhatsAppMessagesUC
 	getCustomer                  getCustomerUC
+	contactPersons               ContactPersonUseCases
 }
 
 func NewHandler(
@@ -66,16 +67,22 @@ var _ gencustomers.ServerInterface = (*Handler)(nil)
 // mounts the generated routes (matching the OpenAPI spec exactly).
 func Register(rg gin.IRouter, db *gorm.DB) {
 	customerRepo := repositories.NewCustomerRepo(db)
+	personRepo := repositories.NewCustomerContactPersonRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
 
 	h := NewHandler(
 		appcustomers.NewListCustomersUseCase(db, customerRepo),
-		appcustomers.NewCreateCustomerUseCase(db, customerRepo, outboxRepo),
+		appcustomers.NewCreateCustomerUseCase(db, customerRepo, outboxRepo).WithContactPersons(personRepo),
 		appcustomers.NewUpdateCustomerUseCase(db, customerRepo, outboxRepo),
 		appcustomers.NewDeleteCustomerUseCase(db, customerRepo, outboxRepo),
 		appcustomers.NewListCustomerWhatsAppMessagesUseCase(db, repositories.NewWhatsAppMessageRepo(db)),
 		appcustomers.NewGetCustomerUseCase(db, customerRepo),
-	)
+	).WithContactPersons(ContactPersonUseCases{
+		List:   appcustomers.NewListContactPersonsUseCase(db, customerRepo, personRepo).Execute,
+		Add:    appcustomers.NewAddContactPersonUseCase(db, customerRepo, personRepo, outboxRepo).Execute,
+		Update: appcustomers.NewUpdateContactPersonUseCase(db, personRepo, outboxRepo).Execute,
+		Remove: appcustomers.NewRemoveContactPersonUseCase(db, personRepo, outboxRepo).Execute,
+	})
 	gencustomers.RegisterHandlers(rg, h)
 }
 
@@ -106,7 +113,8 @@ func (h *Handler) CreateCustomer(c *gin.Context) {
 	}
 	cust, err := h.createCustomer.Execute(c.Request.Context(), appcustomers.CreateCustomerInput{
 		WooCustomerID: req.WooCustomerId, CompanyName: strPtrOr(req.CompanyName), ClientNumber: strPtrOr(req.ClientNumber),
-		KVKNumber: strPtrOr(req.KvkNumber), VATNumber: strPtrOr(req.VatNumber), Type: valueOr(customerType), Email: strPtrOr(req.Email), FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
+		KVKNumber: strPtrOr(req.KvkNumber), VATNumber: strPtrOr(req.VatNumber), Type: valueOr(customerType),
+		ContactPersons: toContactPersonInputs(req.ContactPersons), Email: strPtrOr(req.Email), FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
 		Username: strPtrOr(req.Username), Role: strPtrOr(req.Role), Billing: toDomainAddress(req.Billing), Shipping: toDomainAddress(req.Shipping),
 		IsPayingCustomer: boolPtrOr(req.IsPayingCustomer), AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
 	})
@@ -229,10 +237,10 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, customersDomain.ErrCustomerNotFound):
+	case errors.Is(err, customersDomain.ErrCustomerNotFound), errors.Is(err, customersDomain.ErrContactPersonNotFound):
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, customersDomain.ErrCustomerUnidentified), errors.Is(err, customersDomain.ErrCompanyNameRequired),
-		errors.Is(err, customersDomain.ErrInvalidCustomerType):
+		errors.Is(err, customersDomain.ErrInvalidCustomerType), errors.Is(err, customersDomain.ErrContactPersonNameRequired):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, customersDomain.ErrDuplicateWooCustomerID), errors.Is(err, customersDomain.ErrDuplicateClientNumber):
 		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)

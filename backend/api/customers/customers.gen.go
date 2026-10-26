@@ -72,15 +72,51 @@ type Address struct {
 	State     *string `json:"state,omitempty"`
 }
 
-// CreateCustomerRequest Email is optional. customer_type defaults to private; a company needs company_name (else 422 CUSTOMER_COMPANY_NAME_REQUIRED). A private customer needs a name, a company (billing), an email or a phone number -- else 422 CUSTOMER_UNIDENTIFIED. client_number is generated when empty; a taken one is 409 CUSTOMER_DUPLICATE_CLIENT_NUMBER.
+// ContactPerson defines model for ContactPerson.
+type ContactPerson struct {
+	CreatedAt  time.Time `json:"created_at"`
+	CustomerId string    `json:"customer_id"`
+	Email      string    `json:"email"`
+	FirstName  string    `json:"first_name"`
+	Id         string    `json:"id"`
+	LastName   string    `json:"last_name"`
+	Phone      string    `json:"phone"`
+
+	// Role Free text, e.g. Purchasing.
+	Role string `json:"role"`
+}
+
+// ContactPersonListResponse defines model for ContactPersonListResponse.
+type ContactPersonListResponse struct {
+	Data  *[]ContactPerson `json:"data,omitempty"`
+	Error interface{}      `json:"error,omitempty"`
+}
+
+// ContactPersonRequest Needs a first or last name (else 422 CONTACT_PERSON_NAME_REQUIRED); email and phone are optional.
+type ContactPersonRequest struct {
+	Email     *string `json:"email,omitempty"`
+	FirstName *string `json:"first_name,omitempty"`
+	LastName  *string `json:"last_name,omitempty"`
+	Phone     *string `json:"phone,omitempty"`
+	Role      *string `json:"role,omitempty"`
+}
+
+// ContactPersonResponse defines model for ContactPersonResponse.
+type ContactPersonResponse struct {
+	Data  *ContactPerson `json:"data,omitempty"`
+	Error interface{}    `json:"error,omitempty"`
+}
+
+// CreateCustomerRequest Email is optional. customer_type defaults to private; a company needs company_name (else 422 CUSTOMER_COMPANY_NAME_REQUIRED). A private customer needs a name, a company (billing), an email or a phone number -- else 422 CUSTOMER_UNIDENTIFIED. client_number is generated when empty; a taken one is 409 CUSTOMER_DUPLICATE_CLIENT_NUMBER. contact_persons are added with the customer; the first is the main one.
 type CreateCustomerRequest struct {
 	AvatarUrl    *string  `json:"avatar_url,omitempty"`
 	Billing      *Address `json:"billing,omitempty"`
 	ClientNumber *string  `json:"client_number,omitempty"`
 
 	// CompanyName Required for a company.
-	CompanyName  *string `json:"company_name,omitempty"`
-	CustomerNote *string `json:"customer_note,omitempty"`
+	CompanyName    *string                 `json:"company_name,omitempty"`
+	ContactPersons *[]ContactPersonRequest `json:"contact_persons,omitempty"`
+	CustomerNote   *string                 `json:"customer_note,omitempty"`
 
 	// CustomerType A company is named by its company name and has contact persons; a private customer by the person.
 	CustomerType     *CustomerType `json:"customer_type,omitempty"`
@@ -208,6 +244,9 @@ type WhatsAppMessageListResponse struct {
 // Id defines model for id.
 type Id = string
 
+// PersonId defines model for personId.
+type PersonId = string
+
 // Error defines model for Error.
 type Error = ErrorResponse
 
@@ -216,6 +255,12 @@ type CreateCustomerJSONRequestBody = CreateCustomerRequest
 
 // UpdateCustomerJSONRequestBody defines body for UpdateCustomer for application/json ContentType.
 type UpdateCustomerJSONRequestBody = UpdateCustomerRequest
+
+// AddContactPersonJSONRequestBody defines body for AddContactPerson for application/json ContentType.
+type AddContactPersonJSONRequestBody = ContactPersonRequest
+
+// UpdateContactPersonJSONRequestBody defines body for UpdateContactPerson for application/json ContentType.
+type UpdateContactPersonJSONRequestBody = ContactPersonRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -234,6 +279,18 @@ type ServerInterface interface {
 	// UpdateCustomer Update a customer
 	// (PATCH /customers/{id})
 	UpdateCustomer(c *gin.Context, id Id)
+	// ListContactPersons A customer's contact persons, the main (oldest) one first
+	// (GET /customers/{id}/contact-persons)
+	ListContactPersons(c *gin.Context, id Id)
+	// AddContactPerson Add a contact person to a customer
+	// (POST /customers/{id}/contact-persons)
+	AddContactPerson(c *gin.Context, id Id)
+	// RemoveContactPerson Remove a contact person
+	// (DELETE /customers/{id}/contact-persons/{personId})
+	RemoveContactPerson(c *gin.Context, id Id, personId PersonId)
+	// UpdateContactPerson Edit a contact person
+	// (PATCH /customers/{id}/contact-persons/{personId})
+	UpdateContactPerson(c *gin.Context, id Id, personId PersonId)
 	// ListCustomerWhatsAppMessages List every WhatsApp message (inbound and outbound reply) linked to this customer, newest first
 	// (GET /customers/{id}/whatsapp-messages)
 	ListCustomerWhatsAppMessages(c *gin.Context, id Id)
@@ -349,6 +406,124 @@ func (siw *ServerInterfaceWrapper) UpdateCustomer(c *gin.Context) {
 	siw.Handler.UpdateCustomer(c, id)
 }
 
+// ListContactPersons operation middleware
+func (siw *ServerInterfaceWrapper) ListContactPersons(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListContactPersons(c, id)
+}
+
+// AddContactPerson operation middleware
+func (siw *ServerInterfaceWrapper) AddContactPerson(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.AddContactPerson(c, id)
+}
+
+// RemoveContactPerson operation middleware
+func (siw *ServerInterfaceWrapper) RemoveContactPerson(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "personId" -------------
+	var personId PersonId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "personId", c.Param("personId"), &personId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter personId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RemoveContactPerson(c, id, personId)
+}
+
+// UpdateContactPerson operation middleware
+func (siw *ServerInterfaceWrapper) UpdateContactPerson(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "personId" -------------
+	var personId PersonId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "personId", c.Param("personId"), &personId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter personId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateContactPerson(c, id, personId)
+}
+
 // ListCustomerWhatsAppMessages operation middleware
 func (siw *ServerInterfaceWrapper) ListCustomerWhatsAppMessages(c *gin.Context) {
 
@@ -406,6 +581,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/customers/:id", wrapper.DeleteCustomer)
 	router.GET(options.BaseURL+"/customers/:id", wrapper.GetCustomer)
 	router.PATCH(options.BaseURL+"/customers/:id", wrapper.UpdateCustomer)
+	router.GET(options.BaseURL+"/customers/:id/contact-persons", wrapper.ListContactPersons)
+	router.POST(options.BaseURL+"/customers/:id/contact-persons", wrapper.AddContactPerson)
+	router.DELETE(options.BaseURL+"/customers/:id/contact-persons/:personId", wrapper.RemoveContactPerson)
+	router.PATCH(options.BaseURL+"/customers/:id/contact-persons/:personId", wrapper.UpdateContactPerson)
 	router.GET(options.BaseURL+"/customers/:id/whatsapp-messages", wrapper.ListCustomerWhatsAppMessages)
 }
 
@@ -414,34 +593,39 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"/w==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

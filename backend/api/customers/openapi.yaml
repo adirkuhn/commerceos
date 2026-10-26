@@ -94,6 +94,84 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /customers/{id}/contact-persons:
+    get:
+      operationId: listContactPersons
+      summary: A customer's contact persons, the main (oldest) one first
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactPersonListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: addContactPerson
+      summary: Add a contact person to a customer
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactPersonRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactPersonResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /customers/{id}/contact-persons/{personId}:
+    patch:
+      operationId: updateContactPerson
+      summary: Edit a contact person
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/personId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactPersonRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactPersonResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: removeContactPerson
+      summary: Remove a contact person
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/personId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /customers/{id}/whatsapp-messages:
     get:
       operationId: listCustomerWhatsAppMessages
@@ -112,6 +190,12 @@ components:
   parameters:
     id:
       name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    personId:
+      name: personId
       in: path
       required: true
       schema:
@@ -180,7 +264,12 @@ components:
         customer needs a name, a company (billing), an email or a phone
         number -- else 422 CUSTOMER_UNIDENTIFIED. client_number is generated
         when empty; a taken one is 409 CUSTOMER_DUPLICATE_CLIENT_NUMBER.
+        contact_persons are added with the customer; the first is the main one.
       properties:
+        contact_persons:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactPersonRequest'
         woo_customer_id: { type: integer, format: int64, nullable: true }
         customer_type: { $ref: '#/components/schemas/CustomerType' }
         company_name: { type: string, description: Required for a company. }
@@ -221,6 +310,44 @@ components:
         is_paying_customer: { type: boolean }
         avatar_url: { type: string }
         customer_note: { type: string }
+
+    ContactPerson:
+      type: object
+      required: [id, customer_id, first_name, last_name, role, email, phone, created_at]
+      properties:
+        id: { type: string }
+        customer_id: { type: string }
+        first_name: { type: string }
+        last_name: { type: string }
+        role: { type: string, description: 'Free text, e.g. Purchasing.' }
+        email: { type: string }
+        phone: { type: string }
+        created_at: { type: string, format: date-time }
+
+    ContactPersonRequest:
+      type: object
+      description: Needs a first or last name (else 422 CONTACT_PERSON_NAME_REQUIRED); email and phone are optional.
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        role: { type: string }
+        email: { type: string }
+        phone: { type: string }
+
+    ContactPersonResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ContactPerson' }
+        error: { nullable: true }
+
+    ContactPersonListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactPerson'
+        error: { nullable: true }
 
     CustomerResponse:
       type: object

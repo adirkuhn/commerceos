@@ -2,6 +2,7 @@ package customers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"github.com/adirkuhn/commerceos/domain/events"
@@ -35,12 +36,23 @@ type CreateCustomerInput struct {
 	IsPayingCustomer bool
 	AvatarURL        string
 	CustomerNote     string
+	// ContactPersons are added with the customer, in the same
+	// transaction; the first is the main one. Needs WithContactPersons.
+	ContactPersons []ContactPersonInput
 }
 
 type CreateCustomerUseCase struct {
 	db           *gorm.DB
 	customerRepo customersDomain.CustomerRepository
+	persons      customersDomain.ContactPersonRepository
 	outbox       eventrecord.Enqueuer
+}
+
+// WithContactPersons lets the use case create contact persons with the
+// customer (CreateCustomerInput.ContactPersons).
+func (uc *CreateCustomerUseCase) WithContactPersons(persons customersDomain.ContactPersonRepository) *CreateCustomerUseCase {
+	uc.persons = persons
+	return uc
 }
 
 func NewCreateCustomerUseCase(db *gorm.DB, customerRepo customersDomain.CustomerRepository, outbox eventrecord.Enqueuer) *CreateCustomerUseCase {
@@ -52,8 +64,12 @@ func (uc *CreateCustomerUseCase) Execute(ctx context.Context, in CreateCustomerI
 	if err := probe.Validate(); err != nil {
 		return nil, fmt.Errorf("createCustomer: %w", err)
 	}
+	persons, err := uc.contactPersons(in.ContactPersons)
+	if err != nil {
+		return nil, fmt.Errorf("createCustomer: %w", err)
+	}
 	var customer customersDomain.Customer
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		now := time.Now()
 		customer = customersDomain.Customer{
 			TenantID: tenant.IDFromContext(ctx), WooCustomerID: in.WooCustomerID,
@@ -66,13 +82,36 @@ func (uc *CreateCustomerUseCase) Execute(ctx context.Context, in CreateCustomerI
 		if err := uc.customerRepo.Create(ctx, &customer); err != nil {
 			return err
 		}
-		return eventrecord.Record(ctx, uc.outbox, events.CustomerCreated, customer.ID, eventrecord.Data{
+		if err := eventrecord.Record(ctx, uc.outbox, events.CustomerCreated, customer.ID, eventrecord.Data{
 			"woo_customer_id": customer.WooCustomerID, "role": customer.Role, "is_paying_customer": customer.IsPayingCustomer,
 			"customer_type": customer.Type, "client_number": customer.ClientNumber,
-		})
+		}); err != nil {
+			return err
+		}
+		for i := range persons {
+			if err := addContactPerson(ctx, uc.persons, uc.outbox, customer.ID, &persons[i]); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createCustomer: %w", err)
 	}
 	return &customer, nil
+}
+
+// contactPersons validates the contact persons to create with a customer.
+func (uc *CreateCustomerUseCase) contactPersons(in []ContactPersonInput) ([]customersDomain.ContactPerson, error) {
+	if len(in) > 0 && uc.persons == nil {
+		return nil, errors.New("contact persons given but no contact person repository wired")
+	}
+	out := make([]customersDomain.ContactPerson, len(in))
+	for i, p := range in {
+		p.applyTo(&out[i])
+		if err := out[i].Validate(); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }

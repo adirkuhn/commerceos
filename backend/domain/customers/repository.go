@@ -25,7 +25,8 @@ type CustomerRepository interface {
 	FindByPhoneE164(ctx context.Context, phoneE164 string) (*Customer, error)
 	List(ctx context.Context) ([]Customer, error)
 	// Search returns up to limit customers whose name, company name,
-	// billing company, email, KVK number or VAT ID matches query, or whose
+	// billing company, email, KVK number, VAT ID or a contact person's
+	// name matches query, or whose
 	// client number equals it -- name and company matching is
 	// accent-insensitive + typo-tolerant (pg_trgm), the rest plain
 	// substring (fuzzy-matching an

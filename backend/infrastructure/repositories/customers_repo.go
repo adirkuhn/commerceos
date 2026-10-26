@@ -278,10 +278,12 @@ func (r *CustomerRepo) Search(ctx context.Context, query string, limit int) ([]c
 			"unaccent(company_name) ILIKE unaccent(?) OR "+
 			"similarity(immutable_unaccent(company_name), immutable_unaccent(?)) > ? OR "+
 			"unaccent(billing_company) ILIKE unaccent(?) OR "+
-			"email ILIKE ? OR client_number = ? OR kvk_number ILIKE ? OR vat_number ILIKE ?",
+			"email ILIKE ? OR client_number = ? OR kvk_number ILIKE ? OR vat_number ILIKE ? OR "+
+			"EXISTS (SELECT 1 FROM customer_contact_persons cp WHERE cp.customer_id = customers.id "+
+			"AND unaccent(cp.first_name || ' ' || cp.last_name) ILIKE unaccent(?))",
 		pattern, query, fuzzySearchSimilarityThreshold,
 		pattern, query, fuzzySearchSimilarityThreshold,
-		pattern, pattern, query, pattern, pattern,
+		pattern, pattern, query, pattern, pattern, pattern,
 	).Clauses(clause.OrderBy{
 		Expression: clause.Expr{
 			SQL: "GREATEST(similarity(immutable_unaccent(first_name || ' ' || last_name), immutable_unaccent(?)), " +
