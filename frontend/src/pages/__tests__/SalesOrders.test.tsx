@@ -1372,6 +1372,24 @@ describe('Create sales order', () => {
     expect(screen.getByLabelText('Company', { selector: '#billing-company' })).toHaveValue('Padaria Lima')
   })
 
+  it('creating a customer does not submit the order', async () => {
+    vi.mocked(customersApi.createCustomer).mockResolvedValue({
+      id: 'c-9', tenant_id: 'tenant-1', email: '', first_name: '', last_name: '', is_paying_customer: false, date_created: '', date_modified: '',
+      customer_type: 'company', company_name: 'Padaria Lima', display_name: 'Padaria Lima',
+      billing: { company: 'Padaria Lima', city: 'Delft', country: 'NL' },
+    })
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
+    await userEvent.click(screen.getByRole('button', { name: 'New customer' }))
+    await userEvent.type(screen.getByLabelText('Company name', { selector: '#new-customer-company_name' }), 'Padaria Lima')
+    await userEvent.click(screen.getByRole('button', { name: 'Create customer' }))
+
+    expect(await screen.findByText('Padaria Lima', { selector: 'p, span' })).toBeInTheDocument()
+    expect(screen.queryByText('Choose a warehouse.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Add at least one product.')).not.toBeInTheDocument()
+    expect(omsApi.createSalesOrder).not.toHaveBeenCalled()
+  })
+
   it('addresses a company order to its contact person', async () => {
     vi.mocked(customersApi.createCustomer).mockResolvedValue({
       id: 'c-9', tenant_id: 'tenant-1', email: '', first_name: '', last_name: '', is_paying_customer: false, date_created: '', date_modified: '',

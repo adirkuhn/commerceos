@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { apiErrorText } from '../../api/apiErrorText'
@@ -13,7 +14,9 @@ type AddressField = typeof ADDRESS_FIELDS[number]
 
 // A customer created right from the order form -- a company by default (the
 // person typed becomes its contact person), email optional; the address goes
-// on both billing and shipping.
+// on both billing and shipping. Portalled out of the order <form>, and its
+// submit stops there: React bubbles submit along the component tree, so it
+// would otherwise submit the order too.
 export function NewCustomerDialog({ token, onClose, onCreated }: { token: string; onClose: () => void; onCreated: (c: Customer) => void }) {
   const { t } = useTranslation(['orders', 'common'])
   const [identity, setIdentity] = useState<IdentityDraft>(() => emptyIdentity('company'))
@@ -23,6 +26,7 @@ export function NewCustomerDialog({ token, onClose, onCreated }: { token: string
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    e.stopPropagation()
     setSaving(true)
     setError('')
     const fields: Address = {
@@ -47,7 +51,7 @@ export function NewCustomerDialog({ token, onClose, onCreated }: { token: string
     </label>
   )
 
-  return (
+  return createPortal(
     <Dialog onClose={onClose} label={t('newCustomer.title')} className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={onClose} />
       <form onSubmit={submit} className="relative w-full max-w-lg max-h-full overflow-y-auto bg-raised rounded-xl shadow-2xl border border-line p-5 space-y-4">
@@ -74,6 +78,7 @@ export function NewCustomerDialog({ token, onClose, onCreated }: { token: string
           </button>
         </div>
       </form>
-    </Dialog>
+    </Dialog>,
+    document.body,
   )
 }
