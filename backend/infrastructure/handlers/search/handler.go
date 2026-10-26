@@ -63,7 +63,9 @@ func toGenResult(r appsearch.GlobalSearchResult) *gensearch.GlobalSearchResult {
 	customers := make([]gensearch.SearchCustomerResult, len(r.Customers))
 	for i, c := range r.Customers {
 		email := c.Email
-		customers[i] = gensearch.SearchCustomerResult{Id: c.ID, FirstName: c.FirstName, LastName: c.LastName, Email: &email}
+		customers[i] = gensearch.SearchCustomerResult{Id: c.ID, FirstName: c.FirstName, LastName: c.LastName, Email: &email,
+			DisplayName: c.DisplayName(), CustomerType: gensearch.SearchCustomerResultCustomerType(c.TypeOrPrivate()),
+			CompanyName: c.CompanyName, ClientNumber: c.ClientNumber}
 	}
 	salesOrders := make([]gensearch.SearchSalesOrderResult, len(r.SalesOrders))
 	for i, o := range r.SalesOrders {

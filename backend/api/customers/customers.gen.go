@@ -19,6 +19,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for CustomerType.
+const (
+	Company CustomerType = "company"
+	Private CustomerType = "private"
+)
+
+// Valid indicates whether the value is a known member of the CustomerType enum.
+func (e CustomerType) Valid() bool {
+	switch e {
+	case Company:
+		return true
+	case Private:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WhatsAppMessageDirection.
 const (
 	Inbound  WhatsAppMessageDirection = "inbound"
@@ -54,19 +72,28 @@ type Address struct {
 	State     *string `json:"state,omitempty"`
 }
 
-// CreateCustomerRequest Email is optional; a customer needs a name, a company (billing), an email or a phone number -- else 422 CUSTOMER_UNIDENTIFIED.
+// CreateCustomerRequest Email is optional. customer_type defaults to private; a company needs company_name (else 422 CUSTOMER_COMPANY_NAME_REQUIRED). A private customer needs a name, a company (billing), an email or a phone number -- else 422 CUSTOMER_UNIDENTIFIED. client_number is generated when empty; a taken one is 409 CUSTOMER_DUPLICATE_CLIENT_NUMBER.
 type CreateCustomerRequest struct {
-	AvatarUrl        *string  `json:"avatar_url,omitempty"`
-	Billing          *Address `json:"billing,omitempty"`
-	CustomerNote     *string  `json:"customer_note,omitempty"`
-	Email            *string  `json:"email,omitempty"`
-	FirstName        *string  `json:"first_name,omitempty"`
-	IsPayingCustomer *bool    `json:"is_paying_customer,omitempty"`
-	LastName         *string  `json:"last_name,omitempty"`
-	Role             *string  `json:"role,omitempty"`
-	Shipping         *Address `json:"shipping,omitempty"`
-	Username         *string  `json:"username,omitempty"`
-	WooCustomerId    *int64   `json:"woo_customer_id,omitempty"`
+	AvatarUrl    *string  `json:"avatar_url,omitempty"`
+	Billing      *Address `json:"billing,omitempty"`
+	ClientNumber *string  `json:"client_number,omitempty"`
+
+	// CompanyName Required for a company.
+	CompanyName  *string `json:"company_name,omitempty"`
+	CustomerNote *string `json:"customer_note,omitempty"`
+
+	// CustomerType A company is named by its company name and has contact persons; a private customer by the person.
+	CustomerType     *CustomerType `json:"customer_type,omitempty"`
+	Email            *string       `json:"email,omitempty"`
+	FirstName        *string       `json:"first_name,omitempty"`
+	IsPayingCustomer *bool         `json:"is_paying_customer,omitempty"`
+	KvkNumber        *string       `json:"kvk_number,omitempty"`
+	LastName         *string       `json:"last_name,omitempty"`
+	Role             *string       `json:"role,omitempty"`
+	Shipping         *Address      `json:"shipping,omitempty"`
+	Username         *string       `json:"username,omitempty"`
+	VatNumber        *string       `json:"vat_number,omitempty"`
+	WooCustomerId    *int64        `json:"woo_customer_id,omitempty"`
 }
 
 // Customer defines model for Customer.
@@ -74,20 +101,36 @@ type Customer struct {
 	AvatarUrl *string  `json:"avatar_url,omitempty"`
 	Billing   *Address `json:"billing,omitempty"`
 
+	// ClientNumber The shop's own number for the customer
+	ClientNumber string `json:"client_number"`
+	CompanyName  string `json:"company_name"`
+
 	// CustomerNote Freeform staff note
-	CustomerNote     *string   `json:"customer_note,omitempty"`
-	DateCreated      time.Time `json:"date_created"`
-	DateModified     time.Time `json:"date_modified"`
-	Email            string    `json:"email"`
-	FirstName        string    `json:"first_name"`
-	Id               string    `json:"id"`
-	IsPayingCustomer bool      `json:"is_paying_customer"`
-	LastName         string    `json:"last_name"`
-	Role             *string   `json:"role,omitempty"`
-	Shipping         *Address  `json:"shipping,omitempty"`
-	TenantId         string    `json:"tenant_id"`
-	Username         *string   `json:"username,omitempty"`
-	WooCustomerId    *int64    `json:"woo_customer_id,omitempty"`
+	CustomerNote *string `json:"customer_note,omitempty"`
+
+	// CustomerType A company is named by its company name and has contact persons; a private customer by the person.
+	CustomerType CustomerType `json:"customer_type"`
+	DateCreated  time.Time    `json:"date_created"`
+	DateModified time.Time    `json:"date_modified"`
+
+	// DisplayName The company name for a company; else the person, billing company or email.
+	DisplayName      string `json:"display_name"`
+	Email            string `json:"email"`
+	FirstName        string `json:"first_name"`
+	Id               string `json:"id"`
+	IsPayingCustomer bool   `json:"is_paying_customer"`
+
+	// KvkNumber Dutch Chamber of Commerce (KVK) number.
+	KvkNumber string   `json:"kvk_number"`
+	LastName  string   `json:"last_name"`
+	Role      *string  `json:"role,omitempty"`
+	Shipping  *Address `json:"shipping,omitempty"`
+	TenantId  string   `json:"tenant_id"`
+	Username  *string  `json:"username,omitempty"`
+
+	// VatNumber VAT ID.
+	VatNumber     string `json:"vat_number"`
+	WooCustomerId *int64 `json:"woo_customer_id,omitempty"`
 }
 
 // CustomerListResponse defines model for CustomerListResponse.
@@ -101,6 +144,9 @@ type CustomerResponse struct {
 	Data  *Customer   `json:"data,omitempty"`
 	Error interface{} `json:"error,omitempty"`
 }
+
+// CustomerType A company is named by its company name and has contact persons; a private customer by the person.
+type CustomerType string
 
 // EmptyResponse defines model for EmptyResponse.
 type EmptyResponse struct {
@@ -117,19 +163,28 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
-// UpdateCustomerRequest Email is optional; a customer needs a name, a company (billing), an email or a phone number -- else 422 CUSTOMER_UNIDENTIFIED.
+// UpdateCustomerRequest Same rules as CreateCustomerRequest. customer_type, company_name, client_number, kvk_number and vat_number keep their value when left out.
 type UpdateCustomerRequest struct {
-	AvatarUrl        *string  `json:"avatar_url,omitempty"`
-	Billing          *Address `json:"billing,omitempty"`
-	CustomerNote     *string  `json:"customer_note,omitempty"`
-	Email            *string  `json:"email,omitempty"`
-	FirstName        *string  `json:"first_name,omitempty"`
-	IsPayingCustomer *bool    `json:"is_paying_customer,omitempty"`
-	LastName         *string  `json:"last_name,omitempty"`
-	Role             *string  `json:"role,omitempty"`
-	Shipping         *Address `json:"shipping,omitempty"`
-	Username         *string  `json:"username,omitempty"`
-	WooCustomerId    *int64   `json:"woo_customer_id,omitempty"`
+	AvatarUrl    *string  `json:"avatar_url,omitempty"`
+	Billing      *Address `json:"billing,omitempty"`
+	ClientNumber *string  `json:"client_number,omitempty"`
+
+	// CompanyName Required for a company.
+	CompanyName  *string `json:"company_name,omitempty"`
+	CustomerNote *string `json:"customer_note,omitempty"`
+
+	// CustomerType A company is named by its company name and has contact persons; a private customer by the person.
+	CustomerType     *CustomerType `json:"customer_type,omitempty"`
+	Email            *string       `json:"email,omitempty"`
+	FirstName        *string       `json:"first_name,omitempty"`
+	IsPayingCustomer *bool         `json:"is_paying_customer,omitempty"`
+	KvkNumber        *string       `json:"kvk_number,omitempty"`
+	LastName         *string       `json:"last_name,omitempty"`
+	Role             *string       `json:"role,omitempty"`
+	Shipping         *Address      `json:"shipping,omitempty"`
+	Username         *string       `json:"username,omitempty"`
+	VatNumber        *string       `json:"vat_number,omitempty"`
+	WooCustomerId    *int64        `json:"woo_customer_id,omitempty"`
 }
 
 // WhatsAppMessage defines model for WhatsAppMessage.
@@ -359,27 +414,34 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"7Fhbb9NIFP4rR7MrAZKbtKXiIfvEtmFVaaGrQsUDW1kTz0ky4Lkwc1wUVfnvq/HYcZw4t1JQV+Ilin1m",
-	"zuU7d9+zzChrNGrybHDPLHdcIaErn6QofzUbMMtpyhKmuUI2CISEOfxaSIeCDcgVmDCfTVHxcINmNpzy",
-	"5KSesPl8Hg57a7THku/QOePCn8xoQk3hL7c2lxknaXT/szc6vGs4/u5wzAbst36jbj9Sfb/kdl3xj9IE",
-	"+sxJG5ixAcNSXHhfXQkcXwvh0EejnbHoSEbleCSkJx2WJAvqaSc1kzTrJhhlud5EKzS5bhoqLvNAaVt0",
-	"pfMZKORa6sm4yMFoGMk8l3rSY8k6l7F0ntLouw4hOd9GtVOjN1CMp8yIbqInTl2U+UI/M/qMGYWz5w45",
-	"4XnhySh01/i1QE/rVg8DGCA9mPINz/8ADll1CzSi8MAhGJIEQoQcnlfIvEiAaygBBeOAQ2kY6EKN0MHR",
-	"EWDuEc5OT+H85v2Hq7fD6/Tm3eXF8N2HyzeXw4sA7Eqg3HHiLi1c3glAJXZX9NZxGAKhMiXVhnB7OBzq",
-	"YulTy2dST9JayNKxkTE5cr07FJzJNzh7Kq09zNjCo9so6JsxC0XTWIXGxilOofZoenUWSlGR53wUFIrl",
-	"p2IiNeEE3YZAWzL+ZzuzHctvHGIwCTzx8RjKQwlDISnYBGNnFNAUm/AWSCFyLZ9gjw2C8R2JLjhhmpXZ",
-	"1AYtEI5IKmSbbikj5Fgecu3hwSj+JzFKqLmmdIO+PyOCmx77KTbdRqXaAS24l9HpRHQlRladf7slaf6W",
-	"nhZtdi2BBKeyU0tC5XdhvMjDJkm5c3xWhlU9HLTh2ZrPu9XaV5tDpA+Vpdlu0SucDpTRGm4eIKN9fmO7",
-	"Vug9n+zXsLv0vLHiVwv/1cJ/fAv/OOXkX1v7tgnYtk9HRmyYs2PNSzkd0BqlwyzG7j1DXaiyEOuRKXQo",
-	"nqag+Pc22bvNlTGb4smrs+5kWyv5SxeWFUqipS27bncD9ohVfNUV31XMwyupx2a9ZtRFBc6vby7guTCK",
-	"S92vY8u/6MEbibkAjwRKBoEePhpzbpRCl+Ez3xSYKCxUCo8Iq5x6taRnHoTJQvlRqKn3bwCbJAXtWc32",
-	"6j3Uxz28/ueSJewOnY8qn/SOg/XGouZWsgF72TvuvQy+5DQtcW2khqcJljEZPFFuwJeCDVjw1EIEW1mh",
-	"T4+PH22B7mzwHXu0+RKX6EIpHvbVUsMFuB7GxlUzq3OoCeKsUm+K6wa2177qiwJ6+rPK4McxrnO3nLcz",
-	"rWqaKwifPDrC29CtR7J5ws5OTzdxXKgYP3usOCQau9RSS3oTa/17KeYxw3KMDartkovy/ZJLlj8IfepW",
-	"qTnSl4LNb39gpLYnrg0hmrCz47OH4RfNb+GXdCfnX0hPFqV9ou07gbrSS6tpGLx6kx6QgczYGUjyUH0n",
-	"Qw9GkwEOnufhwYkIquWUTddhbY+RD0f28etI94C7Vx156p79joITUdlRcPrfwqDArT2qtoz9et7KeOGf",
-	"XJ5tm6z2bp94h24GNSuoEILn1ZAJXAuox0xwaPPZC8il/oIi5BtNZTPeJKDxG3qCcpOIKnh0dzVc5ZrD",
-	"+tzK/t0Jm9/O/wsAAP//",
+	"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",
+	"/w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -14,9 +14,16 @@ import (
 
 type CreateCustomerInput struct {
 	WooCustomerID *int64
-	Email         string
-	FirstName     string
-	LastName      string
+	// Type defaults to private. A company needs CompanyName; ClientNumber
+	// is generated when empty.
+	Type         customersDomain.Type
+	CompanyName  string
+	ClientNumber string
+	KVKNumber    string
+	VATNumber    string
+	Email        string
+	FirstName    string
+	LastName     string
 	// PhoneE164 is optional -- set by application/whatsapp's new-customer
 	// capture flow (the inbound sender's own number), blank for every
 	// other caller today.
@@ -41,15 +48,16 @@ func NewCreateCustomerUseCase(db *gorm.DB, customerRepo customersDomain.Customer
 }
 
 func (uc *CreateCustomerUseCase) Execute(ctx context.Context, in CreateCustomerInput) (*customersDomain.Customer, error) {
-	probe := customersDomain.Customer{Email: in.Email, FirstName: in.FirstName, LastName: in.LastName, PhoneE164: in.PhoneE164, Billing: in.Billing}
-	if !probe.Identifiable() {
-		return nil, fmt.Errorf("createCustomer: %w", customersDomain.ErrCustomerUnidentified)
+	probe := customersDomain.Customer{Type: in.Type, CompanyName: in.CompanyName, Email: in.Email, FirstName: in.FirstName, LastName: in.LastName, PhoneE164: in.PhoneE164, Billing: in.Billing}
+	if err := probe.Validate(); err != nil {
+		return nil, fmt.Errorf("createCustomer: %w", err)
 	}
 	var customer customersDomain.Customer
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		now := time.Now()
 		customer = customersDomain.Customer{
 			TenantID: tenant.IDFromContext(ctx), WooCustomerID: in.WooCustomerID,
+			Type: probe.TypeOrPrivate(), CompanyName: in.CompanyName, ClientNumber: in.ClientNumber, KVKNumber: in.KVKNumber, VATNumber: in.VATNumber,
 			Email: in.Email, FirstName: in.FirstName, LastName: in.LastName, PhoneE164: in.PhoneE164,
 			Username: in.Username, Role: in.Role, Billing: in.Billing, Shipping: in.Shipping,
 			IsPayingCustomer: in.IsPayingCustomer, AvatarURL: in.AvatarURL, CustomerNote: in.CustomerNote,
@@ -60,6 +68,7 @@ func (uc *CreateCustomerUseCase) Execute(ctx context.Context, in CreateCustomerI
 		}
 		return eventrecord.Record(ctx, uc.outbox, events.CustomerCreated, customer.ID, eventrecord.Data{
 			"woo_customer_id": customer.WooCustomerID, "role": customer.Role, "is_paying_customer": customer.IsPayingCustomer,
+			"customer_type": customer.Type, "client_number": customer.ClientNumber,
 		})
 	})
 	if err != nil {

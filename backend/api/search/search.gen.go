@@ -18,6 +18,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for SearchCustomerResultCustomerType.
+const (
+	Company SearchCustomerResultCustomerType = "company"
+	Private SearchCustomerResultCustomerType = "private"
+)
+
+// Valid indicates whether the value is a known member of the SearchCustomerResultCustomerType enum.
+func (e SearchCustomerResultCustomerType) Valid() bool {
+	switch e {
+	case Company:
+		return true
+	case Private:
+		return true
+	default:
+		return false
+	}
+}
+
 // GlobalSearchResponse defines model for GlobalSearchResponse.
 type GlobalSearchResponse struct {
 	Data  *GlobalSearchResult `json:"data,omitempty"`
@@ -34,11 +52,20 @@ type GlobalSearchResult struct {
 
 // SearchCustomerResult defines model for SearchCustomerResult.
 type SearchCustomerResult struct {
-	Email     *string `json:"email,omitempty"`
-	FirstName string  `json:"first_name"`
-	Id        string  `json:"id"`
-	LastName  string  `json:"last_name"`
+	ClientNumber string                           `json:"client_number"`
+	CompanyName  string                           `json:"company_name"`
+	CustomerType SearchCustomerResultCustomerType `json:"customer_type"`
+
+	// DisplayName The company name for a company; else the person, billing company or email.
+	DisplayName string  `json:"display_name"`
+	Email       *string `json:"email,omitempty"`
+	FirstName   string  `json:"first_name"`
+	Id          string  `json:"id"`
+	LastName    string  `json:"last_name"`
 }
+
+// SearchCustomerResultCustomerType defines model for SearchCustomerResult.CustomerType.
+type SearchCustomerResultCustomerType string
 
 // SearchProductResult defines model for SearchProductResult.
 type SearchProductResult struct {
@@ -147,22 +174,23 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"nFZPbxu3E/0qA/5+QG10JdnOoYBuhVEUQQ8J6vYUG8KIO9Iy4ZLrmaGShaHvXpC7smVLcuKctNqd9/je",
-	"/CH5YGxsuxgoqJj5gxHbUIvl8U8fl+hvCNk2f5N0MQjl9x3HjlgdlagaFfPv/5lWZm7+N3vim41ksxdM",
-	"yavZVoaYI2doSN7j0pOZKyfabiujfUdmbuLyM9kSe4ThQIlNorElLn+cUivf0zXwXY+4J2Xj8siMff7f",
-	"cayT1bcSfxxgp3kFPckicv120TcZ+iEjX6FPXefdT3CPuFPM28ow3SfHVJv5p6fs7K9Y7ZXjhdG7I/U9",
-	"WomDClOLzueHES/KLqwzfuVYdBGwpaOfXX30tcfToBcmXW2erbIPPm3oeQcc+Dkh66QN8Wn9g1JHkQVx",
-	"Wt9BFx1IXDrvXVgvvpPgXdhrGT1ZhpDaJfFxx4qa5Ec9DzyPqFd8P+/wNzTa20p2sjKH0nKsC6tY9lQS",
-	"y65TF4OZm+u2/vUvuDVSpANtiHttXFjfGphMIAYCi97DCoNATApoOYrA2HxSwc6uVLAbMakAQw2lAaB0",
-	"gMCZEAHmUIt57dmw4nR/8/1X6BqFzisgtA2gtRR04oJQEKduQ4VW+y5ONHpiDApnKQxxZ+ezbr1QXrcV",
-	"CLYELarNTh61/gLxawDvRGG0i54J6x6SUJ3tZo2XV78ths8LZbdmbBcu1PSNZCr3/nwKQ10FkAnWHFNH",
-	"NSx7aGOdPIFE0IZgxTEohRosBmAKNXFJppDN7qEjHhEVxOB7WMXdCwFtMCdaE3rfDz6onsI/DTGBEwgR",
-	"fLTos26G2jFZjdyDC6CNE1ii/ZLXPsOkTQbQNyUO6CvYOATfXp1XWSjCrckUcmt28p1ATd4tiVHJ94BL",
-	"oaC73NSxRRdmj7tvUZ3tWh+FRKFM8sR6FAEK6rSH69i2xJY+3DxZEo1MMjWVUaf5bDZ7UUNHwNAS8PvH",
-	"96YyG2IZGvZyepFnInYUsHNmbt5NL6bvTGU61KbM19hZ+XFNZf7y9JWme1+b+bPjvuAYW9Jykn16OR5/",
-	"tJ32s6+NU5IOLU1KrZg0cZBhWh5LSjm2ghAVMEC5gGSHLvPcJ+J+N59zc2/2ZzdfTKrxcnRszu9y8HBF",
-	"KgavLi7KlaR0WDG4P1efJSt/2ON7w+1puIeV/eJ5IuKXsuFIalvk3szHve5nt4NhCSHe7PKe2Ju5mWHn",
-	"ZptLs73b/hcAAP//",
+	"nFZLb9tGEP4rg22B2igl2c6hgHoqjKIIekhQp6fYEEbLkbjJcpeeGSohDP33YJfUw3o4cU62yJlvvm9e",
+	"nCdjY93EQEHFTJ+M2IpqzP/+4+Mc/R0h2+o/kiYGofS84dgQq6NsVaJi+vsr08JMzS+THd5kAJscILVe",
+	"zbowxBw5uYbWe5x7MlPlltbrwmjXkJmaOP9ENtueQDhiYlvRWBPnH06plu/x6vFuB78dsyE8MmOXfjcc",
+	"y9bqa4Hf927ncQU9ySxy+XrSd8n1XfJ8Ab5tGu9+AnvwO4e8LgzTY+uYSjP9uMvOfsRirxwHQh9O1Pdk",
+	"JY4r7B0FnYW2nlPunAFHlF1YJpykCUM3C1jTaYMhxKx/82QotHWvwq1QyWwx9nju3Esnjccdfkli2TXq",
+	"YjBT86EiGLwhWcAiMuDm0Z9AXgi0ImiIJYYC5s57F5Zbp8hANTo/Nidi5zcnRS0ci57X7MqTjz2edzoo",
+	"sSvNsyj7zgdJOUzxQU2KgyKeb4bn03PUC2dEnU2C+Hb5g0IHotnjPL+jCTyiOFR39p3ybMxeqsfZIr4w",
+	"C6Korfyo5h5n6/WC7ufb4Uj1+TZ9XcnOVuaYWrJ1YRGPJ/K2Ln//F+6NZOpAK+JOKxeW9wZGI4iBwKL3",
+	"sMAgEFsFtBxFYGg+KWAjVwrYrCcpAEMJuQEgd4DAhRABJlOLKfakjzje/3D9L3SLQpcFENoK0FoKOnJB",
+	"KIhTt6IMq10TRxo9MQaFizb0dheXk2Y5U17WBUjaLTWqTUq2XH+D+CWAd6IwyEXPhGUHrVCZ5CaO1zd/",
+	"zPrXM2W3ZKxnLpT0lWQsj/5yDH1dBZAJlhzbhkqYd1DHsvUEEvMCW3AMSqEEiwGYQkmckylkk/q04AaP",
+	"AmLwXd6E/QMBrTAlWlv0vut1UDmGDxUxgRMIEXy06BNvhtIxWY3cgQuglROYo/2cYl9gq1VyoK9KHNAX",
+	"sHIIvr65LBJRhHuTIOTebOg7gZK8mxOjku8A50JBN7kpY40uTLZfrsw6ybU+ColCnuSR9SgCFNRpB7ex",
+	"roktvbvbSRKNTJKXuNN015g9q74joG8J+Ov9W1OYFbH0DXs9vkozERsK2DgzNW/GV+M3pjANapXna+is",
+	"9O+S8vyl6ctN97Y002enUvZjrEnzFfDxcDz+rhvtJl8qpyQNWhrlWjFpy0H6admWlJJtASEqYIB8vCWF",
+	"LuE8tsTdZj6n5tHsz2466orhsDw15w/JuD8vs8Cbq6v8sc8dlgXuz9UnScyf9vBecXn2N2zeF88TET/n",
+	"hSNtXSN3Zjrsup9dB30IIV5t8t6yN1MzwcZNVtdm/bD+FgAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

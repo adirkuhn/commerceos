@@ -57,3 +57,42 @@ func TestUpdateCustomer_needsSomethingToNameIt(t *testing.T) {
 
 	assert.ErrorIs(t, err, customersDomain.ErrCustomerUnidentified)
 }
+
+func TestUpdateCustomer_changesCompanyFields(t *testing.T) {
+	repo := &stubCustomerRepo{findResult: &customersDomain.Customer{ID: "c-1", FirstName: "Ana", ClientNumber: "7"}}
+	company, name, kvk, vat, number := customersDomain.TypeCompany, "Sabor B.V.", "34073293", "NL001B01", "3286"
+
+	c, err := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{}).
+		Execute(context.Background(), appcustomers.UpdateCustomerInput{ID: "c-1", FirstName: "Ana",
+			Type: &company, CompanyName: &name, KVKNumber: &kvk, VATNumber: &vat, ClientNumber: &number})
+
+	require.NoError(t, err)
+	assert.Equal(t, customersDomain.TypeCompany, c.Type)
+	assert.Equal(t, "Sabor B.V.", c.CompanyName)
+	assert.Equal(t, "34073293", c.KVKNumber)
+	assert.Equal(t, "NL001B01", c.VATNumber)
+	assert.Equal(t, "3286", c.ClientNumber)
+}
+
+func TestUpdateCustomer_keepsCompanyFieldsNotSent(t *testing.T) {
+	repo := &stubCustomerRepo{findResult: &customersDomain.Customer{ID: "c-1", Type: customersDomain.TypeCompany, CompanyName: "Sabor B.V.", ClientNumber: "7", KVKNumber: "1"}}
+
+	c, err := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{}).
+		Execute(context.Background(), appcustomers.UpdateCustomerInput{ID: "c-1", Email: "info@sabor.nl"})
+
+	require.NoError(t, err)
+	assert.Equal(t, customersDomain.TypeCompany, c.Type)
+	assert.Equal(t, "Sabor B.V.", c.CompanyName)
+	assert.Equal(t, "7", c.ClientNumber)
+	assert.Equal(t, "1", c.KVKNumber)
+}
+
+func TestUpdateCustomer_aCompanyCannotLoseItsName(t *testing.T) {
+	repo := &stubCustomerRepo{findResult: &customersDomain.Customer{ID: "c-1", Type: customersDomain.TypeCompany, CompanyName: "Sabor B.V.", Email: "a@x.nl"}}
+	empty := ""
+
+	_, err := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{}).
+		Execute(context.Background(), appcustomers.UpdateCustomerInput{ID: "c-1", Email: "a@x.nl", CompanyName: &empty})
+
+	assert.ErrorIs(t, err, customersDomain.ErrCompanyNameRequired)
+}

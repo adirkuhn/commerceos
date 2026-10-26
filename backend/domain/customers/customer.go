@@ -30,6 +30,20 @@ type Customer struct {
 	// a POS register, never synced).
 	WooCustomerID *int64
 
+	// Type is company or private (see Type); empty reads as private.
+	Type Type
+	// CompanyName names a company customer (Type company). Billing.Company
+	// is the address line, kept separately as Woo has it.
+	CompanyName string
+	// ClientNumber is the shop's own number for the customer, unique per
+	// tenant; the repository numbers a new customer that has none.
+	ClientNumber string
+	// KVKNumber is the Dutch Chamber of Commerce number; VATNumber the
+	// VAT ID. Both free text, for company customers.
+	KVKNumber string
+	VATNumber string
+
+	// Email is optional.
 	Email     string
 	FirstName string
 	LastName  string

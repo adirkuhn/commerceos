@@ -34,7 +34,7 @@ func TestCreateCustomer_RecordsCreatedWithoutPersonalData(t *testing.T) {
 	e := onlyEvent(t, outbox)
 	assert.Equal(t, "customers.customer.created", e.Subject)
 	assert.Equal(t, "customer-1", e.Payload["entity_id"])
-	assert.Equal(t, map[string]any{"woo_customer_id": float64(7), "role": "customer", "is_paying_customer": false}, e.Data())
+	assert.Equal(t, map[string]any{"woo_customer_id": float64(7), "role": "customer", "is_paying_customer": false, "customer_type": "private", "client_number": ""}, e.Data())
 	assert.NotContains(t, e.Payload, "changes")
 }
 

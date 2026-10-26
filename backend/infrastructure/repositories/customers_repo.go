@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -20,6 +21,12 @@ type customerModel struct {
 	ID            string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	TenantID      string `gorm:"not null;type:uuid"`
 	WooCustomerID *int64
+
+	CustomerType string `gorm:"column:customer_type;not null;default:private"`
+	CompanyName  string `gorm:"column:company_name"`
+	ClientNumber string `gorm:"column:client_number"`
+	KVKNumber    string `gorm:"column:kvk_number"`
+	VATNumber    string `gorm:"column:vat_number"`
 
 	Email     string
 	FirstName string
@@ -65,6 +72,8 @@ func customerModelFromDomain(c *customersDomain.Customer) customerModel {
 	sFirst, sLast, sCompany, sAddr1, sAddr2, sCity, sState, sPostcode, sCountry, _, sPhone := customerAddressFields(c.Shipping)
 	return customerModel{
 		ID: c.ID, TenantID: c.TenantID, WooCustomerID: c.WooCustomerID,
+		CustomerType: string(c.TypeOrPrivate()), CompanyName: c.CompanyName, ClientNumber: c.ClientNumber,
+		KVKNumber: c.KVKNumber, VATNumber: c.VATNumber,
 		Email: c.Email, FirstName: c.FirstName, LastName: c.LastName, PhoneE164: c.PhoneE164, Username: c.Username, Role: c.Role,
 		BillingFirstName: bFirst, BillingLastName: bLast, BillingCompany: bCompany,
 		BillingAddress1: bAddr1, BillingAddress2: bAddr2, BillingCity: bCity, BillingState: bState,
@@ -84,6 +93,8 @@ func customerAddressFields(a customersDomain.Address) (firstName, lastName, comp
 func toCustomerDomain(m customerModel) *customersDomain.Customer {
 	return &customersDomain.Customer{
 		ID: m.ID, TenantID: m.TenantID, WooCustomerID: m.WooCustomerID,
+		Type: customersDomain.Type(m.CustomerType), CompanyName: m.CompanyName, ClientNumber: m.ClientNumber,
+		KVKNumber: m.KVKNumber, VATNumber: m.VATNumber,
 		Email: m.Email, FirstName: m.FirstName, LastName: m.LastName, PhoneE164: m.PhoneE164, Username: m.Username, Role: m.Role,
 		Billing: customersDomain.Address{
 			FirstName: m.BillingFirstName, LastName: m.BillingLastName, Company: m.BillingCompany,
@@ -119,15 +130,50 @@ func (r *CustomerRepo) Create(ctx context.Context, c *customersDomain.Customer) 
 	if err != nil {
 		return err
 	}
+	if c.ClientNumber == "" {
+		if c.ClientNumber, err = nextClientNumber(tx, c.TenantID); err != nil {
+			return fmt.Errorf("customerRepo.Create: %w", err)
+		}
+	}
 	m := customerModelFromDomain(c)
 	if err := tx.Create(&m).Error; err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.ConstraintName == "customers_tenant_woo_customer_id_idx" {
-			return customersDomain.ErrDuplicateWooCustomerID
+		if mapped := customerConstraintError(err); mapped != nil {
+			return mapped
 		}
 		return fmt.Errorf("customerRepo.Create: %w", err)
 	}
 	c.ID = m.ID
+	return nil
+}
+
+// nextClientNumber is one above the tenant's highest numeric client number.
+// A transaction-scoped advisory lock per tenant serializes concurrent
+// creates, so two new customers never draw the same number.
+func nextClientNumber(tx *gorm.DB, tenantID string) (string, error) {
+	if err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtext('customers.client_number:' || ?))`, tenantID).Error; err != nil {
+		return "", err
+	}
+	var next int64
+	err := tx.Raw(`SELECT COALESCE(MAX(client_number::BIGINT), 0) + 1 FROM customers
+		WHERE tenant_id = ? AND client_number ~ '^[0-9]{1,18}$'`, tenantID).Scan(&next).Error
+	if err != nil {
+		return "", err
+	}
+	return strconv.FormatInt(next, 10), nil
+}
+
+// customerConstraintError maps a unique-index violation to its domain error.
+func customerConstraintError(err error) error {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		return nil
+	}
+	switch pgErr.ConstraintName {
+	case "customers_tenant_woo_customer_id_idx":
+		return customersDomain.ErrDuplicateWooCustomerID
+	case "customers_tenant_client_number_idx":
+		return customersDomain.ErrDuplicateClientNumber
+	}
 	return nil
 }
 
@@ -229,12 +275,18 @@ func (r *CustomerRepo) Search(ctx context.Context, query string, limit int) ([]c
 	err = tx.Where(
 		"unaccent(first_name || ' ' || last_name) ILIKE unaccent(?) OR "+
 			"similarity(immutable_unaccent(first_name || ' ' || last_name), immutable_unaccent(?)) > ? OR "+
-			"email ILIKE ?",
-		pattern, query, fuzzySearchSimilarityThreshold, pattern,
+			"unaccent(company_name) ILIKE unaccent(?) OR "+
+			"similarity(immutable_unaccent(company_name), immutable_unaccent(?)) > ? OR "+
+			"unaccent(billing_company) ILIKE unaccent(?) OR "+
+			"email ILIKE ? OR client_number = ? OR kvk_number ILIKE ? OR vat_number ILIKE ?",
+		pattern, query, fuzzySearchSimilarityThreshold,
+		pattern, query, fuzzySearchSimilarityThreshold,
+		pattern, pattern, query, pattern, pattern,
 	).Clauses(clause.OrderBy{
 		Expression: clause.Expr{
-			SQL:  "similarity(immutable_unaccent(first_name || ' ' || last_name), immutable_unaccent(?)) DESC, first_name asc",
-			Vars: []interface{}{query},
+			SQL: "GREATEST(similarity(immutable_unaccent(first_name || ' ' || last_name), immutable_unaccent(?)), " +
+				"similarity(immutable_unaccent(company_name), immutable_unaccent(?))) DESC, company_name asc, first_name asc",
+			Vars: []interface{}{query, query},
 		},
 	}).Limit(limit).Find(&rows).Error
 	if err != nil {
@@ -258,6 +310,8 @@ func (r *CustomerRepo) Update(ctx context.Context, c *customersDomain.Customer) 
 	// impossible to e.g. clear IsPayingCustomer back to false or blank out
 	// an address field.
 	values := map[string]any{
+		"customer_type": m.CustomerType, "company_name": m.CompanyName, "client_number": m.ClientNumber,
+		"kvk_number": m.KVKNumber, "vat_number": m.VATNumber,
 		"woo_customer_id": m.WooCustomerID, "email": m.Email, "first_name": m.FirstName, "last_name": m.LastName,
 		"phone_e164": m.PhoneE164, "username": m.Username, "role": m.Role,
 		"billing_first_name": m.BillingFirstName, "billing_last_name": m.BillingLastName, "billing_company": m.BillingCompany,
@@ -271,6 +325,9 @@ func (r *CustomerRepo) Update(ctx context.Context, c *customersDomain.Customer) 
 		"is_paying_customer": m.IsPayingCustomer, "avatar_url": m.AvatarURL, "customer_note": m.CustomerNote, "date_modified": m.DateModified,
 	}
 	if err := tx.Model(&customerModel{}).Where("id = ?", c.ID).Updates(values).Error; err != nil {
+		if mapped := customerConstraintError(err); mapped != nil {
+			return mapped
+		}
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
 	return nil

@@ -68,3 +68,26 @@ func TestCreateCustomer_needsSomethingToNameIt(t *testing.T) {
 
 	assert.ErrorIs(t, err, customersDomain.ErrCustomerUnidentified)
 }
+
+func TestCreateCustomer_aCompanyNeedsOnlyItsCompanyName(t *testing.T) {
+	repo := &stubCustomerRepo{}
+	outbox := &eventrecordtest.Outbox{}
+	c, err := appcustomers.NewCreateCustomerUseCase(newMockGormDB(t), repo, outbox).
+		Execute(context.Background(), appcustomers.CreateCustomerInput{
+			Type: customersDomain.TypeCompany, CompanyName: "Claus Hoofddorp B.V.", KVKNumber: "34073293", VATNumber: "NL001B01", ClientNumber: "3286",
+		})
+
+	require.NoError(t, err)
+	assert.Equal(t, customersDomain.TypeCompany, c.Type)
+	assert.Equal(t, "Claus Hoofddorp B.V.", c.CompanyName)
+	assert.Equal(t, "34073293", c.KVKNumber)
+	assert.Equal(t, "NL001B01", c.VATNumber)
+	assert.Equal(t, "3286", c.ClientNumber)
+}
+
+func TestCreateCustomer_aCompanyWithoutCompanyNameIsRejected(t *testing.T) {
+	_, err := appcustomers.NewCreateCustomerUseCase(nil, &stubCustomerRepo{}, &eventrecordtest.Outbox{}).
+		Execute(context.Background(), appcustomers.CreateCustomerInput{Type: customersDomain.TypeCompany, FirstName: "Kylian"})
+
+	assert.ErrorIs(t, err, customersDomain.ErrCompanyNameRequired)
+}

@@ -3,6 +3,7 @@ package customers
 import "context"
 
 type CustomerRepository interface {
+	// Create gives a customer without a ClientNumber the next free one.
 	Create(ctx context.Context, c *Customer) error
 	FindByID(ctx context.Context, id string) (*Customer, error)
 	// FindByWooCustomerID looks up a customer already linked to a Woo
@@ -23,9 +24,11 @@ type CustomerRepository interface {
 	// error) when none exists, same convention as FindByEmail.
 	FindByPhoneE164(ctx context.Context, phoneE164 string) (*Customer, error)
 	List(ctx context.Context) ([]Customer, error)
-	// Search returns up to limit customers whose name or email matches
-	// query -- name matching is accent-insensitive + typo-tolerant
-	// (pg_trgm), email matching is plain substring (fuzzy-matching an
+	// Search returns up to limit customers whose name, company name,
+	// billing company, email, KVK number or VAT ID matches query, or whose
+	// client number equals it -- name and company matching is
+	// accent-insensitive + typo-tolerant (pg_trgm), the rest plain
+	// substring (fuzzy-matching an
 	// email produces confusing near-misses for what's really an exact
 	// lookup). Ranked best match first. Powers global search (Cmd+K).
 	// Empty query returns nil, not an error.

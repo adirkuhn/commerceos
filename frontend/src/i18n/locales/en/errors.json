@@ -442,5 +442,8 @@
   "QUOTE_TOO_MANY_LINES": "A quote can have at most 500 lines.",
   "QUOTE_LINE_UNAVAILABLE": "A product on this quote is no longer active. Remove or replace it, then try again.",
   "QUOTE_NOTHING_TO_ORDER": "No line on this quote has a quantity to order.",
-  "CUSTOMER_UNIDENTIFIED": "Give the customer a name, a company, an email or a phone number."
+  "CUSTOMER_UNIDENTIFIED": "Give the customer a name, a company, an email or a phone number.",
+  "CUSTOMER_COMPANY_NAME_REQUIRED": "A company customer needs a company name.",
+  "CUSTOMER_INVALID_TYPE": "A customer is either a company or private.",
+  "CUSTOMER_DUPLICATE_CLIENT_NUMBER": "Another customer already has this client number."
 }

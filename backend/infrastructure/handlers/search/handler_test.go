@@ -88,3 +88,17 @@ func TestGlobalSearchHandler_missingQuery_rejectedByValidator(t *testing.T) {
 	// exercises the handler's own behavior on a genuinely missing param.
 	require.NotEqual(t, http.StatusOK, w.Code)
 }
+
+func TestGlobalSearchHandler_namesACompanyCustomerByItsCompany(t *testing.T) {
+	stub := &stubGlobalSearch{out: &appsearch.GlobalSearchResult{
+		Customers: []customersDomain.Customer{{ID: "cust-1", Type: customersDomain.TypeCompany, CompanyName: "Sabor B.V.", ClientNumber: "3286"}},
+	}}
+
+	w := doRequest(newTestRouter(searchhandler.NewHandler(stub)), http.MethodGet, "/api/v1/search?q=sabor")
+
+	require.Equal(t, http.StatusOK, w.Code)
+	body := w.Body.String()
+	assert.Contains(t, body, `"display_name":"Sabor B.V."`)
+	assert.Contains(t, body, `"customer_type":"company"`)
+	assert.Contains(t, body, `"client_number":"3286"`)
+}

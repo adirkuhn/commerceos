@@ -35,6 +35,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CustomerResponse'
+        '409':
+          $ref: '#/components/responses/Error'
         '422':
           $ref: '#/components/responses/Error'
 
@@ -72,6 +74,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/CustomerResponse'
         '404':
+          $ref: '#/components/responses/Error'
+        '409':
           $ref: '#/components/responses/Error'
         '422':
           $ref: '#/components/responses/Error'
@@ -137,13 +141,24 @@ components:
         email: { type: string, description: Only meaningful on billing. }
         phone: { type: string }
 
+    CustomerType:
+      type: string
+      enum: [private, company]
+      description: A company is named by its company name and has contact persons; a private customer by the person.
+
     Customer:
       type: object
-      required: [id, tenant_id, email, first_name, last_name, is_paying_customer, date_created, date_modified]
+      required: [id, tenant_id, customer_type, display_name, company_name, client_number, kvk_number, vat_number, email, first_name, last_name, is_paying_customer, date_created, date_modified]
       properties:
         id: { type: string }
         tenant_id: { type: string }
         woo_customer_id: { type: integer, format: int64, nullable: true }
+        customer_type: { $ref: '#/components/schemas/CustomerType' }
+        display_name: { type: string, description: 'The company name for a company; else the person, billing company or email.' }
+        company_name: { type: string }
+        client_number: { type: string, description: The shop's own number for the customer, unique per shop. }
+        kvk_number: { type: string, description: Dutch Chamber of Commerce (KVK) number. }
+        vat_number: { type: string, description: VAT ID. }
         email: { type: string }
         first_name: { type: string }
         last_name: { type: string }
@@ -159,9 +174,19 @@ components:
 
     CreateCustomerRequest:
       type: object
-      description: Email is optional; a customer needs a name, a company (billing), an email or a phone number -- else 422 CUSTOMER_UNIDENTIFIED.
+      description: >-
+        Email is optional. customer_type defaults to private; a company needs
+        company_name (else 422 CUSTOMER_COMPANY_NAME_REQUIRED). A private
+        customer needs a name, a company (billing), an email or a phone
+        number -- else 422 CUSTOMER_UNIDENTIFIED. client_number is generated
+        when empty; a taken one is 409 CUSTOMER_DUPLICATE_CLIENT_NUMBER.
       properties:
         woo_customer_id: { type: integer, format: int64, nullable: true }
+        customer_type: { $ref: '#/components/schemas/CustomerType' }
+        company_name: { type: string, description: Required for a company. }
+        client_number: { type: string }
+        kvk_number: { type: string }
+        vat_number: { type: string }
         email: { type: string }
         first_name: { type: string }
         last_name: { type: string }
@@ -175,9 +200,17 @@ components:
 
     UpdateCustomerRequest:
       type: object
-      description: Email is optional; a customer needs a name, a company (billing), an email or a phone number -- else 422 CUSTOMER_UNIDENTIFIED.
+      description: >-
+        Same rules as CreateCustomerRequest. customer_type, company_name,
+        client_number, kvk_number and vat_number keep their value when left
+        out.
       properties:
         woo_customer_id: { type: integer, format: int64, nullable: true }
+        customer_type: { $ref: '#/components/schemas/CustomerType' }
+        company_name: { type: string, description: Required for a company. }
+        client_number: { type: string }
+        kvk_number: { type: string }
+        vat_number: { type: string }
         email: { type: string }
         first_name: { type: string }
         last_name: { type: string }

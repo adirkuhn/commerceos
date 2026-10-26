@@ -62,12 +62,16 @@ components:
 
     SearchCustomerResult:
       type: object
-      required: [id, first_name, last_name]
+      required: [id, first_name, last_name, display_name, customer_type, company_name, client_number]
       properties:
         id: { type: string }
         first_name: { type: string }
         last_name: { type: string }
         email: { type: string }
+        display_name: { type: string, description: 'The company name for a company; else the person, billing company or email.' }
+        customer_type: { type: string, enum: [private, company] }
+        company_name: { type: string }
+        client_number: { type: string }
 
     SearchSalesOrderResult:
       type: object

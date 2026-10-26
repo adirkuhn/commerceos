@@ -12,8 +12,15 @@ import (
 )
 
 type UpdateCustomerInput struct {
-	ID               string
-	WooCustomerID    *int64
+	ID            string
+	WooCustomerID *int64
+	// Type/CompanyName/ClientNumber/KVKNumber/VATNumber: nil keeps the
+	// current value.
+	Type             *customersDomain.Type
+	CompanyName      *string
+	ClientNumber     *string
+	KVKNumber        *string
+	VATNumber        *string
 	Email            string
 	FirstName        string
 	LastName         string
@@ -55,9 +62,10 @@ func (uc *UpdateCustomerUseCase) Execute(ctx context.Context, in UpdateCustomerI
 		existing.IsPayingCustomer = in.IsPayingCustomer
 		existing.AvatarURL = in.AvatarURL
 		existing.CustomerNote = in.CustomerNote
+		applyCompanyFields(existing, in)
 		existing.DateModified = time.Now()
-		if !existing.Identifiable() {
-			return customersDomain.ErrCustomerUnidentified
+		if err := existing.Validate(); err != nil {
+			return err
 		}
 		if err := uc.customerRepo.Update(ctx, existing); err != nil {
 			return err
@@ -69,4 +77,20 @@ func (uc *UpdateCustomerUseCase) Execute(ctx context.Context, in UpdateCustomerI
 		return nil, fmt.Errorf("updateCustomer: %w", err)
 	}
 	return &customer, nil
+}
+
+func applyCompanyFields(c *customersDomain.Customer, in UpdateCustomerInput) {
+	if in.Type != nil {
+		c.Type = *in.Type
+	}
+	setIfSent(&c.CompanyName, in.CompanyName)
+	setIfSent(&c.ClientNumber, in.ClientNumber)
+	setIfSent(&c.KVKNumber, in.KVKNumber)
+	setIfSent(&c.VATNumber, in.VATNumber)
+}
+
+func setIfSent(field *string, value *string) {
+	if value != nil {
+		*field = *value
+	}
 }

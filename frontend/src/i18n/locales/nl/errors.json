@@ -442,5 +442,8 @@
   "QUOTE_TOO_MANY_LINES": "Een offerte kan maximaal 500 regels hebben.",
   "QUOTE_LINE_UNAVAILABLE": "Een product op deze offerte is niet meer actief. Verwijder of vervang het en probeer opnieuw.",
   "QUOTE_NOTHING_TO_ORDER": "Geen regel op deze offerte heeft een aantal om te bestellen.",
-  "CUSTOMER_UNIDENTIFIED": "Geef de klant een naam, bedrijf, e-mailadres of telefoonnummer."
+  "CUSTOMER_UNIDENTIFIED": "Geef de klant een naam, bedrijf, e-mailadres of telefoonnummer.",
+  "CUSTOMER_COMPANY_NAME_REQUIRED": "Een zakelijke klant heeft een bedrijfsnaam nodig.",
+  "CUSTOMER_INVALID_TYPE": "Een klant is een bedrijf of particulier.",
+  "CUSTOMER_DUPLICATE_CLIENT_NUMBER": "Een andere klant heeft dit klantnummer al."
 }

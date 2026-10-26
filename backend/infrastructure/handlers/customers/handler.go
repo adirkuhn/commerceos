@@ -99,8 +99,14 @@ func (h *Handler) CreateCustomer(c *gin.Context) {
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
+	customerType, ok := customerTypeFrom(req.CustomerType)
+	if !ok {
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", customersDomain.ErrInvalidCustomerType)
+		return
+	}
 	cust, err := h.createCustomer.Execute(c.Request.Context(), appcustomers.CreateCustomerInput{
-		WooCustomerID: req.WooCustomerId, Email: strPtrOr(req.Email), FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
+		WooCustomerID: req.WooCustomerId, CompanyName: strPtrOr(req.CompanyName), ClientNumber: strPtrOr(req.ClientNumber),
+		KVKNumber: strPtrOr(req.KvkNumber), VATNumber: strPtrOr(req.VatNumber), Type: valueOr(customerType), Email: strPtrOr(req.Email), FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
 		Username: strPtrOr(req.Username), Role: strPtrOr(req.Role), Billing: toDomainAddress(req.Billing), Shipping: toDomainAddress(req.Shipping),
 		IsPayingCustomer: boolPtrOr(req.IsPayingCustomer), AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
 	})
@@ -117,8 +123,14 @@ func (h *Handler) UpdateCustomer(c *gin.Context, id gencustomers.Id) {
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
+	customerType, ok := customerTypeFrom(req.CustomerType)
+	if !ok {
+		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", customersDomain.ErrInvalidCustomerType)
+		return
+	}
 	cust, err := h.updateCustomer.Execute(c.Request.Context(), appcustomers.UpdateCustomerInput{
-		ID: id, WooCustomerID: req.WooCustomerId, Email: strPtrOr(req.Email), FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
+		ID: id, WooCustomerID: req.WooCustomerId, Type: customerType, CompanyName: req.CompanyName, ClientNumber: req.ClientNumber,
+		KVKNumber: req.KvkNumber, VATNumber: req.VatNumber, Email: strPtrOr(req.Email), FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
 		Username: strPtrOr(req.Username), Role: strPtrOr(req.Role), Billing: toDomainAddress(req.Billing), Shipping: toDomainAddress(req.Shipping),
 		IsPayingCustomer: boolPtrOr(req.IsPayingCustomer), AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
 	})
@@ -203,6 +215,8 @@ func toGenCustomer(cust customersDomain.Customer) gencustomers.Customer {
 	shipping := toGenAddress(cust.Shipping)
 	return gencustomers.Customer{
 		Id: cust.ID, TenantId: cust.TenantID, WooCustomerId: cust.WooCustomerID,
+		CustomerType: gencustomers.CustomerType(cust.TypeOrPrivate()), DisplayName: cust.DisplayName(),
+		CompanyName: cust.CompanyName, ClientNumber: cust.ClientNumber, KvkNumber: cust.KVKNumber, VatNumber: cust.VATNumber,
 		Email: cust.Email, FirstName: cust.FirstName, LastName: cust.LastName,
 		Username: &cust.Username, Role: &cust.Role, Billing: &billing, Shipping: &shipping,
 		IsPayingCustomer: cust.IsPayingCustomer, AvatarUrl: &cust.AvatarURL, CustomerNote: &cust.CustomerNote,
@@ -217,13 +231,31 @@ func mapError(c *gin.Context, err error) error {
 	switch {
 	case errors.Is(err, customersDomain.ErrCustomerNotFound):
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
-	case errors.Is(err, customersDomain.ErrCustomerUnidentified):
+	case errors.Is(err, customersDomain.ErrCustomerUnidentified), errors.Is(err, customersDomain.ErrCompanyNameRequired),
+		errors.Is(err, customersDomain.ErrInvalidCustomerType):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
-	case errors.Is(err, customersDomain.ErrDuplicateWooCustomerID):
+	case errors.Is(err, customersDomain.ErrDuplicateWooCustomerID), errors.Is(err, customersDomain.ErrDuplicateClientNumber):
 		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)
 	default:
 		log.Printf("customers: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
 	}
 	return err
+}
+
+// customerTypeFrom reads an optional customer_type; false for an unknown one.
+func customerTypeFrom(t *gencustomers.CustomerType) (*customersDomain.Type, bool) {
+	if t == nil {
+		return nil, true
+	}
+	v := customersDomain.Type(*t)
+	return &v, v.Valid()
+}
+
+func valueOr[T any](p *T) T {
+	var zero T
+	if p == nil {
+		return zero
+	}
+	return *p
 }

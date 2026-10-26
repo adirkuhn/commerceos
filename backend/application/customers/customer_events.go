@@ -16,7 +16,12 @@ func recordCustomerUpdated(ctx context.Context, outbox eventrecord.Enqueuer, bef
 	changes := eventrecord.NewChanges().
 		Set("woo_customer_id", before.WooCustomerID, after.WooCustomerID).
 		Set("role", before.Role, after.Role).
-		Set("is_paying_customer", before.IsPayingCustomer, after.IsPayingCustomer)
+		Set("is_paying_customer", before.IsPayingCustomer, after.IsPayingCustomer).
+		Set("customer_type", before.Type, after.Type).
+		Set("company_name", before.CompanyName, after.CompanyName).
+		Set("client_number", before.ClientNumber, after.ClientNumber).
+		Set("kvk_number", before.KVKNumber, after.KVKNumber).
+		Set("vat_number", before.VATNumber, after.VATNumber)
 	opts := []eventrecord.Option{changes}
 	if personal := changedPersonalFields(before, after); len(personal) > 0 {
 		opts = append(opts, eventrecord.Data{"changed_fields": personal})

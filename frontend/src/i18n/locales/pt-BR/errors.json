@@ -442,5 +442,8 @@
   "QUOTE_TOO_MANY_LINES": "Um orçamento pode ter no máximo 500 linhas.",
   "QUOTE_LINE_UNAVAILABLE": "Um produto deste orçamento não está mais ativo. Remova ou substitua e tente de novo.",
   "QUOTE_NOTHING_TO_ORDER": "Nenhuma linha deste orçamento tem quantidade para pedir.",
-  "CUSTOMER_UNIDENTIFIED": "Informe um nome, empresa, e-mail ou telefone para o cliente."
+  "CUSTOMER_UNIDENTIFIED": "Informe um nome, empresa, e-mail ou telefone para o cliente.",
+  "CUSTOMER_COMPANY_NAME_REQUIRED": "Um cliente empresa precisa de um nome de empresa.",
+  "CUSTOMER_INVALID_TYPE": "Um cliente é empresa ou pessoa física.",
+  "CUSTOMER_DUPLICATE_CLIENT_NUMBER": "Outro cliente já tem este número de cliente."
 }
