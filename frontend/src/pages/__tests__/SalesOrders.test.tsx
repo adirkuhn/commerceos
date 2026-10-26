@@ -1363,6 +1363,7 @@ describe('Create sales order', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
 
     await userEvent.click(screen.getByRole('button', { name: 'New customer' }))
+    await userEvent.click(screen.getByRole('radio', { name: 'Company' }))
     await userEvent.type(screen.getByLabelText('Company name', { selector: '#new-customer-company_name' }), 'Padaria Lima')
     await userEvent.click(screen.getByRole('button', { name: 'Create customer' }))
 
@@ -1370,6 +1371,14 @@ describe('Create sales order', () => {
     expect(vi.mocked(customersApi.createCustomer).mock.calls[0][1]).toMatchObject({ customer_type: 'company', company_name: 'Padaria Lima', email: '' })
     expect(screen.getByLabelText('City', { selector: '#billing-city' })).toHaveValue('Delft')
     expect(screen.getByLabelText('Company', { selector: '#billing-company' })).toHaveValue('Padaria Lima')
+  })
+
+  it('opens the new customer as a private customer', async () => {
+    render(<MemoryRouter><SalesOrders /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
+    await userEvent.click(screen.getByRole('button', { name: 'New customer' }))
+
+    expect(screen.getByRole('radio', { name: 'Private' })).toHaveAttribute('aria-checked', 'true')
   })
 
   it('creating a customer does not submit the order', async () => {
@@ -1381,6 +1390,7 @@ describe('Create sales order', () => {
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
     await userEvent.click(screen.getByRole('button', { name: 'New customer' }))
+    await userEvent.click(screen.getByRole('radio', { name: 'Company' }))
     await userEvent.type(screen.getByLabelText('Company name', { selector: '#new-customer-company_name' }), 'Padaria Lima')
     await userEvent.click(screen.getByRole('button', { name: 'Create customer' }))
 
@@ -1403,6 +1413,7 @@ describe('Create sales order', () => {
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: 'New sales order' }))
     await userEvent.click(screen.getByRole('button', { name: 'New customer' }))
+    await userEvent.click(screen.getByRole('radio', { name: 'Company' }))
     await userEvent.type(screen.getByLabelText('Company name', { selector: '#new-customer-company_name' }), 'Claus B.V.')
     await userEvent.click(screen.getByRole('button', { name: 'Create customer' }))
 

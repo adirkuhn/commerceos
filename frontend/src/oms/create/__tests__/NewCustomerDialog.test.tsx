@@ -20,7 +20,8 @@ describe('NewCustomerDialog', () => {
     const onCreated = vi.fn()
     render(<NewCustomerDialog token="tok" onClose={vi.fn()} onCreated={onCreated} />)
 
-    expect(screen.getByRole('radio', { name: 'Company' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('radio', { name: 'Private' })).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(screen.getByRole('radio', { name: 'Company' }))
     fireEvent.change(screen.getByLabelText('Company name'), { target: { value: 'Claus Hoofddorp B.V.' } })
     fireEvent.change(screen.getByLabelText('KVK number'), { target: { value: '34073293' } })
     fireEvent.change(screen.getByLabelText('Contact first name'), { target: { value: 'Kylian' } })
@@ -36,11 +37,10 @@ describe('NewCustomerDialog', () => {
     })
   })
 
-  it('creates a private customer by name', async () => {
+  it('creates a private customer by name, the default', async () => {
     vi.mocked(createCustomer).mockResolvedValue({ id: 'c-8' } as never)
     render(<NewCustomerDialog token="tok" onClose={vi.fn()} onCreated={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Private' }))
     fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Bruno' } })
     fireEvent.click(screen.getByRole('button', { name: 'Create customer' }))
 
@@ -50,6 +50,7 @@ describe('NewCustomerDialog', () => {
 
   it('a company needs its company name before it can be created', () => {
     render(<NewCustomerDialog token="tok" onClose={vi.fn()} onCreated={vi.fn()} />)
+    fireEvent.click(screen.getByRole('radio', { name: 'Company' }))
     const create = screen.getByRole('button', { name: 'Create customer' })
     fireEvent.change(screen.getByLabelText('Phone'), { target: { value: '06 1234 5678' } })
     expect(create).toBeDisabled()
@@ -60,7 +61,7 @@ describe('NewCustomerDialog', () => {
   it('shows a failed create', async () => {
     vi.mocked(createCustomer).mockRejectedValue(new Error('boom'))
     render(<NewCustomerDialog token="tok" onClose={vi.fn()} onCreated={vi.fn()} />)
-    fireEvent.change(screen.getByLabelText('Company name'), { target: { value: 'Sabor' } })
+    fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Bruno' } })
     fireEvent.click(screen.getByRole('button', { name: 'Create customer' }))
     expect(await screen.findByText('boom')).toBeInTheDocument()
   })

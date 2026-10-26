@@ -16,10 +16,11 @@ const CLAUS = {
 }
 const KYLIAN = { id: 'cp-1', customer_id: 'cust-claus', first_name: 'Kylian', last_name: 'Klockenbrink', role: 'Employee', email: 'kylian@claus.nl', phone: '', created_at: '2026-10-01T10:00:00Z' }
 
-test('the new customer dialog on an order opens on Company', async ({ page }) => {
+test('the new customer dialog on an order opens on Private, switches to Company', async ({ page }) => {
   await page.goto('/sales-orders/new')
   await page.getByRole('button', { name: 'New customer' }).click()
-  await expect(page.getByRole('radio', { name: 'Company' })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByRole('radio', { name: 'Private' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('radio', { name: 'Company' }).click()
   await page.getByLabel('Company name').fill('Claus Hoofddorp B.V.')
   await page.getByLabel('KVK number').fill('34073293')
   await page.getByLabel('Contact first name').fill('Kylian')

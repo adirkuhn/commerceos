@@ -12,14 +12,14 @@ import type { Address, Customer } from '../../customers/types'
 const ADDRESS_FIELDS = ['address_1', 'postcode', 'city', 'country'] as const
 type AddressField = typeof ADDRESS_FIELDS[number]
 
-// A customer created right from the order form -- a company by default (the
-// person typed becomes its contact person), email optional; the address goes
+// A customer created right from the order form -- private by default (a
+// company's person becomes its contact person), email optional; the address goes
 // on both billing and shipping. Portalled out of the order <form>, and its
 // submit stops there: React bubbles submit along the component tree, so it
 // would otherwise submit the order too.
 export function NewCustomerDialog({ token, onClose, onCreated }: { token: string; onClose: () => void; onCreated: (c: Customer) => void }) {
   const { t } = useTranslation(['orders', 'common'])
-  const [identity, setIdentity] = useState<IdentityDraft>(() => emptyIdentity('company'))
+  const [identity, setIdentity] = useState<IdentityDraft>(() => emptyIdentity('private'))
   const [address, setAddress] = useState<Record<AddressField, string>>({ address_1: '', postcode: '', city: '', country: 'NL' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
