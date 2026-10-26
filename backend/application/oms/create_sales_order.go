@@ -104,6 +104,14 @@ type CreateSalesOrderUseCase struct {
 	linkRepo       omsDomain.SalesOrderLineItemStockMovementRepository
 	skuRepo        skuLookupRepo
 	recordMovement recordSaleMovementUC
+	numbers        omsDomain.OrderNumbers
+}
+
+// WithNumbers gives an order sent without a number the tenant's next one
+// (CO-1001, ...), in the order's own transaction.
+func (uc *CreateSalesOrderUseCase) WithNumbers(numbers omsDomain.OrderNumbers) *CreateSalesOrderUseCase {
+	uc.numbers = numbers
+	return uc
 }
 
 func NewCreateSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, outbox eventrecord.Enqueuer) *CreateSalesOrderUseCase {
@@ -128,9 +136,16 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 	var createdLineItems []omsDomain.SalesOrderLineItem
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		now := time.Now()
+		number := in.Number
+		if number == "" && uc.numbers != nil {
+			var err error
+			if number, err = uc.numbers.Next(ctx); err != nil {
+				return err
+			}
+		}
 		newOrder := omsDomain.SalesOrder{
 			TenantID: tenant.IDFromContext(ctx), Source: source,
-			ExternalOrderID: uuid.NewString(), Number: in.Number, OrderKey: in.OrderKey, Status: status,
+			ExternalOrderID: uuid.NewString(), Number: number, OrderKey: in.OrderKey, Status: status,
 			WarehouseID: in.WarehouseID, CustomerID: in.CustomerID, QuoteID: in.QuoteID, SalesChannelID: in.SalesChannelID, Billing: in.Billing, Shipping: in.Shipping,
 			CustomerNote: in.CustomerNote, CurrencyCode: in.CurrencyCode,
 			DiscountTotalMinorUnits: in.DiscountTotalMinorUnits, ShippingTotalMinorUnits: in.ShippingTotalMinorUnits,

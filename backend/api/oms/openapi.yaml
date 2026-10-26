@@ -1551,7 +1551,9 @@ components:
       type: object
       required: [warehouse_id, currency_code, occurred_at, line_items]
       properties:
-        number: { type: string }
+        number:
+          type: string
+          description: Left empty, the order gets the tenant's next number (CO-1001, CO-1002, ...).
         order_key: { type: string }
         status: { $ref: '#/components/schemas/SalesOrderStatus' }
         warehouse_id: { type: string }

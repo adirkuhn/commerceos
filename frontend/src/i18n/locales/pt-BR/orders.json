@@ -294,7 +294,7 @@
     "status": "Status",
     "date": "Data",
     "number": "Número do pedido",
-    "numberPlaceholder": "Opcional",
+    "numberPlaceholder": "Automático (CO-…)",
     "note": "Observação",
     "summary": "Resumo",
     "subtotal": "Subtotal",

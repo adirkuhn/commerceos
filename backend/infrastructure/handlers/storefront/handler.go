@@ -248,7 +248,8 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL, stor
 
 	stockLevel := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, batchRepo, settingsRepo)
 	recordMovement := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
-	createSalesOrder := appoms.NewCreateSalesOrderUseCase(db, salesRepo, lineItemRepo, stockMovementLinkRepo, skuRepo, recordMovement, outboxRepo)
+	createSalesOrder := appoms.NewCreateSalesOrderUseCase(db, salesRepo, lineItemRepo, stockMovementLinkRepo, skuRepo, recordMovement, outboxRepo).
+		WithNumbers(repositories.NewSalesOrderNumberRepo(db))
 	createCustomer := appcustomers.NewCreateCustomerUseCase(db, customerRepo, outboxRepo)
 	generatePaymentLink := appstorefront.NewGeneratePaymentLinkUseCase(
 		db, channelRepo, connRepo, stripe.NewClientFactory(), revolut.NewClientFactory(),

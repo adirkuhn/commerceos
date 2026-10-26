@@ -230,7 +230,8 @@ func NewUpdateSalesOrderUseCase(db *gorm.DB) *appoms.UpdateSalesOrderUseCase {
 func NewCreateSalesOrderUseCase(db *gorm.DB, outboxRepo outbox.Repository) *appoms.CreateSalesOrderUseCase {
 	return appoms.NewCreateSalesOrderUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewSalesOrderLineItemRepo(db),
 		repositories.NewSalesOrderLineItemStockMovementRepo(db), repositories.NewSKURepo(db),
-		appinventory.NewAllocateSaleStockUseCase(db, repositories.NewStockMovementRepo(db), repositories.NewBatchRepo(db), outboxRepo), outboxRepo)
+		appinventory.NewAllocateSaleStockUseCase(db, repositories.NewStockMovementRepo(db), repositories.NewBatchRepo(db), outboxRepo), outboxRepo).
+		WithNumbers(repositories.NewSalesOrderNumberRepo(db))
 }
 
 func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {

@@ -291,7 +291,7 @@
     "status": "Status",
     "date": "Datum",
     "number": "Ordernummer",
-    "numberPlaceholder": "Optioneel",
+    "numberPlaceholder": "Automatisch (CO-…)",
     "note": "Notitie",
     "summary": "Overzicht",
     "subtotal": "Subtotaal",
