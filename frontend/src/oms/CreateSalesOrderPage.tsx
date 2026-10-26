@@ -15,10 +15,12 @@ import { OrderCustomerCard } from './create/OrderCustomerCard'
 import { OrderItemsCard } from './create/OrderItemsCard'
 import { OrderSummaryCard } from './create/OrderSummaryCard'
 import { taxSetupGap } from './create/taxSetupGap'
+import { toEditInput } from './create/editDraft'
+import { useEditDraft } from './hooks/useEditDraft'
 import { draftTotals, pricesIncludeTax, toCreateInput, type OrderDraft } from './create/orderDraft'
 import { STATUS_OPTIONS } from './salesOrderDisplay'
 import { salesOrderStatusLabel } from './statusLabel'
-import type { Address, CreateSalesOrderInput, SalesOrderDetail } from './types'
+import type { Address, CreateSalesOrderInput, EditSalesOrderInput, SalesOrderDetail } from './types'
 
 const nowLocal = () => {
   const d = new Date()
@@ -36,7 +38,15 @@ const hasAny = (a?: Address) => !!a && Object.values(a).some(v => typeof v === '
 // New sales order: customer (pick or create), items at their current
 // (sale) price, shipping and an extra fee, order details and addresses.
 // The currency is the shop's; totals use the shop's VAT setting.
-export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: CreateSalesOrderInput) => Promise<SalesOrderDetail>; onClose: () => void }) {
+//
+// With edit, the same form opens on an existing manual order (see
+// canEditOrder) and saves it in place; its status is changed on the
+// order page, not here.
+export function CreateSalesOrderPage({ onCreate, onClose, edit }: {
+  onCreate?: (input: CreateSalesOrderInput) => Promise<SalesOrderDetail>
+  onClose: () => void
+  edit?: { order: SalesOrderDetail; onSave: (input: EditSalesOrderInput) => Promise<SalesOrderDetail> }
+}) {
   const { token } = useAuth()
   const { t } = useTranslation(['orders', 'common'])
   const { warehouses } = useWarehouses(token ?? '')
@@ -48,6 +58,12 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
   const set = <K extends keyof OrderDraft>(key: K, value: OrderDraft[K]) => setDraft(d => ({ ...d, [key]: value }))
+  const editing = useEditDraft(token ?? '', edit?.order)
+  useEffect(() => {
+    if (!editing.draft) return
+    setDraft(editing.draft)
+    setCustomer(editing.customer)
+  }, [editing.draft]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (warehouses.length === 1 && !draft.warehouseId) set('warehouseId', warehouses[0].id)
@@ -91,11 +107,13 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
     if (draft.lines.length === 0) return setFormError(t('form.needItems'))
     setSaving(true)
     setFormError('')
+    const ctx = { currency, defaultRateBasisPoints: defaultRate, pricesIncludeTax: inclusive }
     try {
-      await onCreate(toCreateInput(draft, { currency, defaultRateBasisPoints: defaultRate, pricesIncludeTax: inclusive }))
+      if (edit) await edit.onSave(toEditInput(draft, ctx))
+      else await onCreate?.(toCreateInput(draft, ctx))
       onClose()
     } catch (err) {
-      setFormError(apiErrorText(err) ?? t('create.failed'))
+      setFormError(apiErrorText(err) ?? t(edit ? 'edit.failed' : 'create.failed'))
     } finally {
       setSaving(false)
     }
@@ -111,19 +129,26 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
           <button type="button" onClick={onClose} className="flex items-center gap-1 text-2xs font-medium text-ink-4 hover:text-ink-2 mb-1">
             <ArrowLeft size={11} /> {t('detail.back')}
           </button>
-          <h1 className="text-xl font-semibold text-ink leading-tight">{t('create.title')}</h1>
+          <h1 className="text-xl font-semibold text-ink leading-tight">
+            {edit ? t('edit.title', { number: edit.order.sales_order.number || edit.order.sales_order.external_order_id }) : t('create.title')}
+          </h1>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover">
             {t('create.discard')}
           </button>
-          <button type="submit" form="create-sales-order-form" disabled={saving}
+          <button type="submit" form="create-sales-order-form" disabled={saving || (!!edit && !editing.draft)}
             className="px-4 py-2 rounded-lg bg-accent-solid text-white text-xs font-semibold hover:bg-accent-solid-hover disabled:opacity-50">
-            {saving ? t('create.creating') : t('create.submit')}
+            {edit ? (saving ? t('edit.saving') : t('edit.submit')) : (saving ? t('create.creating') : t('create.submit'))}
           </button>
         </div>
       </div>
 
+      {edit && !editing.draft ? (
+        <p role={editing.error ? 'alert' : 'status'} className={editing.error ? 'm-6 text-xs text-danger' : 'm-6 text-xs text-ink-4'}>
+          {editing.error ? (apiErrorText(editing.error) ?? t('edit.loadFailed')) : t('edit.loading')}
+        </p>
+      ) : (
       <div className="flex-1 overflow-y-auto">
         <form id="create-sales-order-form" onSubmit={submit} className="max-w-6xl mx-auto p-6 grid gap-5 lg:grid-cols-3 items-start">
           <div className="lg:col-span-2 space-y-5">
@@ -134,7 +159,8 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
                 <Link to="/settings/tax" className="underline">{t('form.taxGap.fix')}</Link>
               </p>
             )}
-            <OrderCustomerCard token={token ?? ''} customer={customer} onChange={chooseCustomer} onContactPerson={chooseContactPerson} />
+            <OrderCustomerCard token={token ?? ''} customer={customer} onChange={chooseCustomer} onContactPerson={chooseContactPerson}
+              current={edit ? edit.order.sales_order.billing : undefined} />
             <OrderItemsCard token={token ?? ''} lines={draft.lines} lineTotals={totals.lineTotals} currency={currency} onChange={l => set('lines', l)} />
             <section className="rounded-xl border border-line bg-surface p-4 space-y-4">
               <h3 className="text-xs font-semibold text-ink">{t('form.addresses')}</h3>
@@ -167,12 +193,14 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
                   {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
               </div>
-              <div>
-                <label htmlFor="so-status" className={label}>{t('form.status')}</label>
-                <select id="so-status" value={draft.status} onChange={e => set('status', e.target.value as OrderDraft['status'])} className={input}>
-                  {STATUS_OPTIONS.map(s => <option key={s} value={s}>{salesOrderStatusLabel(s)}</option>)}
-                </select>
-              </div>
+              {!edit && (
+                <div>
+                  <label htmlFor="so-status" className={label}>{t('form.status')}</label>
+                  <select id="so-status" value={draft.status} onChange={e => set('status', e.target.value as OrderDraft['status'])} className={input}>
+                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{salesOrderStatusLabel(s)}</option>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <label htmlFor="so-date" className={label}>{t('form.date')}</label>
                 <input id="so-date" type="datetime-local" value={draft.occurredAt} onChange={e => set('occurredAt', e.target.value)} className={input} />
@@ -192,6 +220,7 @@ export function CreateSalesOrderPage({ onCreate, onClose }: { onCreate: (input: 
           </div>
         </form>
       </div>
+      )}
     </div>
   )
 }

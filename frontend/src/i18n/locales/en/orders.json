@@ -154,7 +154,8 @@
     "chooseCustomerHint": "The customer's billing and shipping address replace the order's.",
     "customerChangeFailed": "The customer couldn't be changed.",
     "fromQuote": "From quote",
-    "editCustomer": "Edit customer"
+    "editCustomer": "Edit customer",
+    "edit": "Edit"
   },
   "errors": {
     "loadOrders": "Failed to load orders",
@@ -335,5 +336,13 @@
     "extraCharged": "Extra · charged",
     "notAdded": "Not added (no stock): {{product}} × {{quantity}}",
     "atPicking": "at picking"
+  },
+  "edit": {
+    "title": "Edit order #{{number}}",
+    "submit": "Save changes",
+    "saving": "Saving…",
+    "failed": "Could not save the order.",
+    "loading": "Loading the order…",
+    "loadFailed": "Could not load the order for editing."
   }
 }

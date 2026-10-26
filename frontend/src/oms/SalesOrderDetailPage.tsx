@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ArrowLeft, Trash2, Printer, Edit3 } from 'lucide-react'
+import { ArrowLeft, Trash2, Printer, Edit3, Pencil } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { activityText } from './activityText'
@@ -28,6 +29,7 @@ import type { RecipientAddress, Shipment } from '../shipping/types'
 import { useConfirm } from '../components/common/useConfirm'
 import { STATUS_OPTIONS, addressesEqual } from './salesOrderDisplay'
 import { salesOrderStatusLabel } from './statusLabel'
+import { canEditOrder } from './create/editDraft'
 import { OrderPaymentCard } from './OrderPaymentCard'
 import { SalesOrderPaymentsCard } from './SalesOrderPaymentsCard'
 import { ShipmentTrackingSection } from './ShipmentTrackingSection'
@@ -227,6 +229,14 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
         </div>
         {detail && (
           <div className="flex items-center gap-2">
+            {canEditOrder(detail.sales_order) && (
+              <Link
+                to={`/sales-orders/${encodeURIComponent(detail.sales_order.id)}/edit`}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
+              >
+                <Pencil size={13} /> {t('detail.edit')}
+              </Link>
+            )}
             <button
               onClick={() => setPrintMode('picking-list')}
               title={t('detail.printPickingList')}

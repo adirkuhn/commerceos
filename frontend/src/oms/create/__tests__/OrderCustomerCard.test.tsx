@@ -43,3 +43,34 @@ describe('OrderCustomerCard contact person', () => {
     expect(screen.queryByLabelText('Contact person')).not.toBeInTheDocument()
   })
 })
+
+describe('OrderCustomerCard on an order being edited', () => {
+  it('shows the order\'s own contact person and leaves the billing name alone', async () => {
+    vi.mocked(listContactPersons).mockResolvedValue([person('cp-1', 'Kylian'), person('cp-2', 'Sara')])
+    const onContactPerson = vi.fn()
+    render(<OrderCustomerCard token="tok" customer={claus} onChange={vi.fn()} onContactPerson={onContactPerson} current={{ first_name: 'Sara', last_name: 'K' }} />)
+
+    expect(await screen.findByLabelText('Contact person')).toHaveValue('cp-2')
+    expect(onContactPerson).not.toHaveBeenCalled()
+  })
+
+  it('selects no one when the order is addressed to someone else', async () => {
+    vi.mocked(listContactPersons).mockResolvedValue([person('cp-1', 'Kylian')])
+    const onContactPerson = vi.fn()
+    render(<OrderCustomerCard token="tok" customer={claus} onChange={vi.fn()} onContactPerson={onContactPerson} current={{ first_name: 'Bruno', last_name: 'L' }} />)
+
+    expect(await screen.findByLabelText('Contact person')).toHaveValue('')
+    expect(onContactPerson).not.toHaveBeenCalled()
+  })
+})
+
+describe('OrderCustomerCard on an edited order with another customer chosen', () => {
+  it('starts the new company on its first contact person', async () => {
+    vi.mocked(listContactPersons).mockResolvedValue([person('cp-1', 'Kylian')])
+    const onContactPerson = vi.fn()
+    const { rerender } = render(<OrderCustomerCard token="tok" customer={null} onChange={vi.fn()} onContactPerson={onContactPerson} current={{ first_name: 'Bruno', last_name: 'L' }} />)
+    rerender(<OrderCustomerCard token="tok" customer={claus} onChange={vi.fn()} onContactPerson={onContactPerson} current={{ first_name: 'Bruno', last_name: 'L' }} />)
+
+    await waitFor(() => expect(onContactPerson).toHaveBeenCalledWith(expect.objectContaining({ id: 'cp-1' })))
+  })
+})

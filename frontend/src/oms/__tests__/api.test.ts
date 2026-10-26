@@ -126,3 +126,14 @@ describe('bulkUpdateSalesOrders', () => {
     expect(result).toEqual({ updated: ['so-1'], failed: [{ orderId: 'so-2', error: 'sales order not found' }] })
   })
 })
+
+describe('editSalesOrder', () => {
+  it('PUTs the whole order form to the order', async () => {
+    const fetchMock = mockFetch({ sales_order: { id: 'so-1' }, line_items: [] })
+    await api.editSalesOrder(TOKEN, 'so-1', { warehouse_id: 'wh-1', occurred_at: '2026-10-26T10:00:00Z', line_items: [] })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toMatch(/\/sales-orders\/so-1$/)
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(init.body)).toMatchObject({ warehouse_id: 'wh-1' })
+  })
+})

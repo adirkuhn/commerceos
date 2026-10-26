@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { idFromPath } from '../routes'
+import { idFromPath, subPathSegments } from '../routes'
 import { ShoppingCart, Plus, ChevronUp, ChevronDown, X } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
@@ -14,6 +14,7 @@ import { STATUS_OPTIONS, customerName, salesOrderSourceLabel } from '../oms/sale
 import { PaymentStatusBadge } from '../oms/PaymentStatusBadge'
 import { salesOrderStatusLabel } from '../oms/statusLabel'
 import { CreateSalesOrderPage } from '../oms/CreateSalesOrderPage'
+import { EditSalesOrderPage } from '../oms/EditSalesOrderPage'
 import { SalesOrderDetailPage } from '../oms/SalesOrderDetailPage'
 import { Money } from '../format/amountVisibility'
 import { useDateFormat } from '../format/DateFormatProvider'
@@ -239,6 +240,10 @@ export default function SalesOrders() {
     setPage(1)
   }
 
+  const [recordId, view] = subPathSegments(location.pathname, '/sales-orders')
+  if (recordId && view === 'edit') {
+    return <EditSalesOrderPage salesOrderId={recordId} onClose={() => navigate(`/sales-orders/${encodeURIComponent(recordId)}`)} />
+  }
   if (selectedId === 'new') {
     return (
       <CreateSalesOrderPage

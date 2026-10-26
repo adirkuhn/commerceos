@@ -154,7 +154,8 @@
     "chooseCustomerHint": "Het factuur- en verzendadres van de klant vervangen die van de order.",
     "customerChangeFailed": "De klant kon niet worden gewijzigd.",
     "fromQuote": "Van offerte",
-    "editCustomer": "Klant wijzigen"
+    "editCustomer": "Klant wijzigen",
+    "edit": "Bewerken"
   },
   "errors": {
     "loadOrders": "Orders laden mislukt",
@@ -335,5 +336,13 @@
     "extraCharged": "Extra · betaald",
     "notAdded": "Niet toegevoegd (geen voorraad): {{product}} × {{quantity}}",
     "atPicking": "bij picken"
+  },
+  "edit": {
+    "title": "Order #{{number}} bewerken",
+    "submit": "Wijzigingen opslaan",
+    "saving": "Opslaan…",
+    "failed": "De order kon niet worden opgeslagen.",
+    "loading": "Order laden…",
+    "loadFailed": "De order kon niet worden geladen om te bewerken."
   }
 }

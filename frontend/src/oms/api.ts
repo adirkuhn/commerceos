@@ -1,4 +1,4 @@
-import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, SalesOrderSource, CreateSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity, SalesOrderLineChange, PickList, OrderQueue } from './types'
+import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, SalesOrderSource, CreateSalesOrderInput, EditSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity, SalesOrderLineChange, PickList, OrderQueue } from './types'
 import { CodedApiError } from '../api/codedApiError'
 
 function base(): string {
@@ -133,6 +133,10 @@ export async function listSalesOrderLineChanges(token: string, id: string): Prom
 
 export function createSalesOrder(token: string, input: CreateSalesOrderInput): Promise<SalesOrderDetail> {
   return request<SalesOrderDetail>(base(), token, { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function editSalesOrder(token: string, id: string, input: EditSalesOrderInput): Promise<SalesOrderDetail> {
+  return request<SalesOrderDetail>(`${base()}/${id}`, token, { method: 'PUT', body: JSON.stringify(input) })
 }
 
 export function updateSalesOrder(token: string, id: string, input: UpdateSalesOrderInput): Promise<SalesOrder> {

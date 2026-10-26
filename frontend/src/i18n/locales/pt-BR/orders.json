@@ -154,7 +154,8 @@
     "chooseCustomerHint": "Os endereços de cobrança e entrega do cliente substituem os do pedido.",
     "customerChangeFailed": "Não foi possível trocar o cliente.",
     "fromQuote": "Do orçamento",
-    "editCustomer": "Editar cliente"
+    "editCustomer": "Editar cliente",
+    "edit": "Editar"
   },
   "errors": {
     "loadOrders": "Não foi possível carregar os pedidos",
@@ -338,5 +339,13 @@
     "extraCharged": "Extra · cobrado",
     "notAdded": "Não adicionado (sem estoque): {{product}} × {{quantity}}",
     "atPicking": "na separação"
+  },
+  "edit": {
+    "title": "Editar pedido #{{number}}",
+    "submit": "Salvar alterações",
+    "saving": "Salvando…",
+    "failed": "Não foi possível salvar o pedido.",
+    "loading": "Carregando o pedido…",
+    "loadFailed": "Não foi possível carregar o pedido para edição."
   }
 }

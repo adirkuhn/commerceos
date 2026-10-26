@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { UserPlus, UserRound, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { apiErrorText } from '../../api/apiErrorText'
@@ -14,11 +14,14 @@ const displayName = (c: Customer) => customerName(c) || c.billing?.phone || c.id
 // Picks an existing customer or creates one; the page copies its addresses.
 // For a company it also picks who the order is for (onContactPerson): its
 // first contact person, or the one chosen.
-export function OrderCustomerCard({ token, customer, onChange, onContactPerson }: {
+export function OrderCustomerCard({ token, customer, onChange, onContactPerson, current }: {
   token: string
   customer: Customer | null
   onChange: (c: Customer | null) => void
   onContactPerson?: (p: ContactPerson | null) => void
+  // The billing name of an order being edited: its customer's contact
+  // persons load with that one selected, and nothing is filled in.
+  current?: { first_name?: string; last_name?: string }
 }) {
   const { t } = useTranslation(['orders', 'customers'])
   const [creating, setCreating] = useState(false)
@@ -28,10 +31,20 @@ export function OrderCustomerCard({ token, customer, onChange, onContactPerson }
   const contacts = useContactPersons(token, company && onContactPerson ? customer?.id ?? null : null)
   const [contactId, setContactId] = useState('')
 
-  // A newly loaded company starts on its main (first) contact person.
+  // A newly loaded company starts on its main (first) contact person --
+  // except the edited order's own customer, which shows who the order is
+  // addressed to.
+  const keep = useRef(current)
+  const keptCustomer = useRef(customer?.id)
   const firstContact = contacts.persons[0]
   useEffect(() => {
     if (!firstContact) return
+    if (keep.current && customer?.id === keptCustomer.current) {
+      const { first_name = '', last_name = '' } = keep.current
+      keep.current = undefined
+      setContactId(contacts.persons.find(p => p.first_name === first_name && p.last_name === last_name)?.id ?? '')
+      return
+    }
     setContactId(firstContact.id)
     onContactPerson?.(firstContact)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -81,6 +94,7 @@ export function OrderCustomerCard({ token, customer, onChange, onContactPerson }
           {t('form.contactPerson')}
           <select value={contactId} onChange={e => chooseContact(e.target.value)}
             className="mt-1 w-full px-2.5 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink outline-none focus:ring-1 focus:ring-focus normal-case">
+            {contactId === '' && <option value="">—</option>}
             {contacts.persons.map(p => (
               <option key={p.id} value={p.id}>{[p.first_name, p.last_name].filter(Boolean).join(' ')}{p.role ? ` — ${p.role}` : ''}</option>
             ))}

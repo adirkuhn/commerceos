@@ -180,6 +180,13 @@ export interface CreateSalesOrderInput {
   line_items: CreateSalesOrderLineItemInput[]
 }
 
+// The order form sent again for an existing manual order (PUT
+// /sales-orders/{id}): lines are replaced. An empty number keeps the
+// order's own.
+export type EditSalesOrderInput = Pick<CreateSalesOrderInput,
+  'number' | 'warehouse_id' | 'customer_id' | 'billing' | 'shipping' | 'customer_note' | 'shipping_total_minor_units'
+  | 'fee_label' | 'fee_total_minor_units' | 'tax_total_minor_units' | 'total_minor_units' | 'occurred_at' | 'line_items'>
+
 // Header-only edit -- line items are immutable once a sales order is
 // created, see backend's UpdateSalesOrderUseCase doc.
 export interface UpdateSalesOrderInput {

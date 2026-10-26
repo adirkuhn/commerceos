@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryRouter, useNavigate } from 'react-router-dom'
@@ -17,6 +17,7 @@ vi.mock('../../oms/api', () => ({
   getSalesOrder: vi.fn(),
   listSalesOrderActivities: vi.fn(),
   createSalesOrder: vi.fn(),
+  editSalesOrder: vi.fn(),
   updateSalesOrder: vi.fn(),
   deleteSalesOrder: vi.fn(),
   bulkUpdateSalesOrders: vi.fn(),
@@ -1453,6 +1454,54 @@ describe('Create sales order', () => {
     expect(screen.getByLabelText('First name', { selector: '#billing-first_name' })).toHaveValue('Sara')
   })
 
+})
+
+describe('Edit sales order', () => {
+  const manual = () => detail({ sales_order: salesOrder({ source: 'manual', status: 'processing', number: 'CO-1001', warehouse_id: 'wh-1', currency_code: 'EUR' }) })
+
+  it('edits a manual order from its page: quantity changed, order saved in place', async () => {
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(manual())
+    vi.mocked(priceListApi.listPriceList).mockResolvedValue({ pricesIncludeTax: true, total: 1, rows: [{
+      product_id: 'p-1', product_name: 'Blue Widget', variant_name: '', sku_id: 'sku-1', sku_code: 'WID-BLU', unit_type: 'unit',
+      currency_code: 'EUR', price_minor_units: 2000, available_quantity: 5, tax_rate_basis_points: 2100, target_markup_basis_points: 0,
+    }] })
+    vi.mocked(omsApi.editSalesOrder).mockResolvedValue(manual())
+    render(<MemoryRouter initialEntries={['/sales-orders/so-1']}><SalesOrders /></MemoryRouter>)
+
+    await userEvent.click(await screen.findByRole('link', { name: 'Edit' }))
+    expect(await screen.findByRole('heading', { name: 'Edit order #CO-1001' })).toBeInTheDocument()
+    const qty = await screen.findByLabelText('Qty WID-BLU')
+    expect(qty).toHaveValue(2)
+    expect(screen.queryByLabelText('Status')).not.toBeInTheDocument()
+
+    fireEvent.change(qty, { target: { value: '3' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => expect(omsApi.editSalesOrder).toHaveBeenCalled())
+    const [, id, input] = vi.mocked(omsApi.editSalesOrder).mock.calls[0]
+    expect(id).toBe('so-1')
+    expect(input).toMatchObject({ number: 'CO-1001', warehouse_id: 'wh-1' })
+    expect(input.line_items[0]).toMatchObject({ sku_id: 'sku-1', quantity: 3, total_minor_units: 6000, total_tax_minor_units: 1041 })
+    expect(omsApi.createSalesOrder).not.toHaveBeenCalled()
+  })
+
+  it('offers no Edit for a channel order', async () => {
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(detail({ sales_order: salesOrder({ source: 'woocommerce', status: 'processing' }) }))
+    render(<MemoryRouter initialEntries={['/sales-orders/so-1']}><SalesOrders /></MemoryRouter>)
+
+    expect(await screen.findByText('Blue Widget')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Edit' })).not.toBeInTheDocument()
+  })
+
+  it('shows the save error from the server', async () => {
+    vi.mocked(omsApi.getSalesOrder).mockResolvedValue(manual())
+    vi.mocked(omsApi.editSalesOrder).mockRejectedValue(new Error('picking started'))
+    render(<MemoryRouter initialEntries={['/sales-orders/so-1/edit']}><SalesOrders /></MemoryRouter>)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Save changes' }))
+
+    expect(await screen.findByText(/picking started|Could not save the order/)).toBeInTheDocument()
+  })
 })
 
 describe('Sales orders list in Portuguese', () => {
