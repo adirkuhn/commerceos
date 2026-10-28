@@ -6,7 +6,7 @@ import * as inventoryApi from '../inventory/api'
 import type { BookingScan, BookingScanActionType } from './types'
 import type { Warehouse, Batch } from '../inventory/types'
 import { Dialog } from '../components/common/Dialog'
-import { PendingBatch } from './bookingHelpers'
+import { defaultTakeSource, PENDING_PREFIX, PendingBatch } from './bookingHelpers'
 import type { DateInput } from '../format/date'
 import { useDateFormat } from '../format/DateFormatProvider'
 
@@ -39,8 +39,6 @@ function scanSummary(s: BookingScan): string {
     case 'lost': return i18next.t('scanner:booking.scan.lost', { quantity: s.write_off_quantity })
   }
 }
-
-const PENDING_PREFIX = 'pending:'
 
 // Everything you can do to one line item's stock while booking: receive
 // (full or partial, into an existing, pending, or brand-new batch), remove
@@ -99,7 +97,7 @@ export function BookLineSheet({ token, skuId, description, remaining, scannedSoF
   function switchMode(next: LineSheetMode) {
     setMode(next)
     setQty(next === 'receive' ? String(remaining) : '')
-    setBatchId('')
+    setBatchId(next === 'receive' ? '' : defaultTakeSource(scans))
   }
 
   function handleConfirm() {

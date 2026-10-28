@@ -1,4 +1,22 @@
-import type { BookingDetail, MissingBookingItem } from './types'
+import type { BookingDetail, BookingScan, MissingBookingItem } from './types'
+
+// Batch picker value for a not-yet-real batch staged in this booking:
+// PENDING_PREFIX + its lot number.
+export const PENDING_PREFIX = 'pending:'
+
+// Where a Remove or Damaged/lost row for this SKU most likely takes from:
+// the batch its latest receive in this booking went into -- a pending lot,
+// or an existing batch. General ledger ('') when nothing was received into
+// either: booking stock never lands in the general ledger (a receive
+// without a lot still makes its own batch), so defaulting there made the
+// write-off fail at Finish. scans are this SKU's staged rows.
+export function defaultTakeSource(scans: BookingScan[]): string {
+  const receives = scans.filter(s => s.action_type === 'receive')
+  const latest = receives.reduce<BookingScan | undefined>((acc, s) => (!acc || s.scanned_at >= acc.scanned_at ? s : acc), undefined)
+  if (latest?.batch_id) return latest.batch_id
+  if (latest?.lot_number) return `${PENDING_PREFIX}${latest.lot_number}`
+  return ''
+}
 
 export interface PendingBatch {
   lotNumber: string
