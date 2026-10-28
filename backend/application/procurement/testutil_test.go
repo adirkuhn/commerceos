@@ -865,3 +865,30 @@ func (s *stubMarkDamagedOrLostForBooking) Execute(_ context.Context, in appinven
 	movement := &invDomain.StockMovement{ID: fmt.Sprintf("movement-wo-%d", len(s.calls)), SKUID: in.SKUID, Type: in.Type, QuantityDelta: -in.Quantity}
 	return movement, &invDomain.DiscardRecord{ID: fmt.Sprintf("discard-wo-%d", len(s.calls)), MovementID: movement.ID}, nil
 }
+
+// stubScopedStock answers on-hand stock per batch scope: onHand keyed by
+// batch ID, "" for the general ledger. calls counts lookups so a test can
+// prove a row needed no stock check at all.
+type stubScopedStock struct {
+	onHand map[string]int64
+	err    error
+	calls  int
+}
+
+func (s *stubScopedStock) Execute(_ context.Context, _, _ string, batchID *string) (int64, error) {
+	s.calls++
+	if s.err != nil {
+		return 0, s.err
+	}
+	key := ""
+	if batchID != nil {
+		key = *batchID
+	}
+	return s.onHand[key], nil
+}
+
+// stockOnHand gives the general ledger and batch-1 qty units each -- enough
+// for a test about something other than the stock check.
+func stockOnHand(qty int64) *stubScopedStock {
+	return &stubScopedStock{onHand: map[string]int64{"": qty, "batch-1": qty}}
+}

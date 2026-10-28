@@ -41,7 +41,7 @@
   "BOL_TRANSPORTER_UNSUPPORTED": "Bol heeft geen vervoerderscode voor deze vervoerder.",
   "BOOKING_NOT_ACTIVE": "Deze boeking is niet actief.",
   "BOOKING_NOT_FOUND": "Boeking niet gevonden.",
-  "BOOKING_PENDING_BATCH_NOT_FOUND": "Geen partij gevonden voor deze correctie: de ontvangst die hem zou maken ontbreekt.",
+  "BOOKING_PENDING_BATCH_NOT_FOUND": "Geen partij gevonden voor deze regel: de ontvangst die hem zou maken ontbreekt.",
   "BOOKING_SCAN_CODE_OR_SKU_REQUIRED": "Scan een code of kies een SKU.",
   "BOOKING_SCAN_INVALID_ACTION": "Deze scanactie is niet geldig.",
   "BOOKING_SCAN_NOT_FOUND": "Scan niet gevonden.",
@@ -448,5 +448,7 @@
   "CUSTOMER_DUPLICATE_CLIENT_NUMBER": "Een andere klant heeft dit klantnummer al.",
   "CONTACT_PERSON_NOT_FOUND": "Contactpersoon niet gevonden.",
   "CONTACT_PERSON_NAME_REQUIRED": "Geef de contactpersoon een voor- of achternaam.",
-  "SALES_ORDER_NOT_EDITABLE": "Deze order kan niet meer worden bewerkt: hij komt van een verkoopkanaal, of is al gepickt, verzonden of afgesloten."
+  "SALES_ORDER_NOT_EDITABLE": "Deze order kan niet meer worden bewerkt: hij komt van een verkoopkanaal, of is al gepickt, verzonden of afgesloten.",
+  "BOOKING_PENDING_LOT_INSUFFICIENT": "Er wordt meer uit deze partij gehaald dan deze boeking erin ontvangt.",
+  "BOOKING_SCAN_HAS_DEPENDENTS": "Andere regels in deze boeking halen voorraad uit deze ontvangst. Verwijder die eerst."
 }

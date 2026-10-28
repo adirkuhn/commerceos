@@ -138,8 +138,8 @@ func TestScanBookingItem_RecordsScan(t *testing.T) {
 	outbox := &eventrecordtest.Outbox{}
 	bookings := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", PurchaseOrderID: "po-1", Status: procurementDomain.BookingStatusInProgress}}
 	poRepo := &stubPurchaseOrderRepo{findResult: &procurementDomain.PurchaseOrder{ID: "po-1", WarehouseID: strPtr("wh-1")}}
-	uc := appprocurement.NewScanBookingItemUseCase(newMockGormDB(t), bookings, poRepo, &stubBookingScanRepo{}, &stubSKURepo{},
-		&stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, outbox)
+	uc := appprocurement.NewScanBookingItemUseCase(newMockGormDBN(t, 2), bookings, poRepo, &stubBookingScanRepo{}, &stubSKURepo{},
+		&stubBarcodeAliasRepo{}, &stubScaleCodeAliasRepo{}, &stubLineItemRepo{}, outbox, &stubScopedStock{})
 
 	_, err := uc.Execute(context.Background(), appprocurement.ScanBookingItemInput{BookingID: "booking-1", SKUID: "sku-1", Quantity: 4, LotNumber: "L1"})
 
@@ -157,7 +157,7 @@ func TestDeleteBookingScan_RecordsDeleted(t *testing.T) {
 	outbox := &eventrecordtest.Outbox{}
 	bookings := &stubBookingRepo{findResult: &procurementDomain.Booking{ID: "booking-1", Status: procurementDomain.BookingStatusInProgress}}
 	scans := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive}}}
-	uc := appprocurement.NewDeleteBookingScanUseCase(newMockGormDB(t), bookings, scans, outbox)
+	uc := appprocurement.NewDeleteBookingScanUseCase(newMockGormDBN(t, 2), bookings, &stubPurchaseOrderRepo{}, scans, outbox, &stubScopedStock{})
 
 	require.NoError(t, uc.Execute(context.Background(), "booking-1", "scan-1"))
 

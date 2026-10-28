@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +18,7 @@ import (
 
 	genprocurement "github.com/adirkuhn/commerceos/api/procurement"
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
+	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	procurementhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/procurement"
@@ -1601,4 +1603,45 @@ func TestListBookingDiscrepanciesHandler_emptyReport(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"missing_items":[]`)
 	assert.Contains(t, w.Body.String(), `"damaged_lost":[]`)
+}
+
+func TestDeleteBookingScanHandler_receiveWithDependentsReturns409(t *testing.T) {
+	del := &stubDeleteBookingScan{err: procurementDomain.ErrBookingScanHasDependents}
+	h := newDeleteBookingScanTestHandler(del)
+	w := doRequest(newTestRouter(h), http.MethodDelete, "/api/v1/procurement/bookings/booking-1/scans/scan-1", nil)
+
+	require.Equal(t, http.StatusConflict, w.Code)
+	assert.Contains(t, w.Body.String(), "BOOKING_SCAN_HAS_DEPENDENTS")
+}
+
+func TestScanBookingItemHandler_pendingLotInsufficientReturns422(t *testing.T) {
+	scan := &stubScanBookingItem{err: procurementDomain.ErrPendingLotInsufficient}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, scan, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/scan", map[string]any{
+		"sku_id": "sku-1", "quantity": 5, "action_type": "damaged", "lot_number": "L1",
+	})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), "BOOKING_PENDING_LOT_INSUFFICIENT")
+}
+
+func TestScanBookingItemHandler_insufficientStockReturns422(t *testing.T) {
+	scan := &stubScanBookingItem{err: invDomain.ErrInsufficientStock}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, scan, &stubPauseBooking{}, &stubCompleteBooking{})
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/scan", map[string]any{
+		"sku_id": "sku-1", "quantity": 1, "action_type": "damaged",
+	})
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), "BATCH_INSUFFICIENT_STOCK")
+}
+
+func TestCompleteBookingHandler_replayErrorCarriesTheRowAsDetail(t *testing.T) {
+	complete := &stubCompleteBooking{err: fmt.Errorf("completeBooking: %w: %s", procurementDomain.ErrPendingBatchNotFound, "Pão de queijo 1kg · 31/10/2027")}
+	h := newBookingTestHandler(&stubStartOrResumeBooking{}, &stubGetBooking{}, &stubScanBookingItem{}, &stubPauseBooking{}, complete)
+	w := doRequest(newTestRouter(h), http.MethodPost, "/api/v1/procurement/bookings/booking-1/complete", nil)
+
+	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	assert.Contains(t, w.Body.String(), `"code":"BOOKING_PENDING_BATCH_NOT_FOUND"`)
+	assert.Contains(t, w.Body.String(), `"detail":"Pão de queijo 1kg · 31/10/2027"`)
 }

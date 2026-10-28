@@ -41,7 +41,7 @@
   "BOL_TRANSPORTER_UNSUPPORTED": "Bol has no transporter code for this carrier.",
   "BOOKING_NOT_ACTIVE": "This booking isn’t active.",
   "BOOKING_NOT_FOUND": "Booking not found.",
-  "BOOKING_PENDING_BATCH_NOT_FOUND": "No batch found for this correction: the receipt that would have created it is missing.",
+  "BOOKING_PENDING_BATCH_NOT_FOUND": "No batch found for this entry: the receipt that would have created it is missing.",
   "BOOKING_SCAN_CODE_OR_SKU_REQUIRED": "Scan a code or choose a SKU.",
   "BOOKING_SCAN_INVALID_ACTION": "This scan action isn’t valid.",
   "BOOKING_SCAN_NOT_FOUND": "Scan not found.",
@@ -448,5 +448,7 @@
   "CUSTOMER_DUPLICATE_CLIENT_NUMBER": "Another customer already has this client number.",
   "CONTACT_PERSON_NOT_FOUND": "Contact person not found.",
   "CONTACT_PERSON_NAME_REQUIRED": "Give the contact person a first or last name.",
-  "SALES_ORDER_NOT_EDITABLE": "This order can no longer be edited: it is from a sales channel, or already picked, shipped or closed."
+  "SALES_ORDER_NOT_EDITABLE": "This order can no longer be edited: it is from a sales channel, or already picked, shipped or closed.",
+  "BOOKING_PENDING_LOT_INSUFFICIENT": "More is taken from this lot than this booking received into it.",
+  "BOOKING_SCAN_HAS_DEPENDENTS": "Other entries in this booking take stock from this receipt. Delete those first."
 }

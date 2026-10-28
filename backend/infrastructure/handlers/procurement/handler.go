@@ -286,6 +286,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 
 	costLedgerRepo := repositories.NewSKUCostPriceLedgerRepo(db)
 	batchListerForCost := invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo)
+	scopedStock := invapp.NewGetScopedStockUseCase(db, movementRepo)
 	skuCostUpdater := skuCostUpdaterAdapter{uc: pmsapp.NewApplyReceiptCostUseCase(db, skuRepo, costLedgerRepo, batchListerForCost, outboxRepo)}
 	costLedgerRecorder := costLedgerRecorderAdapter{uc: pmsapp.NewRecordCostLedgerMovementUseCase(db, skuRepo, costLedgerRepo, batchListerForCost)}
 
@@ -322,9 +323,9 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage) {
 		appprocurement.NewCompleteReceivingUseCase(db, receivingRecordRepo, outboxRepo),
 		appprocurement.NewStartOrResumeBookingUseCase(db, poRepo, bookingRepo, outboxRepo),
 		appprocurement.NewGetBookingUseCase(db, bookingRepo, lineItemRepo, bookingScanRepo, skuRepo, variantRepo, productRepo),
-		appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, bookingScanRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, lineItemRepo, outboxRepo),
+		appprocurement.NewScanBookingItemUseCase(db, bookingRepo, poRepo, bookingScanRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, lineItemRepo, outboxRepo, scopedStock),
 		appprocurement.NewResolveBookingScanCodeUseCase(db, bookingRepo, poRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, lineItemRepo, variantRepo, productRepo),
-		appprocurement.NewDeleteBookingScanUseCase(db, bookingRepo, bookingScanRepo, outboxRepo),
+		appprocurement.NewDeleteBookingScanUseCase(db, bookingRepo, poRepo, bookingScanRepo, outboxRepo, scopedStock),
 		appprocurement.NewPauseBookingUseCase(db, bookingRepo, outboxRepo),
 		appprocurement.NewCompleteBookingUseCase(
 			db, bookingRepo, poRepo, lineItemRepo, bookingScanRepo,

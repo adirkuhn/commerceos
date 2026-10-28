@@ -41,7 +41,7 @@
   "BOL_TRANSPORTER_UNSUPPORTED": "O Bol não tem código de transportadora para esta transportadora.",
   "BOOKING_NOT_ACTIVE": "Este lançamento não está ativo.",
   "BOOKING_NOT_FOUND": "Lançamento não encontrado.",
-  "BOOKING_PENDING_BATCH_NOT_FOUND": "Nenhum lote encontrado para esta correção: falta o recebimento que o criaria.",
+  "BOOKING_PENDING_BATCH_NOT_FOUND": "Nenhum lote encontrado para este registro: falta o recebimento que o criaria.",
   "BOOKING_SCAN_CODE_OR_SKU_REQUIRED": "Escaneie um código ou escolha um SKU.",
   "BOOKING_SCAN_INVALID_ACTION": "Esta ação de leitura não é válida.",
   "BOOKING_SCAN_NOT_FOUND": "Leitura não encontrada.",
@@ -448,5 +448,7 @@
   "CUSTOMER_DUPLICATE_CLIENT_NUMBER": "Outro cliente já tem este número de cliente.",
   "CONTACT_PERSON_NOT_FOUND": "Pessoa de contato não encontrada.",
   "CONTACT_PERSON_NAME_REQUIRED": "Informe o nome ou sobrenome da pessoa de contato.",
-  "SALES_ORDER_NOT_EDITABLE": "Este pedido não pode mais ser editado: veio de um canal de venda, ou já foi separado, enviado ou encerrado."
+  "SALES_ORDER_NOT_EDITABLE": "Este pedido não pode mais ser editado: veio de um canal de venda, ou já foi separado, enviado ou encerrado.",
+  "BOOKING_PENDING_LOT_INSUFFICIENT": "Está saindo mais deste lote do que este recebimento colocou nele.",
+  "BOOKING_SCAN_HAS_DEPENDENTS": "Outros registros deste recebimento tiram estoque desta entrada. Apague-os primeiro."
 }

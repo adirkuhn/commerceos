@@ -58,7 +58,16 @@ var (
 	// replay when a correction/damaged/lost row references a batch (by
 	// SKUID+LotNumber) that no earlier receive row in the same booking ever
 	// staged -- there's nothing to resolve it against.
-	ErrPendingBatchNotFound = errs.New("BOOKING_PENDING_BATCH_NOT_FOUND", "no batch found for this correction -- the receive that would have created it is missing")
+	// The detail names the row (product, lot) so the scanner can say which
+	// entry to fix.
+	ErrPendingBatchNotFound = errs.NewWithCause("BOOKING_PENDING_BATCH_NOT_FOUND", "no batch found for this correction -- the receive that would have created it is missing")
+	// ErrPendingLotInsufficient: the booking's corrections and damaged/lost
+	// rows take more from a pending lot than its receive rows put in.
+	ErrPendingLotInsufficient = errs.NewWithCause("BOOKING_PENDING_LOT_INSUFFICIENT", "more is taken from this lot than this booking receives into it")
+	// ErrBookingScanHasDependents guards DeleteBookingScanUseCase: deleting
+	// this receive would leave a correction or damaged/lost row in the same
+	// booking with nothing to take from, so Finish could never succeed.
+	ErrBookingScanHasDependents = errs.New("BOOKING_SCAN_HAS_DEPENDENTS", "other entries in this booking take stock from this receive -- delete those first")
 	// ErrBookingScanNotFound guards DeleteBookingScanUseCase against a
 	// scanId that doesn't belong to the given booking (wrong booking,
 	// already deleted, or never existed).

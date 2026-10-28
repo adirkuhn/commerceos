@@ -23,13 +23,15 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, procurementDomain.ErrBookingNotFound), errors.Is(err, procurementDomain.ErrParsingJobNotFound),
 		errors.Is(err, procurementDomain.ErrBookingScanNotFound), errors.Is(err, procurementDomain.ErrDiscrepancyNotFound):
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
+	case errors.Is(err, procurementDomain.ErrBookingScanHasDependents):
+		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)
 	case errors.Is(err, procurementDomain.ErrInvalidQuantity), errors.Is(err, procurementDomain.ErrUnsupportedFileType),
 		errors.Is(err, procurementDomain.ErrMissingRequiredColumns), errors.Is(err, procurementDomain.ErrPDFHasNoExtractableText),
 		errors.Is(err, procurementDomain.ErrAIParsingNotConfigured), errors.Is(err, procurementDomain.ErrLineItemAlreadyLinked),
 		errors.Is(err, procurementDomain.ErrNoLineItemsExtracted),
 		errors.Is(err, procurementDomain.ErrBookingNotActive), errors.Is(err, procurementDomain.ErrWarehouseRequired),
 		errors.Is(err, procurementDomain.ErrScanCodeOrSKURequired), errors.Is(err, procurementDomain.ErrInvalidBookingScanActionType),
-		errors.Is(err, procurementDomain.ErrPendingBatchNotFound),
+		errors.Is(err, procurementDomain.ErrPendingBatchNotFound), errors.Is(err, procurementDomain.ErrPendingLotInsufficient),
 		errors.Is(err, procurementDomain.ErrDiscrepancyMismatch), errors.Is(err, procurementDomain.ErrDiscrepancyAlreadyAcknowledged),
 		errors.Is(err, procurementDomain.ErrInvalidDamagedQuantity),
 		errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, invDomain.ErrInsufficientStock),

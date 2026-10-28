@@ -66,6 +66,7 @@ type ScanBookingItemUseCase struct {
 	scaleCodeAliasRepo pmsDomain.ScaleCodeAliasRepository
 	lineItemRepo       procurementDomain.PurchaseOrderLineItemRepository
 	outbox             eventrecord.Enqueuer
+	stock              scopedStockReader
 }
 
 func NewScanBookingItemUseCase(
@@ -78,11 +79,12 @@ func NewScanBookingItemUseCase(
 	scaleCodeAliasRepo pmsDomain.ScaleCodeAliasRepository,
 	lineItemRepo procurementDomain.PurchaseOrderLineItemRepository,
 	outbox eventrecord.Enqueuer,
+	stock scopedStockReader,
 ) *ScanBookingItemUseCase {
 	return &ScanBookingItemUseCase{
 		db: db, bookingRepo: bookingRepo, poRepo: poRepo, scanRepo: scanRepo,
 		skuRepo: skuRepo, barcodeAliasRepo: barcodeAliasRepo, scaleCodeAliasRepo: scaleCodeAliasRepo,
-		lineItemRepo: lineItemRepo, outbox: outbox,
+		lineItemRepo: lineItemRepo, outbox: outbox, stock: stock,
 	}
 }
 
@@ -109,6 +111,8 @@ func (uc *ScanBookingItemUseCase) Execute(ctx context.Context, in ScanBookingIte
 	}
 
 	var scan procurementDomain.BookingScan
+	var staged []procurementDomain.BookingScan
+	var warehouseID string
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		booking, err := uc.bookingRepo.FindByID(ctx, in.BookingID)
 		if err != nil {
@@ -128,6 +132,7 @@ func (uc *ScanBookingItemUseCase) Execute(ctx context.Context, in ScanBookingIte
 		if po.WarehouseID == nil {
 			return procurementDomain.ErrWarehouseRequired
 		}
+		warehouseID = *po.WarehouseID
 
 		skuID := in.SKUID
 		effectiveQuantity := in.Quantity
@@ -227,6 +232,22 @@ func (uc *ScanBookingItemUseCase) Execute(ctx context.Context, in ScanBookingIte
 			scan.WriteOffQuantity = effectiveQuantity
 		}
 
+		staged, err = uc.scanRepo.ListByBooking(ctx, in.BookingID)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scanBookingItem: %w", err)
+	}
+
+	// A row that takes stock is checked now, while the scanner can still fix
+	// it, instead of failing Finish halfway through the replay.
+	if scan.StockDelta() < 0 {
+		if err := checkBookingScanSource(ctx, uc.stock, warehouseID, append(staged, scan), scan); err != nil {
+			return nil, fmt.Errorf("scanBookingItem: %w", err)
+		}
+	}
+
+	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		if err := uc.scanRepo.Create(ctx, &scan); err != nil {
 			return err
 		}

@@ -546,6 +546,16 @@ paths:
     post:
       operationId: scanBookingItem
       summary: Scanner app -- resolve a scanned barcode/box-alias to a SKU and book received stock for it
+      description: >-
+        A correction, damaged or lost row is checked against its source
+        before it is staged, using the same rules Finish replays with: a
+        pending lot (lot_number, no batch_id) needs an earlier receive into
+        that lot in this booking and enough of it left
+        (BOOKING_PENDING_BATCH_NOT_FOUND, BOOKING_PENDING_LOT_INSUFFICIENT);
+        an existing batch (batch_id) or the general ledger (neither) needs
+        enough real stock after this booking's other staged rows
+        (BATCH_INSUFFICIENT_STOCK). A receive without batch_id always
+        creates a new batch, so it never adds to the general ledger.
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
@@ -564,7 +574,14 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
         '422':
-          $ref: '#/components/responses/Error'
+          description: >-
+            Validation error, including BOOKING_PENDING_BATCH_NOT_FOUND,
+            BOOKING_PENDING_LOT_INSUFFICIENT and BATCH_INSUFFICIENT_STOCK
+            for a row that takes more than its source holds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /procurement/bookings/{id}/resolve-scan:
     post:
@@ -614,6 +631,15 @@ paths:
                 $ref: '#/components/schemas/EmptyResponse'
         '404':
           $ref: '#/components/responses/Error'
+        '409':
+          description: >-
+            BOOKING_SCAN_HAS_DEPENDENTS -- a receive that a correction or
+            damaged/lost row in this booking still takes stock from. Delete
+            those rows first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '422':
           $ref: '#/components/responses/Error'
 
@@ -639,6 +665,11 @@ paths:
     post:
       operationId: completeBooking
       summary: Scanner app -- finish a booking; returns a missing-items report if any PO line wasn't fully scanned. completed_by is taken from the caller's own JWT claims, not the request body.
+      description: >-
+        Replays every staged row in scan order. When a row fails (e.g.
+        BOOKING_PENDING_BATCH_NOT_FOUND, BATCH_INSUFFICIENT_STOCK) the 422
+        error's detail names that row; rows applied before it stay applied
+        and are skipped on the next attempt.
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -1352,3 +1383,10 @@ components:
           properties:
             code: { type: string }
             message: { type: string }
+            detail:
+              type: string
+              description: >-
+                Extra context for some codes, shown after the translated
+                message. On completeBooking it names the staged row the
+                replay stopped on: the PO line's description (or SKU id)
+                and its lot, e.g. "Pão de queijo 1kg · 31/10/2027".
