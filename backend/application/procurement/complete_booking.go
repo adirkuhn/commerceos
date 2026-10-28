@@ -230,86 +230,111 @@ func (uc *CompleteBookingUseCase) replay(ctx context.Context, bookingID, warehou
 			continue
 		}
 
-		batchID, err := resolveBatchID(s)
-		if err != nil {
-			return err
-		}
-
-		switch s.ActionType {
-		case procurementDomain.BookingScanActionReceive:
-			var lineItemID *string
-			var unitCost *int64
-			// Best-effort match by SKU: BookingScan has no LineItemID of its
-			// own (it's resolved by scanning a barcode, not picking a line),
-			// so if two line items on the same PO share a SKU the first one
-			// found wins the landed-cost attribution. Rare in practice (a PO
-			// wouldn't normally list the same product twice) and not worse
-			// than having no cost basis at all.
-			for i := range lineItems {
-				if lineItems[i].SKUID != nil && *lineItems[i].SKUID == s.SKUID {
-					li := lineItems[i].ID
-					lineItemID = &li
-					cost, err := AllocateLandedUnitCost(lineItems, li)
-					if err == nil {
-						unitCost = &cost
-					}
-					break
-				}
-			}
-			receipt, err := uc.receiveStock.Execute(ctx, invapp.ReceiveStockInput{
-				SKUID: s.SKUID, WarehouseID: warehouseID, Quantity: s.Quantity, BatchID: batchID,
-				LotNumber: s.LotNumber, ExpiryDate: s.ExpiryDate, Reason: fmt.Sprintf("scanner booking %s", bookingID),
-				PurchaseOrderLineItemID: lineItemID, UnitCostMinorUnits: unitCost,
-			})
-			if err != nil {
-				return err
-			}
-			if receipt.Batch != nil {
-				batchID = &receipt.Batch.ID
-				if s.LotNumber != "" {
-					pending[pendingBatchKey{s.SKUID, s.LotNumber}] = receipt.Batch.ID
-				}
-			}
-			if err := uc.markReplayed(ctx, s.ID, batchID); err != nil {
-				return err
-			}
-
-		case procurementDomain.BookingScanActionCorrection:
-			reason := s.Reason
-			if reason == "" {
-				reason = fmt.Sprintf("scanner booking correction %s", bookingID)
-			}
-			if _, err := uc.recordAdjustment.Execute(ctx, invapp.RecordStockMovementInput{
-				SKUID: s.SKUID, WarehouseID: warehouseID, BatchID: batchID, Type: invDomain.MovementTypeAdjustment,
-				QuantityDelta: s.Quantity, Reason: reason, OccurredAt: s.ScannedAt,
-			}); err != nil {
-				return err
-			}
-			if err := uc.markReplayed(ctx, s.ID, batchID); err != nil {
-				return err
-			}
-
-		case procurementDomain.BookingScanActionDamaged, procurementDomain.BookingScanActionLost:
-			movementType := invDomain.MovementTypeDamaged
-			if s.ActionType == procurementDomain.BookingScanActionLost {
-				movementType = invDomain.MovementTypeLost
-			}
-			reason := s.Reason
-			if reason == "" {
-				reason = fmt.Sprintf("scanner booking %s", bookingID)
-			}
-			if _, _, err := uc.markDamagedOrLost.Execute(ctx, invapp.MarkDamagedOrLostInput{
-				SKUID: s.SKUID, WarehouseID: warehouseID, BatchID: batchID, Quantity: s.WriteOffQuantity,
-				Type: movementType, Reason: reason, OccurredAt: s.ScannedAt, DiscardedBy: s.ScannedBy,
-			}); err != nil {
-				return err
-			}
-			if err := uc.markReplayed(ctx, s.ID, batchID); err != nil {
-				return err
-			}
+		if err := uc.replayRow(ctx, bookingID, warehouseID, lineItems, s, resolveBatchID, pending); err != nil {
+			// Name the row so the scanner can say which entry to fix.
+			return fmt.Errorf("%w: %s", err, bookingScanLabel(lineItems, s))
 		}
 	}
 	return nil
+}
+
+func (uc *CompleteBookingUseCase) replayRow(ctx context.Context, bookingID, warehouseID string, lineItems []procurementDomain.PurchaseOrderLineItem,
+	s procurementDomain.BookingScan, resolveBatchID func(procurementDomain.BookingScan) (*string, error), pending map[pendingBatchKey]string) error {
+	batchID, err := resolveBatchID(s)
+	if err != nil {
+		return err
+	}
+
+	switch s.ActionType {
+	case procurementDomain.BookingScanActionReceive:
+		var lineItemID *string
+		var unitCost *int64
+		// Best-effort match by SKU: BookingScan has no LineItemID of its
+		// own (it's resolved by scanning a barcode, not picking a line),
+		// so if two line items on the same PO share a SKU the first one
+		// found wins the landed-cost attribution. Rare in practice (a PO
+		// wouldn't normally list the same product twice) and not worse
+		// than having no cost basis at all.
+		for i := range lineItems {
+			if lineItems[i].SKUID != nil && *lineItems[i].SKUID == s.SKUID {
+				li := lineItems[i].ID
+				lineItemID = &li
+				cost, err := AllocateLandedUnitCost(lineItems, li)
+				if err == nil {
+					unitCost = &cost
+				}
+				break
+			}
+		}
+		receipt, err := uc.receiveStock.Execute(ctx, invapp.ReceiveStockInput{
+			SKUID: s.SKUID, WarehouseID: warehouseID, Quantity: s.Quantity, BatchID: batchID,
+			LotNumber: s.LotNumber, ExpiryDate: s.ExpiryDate, Reason: fmt.Sprintf("scanner booking %s", bookingID),
+			PurchaseOrderLineItemID: lineItemID, UnitCostMinorUnits: unitCost,
+		})
+		if err != nil {
+			return err
+		}
+		if receipt.Batch != nil {
+			batchID = &receipt.Batch.ID
+			if s.LotNumber != "" {
+				pending[pendingBatchKey{s.SKUID, s.LotNumber}] = receipt.Batch.ID
+			}
+		}
+		if err := uc.markReplayed(ctx, s.ID, batchID); err != nil {
+			return err
+		}
+
+	case procurementDomain.BookingScanActionCorrection:
+		reason := s.Reason
+		if reason == "" {
+			reason = fmt.Sprintf("scanner booking correction %s", bookingID)
+		}
+		if _, err := uc.recordAdjustment.Execute(ctx, invapp.RecordStockMovementInput{
+			SKUID: s.SKUID, WarehouseID: warehouseID, BatchID: batchID, Type: invDomain.MovementTypeAdjustment,
+			QuantityDelta: s.Quantity, Reason: reason, OccurredAt: s.ScannedAt,
+		}); err != nil {
+			return err
+		}
+		if err := uc.markReplayed(ctx, s.ID, batchID); err != nil {
+			return err
+		}
+
+	case procurementDomain.BookingScanActionDamaged, procurementDomain.BookingScanActionLost:
+		movementType := invDomain.MovementTypeDamaged
+		if s.ActionType == procurementDomain.BookingScanActionLost {
+			movementType = invDomain.MovementTypeLost
+		}
+		reason := s.Reason
+		if reason == "" {
+			reason = fmt.Sprintf("scanner booking %s", bookingID)
+		}
+		if _, _, err := uc.markDamagedOrLost.Execute(ctx, invapp.MarkDamagedOrLostInput{
+			SKUID: s.SKUID, WarehouseID: warehouseID, BatchID: batchID, Quantity: s.WriteOffQuantity,
+			Type: movementType, Reason: reason, OccurredAt: s.ScannedAt, DiscardedBy: s.ScannedBy,
+		}); err != nil {
+			return err
+		}
+		if err := uc.markReplayed(ctx, s.ID, batchID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// bookingScanLabel names a row the way the scanner shows it: the PO line's
+// description (the SKU ID when no line has it) and the lot, if any.
+func bookingScanLabel(lineItems []procurementDomain.PurchaseOrderLineItem, s procurementDomain.BookingScan) string {
+	label := s.SKUID
+	for _, li := range lineItems {
+		if li.SKUID != nil && *li.SKUID == s.SKUID && li.RawDescription != "" {
+			label = li.RawDescription
+			break
+		}
+	}
+	if s.LotNumber != "" {
+		label += " · " + s.LotNumber
+	}
+	return label
 }
 
 // earlierDeliveryScans returns the scans of the PO's other completed

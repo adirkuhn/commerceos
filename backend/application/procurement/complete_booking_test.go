@@ -2,12 +2,14 @@ package procurement_test
 
 import (
 	"context"
+	"fmt"
 	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	"testing"
 	"time"
 
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
+	"github.com/adirkuhn/commerceos/domain/errs"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	"github.com/stretchr/testify/assert"
@@ -369,4 +371,56 @@ func TestCompleteBooking_propagatesReplayError(t *testing.T) {
 	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
 
 	require.Error(t, err)
+}
+
+// The Finish error names the row it stopped on, so the scanner can say
+// which entry to fix: the line's own description plus the lot.
+func TestCompleteBooking_orphanedWriteOffErrorNamesProductAndLot(t *testing.T) {
+	db := newMockGormDBN(t, 1)
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Pão de queijo 1kg", Quantity: 47, LineType: procurementDomain.LineItemTypeProduct}}}
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionDamaged, WriteOffQuantity: 1, LotNumber: "31/10/2027"},
+	}}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
+
+	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.ErrorIs(t, err, procurementDomain.ErrPendingBatchNotFound)
+	detail, ok := errs.DetailOf(err)
+	require.True(t, ok)
+	assert.Equal(t, "Pão de queijo 1kg · 31/10/2027", detail)
+}
+
+func TestCompleteBooking_insufficientStockErrorNamesTheProduct(t *testing.T) {
+	db := newMockGormDBN(t, 1)
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), RawDescription: "Pão de queijo 1kg", Quantity: 47, LineType: procurementDomain.LineItemTypeProduct}}}
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionDamaged, WriteOffQuantity: 1},
+	}}
+	writeOff := &stubMarkDamagedOrLostForBooking{err: fmt.Errorf("markDamagedOrLost: %w", invDomain.ErrInsufficientStock)}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, writeOff, &eventrecordtest.Outbox{})
+
+	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.ErrorIs(t, err, invDomain.ErrInsufficientStock)
+	detail, ok := errs.DetailOf(err)
+	require.True(t, ok)
+	assert.Equal(t, "Pão de queijo 1kg", detail)
+}
+
+func TestCompleteBooking_rowWithoutALineItemIsNamedBySKU(t *testing.T) {
+	db := newMockGormDBN(t, 1)
+	bookingRepo, poRepo := completableBookingFixtures()
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionLost, WriteOffQuantity: 1, LotNumber: "L9"},
+	}}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, &stubLineItemRepo{}, scanRepo, &stubReceiveStockForBooking{}, &stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{}, &eventrecordtest.Outbox{})
+
+	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	detail, ok := errs.DetailOf(err)
+	require.True(t, ok)
+	assert.Equal(t, "sku-1 · L9", detail)
 }

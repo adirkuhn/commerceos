@@ -27,7 +27,9 @@ var (
 	// specific batch/general ledger scope (sku_id + warehouse_id + batch_id,
 	// batch_id nil = general) not actually having that much — the ledger is
 	// append-only, so this is checked before the row is written, not after.
-	ErrInsufficientStock = errs.New("BATCH_INSUFFICIENT_STOCK", "insufficient stock for this batch/ledger")
+	// A caller that replays several rows (procurement's booking Finish)
+	// wraps it with the row's product, shown as the detail.
+	ErrInsufficientStock = errs.NewWithCause("BATCH_INSUFFICIENT_STOCK", "insufficient stock for this batch/ledger")
 	// ErrSKUIsNotACase guards SplitCaseIntoUnitsUseCase: the given SKU must
 	// have pms.SKU.CaseOfSKUID/UnitsPerCase set (see that field's doc
 	// comment) -- there's nothing to split otherwise.
