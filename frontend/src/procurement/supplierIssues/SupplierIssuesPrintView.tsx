@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { SupplierIssue } from '../types'
 import { useDateFormat } from '../../format/DateFormatProvider'
 import { SUPPLIER_ISSUE_KINDS, issueItemName } from './supplierIssueText'
+import { PrintSheet } from '../../components/print/PrintSheet'
 
 interface SupplierIssuesPrintViewProps {
   issues: SupplierIssue[]
@@ -21,14 +22,14 @@ export function SupplierIssuesPrintView({ issues, poRef, supplierName, orderDate
   useEffect(() => { window.print() }, [])
 
   return (
-    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+    <PrintSheet>
       <button
         aria-label={t('common:actions.close')} title={t('common:actions.close')} onClick={onClose}
         className="print:hidden fixed top-4 right-4 w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600"
       >
         <X size={16} />
       </button>
-      <div className="max-w-3xl mx-auto p-6 sm:p-10 text-gray-900">
+      <div className="max-w-3xl mx-auto p-6 sm:p-10 print:p-0 print:max-w-none text-gray-900">
         <h1 className="text-xl font-bold">{t('supplierIssues.print.title', { ref: poRef })}</h1>
         <div className="mt-2 mb-6 text-sm text-gray-700 space-y-0.5">
           {supplierName && <p>{t('supplierIssues.print.supplier', { name: supplierName })}</p>}
@@ -69,6 +70,6 @@ export function SupplierIssuesPrintView({ issues, poRef, supplierName, orderDate
           )
         })}
       </div>
-    </div>
+    </PrintSheet>
   )
 }

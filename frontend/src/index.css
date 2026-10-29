@@ -250,3 +250,39 @@
     scrollbar-width: none;
   }
 }
+
+/*
+ * Printing a PrintSheet (components/print/PrintSheet.tsx). The same margins
+ * on every page come from @page, not from padding on the sheet -- padding
+ * only lands at the top of page 1 and the bottom of the last page.
+ */
+@page {
+  size: A4;
+  margin: 15mm 15mm 18mm;
+  @bottom-right { content: counter(page) " / " counter(pages); font: 9pt system-ui, sans-serif; color: #6b7280; }
+}
+
+@media print {
+  html:has(body.printing),
+  body.printing {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  body.printing > :not(.print-sheet) {
+    display: none !important;
+  }
+  body.printing > .print-sheet {
+    position: static !important;
+    inset: auto !important;
+    overflow: visible !important;
+    z-index: auto !important;
+  }
+  .print-sheet thead {
+    display: table-header-group; /* repeat the column headings on every page */
+  }
+  .print-sheet tr,
+  .print-sheet .print-keep {
+    break-inside: avoid;
+  }
+}

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { SalesOrder, SalesOrderLineItem, Address } from '../../oms/types'
 import { useDateFormat } from '../../format/DateFormatProvider'
 import { SoldExpiryNote } from '../../oms/SoldExpiryNote'
+import { PrintSheet } from '../../components/print/PrintSheet'
 
 function addressName(address?: Address): string {
   const name = [address?.first_name, address?.last_name].filter(Boolean).join(' ')
@@ -27,7 +28,7 @@ export function PickingListPrintView({ order, lineItems, onClose }: PickingListP
   useEffect(() => { window.print() }, [])
 
   return (
-    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+    <PrintSheet>
       <button aria-label={t('common:actions.close')}
         onClick={onClose}
         className="print:hidden fixed top-4 right-4 w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600"
@@ -35,7 +36,7 @@ export function PickingListPrintView({ order, lineItems, onClose }: PickingListP
       >
         <X size={16} />
       </button>
-      <div className="max-w-2xl mx-auto p-10 text-gray-900">
+      <div className="max-w-2xl mx-auto p-10 print:p-0 print:max-w-none text-gray-900">
         <h1 className="text-2xl font-bold mb-1">{t('print.pickingList')}</h1>
         <p className="text-sm text-gray-600 mb-6">
           {t('print.orderLine', { number: order.number || order.external_order_id, date: formatDate(order.occurred_at) })}
@@ -82,6 +83,6 @@ export function PickingListPrintView({ order, lineItems, onClose }: PickingListP
           </div>
         )}
       </div>
-    </div>
+    </PrintSheet>
   )
 }

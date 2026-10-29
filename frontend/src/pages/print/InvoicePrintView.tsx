@@ -6,6 +6,7 @@ import type { SalesOrder, SalesOrderLineItem, Address } from '../../oms/types'
 import type { CompanyProfile } from '../../settings/company/types'
 import { formatMoney } from '../../format/money'
 import { useDateFormat } from '../../format/DateFormatProvider'
+import { PrintSheet } from '../../components/print/PrintSheet'
 
 // A company is addressed first, its contact person below as "Attn.".
 function addressBlock(address?: Address): string[] {
@@ -58,7 +59,7 @@ export function InvoicePrintView({ order, lineItems, seller, onClose }: InvoiceP
   const shipping = addressBlock(order.shipping)
 
   return (
-    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+    <PrintSheet>
       <button aria-label={t('common:actions.close')}
         onClick={onClose}
         className="print:hidden fixed top-4 right-4 w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600"
@@ -66,7 +67,7 @@ export function InvoicePrintView({ order, lineItems, seller, onClose }: InvoiceP
       >
         <X size={16} />
       </button>
-      <div className="max-w-2xl mx-auto p-10 text-gray-900">
+      <div className="max-w-2xl mx-auto p-10 print:p-0 print:max-w-none text-gray-900">
         <div className="flex items-start justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold">{t('print.invoice')}</h1>
@@ -118,7 +119,7 @@ export function InvoicePrintView({ order, lineItems, seller, onClose }: InvoiceP
           </tbody>
         </table>
 
-        <div className="flex justify-end mt-4">
+        <div className="flex justify-end mt-4 print-keep">
           <div className="w-56 space-y-1 text-sm">
             <div className="flex justify-between text-gray-600">
               <span>{t('detail.discount')}</span>
@@ -145,6 +146,6 @@ export function InvoicePrintView({ order, lineItems, seller, onClose }: InvoiceP
           </div>
         </div>
       </div>
-    </div>
+    </PrintSheet>
   )
 }

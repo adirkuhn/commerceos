@@ -1,6 +1,7 @@
 import { Printer, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { usePickList } from '../oms/hooks/usePickList'
+import { PrintSheet } from '../components/print/PrintSheet'
 
 interface PickListPrintViewProps {
   token: string
@@ -20,7 +21,7 @@ export function PickListPrintView({ token, orderIds, onClose }: PickListPrintVie
   const totalItems = items.reduce((sum, it) => sum + it.total_quantity, 0)
 
   return (
-    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+    <PrintSheet>
       <div className="print:hidden fixed top-4 right-4 flex gap-2">
         <button
           onClick={() => window.print()}
@@ -36,7 +37,7 @@ export function PickListPrintView({ token, orderIds, onClose }: PickListPrintVie
           <X size={16} />
         </button>
       </div>
-      <div className="max-w-3xl mx-auto p-10 text-gray-900">
+      <div className="max-w-3xl mx-auto p-10 print:p-0 print:max-w-none text-gray-900">
         <h1 className="text-2xl font-bold mb-1">{t('print.title')}</h1>
         <p className="text-sm text-gray-600 mb-6">
           {t('print.orders', { count: orderIds.length })} · {t('print.items', { count: totalItems })}
@@ -78,6 +79,6 @@ export function PickListPrintView({ token, orderIds, onClose }: PickListPrintVie
           </table>
         )}
       </div>
-    </div>
+    </PrintSheet>
   )
 }
