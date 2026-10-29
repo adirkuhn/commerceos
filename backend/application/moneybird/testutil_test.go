@@ -145,6 +145,7 @@ type fakeClient struct {
 	contacts         map[string]mb.Contact // by id
 	createdContacts  []mb.Contact
 	existingInvoice  *mb.RemoteDocument
+	onFindReference  func()
 	invoices         map[string]mb.RemoteDocument
 	createdInvoices  []mb.Invoice
 	createInvoiceErr error
@@ -187,6 +188,9 @@ func (c *fakeClient) CreateContact(_ context.Context, ct mb.Contact) (*mb.Contac
 	return &ct, nil
 }
 func (c *fakeClient) FindInvoiceByReference(context.Context, string) (*mb.RemoteDocument, error) {
+	if c.onFindReference != nil {
+		c.onFindReference()
+	}
 	return c.existingInvoice, nil
 }
 func (c *fakeClient) GetInvoice(_ context.Context, id string) (*mb.RemoteDocument, error) {

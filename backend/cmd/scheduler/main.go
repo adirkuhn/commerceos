@@ -11,17 +11,17 @@ import (
 	"github.com/nats-io/nats.go"
 
 	channelsapp "github.com/adirkuhn/commerceos/application/channels"
-	taxapp "github.com/adirkuhn/commerceos/application/tax"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	messagecenterapp "github.com/adirkuhn/commerceos/application/messagecenter"
 	notificationsapp "github.com/adirkuhn/commerceos/application/notifications"
-	settingsapp "github.com/adirkuhn/commerceos/application/settings"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	pmsapp "github.com/adirkuhn/commerceos/application/pms"
 	procurementapp "github.com/adirkuhn/commerceos/application/procurement"
 	apppromotions "github.com/adirkuhn/commerceos/application/promotions"
 	schedulerapp "github.com/adirkuhn/commerceos/application/scheduler"
+	settingsapp "github.com/adirkuhn/commerceos/application/settings"
 	shippingapp "github.com/adirkuhn/commerceos/application/shipping"
+	taxapp "github.com/adirkuhn/commerceos/application/tax"
 	whatsappapp "github.com/adirkuhn/commerceos/application/whatsapp"
 	"github.com/adirkuhn/commerceos/domain/events"
 	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
@@ -32,6 +32,7 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/carriers"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
 	"github.com/adirkuhn/commerceos/infrastructure/evolutionapi"
+	moneybirdhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/moneybird"
 	"github.com/adirkuhn/commerceos/infrastructure/messaging/noop"
 	"github.com/adirkuhn/commerceos/infrastructure/messaging/smtp"
 	"github.com/adirkuhn/commerceos/infrastructure/pdf"
@@ -244,6 +245,23 @@ func main() {
 	if sub := subscribeConsumer(js, events.SKUPricePerKiloChanged{}.EventName(), "weight-package-repricer-scheduler",
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, perKiloConsumer.Handle); sub != nil {
 		defer sub.Unsubscribe()
+	}
+
+	// Moneybird auto sync: a no-op per tenant unless they turned it on.
+	moneybirdAutoSync := moneybirdhandler.NewAutoSync(db, outboxRepo, cfg.IntegrationsEncryptionSecret)
+	for _, c := range []struct {
+		subject  string
+		consumer *consumers.MoneybirdAutoSyncConsumer
+	}{
+		{events.SalesOrderCreated.Subject, consumers.NewMoneybirdSalesOrderCreatedConsumer(processedEventRepo, moneybirdAutoSync, js)},
+		{events.SalesOrderStatusChanged{}.EventName(), consumers.NewMoneybirdSalesOrderStatusChangedConsumer(processedEventRepo, moneybirdAutoSync, js)},
+		{events.QuoteCreated.Subject, consumers.NewMoneybirdQuoteChangedConsumer(events.QuoteCreated.Subject, processedEventRepo, moneybirdAutoSync, js)},
+		{events.QuoteUpdated.Subject, consumers.NewMoneybirdQuoteChangedConsumer(events.QuoteUpdated.Subject, processedEventRepo, moneybirdAutoSync, js)},
+	} {
+		if sub := subscribeConsumer(js, c.subject, c.consumer.Name(),
+			consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, c.consumer.Handle); sub != nil {
+			defer sub.Unsubscribe()
+		}
 	}
 
 	stockChangedConsumer := consumers.NewInventoryStockChangedConsumer(processedEventRepo, syncStockUC, js)

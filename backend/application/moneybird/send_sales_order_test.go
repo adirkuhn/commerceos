@@ -303,3 +303,20 @@ func TestSendSalesOrder_foreignCurrencyPaymentCarriesTheBaseAmount(t *testing.T)
 	require.Len(t, h.client.payments, 1)
 	assert.Equal(t, "12.11", h.client.payments[0].PriceBase)
 }
+
+// Two events for one order sent at once: the one that finds the other's
+// invoice by reference returns it, instead of reporting a duplicate.
+func TestSendSalesOrder_concurrentSendOfTheSameOrderIsNotADuplicate(t *testing.T) {
+	h := newOrderHarness(t, paidOrder())
+	h.client.existingInvoice = &mb.RemoteDocument{ID: "inv-other-run"}
+	h.client.onFindReference = func() {
+		h.docs.byKey["sales_order/so-1"] = mb.Document{SourceType: mb.SourceSalesOrder, SourceID: "so-1", MoneybirdID: "inv-other-run", Status: mb.DocumentSynced, PaymentRegistered: true}
+	}
+
+	doc, err := h.uc.Execute(tenantCtx(), "so-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, "inv-other-run", doc.MoneybirdID)
+	assert.Empty(t, h.client.createdInvoices)
+	assert.Empty(t, h.docs.saved, "nothing recorded over the other run's result")
+}

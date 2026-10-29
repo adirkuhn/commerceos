@@ -65,29 +65,52 @@ func RegisterRoutes(rg gin.IRouter, h *Handler) {
 
 // Register builds the use cases on the real repositories and Moneybird.
 func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, secret string) {
-	conns := repositories.NewConnectionRepo(db)
-	settings := repositories.NewMoneybirdSettingsRepo(db)
-	docs := repositories.NewMoneybirdDocumentRepo(db)
+	w := newWiring(db, outboxRepo, secret)
+	RegisterRoutes(rg, NewHandler(UseCases{
+		Connect:   appmb.NewConnectUseCase(db, w.conns, w.settings, w.factory, outboxRepo, secret),
+		Setup:     appmb.NewGetSetupUseCase(db, w.conns, w.settings, w.factory, secret),
+		Update:    appmb.NewUpdateSettingsUseCase(db, w.conns, w.settings, w.factory, outboxRepo, secret),
+		SendOrder: w.sendOrder,
+		SendQuote: w.sendQuote,
+		Status:    appmb.NewGetDocumentUseCase(db, w.conns, w.settings, w.docs, secret),
+	}))
+}
+
+// NewAutoSync is the auto-sync use case for cmd/scheduler's consumers, on
+// the same wiring as the HTTP send buttons.
+func NewAutoSync(db *gorm.DB, outboxRepo outbox.Repository, secret string) *appmb.AutoSyncUseCase {
+	w := newWiring(db, outboxRepo, secret)
+	return appmb.NewAutoSyncUseCase(db, w.conns, w.settings, w.sendOrder, w.sendQuote, secret)
+}
+
+type wiring struct {
+	conns     *repositories.ConnectionRepo
+	settings  *repositories.MoneybirdSettingsRepo
+	docs      *repositories.MoneybirdDocumentRepo
+	factory   mb.ClientFactory
+	sendOrder *appmb.SendSalesOrderUseCase
+	sendQuote *appmb.SendQuoteUseCase
+}
+
+func newWiring(db *gorm.DB, outboxRepo outbox.Repository, secret string) wiring {
+	w := wiring{
+		conns: repositories.NewConnectionRepo(db), settings: repositories.NewMoneybirdSettingsRepo(db),
+		docs: repositories.NewMoneybirdDocumentRepo(db), factory: mbclient.NewFactory(),
+	}
 	contacts := repositories.NewMoneybirdContactRepo(db)
 	customers := repositories.NewCustomerRepo(db)
-	factory := mbclient.NewFactory()
-	RegisterRoutes(rg, NewHandler(UseCases{
-		Connect: appmb.NewConnectUseCase(db, conns, settings, factory, outboxRepo, secret),
-		Setup:   appmb.NewGetSetupUseCase(db, conns, settings, factory, secret),
-		Update:  appmb.NewUpdateSettingsUseCase(db, conns, settings, factory, outboxRepo, secret),
-		SendOrder: appmb.NewSendSalesOrderUseCase(db, appmb.SendSalesOrderDeps{
-			Connections: conns, Settings: settings, Documents: docs, Contacts: contacts,
-			Orders: repositories.NewSalesOrderRepo(db), Lines: repositories.NewSalesOrderLineItemRepo(db),
-			Payments: repositories.NewSalesOrderPaymentRepo(db), Customers: customers,
-			Factory: factory, Outbox: outboxRepo, Secret: secret,
-		}),
-		SendQuote: appmb.NewSendQuoteUseCase(db, appmb.SendQuoteDeps{
-			Connections: conns, Settings: settings, Documents: docs, Contacts: contacts,
-			Quotes: repositories.NewQuoteRepo(db), Catalog: pmshandler.NewListPriceListUseCase(db), Customers: customers,
-			Factory: factory, Outbox: outboxRepo, Secret: secret,
-		}),
-		Status: appmb.NewGetDocumentUseCase(db, conns, settings, docs, secret),
-	}))
+	w.sendOrder = appmb.NewSendSalesOrderUseCase(db, appmb.SendSalesOrderDeps{
+		Connections: w.conns, Settings: w.settings, Documents: w.docs, Contacts: contacts,
+		Orders: repositories.NewSalesOrderRepo(db), Lines: repositories.NewSalesOrderLineItemRepo(db),
+		Payments: repositories.NewSalesOrderPaymentRepo(db), Customers: customers,
+		Factory: w.factory, Outbox: outboxRepo, Secret: secret,
+	})
+	w.sendQuote = appmb.NewSendQuoteUseCase(db, appmb.SendQuoteDeps{
+		Connections: w.conns, Settings: w.settings, Documents: w.docs, Contacts: contacts,
+		Quotes: repositories.NewQuoteRepo(db), Catalog: pmshandler.NewListPriceListUseCase(db), Customers: customers,
+		Factory: w.factory, Outbox: outboxRepo, Secret: secret,
+	})
+	return w
 }
 
 func (h *Handler) ConnectMoneybird(c *gin.Context) {

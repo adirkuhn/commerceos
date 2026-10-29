@@ -103,6 +103,14 @@ func (uc *SendSalesOrderUseCase) Execute(ctx context.Context, orderID string) (*
 		doc.MoneybirdID = prior.MoneybirdID
 	}
 	booked, err := uc.book(ctx, acc, src, &doc, paid)
+	if errors.Is(err, mb.ErrDuplicateReference) {
+		// An event for the same order sent at the same time may have booked
+		// it a moment ago -- then the invoice is ours, not a duplicate.
+		if current, findErr := uc.recorder.find(ctx, mb.SourceSalesOrder, orderID); findErr == nil && current != nil &&
+			current.Status == mb.DocumentSynced && current.MoneybirdID != "" {
+			return current, nil
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("sendSalesOrderToMoneybird: %w", uc.recorder.failed(ctx, doc, err))
 	}
