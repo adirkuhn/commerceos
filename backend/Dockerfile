@@ -10,6 +10,7 @@ RUN go build -o /api ./cmd/api && go build -o /relay ./cmd/relay && go build -o 
     go build -o /backfill-webhook-dispatch ./cmd/backfill-webhook-dispatch && \
     go build -o /repair-stock-review-flags ./cmd/repair-stock-review-flags && \
     go build -o /repair-partially-received-pos ./cmd/repair-partially-received-pos && \
+    go build -o /repair-unmanaged-woo-stock ./cmd/repair-unmanaged-woo-stock && \
     go build -o /webhook-processor ./cmd/webhook-processor && \
     go build -o /webhook-forwarder ./cmd/webhook-forwarder
 
@@ -26,6 +27,7 @@ COPY --from=builder /backfill-outbox-replay /backfill-outbox-replay
 COPY --from=builder /backfill-webhook-dispatch /backfill-webhook-dispatch
 COPY --from=builder /repair-stock-review-flags /repair-stock-review-flags
 COPY --from=builder /repair-partially-received-pos /repair-partially-received-pos
+COPY --from=builder /repair-unmanaged-woo-stock /repair-unmanaged-woo-stock
 COPY --from=builder /webhook-processor /webhook-processor
 COPY --from=builder /webhook-forwarder /webhook-forwarder
 COPY --from=builder /go/bin/goose /goose
