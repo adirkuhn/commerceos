@@ -45,6 +45,11 @@ const (
 	// PostNLCustomerCode/PostNLCustomerNumber/PostNLSandbox (below) the
 	// account identifiers every PostNL call needs.
 	ProviderPostNL Provider = "postnl"
+	// ProviderMoneybird is the Moneybird bookkeeping integration.
+	// ConsumerSecretEncrypted holds the encrypted personal API token; the
+	// administration, mappings and auto-sync flag are its
+	// domain/moneybird.Settings.
+	ProviderMoneybird Provider = "moneybird"
 )
 
 // RequiresSenderAddress reports whether p's labels need the tenant's own
