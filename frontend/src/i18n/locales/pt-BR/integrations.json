@@ -344,5 +344,68 @@
     "regenerate": "Gerar novo segredo",
     "secretOnce": "Segredo (exibido uma única vez — copie agora)",
     "title": "Segredo de assinatura do webhook"
+  },
+  "moneybird": {
+    "name": "Moneybird",
+    "tokenLabel": "Token de API pessoal",
+    "tokenHint": "Crie um token de API pessoal no Moneybird, nas configurações do seu usuário (Desenvolvedores). O CommerceOS guarda o token criptografado.",
+    "loadFailed": "Não foi possível carregar o Moneybird.",
+    "sendFailed": "Não foi possível enviar para o Moneybird.",
+    "saveFailed": "Não foi possível salvar.",
+    "saved": "Salvo",
+    "save": "Salvar",
+    "card": {
+      "notSent": "Ainda não enviado para o Moneybird.",
+      "failed": "O último envio falhou: {{error}}",
+      "estimateSent": "Enviado para o Moneybird como orçamento.",
+      "booked": "Lançado no Moneybird.",
+      "bookedPaid": "Lançado no Moneybird, pagamento registrado.",
+      "open": "Abrir no Moneybird",
+      "autoSyncOn": "O envio automático está ligado.",
+      "send": "Enviar para o Moneybird",
+      "retry": "Tentar de novo",
+      "update": "Atualizar no Moneybird",
+      "registerPayment": "Registrar pagamento no Moneybird",
+      "sending": "Enviando…"
+    },
+    "admin": {
+      "title": "Administração",
+      "body": "A administração do Moneybird em que orçamentos e pedidos são lançados, e a conta de receita das linhas.",
+      "administration": "Administração",
+      "ledger": "Conta contábil",
+      "choose": "Escolha…",
+      "switchWarning": "Trocar de administração apaga a conta contábil e as alíquotas de IVA: elas pertencem a uma administração."
+    },
+    "vat": {
+      "title": "Alíquotas de IVA",
+      "body": "A alíquota do Moneybird com que cada alíquota de IVA é lançada. Um orçamento ou pedido com uma alíquota não associada não é enviado.",
+      "needsAdministration": "Escolha uma administração primeiro.",
+      "rate": "IVA {{rate}}%",
+      "notMapped": "Não associada",
+      "addRate": "Adicionar alíquota de IVA (%)",
+      "add": "Adicionar"
+    },
+    "payments": {
+      "title": "Formas de pagamento",
+      "body": "A forma de pagamento do Moneybird com que o pagamento de um pedido pago é registrado. Um pedido pago com uma forma não associada não é enviado.",
+      "method": "Forma de pagamento do pedido",
+      "moneybirdMethod": "Forma de pagamento do Moneybird",
+      "add": "Adicionar forma de pagamento",
+      "remove": "Remover",
+      "methods": {
+        "cash": "Dinheiro",
+        "credit_card": "Cartão de crédito",
+        "debit_card": "Cartão de débito",
+        "bank_transfer": "Transferência bancária",
+        "ideal": "iDEAL",
+        "paypal": "PayPal",
+        "pin": "PIN"
+      }
+    },
+    "auto": {
+      "title": "Envio automático",
+      "body": "Envie orçamentos e pedidos ao Moneybird assim que forem criados ou mudarem. Deixe desligado se outro serviço já lança seus pedidos, e envie-os à mão pela página do pedido ou do orçamento.",
+      "label": "Enviar automaticamente"
+    }
   }
 }

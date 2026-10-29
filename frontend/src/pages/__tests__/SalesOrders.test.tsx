@@ -8,6 +8,8 @@ import i18next from 'i18next'
 import type { SalesOrder, SalesOrderDetail } from '../../oms/types'
 import { AmountVisibilityProvider, maskMoney } from '../../format/amountVisibility'
 
+// Moneybird has its own tests (src/moneybird); a shop without it shows no card.
+vi.mock('../../moneybird/MoneybirdDocumentCard', () => ({ MoneybirdDocumentCard: () => null }))
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({ token: 'test-token', user: null, login: vi.fn(), logout: vi.fn(), isAuthenticated: true }),
 }))

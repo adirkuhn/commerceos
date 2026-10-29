@@ -10,6 +10,7 @@ import { WhatsAppConnectForm } from './connectForms/WhatsAppConnectForm'
 import { StripeConnectForm, RevolutConnectForm } from './connectForms/PaymentConnectForms'
 import { EmailConnectForm } from './connectForms/EmailConnectForm'
 import { PostNLConnectForm } from './connectForms/PostNLConnectForm'
+import { MoneybirdConnectForm } from '../moneybird/MoneybirdConnectForm'
 
 type CatalogTarget = { connect: ConnectFormProvider } | { new: NewPageProvider }
 
@@ -32,9 +33,10 @@ export const INTEGRATIONS_CATALOG: CatalogEntry[] = [
   { label: 'Stripe', initial: 'S', gradient: 'from-indigo-500 to-purple-600', target: { connect: 'stripe' } },
   { label: 'Revolut', initial: 'R', gradient: 'from-slate-700 to-black', target: { connect: 'revolut' } },
   { get label() { return i18next.t('integrations:browse.email') }, initial: 'E', gradient: 'from-teal-500 to-cyan-600', target: { connect: 'email' } },
+  { label: 'Moneybird', initial: 'MB', gradient: 'from-sky-500 to-blue-600', target: { connect: 'moneybird' } },
 ]
 
-// token/onConnected are for forms that keep their own state (PostNL)
+// token/onConnected are for forms that keep their own state (PostNL, Moneybird)
 // instead of living in useConnectForms.
 interface FormContext {
   token: string
@@ -56,6 +58,7 @@ const CONNECT_FORMS: Record<ConnectFormProvider, FormRenderer> = {
   ),
   email: forms => <EmailConnectForm form={forms.email} error={forms.error} starting={forms.starting} />,
   postnl: (_forms, onClose, { token, onConnected }) => <PostNLConnectForm token={token} onConnected={onConnected} onDone={onClose} />,
+  moneybird: (_forms, onClose, { token, onConnected }) => <MoneybirdConnectForm token={token} onConnected={onConnected} onDone={onClose} />,
 }
 
 interface Props {

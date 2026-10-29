@@ -336,5 +336,68 @@
     "regenerate": "Nieuw geheim genereren",
     "secretOnce": "Geheim (eenmalig getoond — kopieer het nu)",
     "title": "Ondertekeningsgeheim van webhook"
+  },
+  "moneybird": {
+    "name": "Moneybird",
+    "tokenLabel": "Persoonlijk API-token",
+    "tokenHint": "Maak in Moneybird een persoonlijk API-token aan bij je gebruikersinstellingen (Ontwikkelaars). CommerceOS bewaart het versleuteld.",
+    "loadFailed": "Moneybird kon niet worden geladen.",
+    "sendFailed": "Versturen naar Moneybird is mislukt.",
+    "saveFailed": "Opslaan is mislukt.",
+    "saved": "Opgeslagen",
+    "save": "Opslaan",
+    "card": {
+      "notSent": "Nog niet naar Moneybird verstuurd.",
+      "failed": "Laatste verzending mislukt: {{error}}",
+      "estimateSent": "Als offerte naar Moneybird verstuurd.",
+      "booked": "Geboekt in Moneybird.",
+      "bookedPaid": "Geboekt in Moneybird, betaling geregistreerd.",
+      "open": "Openen in Moneybird",
+      "autoSyncOn": "Automatisch versturen staat aan.",
+      "send": "Naar Moneybird versturen",
+      "retry": "Opnieuw proberen",
+      "update": "Bijwerken in Moneybird",
+      "registerPayment": "Betaling registreren in Moneybird",
+      "sending": "Versturen…"
+    },
+    "admin": {
+      "title": "Administratie",
+      "body": "De Moneybird-administratie waarin offertes en bestellingen worden geboekt, en de omzetrekening voor de regels.",
+      "administration": "Administratie",
+      "ledger": "Grootboekrekening",
+      "choose": "Kies…",
+      "switchWarning": "Een andere administratie kiezen wist de grootboekrekening en btw-tarieven: die horen bij één administratie."
+    },
+    "vat": {
+      "title": "Btw-tarieven",
+      "body": "Het Moneybird-btw-tarief waarmee elk btw-tarief wordt geboekt. Een offerte of bestelling met een tarief dat niet is gekoppeld, wordt niet verstuurd.",
+      "needsAdministration": "Kies eerst een administratie.",
+      "rate": "Btw {{rate}}%",
+      "notMapped": "Niet gekoppeld",
+      "addRate": "Btw-tarief toevoegen (%)",
+      "add": "Toevoegen"
+    },
+    "payments": {
+      "title": "Betaalmethodes",
+      "body": "De Moneybird-betaalmethode waarmee de betaling van een betaalde bestelling wordt geregistreerd. Een betaalde bestelling met een methode die niet is gekoppeld, wordt niet verstuurd.",
+      "method": "Betaalmethode van de bestelling",
+      "moneybirdMethod": "Moneybird-betaalmethode",
+      "add": "Betaalmethode toevoegen",
+      "remove": "Verwijderen",
+      "methods": {
+        "cash": "Contant",
+        "credit_card": "Creditcard",
+        "debit_card": "Debitcard",
+        "bank_transfer": "Bankoverschrijving",
+        "ideal": "iDEAL",
+        "paypal": "PayPal",
+        "pin": "Pin"
+      }
+    },
+    "auto": {
+      "title": "Automatisch versturen",
+      "body": "Verstuur offertes en bestellingen naar Moneybird zodra ze worden aangemaakt of veranderen. Laat dit uit als een andere dienst je bestellingen al boekt, en verstuur ze met de hand vanaf de bestelling of offerte.",
+      "label": "Automatisch versturen"
+    }
   }
 }

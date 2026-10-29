@@ -20,6 +20,7 @@ import WooCommerceSyncSettingsPage from '../integrations/WooCommerceSyncSettings
 import BolSyncSettingsPage from '../integrations/BolSyncSettingsPage'
 import MyParcelSyncSettingsPage from '../shipping/MyParcelSyncSettingsPage'
 import { PostNLSettingsPage } from '../shipping/postnl/PostNLSettingsPage'
+import { MoneybirdSettingsPage } from '../moneybird/MoneybirdSettingsPage'
 import { SHIPPING_PROVIDERS } from '../shipping/shippingProviders'
 import { useIntegrationsRoute, type ConnectionPanel } from '../integrations/hooks/useIntegrationsRoute'
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
@@ -68,6 +69,7 @@ export default function Integrations() {
     view.kind === 'new' && view.provider === 'myparcel' ? 'new' : panelFor('settings', ['myparcel']) ?? panelFor('webhooks', ['myparcel'])
   const focusMyParcelWebhooks = view.kind === 'connection' && view.panel === 'webhooks'
   const postNLConnection = panelFor('settings', [SHIPPING_PROVIDERS.postnl])
+  const moneybirdConnection = panelFor('settings', ['moneybird'])
 
   const closeAndRefresh = () => {
     route.close()
@@ -106,6 +108,10 @@ export default function Integrations() {
 
   if (postNLConnection) {
     return <PostNLSettingsPage connectionId={postNLConnection.id} onClose={route.close} />
+  }
+
+  if (moneybirdConnection) {
+    return <MoneybirdSettingsPage onClose={route.close} />
   }
 
   return (

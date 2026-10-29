@@ -9,7 +9,7 @@ export { INTEGRATIONS_PATH }
 const CONNECT_SEGMENT = 'connect'
 
 // Providers connected through a form in the "Add integration" catalog.
-export const CONNECT_FORM_PROVIDERS = ['woocommerce', 'whatsapp', 'stripe', 'revolut', 'email', 'postnl'] as const
+export const CONNECT_FORM_PROVIDERS = ['woocommerce', 'whatsapp', 'stripe', 'revolut', 'email', 'postnl', 'moneybird'] as const
 export type ConnectFormProvider = typeof CONNECT_FORM_PROVIDERS[number]
 
 // Providers whose "connect" is their full settings page, opened blank.
@@ -17,7 +17,7 @@ export const NEW_PAGE_PROVIDERS = ['bol', 'myparcel'] as const
 export type NewPageProvider = typeof NEW_PAGE_PROVIDERS[number]
 
 // What can be open for one existing connection. 'settings' is the
-// provider's own settings page (WooCommerce / bol / MyParcel / PostNL); the rest
+// provider's own settings page (WooCommerce / bol / MyParcel / PostNL / Moneybird); the rest
 // are modals over the list.
 export const CONNECTION_PANELS = [
   'settings', 'webhooks', 'test-mode', 'ai-parsing', 'credentials', 'whatsapp-webhook', 'import', 'delete-products',

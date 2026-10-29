@@ -22,6 +22,7 @@ import { QuoteLineRow } from './QuoteLineRow'
 import { openQuoteDocument } from './openQuoteDocument'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { QuoteSaveBar } from './QuoteSaveBar'
+import { MoneybirdDocumentCard } from '../moneybird/MoneybirdDocumentCard'
 import { ProductPriceSearch } from '../pricelist/ProductPriceSearch'
 import { createQuote, updateQuote } from './quotesApi'
 import { buildQuoteInput, isSameQuote, savedQuoteInput, savedQuotePath } from './savedQuote'
@@ -148,6 +149,11 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
             <span key={o.id}>{i > 0 && ', '}<Link to={`/sales-orders/${o.id}`} className="text-accent hover:underline">{orderLabel(o)}</Link></span>
           ))}
         </p>
+      )}
+      {quoteId && (
+        <div className="px-5 py-2 border-b border-line">
+          <MoneybirdDocumentCard sourceType="quote" sourceId={quoteId} blockedReason={dirty ? t('convert.saveFirst') : undefined} />
+        </div>
       )}
       <div className="flex flex-wrap items-start gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0">
         <button onClick={onClose} className="flex items-center gap-1 py-1.5 text-xs text-ink-3 hover:text-ink">

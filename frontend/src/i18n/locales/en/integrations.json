@@ -336,5 +336,68 @@
     "regenerate": "Regenerate secret",
     "secretOnce": "Secret (shown once -- copy it now)",
     "title": "Webhook signature secret"
+  },
+  "moneybird": {
+    "name": "Moneybird",
+    "tokenLabel": "Personal API token",
+    "tokenHint": "Create a personal API token in Moneybird under your user settings (Developers). CommerceOS stores it encrypted.",
+    "loadFailed": "Couldn't load Moneybird.",
+    "sendFailed": "Couldn't send to Moneybird.",
+    "saveFailed": "Couldn't save.",
+    "saved": "Saved",
+    "save": "Save",
+    "card": {
+      "notSent": "Not sent to Moneybird yet.",
+      "failed": "Last send failed: {{error}}",
+      "estimateSent": "Sent to Moneybird as an estimate.",
+      "booked": "Booked in Moneybird.",
+      "bookedPaid": "Booked in Moneybird, payment registered.",
+      "open": "Open in Moneybird",
+      "autoSyncOn": "Auto sync is on.",
+      "send": "Send to Moneybird",
+      "retry": "Try again",
+      "update": "Update in Moneybird",
+      "registerPayment": "Register payment in Moneybird",
+      "sending": "Sending…"
+    },
+    "admin": {
+      "title": "Administration",
+      "body": "The Moneybird administration quotes and orders are booked in, and the revenue ledger account their lines go to.",
+      "administration": "Administration",
+      "ledger": "Ledger account",
+      "choose": "Choose…",
+      "switchWarning": "Switching administration clears the ledger account and VAT rates: they belong to one administration."
+    },
+    "vat": {
+      "title": "VAT rates",
+      "body": "The Moneybird tax rate each VAT rate is booked with. A quote or order with a rate that isn't mapped is not sent.",
+      "needsAdministration": "Choose an administration first.",
+      "rate": "VAT {{rate}}%",
+      "notMapped": "Not mapped",
+      "addRate": "Add VAT rate (%)",
+      "add": "Add"
+    },
+    "payments": {
+      "title": "Payment methods",
+      "body": "The Moneybird payment method a paid order's payment is registered with. A paid order with a method that isn't mapped is not sent.",
+      "method": "Order payment method",
+      "moneybirdMethod": "Moneybird payment method",
+      "add": "Add payment method",
+      "remove": "Remove",
+      "methods": {
+        "cash": "Cash",
+        "credit_card": "Credit card",
+        "debit_card": "Debit card",
+        "bank_transfer": "Bank transfer",
+        "ideal": "iDEAL",
+        "paypal": "PayPal",
+        "pin": "PIN"
+      }
+    },
+    "auto": {
+      "title": "Auto sync",
+      "body": "Send quotes and orders to Moneybird as soon as they are created or change. Leave it off if another service already books your orders, and send them by hand from the order or quote page.",
+      "label": "Send automatically"
+    }
   }
 }

@@ -34,6 +34,7 @@ import { OrderPaymentCard } from './OrderPaymentCard'
 import { SalesOrderPaymentsCard } from './SalesOrderPaymentsCard'
 import { ShipmentTrackingSection } from './ShipmentTrackingSection'
 import { BolConfirmationCard } from './BolConfirmationCard'
+import { MoneybirdDocumentCard } from '../moneybird/MoneybirdDocumentCard'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { Money } from '../format/amountVisibility'
 import { apiErrorText } from '../api/apiErrorText'
@@ -339,6 +340,9 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                 <OrderPaymentCard order={detail.sales_order} />
 
                 <SalesOrderPaymentsCard payments={detail.payments ?? []} currency={detail.sales_order.currency_code} />
+
+                <MoneybirdDocumentCard sourceType="sales_order" sourceId={salesOrderId}
+                  orderPaid={detail.sales_order.payment_status === 'paid'} />
 
                 {shipments.length > 0 && token && (
                   <div className="rounded-xl border border-line p-4 space-y-3 text-xs">

@@ -22,6 +22,7 @@ export const PROVIDER_CARD_ACTIONS: Record<string, CardAction[]> = {
   myparcel: [panel(configure, 'settings'), panel(() => i18next.t('integrations:card.registerWebhook'), 'webhooks')],
   bol: [panel(configure, 'settings')],
   [SHIPPING_PROVIDERS.postnl]: [panel(configure, 'settings')],
+  moneybird: [panel(configure, 'settings')],
   whatsapp: [
     panel(() => i18next.t('integrations:card.testMode'), 'test-mode'),
     panel(() => i18next.t('integrations:card.aiParsing'), 'ai-parsing'),

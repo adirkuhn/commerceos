@@ -14,6 +14,7 @@ export const PROVIDER_COLORS: Record<string, string> = {
   bol: 'from-blue-500 to-cyan-600',
   myparcel: 'from-orange-500 to-red-600',
   postnl: 'from-orange-400 to-amber-500',
+  moneybird: 'from-sky-500 to-blue-600',
   whatsapp: 'from-green-500 to-emerald-600',
   stripe: 'from-indigo-500 to-purple-600',
   revolut: 'from-slate-700 to-black',

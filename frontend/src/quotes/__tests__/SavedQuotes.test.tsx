@@ -5,6 +5,8 @@ import { MemoryRouter, useLocation } from 'react-router-dom'
 import type { PriceListQuery, PriceListRow } from '../../pricelist/types'
 import type { QuoteInput, SavedQuote } from '../types'
 
+// Moneybird has its own tests (src/moneybird); a shop without it shows no card.
+vi.mock('../../moneybird/MoneybirdDocumentCard', () => ({ MoneybirdDocumentCard: () => null }))
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => ({ token: 'tok' }) }))
 vi.mock('../../inventory/api', () => ({ listWarehouses: vi.fn(async () => [{ id: 'wh-1', name: 'Amsterdam' }]) }))
 vi.mock('../../oms/api', () => ({ listSalesOrders: vi.fn(async () => ({ salesOrders: [], total: 0 })) }))
