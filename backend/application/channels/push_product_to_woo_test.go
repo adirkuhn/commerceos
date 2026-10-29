@@ -564,6 +564,31 @@ func TestPushProductToWoo_pushesVirtualProductWithoutStockManagement(t *testing.
 	require.Nil(t, pushed.StockQuantity)
 }
 
+// TestPushProductToWoo_physicalProduct_failsClosedWhenStockLookupFails: an
+// unmanaged Woo product is "in stock" with no limit, so a failed stock
+// lookup must create it out of stock (managed, 0), never unmanaged.
+func TestPushProductToWoo_physicalProduct_failsClosedWhenStockLookupFails(t *testing.T) {
+	product, variant, sku := simplePhysicalProduct()
+	h := newPushHarness(product, variant, sku)
+	stockLevel := &stubStockLevelGetter{err: errors.New("db down")}
+
+	uc := appchannels.NewPushProductToWooUseCase(
+		newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
+		h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo, stockLevel, h.mediaRepo, &stubCategoryLinkResolver{}, &eventrecordtest.Outbox{},
+	)
+
+	_, err := uc.Execute(context.Background(), appchannels.PushProductToWooInput{
+		ProductID: product.ID, ConnectionID: "conn-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.wooClient.createCalled, 1)
+	pushed := h.wooClient.createCalled[0]
+	require.True(t, pushed.ManageStock)
+	require.NotNil(t, pushed.StockQuantity)
+	require.Equal(t, 0, *pushed.StockQuantity)
+}
+
 func TestPushProductToWoo_writesASyncLogEntryForTheNewListing(t *testing.T) {
 	product, variant, sku := simplePhysicalProduct()
 	h := newPushHarness(product, variant, sku)

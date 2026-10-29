@@ -63,7 +63,7 @@ func (h *harness) newSyncUseCaseWithPusher(t *testing.T, n int, pusher *stubProd
 	t.Helper()
 	return appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, n), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
-		h.connRepo, h.wooFactory, testEncryptionSecret, pusher, h.mediaRepo, &stubCategoryLinkResolver{}, nil, nil, nil, &eventrecordtest.Outbox{},
+		h.connRepo, h.wooFactory, testEncryptionSecret, pusher, h.mediaRepo, &stubCategoryLinkResolver{}, nil, nil, nil, nil, &eventrecordtest.Outbox{},
 	)
 }
 
@@ -186,7 +186,7 @@ func TestSyncProductToChannels_setsWooCategoryWhenLinkResolves(t *testing.T) {
 	uc := appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, 4), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
 		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
-		&stubCategoryLinkResolver{externalID: "20"}, nil, nil, nil, &eventrecordtest.Outbox{},
+		&stubCategoryLinkResolver{externalID: "20"}, nil, nil, nil, nil, &eventrecordtest.Outbox{},
 	)
 
 	err := uc.Execute(context.Background(), product.ID)
@@ -591,7 +591,7 @@ func TestSyncProductToChannels_dispatchesBolListingsToBolPusher(t *testing.T) {
 	uc := appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, 1), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
 		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
-		&stubCategoryLinkResolver{}, bolPusher, nil, nil, &eventrecordtest.Outbox{},
+		&stubCategoryLinkResolver{}, bolPusher, nil, nil, nil, &eventrecordtest.Outbox{},
 	)
 
 	err := uc.Execute(context.Background(), product.ID)
@@ -793,7 +793,7 @@ func TestSyncProductToChannels_gatesWooListingOnFirstNonActiveSync(t *testing.T)
 	uc := appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, 10), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
 		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
-		&stubCategoryLinkResolver{}, nil, nil, nil, &eventrecordtest.Outbox{},
+		&stubCategoryLinkResolver{}, nil, nil, nil, nil, &eventrecordtest.Outbox{},
 	)
 
 	err := uc.Execute(context.Background(), product.ID)
@@ -850,7 +850,7 @@ func TestSyncProductToChannels_ungatesWooListingOnReactivation(t *testing.T) {
 	uc := appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, 10), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
 		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
-		&stubCategoryLinkResolver{}, nil, nil, stockCatchUp, &eventrecordtest.Outbox{},
+		&stubCategoryLinkResolver{}, nil, nil, stockCatchUp, nil, &eventrecordtest.Outbox{},
 	)
 
 	err := uc.Execute(context.Background(), product.ID)
@@ -883,7 +883,7 @@ func TestSyncProductToChannels_gatesBolListingViaOnHold(t *testing.T) {
 	uc := appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, 10), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
 		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
-		&stubCategoryLinkResolver{}, bolPusher, bolGater, nil, &eventrecordtest.Outbox{},
+		&stubCategoryLinkResolver{}, bolPusher, bolGater, nil, nil, &eventrecordtest.Outbox{},
 	)
 
 	err := uc.Execute(context.Background(), product.ID)
@@ -913,7 +913,7 @@ func TestSyncProductToChannels_skipsAlreadyGatedBolListing(t *testing.T) {
 	uc := appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, 1), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
 		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
-		&stubCategoryLinkResolver{}, bolPusher, bolGater, nil, &eventrecordtest.Outbox{},
+		&stubCategoryLinkResolver{}, bolPusher, bolGater, nil, nil, &eventrecordtest.Outbox{},
 	)
 
 	err := uc.Execute(context.Background(), product.ID)
@@ -941,7 +941,7 @@ func TestSyncProductToChannels_ungatesBolListingOnReactivation(t *testing.T) {
 	uc := appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, 10), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
 		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo,
-		&stubCategoryLinkResolver{}, bolPusher, bolGater, stockCatchUp, &eventrecordtest.Outbox{},
+		&stubCategoryLinkResolver{}, bolPusher, bolGater, stockCatchUp, nil, &eventrecordtest.Outbox{},
 	)
 
 	err := uc.Execute(context.Background(), product.ID)

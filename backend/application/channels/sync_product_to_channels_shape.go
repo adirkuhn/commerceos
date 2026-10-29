@@ -135,6 +135,9 @@ func (uc *SyncProductToChannelsUseCase) syncSeparateProducts(ctx context.Context
 
 		l, existed := listingByVariant[v.ID]
 		if !existed {
+			if !sku.IsVirtual {
+				resolveWooInitialStock(ctx, uc.stockLevel, sku).applyToProduct(&wooProduct)
+			}
 			created, err := client.CreateProduct(ctx, wooProduct)
 			if err != nil {
 				log.Printf("syncProductToChannels: creating separate product for variant %s: %v", v.ID, err)
@@ -148,6 +151,7 @@ func (uc *SyncProductToChannelsUseCase) syncSeparateProducts(ctx context.Context
 			}
 			recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, newListing, channelsDomain.SyncFlowPush,
 				channelsDomain.SyncLogStatusSuccess, "", wooProductToFields(wooProduct))
+			uc.catchUpNewListingStock(ctx, sku)
 			continue
 		}
 
@@ -213,6 +217,9 @@ func (uc *SyncProductToChannelsUseCase) syncVariations(ctx context.Context, prod
 
 		l, existed := listingByVariant[v.ID]
 		if !existed {
+			if !sku.IsVirtual {
+				resolveWooInitialStock(ctx, uc.stockLevel, sku).applyToVariation(&wooVariation)
+			}
 			created, err := client.CreateVariation(ctx, parentListing.ExternalID, wooVariation)
 			if err != nil {
 				log.Printf("syncProductToChannels: creating variation for variant %s: %v", v.ID, err)
@@ -226,6 +233,7 @@ func (uc *SyncProductToChannelsUseCase) syncVariations(ctx context.Context, prod
 			}
 			recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, newListing, channelsDomain.SyncFlowPush,
 				channelsDomain.SyncLogStatusSuccess, "", wooVariationToFields(wooVariation))
+			uc.catchUpNewListingStock(ctx, sku)
 			continue
 		}
 

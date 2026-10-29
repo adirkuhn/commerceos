@@ -159,3 +159,18 @@ func (uc *SyncProductToChannelsUseCase) forceStockCatchUp(ctx context.Context, s
 		}
 	}
 }
+
+// catchUpNewListingStock re-pushes a newly listed SKU's stock once its
+// listing row exists. The SKU's own inventory.stock.changed event (e.g.
+// the packages just portioned onto it) is usually handled while the Woo
+// create is still in flight -- no listing yet, so SyncStockToChannelsUseCase
+// had nothing to push to and that movement never reached the channel.
+// Physical SKUs only, same as wooInitialStock; nil stockCatchUp no-ops.
+func (uc *SyncProductToChannelsUseCase) catchUpNewListingStock(ctx context.Context, sku pmsDomain.SKU) {
+	if uc.stockCatchUp == nil || sku.IsVirtual {
+		return
+	}
+	if err := uc.stockCatchUp.ForceExecute(ctx, sku.ID); err != nil {
+		log.Printf("syncProductToChannels: stock catch-up for new listing of sku %s: %v", sku.ID, err)
+	}
+}

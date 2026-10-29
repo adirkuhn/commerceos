@@ -35,16 +35,10 @@ func (uc *PushProductToWooUseCase) buildWooProduct(ctx context.Context, client i
 		wooProduct.TaxStatus = *sku.WooTaxStatus
 	}
 	// Stock is only pushed for physical SKUs — a virtual SKU never has a
-	// warehouse ledger entry to report. A ledger lookup failure (e.g. no
-	// movements recorded yet) is not fatal to the push; the product just
-	// goes up without stock management.
+	// warehouse ledger entry to report. See wooInitialStock for why a
+	// lookup failure creates it out of stock instead of unmanaged.
 	if !sku.IsVirtual {
-		if level, err := uc.stockLevel.Execute(ctx, sku.ID); err == nil && level != nil {
-			qty := int(level.Syncable)
-			wooProduct.ManageStock = true
-			wooProduct.StockQuantity = &qty
-			wooProduct.MetaData = toWooMetaData(level.SourceBatch)
-		}
+		resolveWooInitialStock(ctx, uc.stockLevel, sku).applyToProduct(&wooProduct)
 	}
 	return wooProduct
 }
@@ -84,12 +78,7 @@ func (uc *PushProductToWooUseCase) buildWooVariation(ctx context.Context, vp var
 		variation.TaxStatus = *vp.SKU.WooTaxStatus
 	}
 	if !vp.SKU.IsVirtual {
-		if level, err := uc.stockLevel.Execute(ctx, vp.SKU.ID); err == nil && level != nil {
-			qty := int(level.Syncable)
-			variation.ManageStock = true
-			variation.StockQuantity = &qty
-			variation.MetaData = toWooMetaData(level.SourceBatch)
-		}
+		resolveWooInitialStock(ctx, uc.stockLevel, vp.SKU).applyToVariation(&variation)
 	}
 	return variation
 }

@@ -50,9 +50,15 @@ type bolOfferGater interface {
 // listing row for that connection, then re-pushes via PushProductToWooUseCase
 // to recreate it in the new shape from scratch.
 //
-// Stock quantity is deliberately not pushed here — that's the sync
-// schedule's job (ExportWooStockLevelsUseCase); duplicating it here would
-// just mean two code paths racing to set the same field.
+// Stock quantity is deliberately not pushed on an update of an existing
+// listing — that's SyncStockToChannelsUseCase's job; duplicating it here
+// would just mean two code paths racing to set the same field. The one
+// exception is a Woo product/variation this use case CREATES for a variant
+// added after the initial push (e.g. a "~380g" package from "split into
+// packages"): it goes up with managed stock (see wooInitialStock), then
+// stockCatchUp re-pushes that SKU's stock once its listing row exists --
+// the SKU's own stock event usually arrived while there was no listing
+// yet, and SyncStockToChannelsUseCase skips a SKU with no listing.
 type SyncProductToChannelsUseCase struct {
 	db           *gorm.DB
 	productRepo  pmsDomain.ProductRepository
@@ -67,6 +73,7 @@ type SyncProductToChannelsUseCase struct {
 	bolPusher    bolProductPusher
 	bolGater     bolOfferGater
 	stockCatchUp productStockForceSyncer
+	stockLevel   stockLevelGetter
 	mediaRepo    productMediaLister
 	categoryLink categoryLinkResolver
 	outbox       eventrecord.Enqueuer
@@ -88,6 +95,7 @@ func NewSyncProductToChannelsUseCase(
 	bolPusher bolProductPusher,
 	bolGater bolOfferGater,
 	stockCatchUp productStockForceSyncer,
+	stockLevel stockLevelGetter,
 	outbox eventrecord.Enqueuer,
 ) *SyncProductToChannelsUseCase {
 	return &SyncProductToChannelsUseCase{
@@ -95,7 +103,7 @@ func NewSyncProductToChannelsUseCase(
 		listingRepo: listingRepo, syncLogRepo: syncLogRepo,
 		connRepo: connRepo, wooFactory: wooFactory, encSecret: encryptionSecret, pusher: pusher,
 		mediaRepo: mediaRepo, categoryLink: categoryLink, bolPusher: bolPusher,
-		bolGater: bolGater, stockCatchUp: stockCatchUp,
+		bolGater: bolGater, stockCatchUp: stockCatchUp, stockLevel: stockLevel,
 		outbox: outbox,
 	}
 }

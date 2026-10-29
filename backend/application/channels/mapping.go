@@ -287,7 +287,7 @@ const wooVariantAttributeName = "Variant"
 // variation — no name/description/status of its own (inherited from the
 // parent), so the diffable surface is just price/stock/physical fields.
 func wooVariationToFields(v integrationsDomain.WooVariation) map[string]string {
-	return map[string]string{
+	fields := map[string]string{
 		"regular_price":   v.RegularPrice,
 		"sale_price":      v.SalePrice,
 		"sale_end_date":   v.SaleEndDate,
@@ -297,4 +297,6 @@ func wooVariationToFields(v integrationsDomain.WooVariation) map[string]string {
 		"height":          v.Dimensions.Height,
 		"attribute_value": v.AttributeValue,
 	}
+	addStockField(fields, v.ManageStock, v.StockQuantity)
+	return fields
 }

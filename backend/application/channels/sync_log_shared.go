@@ -189,8 +189,12 @@ func bolPricesField(prices []integrationsDomain.BolPrice) string {
 // wooProductToFields flattens the fields this codebase actually manages
 // into a snapshot suitable for diffing/logging — deliberately excludes
 // anything not sent (categories, images, SEO meta).
+//
+// stock_quantity is only present when the payload actually carried stock
+// (a newly created product) -- an update never sends it, and its absence
+// is not a change (see diffFields).
 func wooProductToFields(p integrationsDomain.WooProduct) map[string]string {
-	return map[string]string{
+	fields := map[string]string{
 		"name":          p.Name,
 		"description":   p.Description,
 		"status":        p.Status,
@@ -202,5 +206,13 @@ func wooProductToFields(p integrationsDomain.WooProduct) map[string]string {
 		"length":        p.Dimensions.Length,
 		"width":         p.Dimensions.Width,
 		"height":        p.Dimensions.Height,
+	}
+	addStockField(fields, p.ManageStock, p.StockQuantity)
+	return fields
+}
+
+func addStockField(fields map[string]string, manageStock bool, quantity *int) {
+	if manageStock && quantity != nil {
+		fields["stock_quantity"] = strconv.Itoa(*quantity)
 	}
 }

@@ -129,6 +129,6 @@ func newSyncUCWithOutbox(t *testing.T, h *harness, n int, outbox *eventrecordtes
 	t.Helper()
 	return appchannels.NewSyncProductToChannelsUseCase(
 		newMockGormDB(t, n), h.productRepo, h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
-		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo, &stubCategoryLinkResolver{}, nil, nil, nil, outbox,
+		h.connRepo, h.wooFactory, testEncryptionSecret, &stubProductPusher{}, h.mediaRepo, &stubCategoryLinkResolver{}, nil, nil, nil, nil, outbox,
 	)
 }
