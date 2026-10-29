@@ -20,4 +20,10 @@ var (
 		"The tenant's AI provider was connected or switched. data: provider, model, base_url, fallback_models.")
 	AIConnectionDisconnected = defineAction("integrations.ai_connection.disconnected",
 		"The tenant's AI provider connection was removed.")
+	MoneybirdSettingsUpdated = defineAction("integrations.moneybird_settings.updated",
+		"A Moneybird connection's settings changed (changes: administration_id, default_ledger_account_id, auto_sync, tax_rates, payment_methods, guest_contact_id). entity_id is the connection.")
+	MoneybirdDocumentSynced = defineAction("integrations.moneybird_document.synced",
+		"A quote (as an estimate) or sales order (as an external sales invoice) was booked in Moneybird. entity_id is the quote/order. data: source_type, moneybird_id, reference, payment_registered.")
+	MoneybirdDocumentSyncFailed = defineAction("integrations.moneybird_document.sync_failed",
+		"Booking a quote or sales order in Moneybird failed. entity_id is the quote/order. data: source_type, moneybird_id (when the document itself was created), reference, error.")
 )

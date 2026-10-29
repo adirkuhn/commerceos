@@ -22,6 +22,10 @@ type PaymentMethodMapping struct {
 	MoneybirdPaymentMethod string
 }
 
+// PaymentMethods are the payment methods Moneybird accepts on a payment
+// (the same list akantio_pos books with).
+var PaymentMethods = []string{"cash", "credit_card", "debit_card", "bank_transfer", "ideal", "paypal", "pin"}
+
 // Settings is one Moneybird connection's configuration.
 type Settings struct {
 	ConnectionID           string
