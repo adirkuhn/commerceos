@@ -23,6 +23,7 @@ import (
 	genintegrations "github.com/adirkuhn/commerceos/api/integrations"
 	geninventory "github.com/adirkuhn/commerceos/api/inventory"
 	genmessagecenter "github.com/adirkuhn/commerceos/api/messagecenter"
+	genmoneybird "github.com/adirkuhn/commerceos/api/moneybird"
 	gennewsletter "github.com/adirkuhn/commerceos/api/newsletter"
 	gennotifications "github.com/adirkuhn/commerceos/api/notifications"
 	genoms "github.com/adirkuhn/commerceos/api/oms"
@@ -32,6 +33,7 @@ import (
 	genprocurement "github.com/adirkuhn/commerceos/api/procurement"
 	genpromotions "github.com/adirkuhn/commerceos/api/promotions"
 	genpurchaseplanning "github.com/adirkuhn/commerceos/api/purchaseplanning"
+	genquotes "github.com/adirkuhn/commerceos/api/quotes"
 	genreports "github.com/adirkuhn/commerceos/api/reports"
 	genreviews "github.com/adirkuhn/commerceos/api/reviews"
 	genscannerauth "github.com/adirkuhn/commerceos/api/scannerauth"
@@ -42,7 +44,6 @@ import (
 	genshipping "github.com/adirkuhn/commerceos/api/shipping"
 	genstockexpiry "github.com/adirkuhn/commerceos/api/stockexpiry"
 	genstorefront "github.com/adirkuhn/commerceos/api/storefront"
-	genquotes "github.com/adirkuhn/commerceos/api/quotes"
 	gensupplierissues "github.com/adirkuhn/commerceos/api/supplierissues"
 	gensuppliers "github.com/adirkuhn/commerceos/api/suppliers"
 	gentax "github.com/adirkuhn/commerceos/api/tax"
@@ -62,6 +63,7 @@ import (
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/integrations"
 	inventoryhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/inventory"
 	messagecenterhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/messagecenter"
+	moneybirdhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/moneybird"
 	newsletterhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/newsletter"
 	notificationshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/notifications"
 	omshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/oms"
@@ -71,6 +73,7 @@ import (
 	procurementhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/procurement"
 	promotionshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/promotions"
 	purchaseplanninghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/purchaseplanning"
+	quoteshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/quotes"
 	reportshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/reports"
 	reviewshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/reviews"
 	scannerauthhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/scannerauth"
@@ -81,7 +84,6 @@ import (
 	shippinghandler "github.com/adirkuhn/commerceos/infrastructure/handlers/shipping"
 	stockexpiryhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/stockexpiry"
 	storefronthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/storefront"
-	quoteshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/quotes"
 	supplierissueshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/supplierissues"
 	supplierhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/suppliers"
 	taxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/tax"
@@ -375,6 +377,18 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	weightportionshandler.Register(weightportionsGroup, db, outboxRepo)
+
+	moneybirdSpec, err := genmoneybird.GetSpec()
+	if err != nil {
+		log.Fatalf("moneybird: load openapi spec: %v", err)
+	}
+	// Own sub-group so the moneybird-only spec validator never applies to
+	// the other modules' routes. Role guard: see moneybirdhandler.RegisterRoutes.
+	moneybirdGroup := v1.Group("")
+	moneybirdGroup.Use(ginmiddleware.OapiRequestValidatorWithOptions(moneybirdSpec, &ginmiddleware.Options{
+		SilenceServersWarning: true,
+	}))
+	moneybirdhandler.Register(moneybirdGroup, db, outboxRepo, cfg.IntegrationsEncryptionSecret)
 
 	stockexpirySpec, err := genstockexpiry.GetSpec()
 	if err != nil {

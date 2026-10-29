@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-232 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+235 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -152,6 +152,9 @@ Payload (`events.EntityAction`):
 | `integrations.connection.tested` | action | A connection's credentials were tested against the provider (changes: status). data: provider, succeeded. | envelope |
 | `integrations.connection.updated` | action | A connection's settings changed (changes: default_currency, default_warehouse_id, bol_economic_operator_id, bol_delivery_code, bol_shipping_cost_minor_units, whatsapp_test_mode_enabled, whatsapp_test_phone, whatsapp_ai_parsing_enabled, base_url, instance_name, customer_code, customer_number, sandbox, api_key -- "changed" only, never the key). data: provider. | envelope |
 | `integrations.connection.webhook_secret_set` | action | A connection's webhook signing secret was set or rotated (the secret itself is never in the event). data: provider. | envelope |
+| `integrations.moneybird_document.sync_failed` | action | Booking a quote or sales order in Moneybird failed. entity_id is the quote/order. data: source_type, moneybird_id (when the document itself was created), reference, error. | envelope |
+| `integrations.moneybird_document.synced` | action | A quote (as an estimate) or sales order (as an external sales invoice) was booked in Moneybird. entity_id is the quote/order. data: source_type, moneybird_id, reference, payment_registered. | envelope |
+| `integrations.moneybird_settings.updated` | action | A Moneybird connection's settings changed (changes: administration_id, default_ledger_account_id, auto_sync, tax_rates, payment_methods, guest_contact_id). entity_id is the connection. | envelope |
 | `integrations.provider_webhook.created` | action | CommerceOS subscribed to a provider webhook (e.g. WooCommerce order.updated). data: connection_id, provider, topic. | envelope |
 | `integrations.provider_webhook.deleted` | action | A provider webhook subscription was removed. data: connection_id, provider. | envelope |
 

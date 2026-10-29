@@ -450,5 +450,18 @@
   "CONTACT_PERSON_NAME_REQUIRED": "Give the contact person a first or last name.",
   "SALES_ORDER_NOT_EDITABLE": "This order can no longer be edited: it is from a sales channel, or already picked, shipped or closed.",
   "BOOKING_PENDING_LOT_INSUFFICIENT": "More is taken from this lot than this booking received into it.",
-  "BOOKING_SCAN_HAS_DEPENDENTS": "Other entries in this booking take stock from this receipt. Delete those first."
+  "BOOKING_SCAN_HAS_DEPENDENTS": "Other entries in this booking take stock from this receipt. Delete those first.",
+  "MONEYBIRD_NOT_CONNECTED": "Moneybird is not connected.",
+  "MONEYBIRD_NOT_CONFIGURED": "Choose a Moneybird administration and ledger account first.",
+  "MONEYBIRD_TOKEN_INVALID": "Moneybird didn't accept the API token.",
+  "MONEYBIRD_TAX_RATE_NOT_MAPPED": "A VAT rate has no Moneybird tax rate mapped.",
+  "MONEYBIRD_PAYMENT_METHOD_NOT_MAPPED": "The order's payment method has no Moneybird payment method mapped.",
+  "MONEYBIRD_DUPLICATE_REFERENCE": "Moneybird already has an invoice with this number. It was not booked again.",
+  "MONEYBIRD_DOCUMENT_LOCKED": "The estimate was already sent in Moneybird and can't be changed from here.",
+  "MONEYBIRD_NOTHING_TO_BOOK": "There are no lines to send.",
+  "MONEYBIRD_REQUEST_FAILED": "Moneybird didn't accept the request.",
+  "MONEYBIRD_RATE_LIMITED": "Moneybird is busy. Try again in a few minutes.",
+  "MONEYBIRD_TOTALS_DONT_ADD_UP": "The order's lines don't add up to its total, so it can't be booked.",
+  "MONEYBIRD_UNKNOWN_ID": "Moneybird doesn't have this administration, ledger account, tax rate or payment method.",
+  "MONEYBIRD_DUPLICATE_MAPPING": "Each VAT rate and payment method can be mapped only once."
 }

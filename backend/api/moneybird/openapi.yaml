@@ -1,0 +1,314 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Moneybird API
+  version: "1.0"
+  description: >-
+    Book quotes and sales orders in Moneybird. A quote becomes an estimate;
+    a sales order becomes an external sales invoice (CommerceOS issued it,
+    Moneybird only books it) with its payment registered when paid. One
+    Moneybird connection per shop, connected with a personal API token.
+    Sending is manual by default; auto_sync sends quotes and orders as they
+    are created and changed. An order is never booked twice: an invoice
+    with the same reference that CommerceOS didn't create is refused
+    (MONEYBIRD_DUPLICATE_REFERENCE).
+servers:
+  - url: /api/v1
+
+paths:
+  /integrations/moneybird:
+    get:
+      operationId: getMoneybirdSetup
+      summary: The Moneybird settings and the administrations, tax rates and ledger accounts they choose from
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MoneybirdSetupResponse' }
+        '404': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /integrations/moneybird/connect:
+    post:
+      operationId: connectMoneybird
+      summary: Connect Moneybird with a personal API token (connecting again replaces the token)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConnectMoneybirdRequest' }
+      responses:
+        '201':
+          description: connected
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConnectMoneybirdResponse' }
+        '422': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /integrations/moneybird/settings:
+    patch:
+      operationId: updateMoneybirdSettings
+      summary: Change the Moneybird settings -- only the fields sent change
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateMoneybirdSettingsRequest' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MoneybirdSettingsResponse' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /integrations/moneybird/quotes/{id}:
+    get:
+      operationId: getMoneybirdQuoteDocument
+      summary: Where a quote stands in Moneybird
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MoneybirdDocumentStateResponse' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /integrations/moneybird/quotes/{id}/send:
+    post:
+      operationId: sendQuoteToMoneybird
+      summary: Send a quote to Moneybird as an estimate (again updates the draft estimate)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MoneybirdDocumentResponse' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /integrations/moneybird/sales-orders/{id}:
+    get:
+      operationId: getMoneybirdSalesOrderDocument
+      summary: Where a sales order stands in Moneybird
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MoneybirdDocumentStateResponse' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /integrations/moneybird/sales-orders/{id}/send:
+    post:
+      operationId: sendSalesOrderToMoneybird
+      summary: Book a sales order in Moneybird (and its payment when paid); a booked order is left as it is
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: booked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MoneybirdDocumentResponse' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  schemas:
+    ConnectMoneybirdRequest:
+      type: object
+      required: [api_token]
+      properties:
+        api_token:
+          type: string
+          minLength: 1
+          description: Personal API token (Moneybird -> user settings -> developers). Stored encrypted, never returned.
+
+    ConnectMoneybirdResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          required: [connection_id]
+          properties:
+            connection_id: { type: string }
+        error: { nullable: true }
+
+    TaxRateMapping:
+      type: object
+      required: [rate_basis_points, moneybird_tax_rate_id]
+      properties:
+        rate_basis_points: { type: integer, minimum: 0, maximum: 10000, description: "CommerceOS VAT rate, 2100 = 21%" }
+        moneybird_tax_rate_id: { type: string, minLength: 1 }
+
+    PaymentMethodMapping:
+      type: object
+      required: [method, moneybird_payment_method]
+      properties:
+        method: { type: string, minLength: 1, description: "The order's payment method, e.g. bacs, stripe, cash" }
+        moneybird_payment_method:
+          type: string
+          enum: [cash, credit_card, debit_card, bank_transfer, ideal, paypal, pin]
+
+    MoneybirdSettings:
+      type: object
+      required: [connection_id, administration_id, administration_name, default_ledger_account_id, auto_sync, tax_rates, payment_methods]
+      properties:
+        connection_id: { type: string }
+        administration_id: { type: string }
+        administration_name: { type: string }
+        default_ledger_account_id: { type: string }
+        auto_sync: { type: boolean }
+        tax_rates:
+          type: array
+          items: { $ref: '#/components/schemas/TaxRateMapping' }
+        payment_methods:
+          type: array
+          items: { $ref: '#/components/schemas/PaymentMethodMapping' }
+
+    UpdateMoneybirdSettingsRequest:
+      type: object
+      description: Every field is optional; a field left out keeps its value. Switching administration clears the ledger account and tax rate mappings.
+      properties:
+        administration_id: { type: string, minLength: 1 }
+        default_ledger_account_id: { type: string, minLength: 1 }
+        auto_sync: { type: boolean }
+        tax_rates:
+          type: array
+          items: { $ref: '#/components/schemas/TaxRateMapping' }
+        payment_methods:
+          type: array
+          items: { $ref: '#/components/schemas/PaymentMethodMapping' }
+
+    MoneybirdSettingsResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/MoneybirdSettings' }
+        error: { nullable: true }
+
+    MoneybirdAdministration:
+      type: object
+      required: [id, name, currency]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        currency: { type: string }
+
+    MoneybirdTaxRate:
+      type: object
+      required: [id, name, percentage]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        percentage: { type: string, description: 'Moneybird''s decimal string, e.g. "21.0"' }
+
+    MoneybirdLedgerAccount:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+
+    MoneybirdSetup:
+      type: object
+      required: [settings, administrations, tax_rates, ledger_accounts, payment_methods]
+      properties:
+        settings: { $ref: '#/components/schemas/MoneybirdSettings' }
+        administrations:
+          type: array
+          items: { $ref: '#/components/schemas/MoneybirdAdministration' }
+        tax_rates:
+          type: array
+          description: Empty until an administration is chosen.
+          items: { $ref: '#/components/schemas/MoneybirdTaxRate' }
+        ledger_accounts:
+          type: array
+          description: Revenue ledger accounts; empty until an administration is chosen.
+          items: { $ref: '#/components/schemas/MoneybirdLedgerAccount' }
+        payment_methods:
+          type: array
+          description: The payment methods Moneybird accepts.
+          items: { type: string }
+
+    MoneybirdSetupResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/MoneybirdSetup' }
+        error: { nullable: true }
+
+    MoneybirdDocument:
+      type: object
+      required: [source_type, source_id, moneybird_id, reference, status, payment_registered, error, synced_at]
+      properties:
+        source_type: { type: string, enum: [quote, sales_order] }
+        source_id: { type: string }
+        moneybird_id:
+          type: string
+          description: The estimate/invoice id in Moneybird; "" when the last send failed before it was created.
+        reference: { type: string }
+        status: { type: string, enum: [synced, failed] }
+        payment_registered: { type: boolean }
+        error: { type: string, description: Why the last send failed; "" when synced. }
+        synced_at: { type: string, format: date-time }
+
+    MoneybirdDocumentResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/MoneybirdDocument' }
+        error: { nullable: true }
+
+    MoneybirdDocumentState:
+      type: object
+      required: [administration_id, auto_sync]
+      properties:
+        document:
+          allOf: [{ $ref: '#/components/schemas/MoneybirdDocument' }]
+          nullable: true
+          description: null until first sent.
+        administration_id: { type: string, description: For the link to the document in Moneybird. }
+        auto_sync: { type: boolean }
+
+    MoneybirdDocumentStateResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/MoneybirdDocumentState' }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }

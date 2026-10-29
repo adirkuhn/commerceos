@@ -450,5 +450,18 @@
   "CONTACT_PERSON_NAME_REQUIRED": "Informe o nome ou sobrenome da pessoa de contato.",
   "SALES_ORDER_NOT_EDITABLE": "Este pedido não pode mais ser editado: veio de um canal de venda, ou já foi separado, enviado ou encerrado.",
   "BOOKING_PENDING_LOT_INSUFFICIENT": "Está saindo mais deste lote do que este recebimento colocou nele.",
-  "BOOKING_SCAN_HAS_DEPENDENTS": "Outros registros deste recebimento tiram estoque desta entrada. Apague-os primeiro."
+  "BOOKING_SCAN_HAS_DEPENDENTS": "Outros registros deste recebimento tiram estoque desta entrada. Apague-os primeiro.",
+  "MONEYBIRD_NOT_CONNECTED": "O Moneybird não está conectado.",
+  "MONEYBIRD_NOT_CONFIGURED": "Escolha primeiro uma administração e uma conta contábil do Moneybird.",
+  "MONEYBIRD_TOKEN_INVALID": "O Moneybird não aceitou o token da API.",
+  "MONEYBIRD_TAX_RATE_NOT_MAPPED": "Uma alíquota de IVA não tem alíquota do Moneybird associada.",
+  "MONEYBIRD_PAYMENT_METHOD_NOT_MAPPED": "A forma de pagamento do pedido não tem forma de pagamento do Moneybird associada.",
+  "MONEYBIRD_DUPLICATE_REFERENCE": "O Moneybird já tem uma fatura com este número. Ela não foi lançada de novo.",
+  "MONEYBIRD_DOCUMENT_LOCKED": "O orçamento já foi enviado no Moneybird e não pode mais ser alterado daqui.",
+  "MONEYBIRD_NOTHING_TO_BOOK": "Não há linhas para enviar.",
+  "MONEYBIRD_REQUEST_FAILED": "O Moneybird não aceitou a solicitação.",
+  "MONEYBIRD_RATE_LIMITED": "O Moneybird está ocupado. Tente de novo em alguns minutos.",
+  "MONEYBIRD_TOTALS_DONT_ADD_UP": "As linhas do pedido não somam o total dele, então ele não pode ser lançado.",
+  "MONEYBIRD_UNKNOWN_ID": "O Moneybird não tem esta administração, conta contábil, alíquota ou forma de pagamento.",
+  "MONEYBIRD_DUPLICATE_MAPPING": "Cada alíquota de IVA e forma de pagamento só pode ser associada uma vez."
 }
