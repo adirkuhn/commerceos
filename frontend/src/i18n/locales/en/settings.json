@@ -284,7 +284,10 @@
     "saveDefaultsFailed": "Failed to save tax defaults",
     "saveRateFailed": "Failed to save tax rate",
     "storeDefaults": "Store defaults",
-    "subtitle": "Tax classes and their per-country rates"
+    "subtitle": "Tax classes and their per-country rates",
+    "makeDefault": "Make default",
+    "noDefaultClass": "No default VAT class. Products without their own VAT class get no VAT rate, so their orders and quotes are at 0%. Choose one with Make default.",
+    "defaultHasNoRate": "The default VAT class {{name}} has no rate for {{country}}. Products without their own VAT class get no VAT rate. Add a {{country}} rate to it."
   },
   "title": "Settings",
   "unknownError": "Unknown error",

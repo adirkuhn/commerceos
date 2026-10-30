@@ -286,7 +286,10 @@
     "saveDefaultsFailed": "Não foi possível salvar os padrões de impostos",
     "saveRateFailed": "Não foi possível salvar a alíquota",
     "storeDefaults": "Padrões da loja",
-    "subtitle": "Classes de imposto e suas alíquotas por país"
+    "subtitle": "Classes de imposto e suas alíquotas por país",
+    "makeDefault": "Tornar padrão",
+    "noDefaultClass": "Não há classe de IVA padrão. Produtos sem classe de IVA própria ficam sem alíquota, então os pedidos e orçamentos deles ficam com 0%. Escolha uma em Tornar padrão.",
+    "defaultHasNoRate": "A classe de IVA padrão {{name}} não tem alíquota para {{country}}. Produtos sem classe de IVA própria ficam sem alíquota. Adicione uma alíquota de {{country}} a ela."
   },
   "title": "Configurações",
   "unknownError": "Erro desconhecido",

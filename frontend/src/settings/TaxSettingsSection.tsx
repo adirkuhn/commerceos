@@ -10,6 +10,7 @@ import { useTaxRates } from '../tax/hooks/useTaxRates'
 import type { TaxClass } from '../tax/types'
 import { Dialog } from '../components/common/Dialog'
 import { useConfirm } from '../components/common/useConfirm'
+import { DefaultVatClassWarning } from './DefaultVatClassWarning'
 import { TAX_CLASSES_PATH } from './settingsPaths'
 import { apiErrorText } from '../api/apiErrorText'
 
@@ -102,6 +103,15 @@ export function TaxSettingsSection() {
     }
   }
 
+  async function handleMakeDefault(c: TaxClass) {
+    setRowError('')
+    try {
+      await update(c.id, { name: c.name, is_default: true })
+    } catch (err) {
+      setRowError(apiErrorText(err) ?? t('tax.saveClassFailed'))
+    }
+  }
+
   async function handleAddRate(taxClassId: string, country: string, ratePercent: string) {
     setRowError('')
     try {
@@ -167,6 +177,8 @@ export function TaxSettingsSection() {
         </button>
       </div>
 
+      <DefaultVatClassWarning classes={classes} rates={rates} country={settings?.default_tax_country ?? defaultTaxCountry} />
+
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-ink">{t('tax.classes')}</h3>
         <button
@@ -192,6 +204,14 @@ export function TaxSettingsSection() {
                 )}
               </div>
               <div className="flex gap-2">
+                {!c.is_default && (
+                  <button
+                    onClick={() => void handleMakeDefault(c)}
+                    className="py-1 px-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"
+                  >
+                    {t('tax.makeDefault')}
+                  </button>
+                )}
                 <button
                   onClick={() => openEditClass(c)}
                   className="py-1 px-2 rounded-lg bg-fill text-2xs text-ink-3 hover:text-accent transition-colors"

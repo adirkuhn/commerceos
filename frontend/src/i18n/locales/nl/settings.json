@@ -284,7 +284,10 @@
     "saveDefaultsFailed": "Btw-standaarden opslaan mislukt",
     "saveRateFailed": "Btw-tarief opslaan mislukt",
     "storeDefaults": "Standaardinstellingen",
-    "subtitle": "Btw-klassen en hun tarieven per land"
+    "subtitle": "Btw-klassen en hun tarieven per land",
+    "makeDefault": "Standaard maken",
+    "noDefaultClass": "Geen standaard btw-klasse. Producten zonder eigen btw-klasse krijgen geen btw-tarief, dus hun bestellingen en offertes zijn 0%. Kies er een met Standaard maken.",
+    "defaultHasNoRate": "De standaard btw-klasse {{name}} heeft geen tarief voor {{country}}. Producten zonder eigen btw-klasse krijgen geen btw-tarief. Voeg er een {{country}}-tarief aan toe."
   },
   "title": "Instellingen",
   "unknownError": "Onbekende fout",
