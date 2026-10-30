@@ -399,5 +399,9 @@
       "body": "Verstuur offertes en bestellingen naar Moneybird zodra ze worden aangemaakt of veranderen. Laat dit uit als een andere dienst je bestellingen al boekt, en verstuur ze met de hand vanaf de bestelling of offerte.",
       "label": "Automatisch versturen"
     }
+  },
+  "shippingMoved": {
+    "text": "Verzendprovider en adressen staan in Instellingen → Verzending.",
+    "link": "Verzendinstellingen openen"
   }
 }

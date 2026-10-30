@@ -22,6 +22,7 @@ import { PricingMarginSection } from '../settings/PricingMarginSection'
 import { LocalizationSettingsSection } from '../settings/LocalizationSettingsSection'
 import { TaxSettingsSection } from '../settings/TaxSettingsSection'
 import { AppearanceSection } from '../settings/appearance/AppearanceSection'
+import { ShippingSettingsSection } from '../settings/ShippingSettingsSection'
 
 interface SettingSection {
   id: string
@@ -117,6 +118,8 @@ export default function Settings() {
         {activeSection === 'company' && <CompanyProfileSection />}
 
         {activeSection === 'appearance' && <AppearanceSection />}
+
+        {activeSection === 'shipping' && <ShippingSettingsSection />}
 
         {activeSection === 'integrations' && <IntegrationsSettingsSection onConfigure={c => open(`${INTEGRATIONS_SECTION_PATH}/${encodeURIComponent(c.id)}`)} />}
 

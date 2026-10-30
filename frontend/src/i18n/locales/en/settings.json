@@ -241,8 +241,8 @@
     "pricingText": "Default target markup for recommended prices",
     "security": "Security",
     "securityText": "SSO, 2FA, IP restrictions",
-    "shipping": "Shipping rules",
-    "shippingText": "Default carriers, label format, zones",
+    "shipping": "Shipping",
+    "shippingText": "Default shipping provider, sender and return addresses",
     "tax": "Tax",
     "taxText": "Tax classes and rates",
     "appearance": "Appearance",
@@ -323,5 +323,10 @@
     "resetDefaults": "Back to defaults",
     "saveFailed": "Couldn’t save the appearance.",
     "loadFailed": "Couldn’t load the appearance."
+  },
+  "shipping": {
+    "subtitle": "The shipping provider packing preselects, and the addresses printed on labels.",
+    "noConnection": "No shipping provider is connected yet.",
+    "connect": "Connect a shipping provider"
   }
 }

@@ -157,36 +157,18 @@ describe('Empty state and admin shortcut', () => {
   })
 })
 
-describe('Default shipping provider', () => {
-  const withShipping = () => vi.mocked(shippingApi.listShippingConnections).mockResolvedValue({
-    connections: [{ id: 'mp', provider: 'myparcel', status: 'active', created_at: '2026-01-01T00:00:00Z', is_default: true, missing: [] }],
-    default_connection_id: 'mp', configured_connection_id: null,
-  })
-
-  it('an owner can change it', async () => {
+// The default shipping provider and shipping addresses moved to
+// Settings -> Shipping (they pushed the connections off a page that
+// didn't scroll); Integrations only links there.
+describe('Shipping settings', () => {
+  it('are not on the Integrations page, which links to Settings -> Shipping', async () => {
     mockRole = 'customer_owner'
-    withShipping()
+    vi.mocked(shippingApi.listShippingConnections).mockResolvedValue({
+      connections: [{ id: 'mp', provider: 'myparcel', status: 'active', created_at: '2026-01-01T00:00:00Z', is_default: true, missing: [] }],
+      default_connection_id: 'mp', configured_connection_id: null,
+    })
     renderPage()
-    expect(await screen.findByLabelText('Default shipping provider')).toBeEnabled()
-  })
-
-  it('is read-only for a non-admin', async () => {
-    mockRole = 'customer_user'
-    withShipping()
-    renderPage()
-    expect(await screen.findByLabelText('Default shipping provider')).toBeDisabled()
-  })
-
-  it('shows the shipping addresses setting next to it', async () => {
-    mockRole = 'customer_owner'
-    withShipping()
-    renderPage()
-    expect(await screen.findByRole('region', { name: 'Shipping addresses' })).toBeInTheDocument()
-  })
-
-  it('is not shown without shipping connections', async () => {
-    renderPage()
-    await screen.findByText('Connected integrations')
+    expect(await screen.findByRole('link', { name: 'Open shipping settings' })).toHaveAttribute('href', '/settings/shipping')
     expect(screen.queryByLabelText('Default shipping provider')).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Shipping addresses' })).not.toBeInTheDocument()
   })

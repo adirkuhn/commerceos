@@ -243,8 +243,8 @@
     "pricingText": "Margem padrão para os preços recomendados",
     "security": "Segurança",
     "securityText": "SSO, 2FA, restrições de IP",
-    "shipping": "Regras de envio",
-    "shippingText": "Transportadoras padrão, formato de etiqueta, zonas",
+    "shipping": "Envio",
+    "shippingText": "Provedor de envio padrão, endereços de remetente e de devolução",
     "tax": "Impostos",
     "taxText": "Classes e alíquotas de imposto",
     "appearance": "Aparência",
@@ -325,5 +325,10 @@
     "resetDefaults": "Voltar ao padrão",
     "saveFailed": "Não foi possível salvar a aparência.",
     "loadFailed": "Não foi possível carregar a aparência."
+  },
+  "shipping": {
+    "subtitle": "O provedor de envio pré-selecionado na embalagem e os endereços impressos nas etiquetas.",
+    "noConnection": "Ainda não há provedor de envio conectado.",
+    "connect": "Conectar um provedor de envio"
   }
 }

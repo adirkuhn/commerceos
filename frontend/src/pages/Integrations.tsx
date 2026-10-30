@@ -25,9 +25,7 @@ import { SHIPPING_PROVIDERS } from '../shipping/shippingProviders'
 import { useIntegrationsRoute, type ConnectionPanel } from '../integrations/hooks/useIntegrationsRoute'
 import { RecordLoading, RecordNotFound } from '../components/common/RecordStatus'
 import { canManageWebhooks } from '../integrations/integrationsPageHelpers'
-import { DefaultShippingProviderSetting } from '../shipping/DefaultShippingProviderSetting'
-import { ShippingAddressesSetting } from '../shipping/addresses/ShippingAddressesSetting'
-import { isTenantAdmin } from '../auth/roles'
+import { ShippingSettingsMovedNotice } from '../integrations/ShippingSettingsMovedNotice'
 
 export default function Integrations() {
   const { t } = useTranslation('integrations')
@@ -116,26 +114,10 @@ export default function Integrations() {
 
   return (
     <div className="flex h-full overflow-hidden">
-      <div className="flex-1 flex flex-col overflow-hidden p-5 gap-5">
+      <div className="flex-1 flex flex-col overflow-y-auto p-5 gap-5">
         {showWebhookAdmin && <WebhooksShortcut onOpen={() => setActiveNav('webhooks')} />}
 
-        {/* Mounted once the connection list is in, keyed on it, so
-            connecting/disconnecting one reloads which shipping providers
-            it offers. */}
-        {!loading && (
-          <>
-            <DefaultShippingProviderSetting
-              key={connections.map(c => c.id).join(',')}
-              token={authToken}
-              canEdit={isTenantAdmin(user?.role)}
-            />
-            <ShippingAddressesSetting
-              key={`addresses-${connections.map(c => c.id).join(',')}`}
-              token={authToken}
-              canEdit={isTenantAdmin(user?.role)}
-            />
-          </>
-        )}
+        <ShippingSettingsMovedNotice />
 
         <ConnectionsOverview
           connections={connections}

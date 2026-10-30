@@ -399,5 +399,9 @@
       "body": "Send quotes and orders to Moneybird as soon as they are created or change. Leave it off if another service already books your orders, and send them by hand from the order or quote page.",
       "label": "Send automatically"
     }
+  },
+  "shippingMoved": {
+    "text": "Shipping provider and addresses are in Settings → Shipping.",
+    "link": "Open shipping settings"
   }
 }

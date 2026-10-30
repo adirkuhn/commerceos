@@ -407,5 +407,9 @@
       "body": "Envie orçamentos e pedidos ao Moneybird assim que forem criados ou mudarem. Deixe desligado se outro serviço já lança seus pedidos, e envie-os à mão pela página do pedido ou do orçamento.",
       "label": "Enviar automaticamente"
     }
+  },
+  "shippingMoved": {
+    "text": "Provedor de envio e endereços ficam em Configurações → Envio.",
+    "link": "Abrir configurações de envio"
   }
 }

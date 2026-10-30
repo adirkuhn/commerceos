@@ -241,8 +241,8 @@
     "pricingText": "Standaard doelmarge voor aanbevolen prijzen",
     "security": "Beveiliging",
     "securityText": "SSO, 2FA, IP-beperkingen",
-    "shipping": "Verzendregels",
-    "shippingText": "Standaardvervoerders, labelformaat, zones",
+    "shipping": "Verzending",
+    "shippingText": "Standaard verzendprovider, afzender- en retouradres",
     "tax": "Belasting",
     "taxText": "Btw-klassen en -tarieven",
     "appearance": "Uiterlijk",
@@ -323,5 +323,10 @@
     "resetDefaults": "Terug naar standaard",
     "saveFailed": "Het uiterlijk kon niet worden opgeslagen.",
     "loadFailed": "Het uiterlijk kon niet worden geladen."
+  },
+  "shipping": {
+    "subtitle": "De verzendprovider die bij inpakken vooraf is gekozen, en de adressen op de labels.",
+    "noConnection": "Er is nog geen verzendprovider gekoppeld.",
+    "connect": "Verzendprovider koppelen"
   }
 }
