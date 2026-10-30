@@ -30,6 +30,11 @@ describe('pricesIncludeTax', () => {
 })
 
 describe('addLine', () => {
+  it('flags a product whose VAT rate is not configured', () => {
+    expect(addLine([], row({ tax_rate_configured: false }))[0].vatMissing).toBe(true)
+    expect(addLine([], row({ tax_rate_configured: true }))[0].vatMissing).toBe(false)
+  })
+
   it('adds a product at its sale price when one runs, else the regular price', () => {
     const lines = addLine([], row({ sale_price_minor_units: 990 }))
     expect(lines).toEqual([expect.objectContaining({ skuId: 's-1', label: 'Feijão', skuCode: 'FEI-1', quantity: 1, unitPrice: 990, taxRateBasisPoints: 2100, available: 40 })])
@@ -53,7 +58,7 @@ describe('addLine', () => {
 })
 
 const line = (over: Partial<DraftLine> = {}): DraftLine => ({
-  key: 'k1', skuId: 's-1', label: 'Feijão', skuCode: 'FEI-1', quantity: 10, unitPrice: 1210, taxRateBasisPoints: 2100, available: 40, ...over,
+  key: 'k1', skuId: 's-1', label: 'Feijão', skuCode: 'FEI-1', quantity: 10, unitPrice: 1210, taxRateBasisPoints: 2100, vatMissing: false, available: 40, ...over,
 })
 
 describe('draftTotals', () => {

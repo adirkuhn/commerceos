@@ -1508,7 +1508,7 @@ components:
 
     PriceListRow:
       type: object
-      required: [product_id, product_name, variant_name, sku_id, sku_code, unit_type, currency_code, price_minor_units, available_quantity, tax_rate_basis_points, target_markup_basis_points]
+      required: [product_id, product_name, variant_name, sku_id, sku_code, unit_type, currency_code, price_minor_units, available_quantity, tax_rate_basis_points, tax_rate_configured, target_markup_basis_points]
       properties:
         product_id: { type: string }
         product_name: { type: string }
@@ -1541,6 +1541,12 @@ components:
           nullable: true
           description: Soonest expiry among unexpired lots still holding stock.
         tax_rate_basis_points: { type: integer, format: int64 }
+        tax_rate_configured:
+          type: boolean
+          description: >-
+            false when the SKU's VAT class (or, without one, the shop's
+            default VAT class) has no rate for the shop's tax country --
+            tax_rate_basis_points is then a 0 nobody chose.
         target_markup_basis_points:
           type: integer
           description: Markup (profit / cost) below which a price is too low.

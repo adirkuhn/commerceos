@@ -48,7 +48,7 @@ func toGenPriceListRow(r apppms.PriceListRow) genpms.PriceListRow {
 		ProductId: r.ProductID, ProductName: r.ProductName, VariantName: r.VariantName,
 		SkuId: r.SKUID, SkuCode: r.SKUCode, UnitType: genpms.SKUUnitType(r.UnitType), CurrencyCode: r.CurrencyCode,
 		PriceMinorUnits: r.PriceMinorUnits, SalePriceMinorUnits: r.SalePriceMinorUnits, CostPriceMinorUnits: r.CostPriceMinorUnits,
-		AvailableQuantity: r.AvailableQuantity, TaxRateBasisPoints: r.TaxRateBasisPoints, TargetMarkupBasisPoints: r.TargetMarkupBasisPoints,
+		AvailableQuantity: r.AvailableQuantity, TaxRateBasisPoints: r.TaxRateBasisPoints, TaxRateConfigured: r.TaxRateConfigured, TargetMarkupBasisPoints: r.TargetMarkupBasisPoints,
 	}
 	if r.EarliestExpiry != nil {
 		row.EarliestExpiry = &openapi_types.Date{Time: *r.EarliestExpiry}

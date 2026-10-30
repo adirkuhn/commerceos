@@ -17,6 +17,9 @@ export interface PriceListRow {
   available_quantity: number
   earliest_expiry?: string | null
   tax_rate_basis_points: number
+  // false when no VAT rate is configured for the SKU (see the backend's
+  // PriceListRow.TaxRateConfigured) -- tax_rate_basis_points is then 0.
+  tax_rate_configured?: boolean
   target_markup_basis_points: number
 }
 

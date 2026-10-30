@@ -29,7 +29,7 @@ type priceListCategories interface {
 }
 
 type priceListTaxRates interface {
-	RateBasisPoints(ctx context.Context, taxClassID *string, country string) (int64, error)
+	Rate(ctx context.Context, taxClassID *string, country string) (rateBasisPoints int64, configured bool, err error)
 }
 
 // PriceListRow is one sellable SKU with everything needed to price it for
@@ -54,6 +54,10 @@ type PriceListRow struct {
 	AvailableQuantity   int64
 	EarliestExpiry      *time.Time
 	TaxRateBasisPoints  int64
+	// TaxRateConfigured is false when the SKU's VAT class (or, without one,
+	// the shop's default class) has no rate for the tax country -- then
+	// TaxRateBasisPoints is a 0 nobody chose, worth a warning.
+	TaxRateConfigured bool
 	// TargetMarkupBasisPoints is the markup (profit / cost) below which a
 	// price is too low -- the category override, else the tenant default.
 	TargetMarkupBasisPoints int
@@ -133,7 +137,7 @@ func (uc *ListPriceListUseCase) Execute(ctx context.Context, in ListPriceListInp
 		for i := range categories {
 			categoryByID[categories[i].ID] = &categories[i]
 		}
-		rates := taxRateCache{resolver: uc.taxRates, country: settings.DefaultTaxCountry, byClass: map[string]int64{}}
+		rates := taxRateCache{resolver: uc.taxRates, country: settings.DefaultTaxCountry, byClass: map[string]resolvedRate{}}
 
 		// A never-saved tenant reads as all zero values, but its default is
 		// tax-inclusive prices (the column defaults to true).
@@ -142,7 +146,7 @@ func (uc *ListPriceListUseCase) Execute(ctx context.Context, in ListPriceListInp
 			row := r.row
 			stock := availability[row.SKUID]
 			row.AvailableQuantity, row.EarliestExpiry = stock.Available, stock.EarliestExpiry
-			if row.TaxRateBasisPoints, err = rates.get(ctx, r.taxClassID); err != nil {
+			if row.TaxRateBasisPoints, row.TaxRateConfigured, err = rates.get(ctx, r.taxClassID); err != nil {
 				return err
 			}
 			var category *pmsDomain.Category
@@ -194,21 +198,26 @@ func activeSKURows(products []POSProductWithSKUs, today time.Time) []pendingPric
 type taxRateCache struct {
 	resolver priceListTaxRates
 	country  string
-	byClass  map[string]int64
+	byClass  map[string]resolvedRate
 }
 
-func (c *taxRateCache) get(ctx context.Context, taxClassID *string) (int64, error) {
+type resolvedRate struct {
+	basisPoints int64
+	configured  bool
+}
+
+func (c *taxRateCache) get(ctx context.Context, taxClassID *string) (int64, bool, error) {
 	key := ""
 	if taxClassID != nil {
 		key = *taxClassID
 	}
-	if rate, ok := c.byClass[key]; ok {
-		return rate, nil
+	if r, ok := c.byClass[key]; ok {
+		return r.basisPoints, r.configured, nil
 	}
-	rate, err := c.resolver.RateBasisPoints(ctx, taxClassID, c.country)
+	bp, configured, err := c.resolver.Rate(ctx, taxClassID, c.country)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
-	c.byClass[key] = rate
-	return rate, nil
+	c.byClass[key] = resolvedRate{bp, configured}
+	return bp, configured, nil
 }

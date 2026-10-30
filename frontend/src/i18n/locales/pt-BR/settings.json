@@ -289,7 +289,10 @@
     "subtitle": "Classes de imposto e suas alíquotas por país",
     "makeDefault": "Tornar padrão",
     "noDefaultClass": "Não há classe de IVA padrão. Produtos sem classe de IVA própria ficam sem alíquota, então os pedidos e orçamentos deles ficam com 0%. Escolha uma em Tornar padrão.",
-    "defaultHasNoRate": "A classe de IVA padrão {{name}} não tem alíquota para {{country}}. Produtos sem classe de IVA própria ficam sem alíquota. Adicione uma alíquota de {{country}} a ela."
+    "defaultHasNoRate": "A classe de IVA padrão {{name}} não tem alíquota para {{country}}. Produtos sem classe de IVA própria ficam sem alíquota. Adicione uma alíquota de {{country}} a ela.",
+    "noTaxCountry": "Nenhum país fiscal definido, então os produtos ficam sem alíquota de IVA. Defina em Padrões da loja.",
+    "missingVat": "Sem alíquota de IVA para {{products}}: estas linhas estão com 0%.",
+    "missingVatFix": "Defina em Configurações → Impostos"
   },
   "title": "Configurações",
   "unknownError": "Erro desconhecido",

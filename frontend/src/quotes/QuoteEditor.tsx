@@ -23,6 +23,7 @@ import { openQuoteDocument } from './openQuoteDocument'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { QuoteSaveBar } from './QuoteSaveBar'
 import { MoneybirdDocumentCard } from '../moneybird/MoneybirdDocumentCard'
+import { MissingVatWarning } from '../tax/MissingVatWarning'
 import { ProductPriceSearch } from '../pricelist/ProductPriceSearch'
 import { createQuote, updateQuote } from './quotesApi'
 import { buildQuoteInput, isSameQuote, savedQuoteInput, savedQuotePath } from './savedQuote'
@@ -186,6 +187,12 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
         </div>
       </div>
       <div className="flex-1 overflow-auto">
+        <div className="px-5 pt-2 empty:hidden">
+          <MissingVatWarning products={quote.lines.flatMap(l => {
+            const row = rowBySku.get(l.skuId)
+            return row && row.tax_rate_configured === false ? [productName(row)] : []
+          })} />
+        </div>
         {(error || pdfError) && <p role="alert" className="px-5 py-2 text-xs text-danger">{pdfError || error}</p>}
         <table className="w-full text-xs">
           <thead className="sticky top-0 z-10 bg-sunken border-b border-line">

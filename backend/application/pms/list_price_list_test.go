@@ -48,12 +48,14 @@ type stubPriceListTaxRates struct {
 	calls   int
 }
 
-func (s *stubPriceListTaxRates) RateBasisPoints(_ context.Context, taxClassID *string, _ string) (int64, error) {
+func (s *stubPriceListTaxRates) Rate(_ context.Context, taxClassID *string, _ string) (int64, bool, error) {
 	s.calls++
-	if taxClassID == nil {
-		return s.byClass[""], nil
+	key := ""
+	if taxClassID != nil {
+		key = *taxClassID
 	}
-	return s.byClass[*taxClassID], nil
+	rate, configured := s.byClass[key]
+	return rate, configured, nil
 }
 
 type priceListFixture struct {
@@ -116,12 +118,31 @@ func TestListPriceList_oneRowPerActiveSKUWithStockCostTaxAndTarget(t *testing.T)
 		ProductID: "p-1", ProductName: "Feijão", VariantName: "1kg", SKUID: "sku-1", SKUCode: "FEI-1",
 		UnitType: pmsDomain.SKUUnitTypeUnit, CurrencyCode: "EUR", PriceMinorUnits: 999, SalePriceMinorUnits: &sale,
 		CostPriceMinorUnits: &cost, AvailableQuantity: 12, EarliestExpiry: &expiry,
-		TaxRateBasisPoints: 900, TargetMarkupBasisPoints: 4000,
+		TaxRateBasisPoints: 900, TaxRateConfigured: true, TargetMarkupBasisPoints: 4000,
 	}, got.Rows[0])
 	assert.Nil(t, got.Rows[1].SalePriceMinorUnits, "an ended sale is not offered")
 	assert.Nil(t, got.Rows[1].CostPriceMinorUnits)
 	assert.Equal(t, int64(2100), got.Rows[1].TaxRateBasisPoints, "nil tax class uses the default class")
 	assert.Equal(t, 2500, got.Rows[1].TargetMarkupBasisPoints, "no category falls back to the tenant default")
+}
+
+// No default VAT class (or no rate for the tax country): the row says so,
+// so the order form and quote can warn instead of silently using 0%.
+func TestListPriceList_unconfiguredVATIsFlagged(t *testing.T) {
+	f := newPriceListFixture()
+	f.catalog.out = &apppms.ListPOSProductCatalogResult{Total: 1, Products: []apppms.POSProductWithSKUs{
+		{Product: pmsDomain.Product{ID: "p-1", Name: "Flocao"}, SKUs: []apppms.POSProductSKU{
+			{SKU: pmsDomain.SKU{ID: "sku-1", CurrencyCode: "EUR", Status: pmsDomain.SKUStatusActive}},
+		}},
+	}}
+	f.taxRates.byClass = map[string]int64{}
+
+	got, err := f.useCase(t).Execute(context.Background(), apppms.ListPriceListInput{})
+
+	require.NoError(t, err)
+	require.Len(t, got.Rows, 1)
+	assert.False(t, got.Rows[0].TaxRateConfigured)
+	assert.Zero(t, got.Rows[0].TaxRateBasisPoints)
 }
 
 func TestListPriceList_productIDsRestrictTheCatalog(t *testing.T) {

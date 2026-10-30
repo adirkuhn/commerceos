@@ -287,7 +287,10 @@
     "subtitle": "Btw-klassen en hun tarieven per land",
     "makeDefault": "Standaard maken",
     "noDefaultClass": "Geen standaard btw-klasse. Producten zonder eigen btw-klasse krijgen geen btw-tarief, dus hun bestellingen en offertes zijn 0%. Kies er een met Standaard maken.",
-    "defaultHasNoRate": "De standaard btw-klasse {{name}} heeft geen tarief voor {{country}}. Producten zonder eigen btw-klasse krijgen geen btw-tarief. Voeg er een {{country}}-tarief aan toe."
+    "defaultHasNoRate": "De standaard btw-klasse {{name}} heeft geen tarief voor {{country}}. Producten zonder eigen btw-klasse krijgen geen btw-tarief. Voeg er een {{country}}-tarief aan toe.",
+    "noTaxCountry": "Er is geen belastingland ingesteld, dus producten krijgen geen btw-tarief. Stel het in bij Winkelstandaarden.",
+    "missingVat": "Geen btw-tarief voor {{products}}: deze regels staan op 0%.",
+    "missingVatFix": "Stel het in bij Instellingen → Belasting"
   },
   "title": "Instellingen",
   "unknownError": "Onbekende fout",

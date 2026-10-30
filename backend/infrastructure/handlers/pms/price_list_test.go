@@ -34,7 +34,7 @@ func TestListPriceList_mapsRowsAndMeta(t *testing.T) {
 			ProductID: "p-1", ProductName: "Feijão", VariantName: "1kg", SKUID: "sku-1", SKUCode: "FEI-1",
 			UnitType: pmsDomain.SKUUnitTypeUnit, CurrencyCode: "EUR", PriceMinorUnits: 999, SalePriceMinorUnits: &sale,
 			CostPriceMinorUnits: &cost, AvailableQuantity: 12, EarliestExpiry: &expiry,
-			TaxRateBasisPoints: 900, TargetMarkupBasisPoints: 4000,
+			TaxRateBasisPoints: 900, TaxRateConfigured: true, TargetMarkupBasisPoints: 4000,
 		}},
 	}}}
 
@@ -46,7 +46,7 @@ func TestListPriceList_mapsRowsAndMeta(t *testing.T) {
 			"product_id": "p-1", "product_name": "Feijão", "variant_name": "1kg", "sku_id": "sku-1", "sku_code": "FEI-1",
 			"unit_type": "unit", "currency_code": "EUR", "price_minor_units": 999, "sale_price_minor_units": 899,
 			"cost_price_minor_units": 500, "available_quantity": 12, "earliest_expiry": "2026-12-01",
-			"tax_rate_basis_points": 900, "target_markup_basis_points": 4000
+			"tax_rate_basis_points": 900, "tax_rate_configured": true, "target_markup_basis_points": 4000
 		}],
 		"meta": {"total": 3, "prices_include_tax": true}
 	}`, w.Body.String())

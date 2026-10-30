@@ -37,3 +37,25 @@ func TestTaxRateResolver_propagatesRepoErrors(t *testing.T) {
 	_, err = apptax.NewTaxRateResolver(&stubTaxClassRepo{}, &stubTaxRateRepo{listErr: boom}).RateBasisPoints(context.Background(), nil, "NL")
 	assert.ErrorIs(t, err, boom)
 }
+
+// Rate says whether a rate is configured at all: a 0% rate that is set is
+// configured, a missing default class or country rate is not.
+func TestTaxRateResolver_rateSaysWhetherItIsConfigured(t *testing.T) {
+	classes := &stubTaxClassRepo{list: []taxDomain.TaxClass{{ID: "zero", IsDefault: true}, {ID: "standard"}}}
+	rates := &stubTaxRateRepo{list: []taxDomain.TaxRate{{TaxClassID: "zero", Country: "NL", RateBasisPoints: 0}}}
+	r := apptax.NewTaxRateResolver(classes, rates)
+
+	bp, configured, err := r.Rate(context.Background(), nil, "NL")
+	require.NoError(t, err)
+	assert.True(t, configured)
+	assert.Zero(t, bp)
+
+	standard := "standard"
+	_, configured, err = r.Rate(context.Background(), &standard, "NL")
+	require.NoError(t, err)
+	assert.False(t, configured)
+
+	_, configured, err = apptax.NewTaxRateResolver(&stubTaxClassRepo{}, &stubTaxRateRepo{}).Rate(context.Background(), nil, "NL")
+	require.NoError(t, err)
+	assert.False(t, configured, "no default class")
+}

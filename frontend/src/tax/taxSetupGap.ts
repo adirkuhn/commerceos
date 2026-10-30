@@ -1,4 +1,4 @@
-import type { TaxClass, TaxRate } from '../../tax/types'
+import type { TaxClass, TaxRate } from './types'
 
 export type TaxSetupGap = 'country' | 'defaultClass' | 'rate'
 

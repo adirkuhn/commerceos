@@ -46,6 +46,7 @@ export function draftFromOrder(detail: SalesOrderDetail, rows: Map<string, Price
     return {
       key: `line-${li.id}`, skuId: li.sku_id!, label: li.name, skuCode: li.sku_code, quantity: li.quantity, unitPrice: li.price_minor_units,
       taxRateBasisPoints: row ? row.tax_rate_basis_points : soldRate(li),
+      vatMissing: row?.tax_rate_configured === false,
       available: (row?.available_quantity ?? 0) + (held ? li.quantity : 0),
     }
   })

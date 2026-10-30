@@ -287,7 +287,10 @@
     "subtitle": "Tax classes and their per-country rates",
     "makeDefault": "Make default",
     "noDefaultClass": "No default VAT class. Products without their own VAT class get no VAT rate, so their orders and quotes are at 0%. Choose one with Make default.",
-    "defaultHasNoRate": "The default VAT class {{name}} has no rate for {{country}}. Products without their own VAT class get no VAT rate. Add a {{country}} rate to it."
+    "defaultHasNoRate": "The default VAT class {{name}} has no rate for {{country}}. Products without their own VAT class get no VAT rate. Add a {{country}} rate to it.",
+    "noTaxCountry": "No tax country is set, so products get no VAT rate. Set it under Store defaults.",
+    "missingVat": "No VAT rate for {{products}}: these lines are at 0%.",
+    "missingVatFix": "Set it in Settings → Tax"
   },
   "title": "Settings",
   "unknownError": "Unknown error",

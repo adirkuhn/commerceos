@@ -15,6 +15,8 @@ export interface DraftLine {
   quantity: number
   unitPrice: number
   taxRateBasisPoints: number
+  // The product has no VAT rate configured -- worth a warning, not 0% silently.
+  vatMissing: boolean
   available: number
 }
 
@@ -63,7 +65,7 @@ export function addLine(lines: DraftLine[], row: PriceListRow): DraftLine[] {
   return [...lines, {
     key: nextKey(), skuId: row.sku_id, label, skuCode: row.sku_code, quantity: 1,
     unitPrice: row.sale_price_minor_units ?? row.price_minor_units, taxRateBasisPoints: row.tax_rate_basis_points,
-    available: row.available_quantity,
+    vatMissing: row.tax_rate_configured === false, available: row.available_quantity,
   }]
 }
 

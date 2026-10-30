@@ -14,7 +14,8 @@ import { AddressFields } from './create/AddressFields'
 import { OrderCustomerCard } from './create/OrderCustomerCard'
 import { OrderItemsCard } from './create/OrderItemsCard'
 import { OrderSummaryCard } from './create/OrderSummaryCard'
-import { taxSetupGap } from './create/taxSetupGap'
+import { taxSetupGap } from '../tax/taxSetupGap'
+import { MissingVatWarning } from '../tax/MissingVatWarning'
 import { toEditInput } from './create/editDraft'
 import { useEditDraft } from './hooks/useEditDraft'
 import { draftTotals, pricesIncludeTax, toCreateInput, type OrderDraft } from './create/orderDraft'
@@ -159,6 +160,7 @@ export function CreateSalesOrderPage({ onCreate, onClose, edit }: {
                 <Link to="/settings/tax" className="underline">{t('form.taxGap.fix')}</Link>
               </p>
             )}
+            {!taxGap && <MissingVatWarning products={draft.lines.filter(l => l.vatMissing).map(l => l.label)} />}
             <OrderCustomerCard token={token ?? ''} customer={customer} onChange={chooseCustomer} onContactPerson={chooseContactPerson}
               current={edit ? edit.order.sales_order.billing : undefined} />
             <OrderItemsCard token={token ?? ''} lines={draft.lines} lineTotals={totals.lineTotals} currency={currency} onChange={l => set('lines', l)} />
