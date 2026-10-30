@@ -366,7 +366,8 @@
       "retry": "Tentar de novo",
       "update": "Atualizar no Moneybird",
       "registerPayment": "Registrar pagamento no Moneybird",
-      "sending": "Enviando…"
+      "sending": "Enviando…",
+      "bookedNoMethod": "Lançado no Moneybird. Pagamento não registrado: o pedido não tem forma de pagamento."
     },
     "admin": {
       "title": "Administração",
@@ -400,7 +401,10 @@
         "ideal": "iDEAL",
         "paypal": "PayPal",
         "pin": "PIN"
-      }
+      },
+      "noMethod": "Pedidos sem forma de pagamento",
+      "noMethodNone": "Não registrar pagamento",
+      "noMethodHint": "Pedidos feitos à mão não têm forma de pagamento. Sem registro, a fatura fica em aberto no Moneybird, para conciliar com o banco."
     },
     "auto": {
       "title": "Envio automático",

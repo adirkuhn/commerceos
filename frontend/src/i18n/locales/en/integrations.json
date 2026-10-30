@@ -358,7 +358,8 @@
       "retry": "Try again",
       "update": "Update in Moneybird",
       "registerPayment": "Register payment in Moneybird",
-      "sending": "Sending…"
+      "sending": "Sending…",
+      "bookedNoMethod": "Booked in Moneybird. Payment not registered: the order has no payment method."
     },
     "admin": {
       "title": "Administration",
@@ -392,7 +393,10 @@
         "ideal": "iDEAL",
         "paypal": "PayPal",
         "pin": "PIN"
-      }
+      },
+      "noMethod": "Orders without a payment method",
+      "noMethodNone": "Don't register a payment",
+      "noMethodHint": "Orders made by hand have no payment method. Not registering leaves the invoice open in Moneybird, to match from the bank."
     },
     "auto": {
       "title": "Auto sync",

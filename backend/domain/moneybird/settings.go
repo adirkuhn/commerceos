@@ -78,7 +78,24 @@ func (s Settings) TaxRateID(rateBasisPoints int32) (string, error) {
 	return best, nil
 }
 
+// PaymentFor is how a paid order's payment with this method is booked:
+// with the mapped Moneybird method (register=true), or not at all
+// (register=false) for an order without a payment method -- a manual
+// order -- unless the shop mapped "" too; then it is left for Moneybird to
+// match from the bank. A method that isn't mapped is an error: booking that
+// order without its payment would show it unpaid by mistake.
+func (s Settings) PaymentFor(method string) (moneybirdMethod string, register bool, err error) {
+	if mapped, ok := s.PaymentMethod(method); ok {
+		return mapped, true, nil
+	}
+	if method == "" {
+		return "", false, nil
+	}
+	return "", false, fmt.Errorf("%w: %q", ErrPaymentMethodNotMapped, method)
+}
+
 // PaymentMethod is the Moneybird payment method an order method maps to.
+// Method "" stands for orders without a payment method.
 func (s Settings) PaymentMethod(method string) (string, bool) {
 	for _, m := range s.PaymentMethods {
 		if m.Method == method && m.MoneybirdPaymentMethod != "" {

@@ -216,6 +216,7 @@ func TestSendSalesOrder_paidWithAnUnmappedMethod(t *testing.T) {
 
 	assert.True(t, errors.Is(err, mb.ErrPaymentMethodNotMapped))
 	assert.Empty(t, h.client.createdInvoices)
+	assert.Equal(t, mb.DocumentFailed, h.docs.last().Status, "shown on the order page")
 }
 
 func TestSendSalesOrder_splitPaymentRegistersEachPart(t *testing.T) {
@@ -319,4 +320,51 @@ func TestSendSalesOrder_concurrentSendOfTheSameOrderIsNotADuplicate(t *testing.T
 	assert.Equal(t, "inv-other-run", doc.MoneybirdID)
 	assert.Empty(t, h.client.createdInvoices)
 	assert.Empty(t, h.docs.saved, "nothing recorded over the other run's result")
+}
+
+// A manual order has no payment method: booked, the payment left for
+// Moneybird to match from the bank.
+func TestSendSalesOrder_noPaymentMethodBooksWithoutPayment(t *testing.T) {
+	orders := paidOrder()
+	orders.order.PaymentMethod = ""
+	h := newOrderHarness(t, orders)
+
+	doc, err := h.uc.Execute(tenantCtx(), "so-1")
+
+	require.NoError(t, err)
+	assert.Len(t, h.client.createdInvoices, 1)
+	assert.Empty(t, h.client.payments)
+	assert.Equal(t, mb.DocumentSynced, doc.Status)
+	assert.False(t, doc.PaymentRegistered)
+}
+
+// Sending it again has nothing more to do.
+func TestSendSalesOrder_noPaymentMethodAgainIsANoOp(t *testing.T) {
+	orders := paidOrder()
+	orders.order.PaymentMethod = ""
+	booked := mb.Document{SourceType: mb.SourceSalesOrder, SourceID: "so-1", MoneybirdID: "inv-1", Status: mb.DocumentSynced}
+	h := newOrderHarness(t, orders, booked)
+
+	doc, err := h.uc.Execute(tenantCtx(), "so-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, "inv-1", doc.MoneybirdID)
+	assert.Empty(t, h.client.payments)
+	assert.Empty(t, h.outbox.Subjects())
+}
+
+// The shop chose a Moneybird method for orders without one: registered as paid with it.
+func TestSendSalesOrder_noPaymentMethodUsesTheChosenMethod(t *testing.T) {
+	orders := paidOrder()
+	orders.order.PaymentMethod = ""
+	h := newOrderHarness(t, orders)
+	s := configuredSettings()
+	s.PaymentMethods = append(s.PaymentMethods, mb.PaymentMethodMapping{Method: "", MoneybirdPaymentMethod: "bank_transfer"})
+	h.settings.byConn["conn-mb"] = s
+
+	doc, err := h.uc.Execute(tenantCtx(), "so-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, []mb.Payment{{Date: "2026-10-28", Price: "12.97", Method: "bank_transfer"}}, h.client.payments)
+	assert.True(t, doc.PaymentRegistered)
 }

@@ -10,10 +10,18 @@ import { useSectionSave, type SaveSettings } from './useSectionSave'
 // as suggestions -- any other can be typed.
 const KNOWN_METHODS = ['bacs', 'cod', 'cheque', 'stripe', 'paypal', 'mollie_wc_gateway_ideal', 'cash', 'pin']
 
+// The mapping key for orders without a payment method (see the backend's
+// Settings.PaymentFor).
+const NO_METHOD = ''
+
 // Which Moneybird payment method each order payment method is registered as.
 export function PaymentMethodsSection({ setup, onSave }: { setup: MoneybirdSetup; onSave: SaveSettings }) {
   const { t } = useTranslation('integrations')
-  const [rows, setRows] = useState<PaymentMethodMapping[]>(setup.settings.payment_methods)
+  const [rows, setRows] = useState<PaymentMethodMapping[]>(setup.settings.payment_methods.filter(m => m.method !== NO_METHOD))
+  // How orders without a payment method (manual orders) are paid: '' = not
+  // registered, left for Moneybird to match from the bank.
+  const [noMethod, setNoMethod] = useState<MoneybirdPaymentMethod | ''>(
+    setup.settings.payment_methods.find(m => m.method === NO_METHOD)?.moneybird_payment_method ?? '')
   const save = useSectionSave(onSave)
   const firstMethod = setup.payment_methods[0] ?? 'bank_transfer'
 
@@ -22,7 +30,9 @@ export function PaymentMethodsSection({ setup, onSave }: { setup: MoneybirdSetup
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    void save.run({ payment_methods: rows.filter(r => r.method.trim() !== '').map(r => ({ ...r, method: r.method.trim() })) })
+    const mapped = rows.filter(r => r.method.trim() !== '').map(r => ({ ...r, method: r.method.trim() }))
+    if (noMethod) mapped.push({ method: NO_METHOD, moneybird_payment_method: noMethod })
+    void save.run({ payment_methods: mapped })
   }
 
   return (
@@ -54,6 +64,15 @@ export function PaymentMethodsSection({ setup, onSave }: { setup: MoneybirdSetup
           className="px-3 py-1.5 rounded-lg border border-line text-xs text-ink-2 hover:bg-hover">
           {t('moneybird.payments.add')}
         </button>
+        <div className="pt-1">
+          <label htmlFor="mb-pm-none" className={labelClass}>{t('moneybird.payments.noMethod')}</label>
+          <select id="mb-pm-none" value={noMethod} className={inputClass}
+            onChange={e => setNoMethod(e.target.value as MoneybirdPaymentMethod | '')}>
+            <option value="">{t('moneybird.payments.noMethodNone')}</option>
+            {setup.payment_methods.map(m => <option key={m} value={m}>{t(`moneybird.payments.methods.${m}`)}</option>)}
+          </select>
+          <p className="mt-1 text-2xs text-ink-4">{t('moneybird.payments.noMethodHint')}</p>
+        </div>
         <SectionFooter {...save} />
       </form>
     </SettingsSection>

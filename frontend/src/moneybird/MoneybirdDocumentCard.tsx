@@ -16,6 +16,9 @@ interface Props {
   // For an order: whether it is paid -- a booked, unpaid order has nothing
   // more to send until it is.
   orderPaid?: boolean
+  // For an order: its payment method; "" for a manual order without one,
+  // whose payment is booked only if the shop mapped orders without a method.
+  orderPaymentMethod?: string
   // Why the button is off right now (e.g. a quote with unsaved changes --
   // sending would send the saved version).
   blockedReason?: string
@@ -23,7 +26,7 @@ interface Props {
 
 // Where a quote or sales order stands in Moneybird, with the button to
 // send it. Nothing at all for a shop without Moneybird.
-export function MoneybirdDocumentCard({ sourceType, sourceId, orderPaid = false, blockedReason }: Props) {
+export function MoneybirdDocumentCard({ sourceType, sourceId, orderPaid = false, orderPaymentMethod, blockedReason }: Props) {
   const { token } = useAuth()
   const { t } = useTranslation('integrations')
   const mb = useMoneybirdDocument(token ?? '', sourceType, sourceId)
@@ -31,13 +34,15 @@ export function MoneybirdDocumentCard({ sourceType, sourceId, orderPaid = false,
 
   const doc = mb.state.document
   const booked = doc?.status === 'synced'
-  const done = sourceType === 'sales_order' && booked && (doc.payment_registered || !orderPaid)
+  const noMethod = orderPaymentMethod === ''
+  const done = sourceType === 'sales_order' && booked && (doc.payment_registered || !orderPaid || noMethod)
 
   let status: string
   if (!doc) status = t('moneybird.card.notSent')
   else if (doc.status === 'failed') status = t('moneybird.card.failed', { error: doc.error })
   else if (sourceType === 'quote') status = t('moneybird.card.estimateSent')
-  else status = doc.payment_registered ? t('moneybird.card.bookedPaid') : t('moneybird.card.booked')
+  else if (doc.payment_registered) status = t('moneybird.card.bookedPaid')
+  else status = orderPaid && noMethod ? t('moneybird.card.bookedNoMethod') : t('moneybird.card.booked')
 
   let action = t('moneybird.card.send')
   if (doc?.status === 'failed') action = t('moneybird.card.retry')

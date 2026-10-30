@@ -317,3 +317,12 @@ func TestDocumentStatus(t *testing.T) {
 	assert.Equal(t, mb.SourceSalesOrder, s.statusType)
 	assert.Contains(t, w.Body.String(), `"error":"boom"`)
 }
+
+func TestUpdateSettings_ordersWithoutAPaymentMethod(t *testing.T) {
+	s := &stubs{}
+	w := call(t, router(t, s), http.MethodPatch, "/api/v1/integrations/moneybird/settings",
+		`{"payment_methods":[{"method":"","moneybird_payment_method":"bank_transfer"}]}`, middleware.RoleCustomerOwner)
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Equal(t, []mb.PaymentMethodMapping{{Method: "", MoneybirdPaymentMethod: "bank_transfer"}}, *s.updateIn.PaymentMethods)
+}

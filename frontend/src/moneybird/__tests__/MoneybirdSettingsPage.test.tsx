@@ -92,6 +92,29 @@ describe('MoneybirdSettingsPage', () => {
     expect(save).toHaveBeenCalledWith({ payment_methods: [{ method: 'cash', moneybird_payment_method: 'cash' }] })
   })
 
+  it('orders without a payment method: no payment by default, or one chosen method', async () => {
+    mount()
+    const payments = section('Payment methods')
+    const noMethod = within(payments).getByLabelText('Orders without a payment method')
+    expect(noMethod).toHaveValue('')
+    expect(within(payments).getAllByLabelText('Order payment method')).toHaveLength(1)
+
+    await userEvent.selectOptions(noMethod, 'bank_transfer')
+    await userEvent.click(within(payments).getByRole('button', { name: 'Save' }))
+
+    expect(save).toHaveBeenCalledWith({ payment_methods: [
+      { method: 'bacs', moneybird_payment_method: 'bank_transfer' },
+      { method: '', moneybird_payment_method: 'bank_transfer' },
+    ] })
+  })
+
+  it('a saved mapping for orders without a payment method shows in its own row', () => {
+    mount(setup({ payment_methods: [{ method: '', moneybird_payment_method: 'cash' }] }))
+    const payments = section('Payment methods')
+    expect(within(payments).getByLabelText('Orders without a payment method')).toHaveValue('cash')
+    expect(within(payments).queryAllByLabelText('Order payment method')).toHaveLength(0)
+  })
+
   it('auto sync saves when switched', async () => {
     mount()
     await userEvent.click(screen.getByLabelText('Send automatically'))

@@ -90,19 +90,23 @@ func (uc *SendSalesOrderUseCase) Execute(ctx context.Context, orderID string) (*
 	if err != nil {
 		return nil, fmt.Errorf("sendSalesOrderToMoneybird: %w", err)
 	}
-	paid := src.order.PaymentStatus() == oms.PaymentStatusPaid
-	if prior != nil && prior.Status == mb.DocumentSynced && (prior.PaymentRegistered || !paid) {
-		return prior, nil
-	}
-
 	doc := mb.Document{
 		TenantID: acc.conn.TenantID, ConnectionID: acc.conn.ID, SourceType: mb.SourceSalesOrder, SourceID: orderID,
 		Reference: orderReference(src.order),
 	}
 	if prior != nil {
-		doc.MoneybirdID = prior.MoneybirdID
+		doc.MoneybirdID, doc.PaymentRegistered = prior.MoneybirdID, prior.PaymentRegistered
 	}
-	booked, err := uc.book(ctx, acc, src, &doc, paid)
+	var payments []mb.Payment
+	if src.order.PaymentStatus() == oms.PaymentStatusPaid {
+		if payments, err = paymentsFor(acc.settings, src); err != nil {
+			return nil, fmt.Errorf("sendSalesOrderToMoneybird: %w", uc.recorder.failed(ctx, doc, err))
+		}
+	}
+	if prior != nil && prior.Status == mb.DocumentSynced && (prior.PaymentRegistered || len(payments) == 0) {
+		return prior, nil
+	}
+	booked, err := uc.book(ctx, acc, src, &doc, payments)
 	if errors.Is(err, mb.ErrDuplicateReference) {
 		// An event for the same order sent at the same time may have booked
 		// it a moment ago -- then the invoice is ours, not a duplicate.
@@ -144,17 +148,11 @@ func (uc *SendSalesOrderUseCase) load(ctx context.Context, orderID string) (*ord
 	return &src, err
 }
 
-// book creates (or resumes) the invoice, then registers the payment.
+// book creates (or resumes) the invoice, then registers payments (none
+// for an unpaid order, or a paid one without a payment method).
 // doc.MoneybirdID is set as soon as the invoice exists, so a failure after
 // that point keeps it for the retry.
-func (uc *SendSalesOrderUseCase) book(ctx context.Context, acc *account, src *orderToBook, doc *mb.Document, paid bool) (*mb.Document, error) {
-	var payments []mb.Payment
-	if paid {
-		var err error
-		if payments, err = paymentsFor(acc.settings, src); err != nil {
-			return nil, err
-		}
-	}
+func (uc *SendSalesOrderUseCase) book(ctx context.Context, acc *account, src *orderToBook, doc *mb.Document, payments []mb.Payment) (*mb.Document, error) {
 	client := acc.client(uc.deps.Factory)
 
 	var remote *mb.RemoteDocument
@@ -172,7 +170,7 @@ func (uc *SendSalesOrderUseCase) book(ctx context.Context, acc *account, src *or
 		remote, doc.MoneybirdID = created, created.ID
 	}
 
-	if paid {
+	if len(payments) > 0 {
 		foreign, err := uc.foreignCurrency(ctx, acc, src.order.CurrencyCode)
 		if err != nil {
 			return nil, err
@@ -213,7 +211,8 @@ func (uc *SendSalesOrderUseCase) createInvoice(ctx context.Context, acc *account
 }
 
 // paymentsFor is one payment per part of a split payment, else one for the
-// whole total -- every method must be mapped.
+// whole total (see Settings.PaymentFor). None when a part has no payment
+// method to register: never only part of a sale's payment.
 func paymentsFor(s mb.Settings, src *orderToBook) ([]mb.Payment, error) {
 	date := src.order.OccurredAt
 	if src.order.DatePaid != nil {
@@ -226,9 +225,12 @@ func paymentsFor(s mb.Settings, src *orderToBook) ([]mb.Payment, error) {
 	}
 	out := make([]mb.Payment, 0, len(parts))
 	for _, p := range parts {
-		method, ok := s.PaymentMethod(p.Method)
-		if !ok {
-			return nil, fmt.Errorf("%w: %q", mb.ErrPaymentMethodNotMapped, p.Method)
+		method, register, err := s.PaymentFor(p.Method)
+		if err != nil {
+			return nil, err
+		}
+		if !register {
+			return nil, nil
 		}
 		out = append(out, mb.Payment{Date: day, Price: mb.FormatAmount(p.AmountMinorUnits), Method: method})
 	}

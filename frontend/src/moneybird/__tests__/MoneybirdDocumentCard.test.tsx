@@ -89,6 +89,17 @@ describe('MoneybirdDocumentCard', () => {
     expect(screen.getByRole('button', { name: 'Register payment in Moneybird' })).toBeInTheDocument()
   })
 
+  it('a paid order without a payment method was booked without its payment', () => {
+    vi.mocked(useMoneybirdDocument).mockReturnValue(doc({ state: { administration_id: 'adm-1', auto_sync: false, document: {
+      source_type: 'sales_order', source_id: 'so-1', moneybird_id: 'inv-9', reference: 'CO-1', status: 'synced',
+      payment_registered: false, error: '', synced_at: '2026-10-29T10:00:00Z',
+    } } }))
+    render(<MoneybirdDocumentCard sourceType="sales_order" sourceId="so-1" orderPaid orderPaymentMethod="" />)
+
+    expect(screen.getByText('Booked in Moneybird. Payment not registered: the order has no payment method.')).toBeInTheDocument()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
   it('a blocked send says why', () => {
     vi.mocked(useMoneybirdDocument).mockReturnValue(doc())
     render(<MoneybirdDocumentCard sourceType="quote" sourceId="q-1" blockedReason="Save the quote first" />)

@@ -342,7 +342,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                 <SalesOrderPaymentsCard payments={detail.payments ?? []} currency={detail.sales_order.currency_code} />
 
                 <MoneybirdDocumentCard sourceType="sales_order" sourceId={salesOrderId}
-                  orderPaid={detail.sales_order.payment_status === 'paid'} />
+                  orderPaid={detail.sales_order.payment_status === 'paid'} orderPaymentMethod={detail.sales_order.payment_method ?? ''} />
 
                 {shipments.length > 0 && token && (
                   <div className="rounded-xl border border-line p-4 space-y-3 text-xs">

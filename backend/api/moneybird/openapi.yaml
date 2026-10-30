@@ -174,7 +174,13 @@ components:
       type: object
       required: [method, moneybird_payment_method]
       properties:
-        method: { type: string, minLength: 1, description: "The order's payment method, e.g. bacs, stripe, cash" }
+        method:
+          type: string
+          description: >-
+            The order's payment method, e.g. bacs, stripe, cash. "" stands for
+            orders without a payment method (manual orders): without this
+            mapping their payment is not registered -- the invoice is booked
+            and left for Moneybird to match from the bank.
         moneybird_payment_method:
           type: string
           enum: [cash, credit_card, debit_card, bank_transfer, ideal, paypal, pin]

@@ -124,4 +124,21 @@ test.describe('Moneybird card on a sales order', () => {
     await card.scrollIntoViewIfNeeded()
     await page.screenshot({ path: 'e2e-screenshots/moneybird-order-duplicate.png', fullPage: true })
   })
+
+  test('a manual order without a payment method is booked, its payment left open', async ({ page }) => {
+    const manual = structuredClone(ORDER)
+    Object.assign(manual.sales_order, { source: 'manual', number: 'CO-1007', payment_method: '' })
+    await page.route(url => isApi(`/sales-orders/${ORDER_ID}`)(url) && !url.pathname.includes('/moneybird/'), route => route.fulfill(json(manual)))
+    await page.route(isApi(`/integrations/moneybird/sales-orders/${ORDER_ID}/send`), route => route.fulfill(json({
+      source_type: 'sales_order', source_id: ORDER_ID, moneybird_id: '4568', reference: 'CO-1007', status: 'synced',
+      payment_registered: false, error: '', synced_at: '2026-10-30T10:00:00Z',
+    })))
+
+    await page.goto(`/sales-orders/${ORDER_ID}`)
+    const card = page.getByRole('region', { name: 'Moneybird' })
+    await card.getByRole('button', { name: 'Send to Moneybird' }).click()
+
+    await expect(card.getByText('Booked in Moneybird. Payment not registered: the order has no payment method.')).toBeVisible()
+    await expect(card.getByRole('button')).toHaveCount(0)
+  })
 })

@@ -204,3 +204,13 @@ func TestUpdateSettings_unknownAdministration(t *testing.T) {
 		Execute(tenantCtx(), appmb.UpdateSettingsInput{AdministrationID: ptr("adm-9")})
 	assert.True(t, errors.Is(err, appmb.ErrUnknownMoneybirdID))
 }
+
+// "" maps orders without a payment method -- allowed once, like any method.
+func TestUpdateSettings_ordersWithoutAPaymentMethodCanBeMapped(t *testing.T) {
+	settings := newFakeSettings(configuredSettings())
+	got, err := newUpdateUC(t, settings, mbLists(), &eventrecordtest.Outbox{}).Execute(tenantCtx(), appmb.UpdateSettingsInput{
+		PaymentMethods: ptr([]mb.PaymentMethodMapping{{Method: "", MoneybirdPaymentMethod: "bank_transfer"}}),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []mb.PaymentMethodMapping{{Method: "", MoneybirdPaymentMethod: "bank_transfer"}}, got.PaymentMethods)
+}

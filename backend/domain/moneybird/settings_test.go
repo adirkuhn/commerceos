@@ -74,3 +74,25 @@ func TestFormatAmount(t *testing.T) {
 	assert.Equal(t, "0.05", moneybird.FormatAmount(5))
 	assert.Equal(t, "-3.00", moneybird.FormatAmount(-300))
 }
+
+func TestPaymentFor(t *testing.T) {
+	s := mapped()
+
+	method, register, err := s.PaymentFor("bacs")
+	require.NoError(t, err)
+	assert.True(t, register)
+	assert.Equal(t, "bank_transfer", method)
+
+	_, register, err = s.PaymentFor("")
+	require.NoError(t, err)
+	assert.False(t, register, "no method on the order: book it, leave the payment to Moneybird")
+
+	_, _, err = s.PaymentFor("stripe")
+	assert.True(t, errors.Is(err, moneybird.ErrPaymentMethodNotMapped))
+
+	s.PaymentMethods = append(s.PaymentMethods, moneybird.PaymentMethodMapping{Method: "", MoneybirdPaymentMethod: "cash"})
+	method, register, err = s.PaymentFor("")
+	require.NoError(t, err)
+	assert.True(t, register)
+	assert.Equal(t, "cash", method)
+}

@@ -358,7 +358,8 @@
       "retry": "Opnieuw proberen",
       "update": "Bijwerken in Moneybird",
       "registerPayment": "Betaling registreren in Moneybird",
-      "sending": "Versturen…"
+      "sending": "Versturen…",
+      "bookedNoMethod": "Geboekt in Moneybird. Betaling niet geregistreerd: de bestelling heeft geen betaalmethode."
     },
     "admin": {
       "title": "Administratie",
@@ -392,7 +393,10 @@
         "ideal": "iDEAL",
         "paypal": "PayPal",
         "pin": "Pin"
-      }
+      },
+      "noMethod": "Bestellingen zonder betaalmethode",
+      "noMethodNone": "Geen betaling registreren",
+      "noMethodHint": "Met de hand gemaakte bestellingen hebben geen betaalmethode. Zonder registratie blijft de factuur open in Moneybird, om met de bank te matchen."
     },
     "auto": {
       "title": "Automatisch versturen",
