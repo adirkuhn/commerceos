@@ -103,7 +103,7 @@ test.describe('Moneybird card on a sales order', () => {
 
     await expect(card.getByText('Booked in Moneybird, payment registered.')).toBeVisible()
     await expect(card.getByRole('link', { name: 'Open in Moneybird' })).toHaveAttribute('href', 'https://moneybird.com/adm-1/external_sales_invoices/4567')
-    await expect(card.getByRole('button')).toHaveCount(0)
+    await expect(card.getByRole('button', { name: /^(Send|Register payment|Update|Try again)/ })).toHaveCount(0)
     await card.scrollIntoViewIfNeeded()
     await page.screenshot({ path: 'e2e-screenshots/moneybird-order-booked.png', fullPage: true })
   })
@@ -139,6 +139,32 @@ test.describe('Moneybird card on a sales order', () => {
     await card.getByRole('button', { name: 'Send to Moneybird' }).click()
 
     await expect(card.getByText('Booked in Moneybird. Payment not registered: the order has no payment method.')).toBeVisible()
-    await expect(card.getByRole('button')).toHaveCount(0)
+    await expect(card.getByRole('button', { name: /^(Send|Register payment|Update|Try again)/ })).toHaveCount(0)
+  })
+
+  test('a booked invoice is deleted from Moneybird after two confirmations', async ({ page }) => {
+    let deletes = 0
+    const booked = { source_type: 'sales_order', source_id: ORDER_ID, moneybird_id: '4567', reference: '41235', status: 'synced',
+      payment_registered: true, error: '', synced_at: '2026-10-29T10:00:00Z' }
+    await page.route(isApi(`/integrations/moneybird/sales-orders/${ORDER_ID}`), async route => {
+      if (route.request().method() === 'DELETE') {
+        deletes++
+        return route.fulfill(json({ source_id: ORDER_ID }))
+      }
+      return route.fulfill(json({ document: booked, administration_id: 'adm-1', auto_sync: false }))
+    })
+
+    await page.goto(`/sales-orders/${ORDER_ID}`)
+    const card = page.getByRole('region', { name: 'Moneybird' })
+    await card.getByRole('button', { name: 'Delete from Moneybird' }).click()
+    await expect(page.getByRole('alertdialog')).toContainText('Delete 41235 from Moneybird?')
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Continue' }).click()
+    await expect(page.getByRole('alertdialog')).toContainText('This cannot be undone.')
+    await page.screenshot({ path: 'e2e-screenshots/moneybird-delete-confirm.png' })
+    expect(deletes).toBe(0)
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
+
+    await expect(card.getByText('Not sent to Moneybird yet.')).toBeVisible()
+    expect(deletes).toBe(1)
   })
 })

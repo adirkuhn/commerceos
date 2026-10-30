@@ -36,6 +36,9 @@ type updateSettingsUC interface {
 type sendUC interface {
 	Execute(ctx context.Context, sourceID string) (*mb.Document, error)
 }
+type deleteUC interface {
+	Execute(ctx context.Context, sourceType mb.SourceType, sourceID string) error
+}
 type statusUC interface {
 	Execute(ctx context.Context, sourceType mb.SourceType, sourceID string) (*appmb.DocumentStatus, error)
 }
@@ -47,6 +50,7 @@ type UseCases struct {
 	SendOrder sendUC
 	SendQuote sendUC
 	Status    statusUC
+	Delete    deleteUC
 }
 
 type Handler struct{ uc UseCases }
@@ -73,6 +77,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository, secret 
 		SendOrder: w.sendOrder,
 		SendQuote: w.sendQuote,
 		Status:    appmb.NewGetDocumentUseCase(db, w.conns, w.settings, w.docs, secret),
+		Delete:    appmb.NewDeleteDocumentUseCase(db, w.conns, w.settings, w.docs, w.factory, outboxRepo, secret),
 	}))
 }
 
@@ -207,6 +212,21 @@ func (h *Handler) GetMoneybirdQuoteDocument(c *gin.Context, id genmoneybird.Id) 
 	h.documentStatus(c, mb.SourceQuote, id.String())
 }
 
+func (h *Handler) DeleteMoneybirdSalesOrderDocument(c *gin.Context, id genmoneybird.Id) {
+	h.deleteDocument(c, mb.SourceSalesOrder, id.String())
+}
+
+func (h *Handler) DeleteMoneybirdQuoteDocument(c *gin.Context, id genmoneybird.Id) {
+	h.deleteDocument(c, mb.SourceQuote, id.String())
+}
+
+func (h *Handler) deleteDocument(c *gin.Context, sourceType mb.SourceType, id string) {
+	if failed(c, h.uc.Delete.Execute(c.Request.Context(), sourceType, id)) {
+		return
+	}
+	middleware.OK(c, gin.H{"source_id": id})
+}
+
 // documentState is genmoneybird.MoneybirdDocumentState with document
 // always present -- null until first sent, as the contract says.
 type documentState struct {
@@ -260,7 +280,8 @@ func failed(c *gin.Context, err error) bool {
 		return false
 	}
 	switch {
-	case errors.Is(err, mb.ErrNotConnected), errors.Is(err, oms.ErrSalesOrderNotFound), errors.Is(err, quotes.ErrQuoteNotFound):
+	case errors.Is(err, mb.ErrNotConnected), errors.Is(err, mb.ErrDocumentNotFound),
+		errors.Is(err, oms.ErrSalesOrderNotFound), errors.Is(err, quotes.ErrQuoteNotFound):
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, mb.ErrDuplicateReference), errors.Is(err, mb.ErrDocumentLocked):
 		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)

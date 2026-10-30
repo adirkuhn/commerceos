@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +18,9 @@ import (
 )
 
 const baseURL = "https://moneybird.com/api/v2"
+
+// errNotFound marks a 404, for calls where "already gone" is fine (deletes).
+var errNotFound = errors.New("not found")
 
 // sharedLimiter keeps the whole process under Moneybird's 150 requests per
 // 5 minutes per IP: a burst of 10, then one call every 2.5s (~130/5min).
@@ -87,6 +91,8 @@ func (c *client) do(ctx context.Context, method, path string, query url.Values, 
 		return mb.ErrRateLimited
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
 		return mb.ErrTokenInvalid
+	case resp.StatusCode == http.StatusNotFound:
+		return fmt.Errorf("%w: %w: %s %s", mb.ErrRequestFailed, errNotFound, method, path)
 	case resp.StatusCode >= 400:
 		return fmt.Errorf("%w: %s %s: %d %s", mb.ErrRequestFailed, method, path, resp.StatusCode, strings.TrimSpace(string(raw)))
 	}

@@ -50,6 +50,15 @@ describe('moneybird api', () => {
     expect(fetchMock.mock.calls[0][0]).toBe(`${BASE}/quotes/q-1`)
   })
 
+  it('deletes a document from Moneybird', async () => {
+    const fetchMock = mockFetch({ source_id: 'so-1' })
+    await api.deleteFromMoneybird(TOKEN, 'sales_order', 'so-1')
+    await api.deleteFromMoneybird(TOKEN, 'quote', 'q-1')
+    expect(fetchMock.mock.calls[0][0]).toBe(`${BASE}/sales-orders/so-1`)
+    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE')
+    expect(fetchMock.mock.calls[1][0]).toBe(`${BASE}/quotes/q-1`)
+  })
+
   it('throws the coded error', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: false, status: 409, json: () => Promise.resolve({ data: null, error: { code: 'MONEYBIRD_DUPLICATE_REFERENCE', message: 'dup' } }),

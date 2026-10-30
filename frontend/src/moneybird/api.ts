@@ -41,3 +41,8 @@ export function sendToMoneybird(token: string, sourceType: MoneybirdSourceType, 
 export function getMoneybirdDocument(token: string, sourceType: MoneybirdSourceType, id: string): Promise<MoneybirdDocumentState> {
   return request(`${base()}/${SOURCE_PATH[sourceType]}/${id}`, { method: 'GET' }, token)
 }
+
+// Deletes the estimate/invoice from Moneybird and unlinks it, so it can be sent again.
+export async function deleteFromMoneybird(token: string, sourceType: MoneybirdSourceType, id: string): Promise<void> {
+  await request(`${base()}/${SOURCE_PATH[sourceType]}/${id}`, { method: 'DELETE' }, token)
+}

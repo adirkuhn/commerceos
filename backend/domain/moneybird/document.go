@@ -45,6 +45,8 @@ type DocumentRepository interface {
 	Find(ctx context.Context, sourceType SourceType, sourceID string) (*Document, error)
 	// Save inserts or replaces the link for (SourceType, SourceID).
 	Save(ctx context.Context, d *Document) error
+	// Delete removes the link (no error when there is none).
+	Delete(ctx context.Context, sourceType SourceType, sourceID string) error
 }
 
 // SettingsRepository stores one Settings row per Moneybird connection.

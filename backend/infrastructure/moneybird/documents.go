@@ -2,6 +2,7 @@ package moneybird
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -192,4 +193,21 @@ func (c *client) UpdateEstimate(ctx context.Context, id string, e mb.Estimate) (
 		return nil, err
 	}
 	return j.toDomain(), nil
+}
+
+func (c *client) DeleteInvoice(ctx context.Context, id string) error {
+	return c.deleteGone(ctx, "/external_sales_invoices/"+url.PathEscape(id))
+}
+
+func (c *client) DeleteEstimate(ctx context.Context, id string) error {
+	return c.deleteGone(ctx, "/estimates/"+url.PathEscape(id))
+}
+
+// deleteGone deletes; a document already gone in Moneybird is not an error.
+func (c *client) deleteGone(ctx context.Context, path string) error {
+	err := c.do(ctx, http.MethodDelete, path, nil, nil, nil)
+	if errors.Is(err, errNotFound) {
+		return nil
+	}
+	return err
 }

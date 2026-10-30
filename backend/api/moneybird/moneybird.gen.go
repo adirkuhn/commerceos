@@ -119,6 +119,14 @@ type MoneybirdAdministration struct {
 	Name     string `json:"name"`
 }
 
+// MoneybirdDeletedResponse defines model for MoneybirdDeletedResponse.
+type MoneybirdDeletedResponse struct {
+	Data *struct {
+		SourceId string `json:"source_id"`
+	} `json:"data,omitempty"`
+	Error interface{} `json:"error,omitempty"`
+}
+
 // MoneybirdDocument defines model for MoneybirdDocument.
 type MoneybirdDocument struct {
 	// Error Why the last send failed; "" when synced.
@@ -262,12 +270,18 @@ type ServerInterface interface {
 	// ConnectMoneybird Connect Moneybird with a personal API token (connecting again replaces the token)
 	// (POST /integrations/moneybird/connect)
 	ConnectMoneybird(c *gin.Context)
+	// DeleteMoneybirdQuoteDocument Delete a quote's estimate from Moneybird and unlink it, so it can be sent again
+	// (DELETE /integrations/moneybird/quotes/{id})
+	DeleteMoneybirdQuoteDocument(c *gin.Context, id Id)
 	// GetMoneybirdQuoteDocument Where a quote stands in Moneybird
 	// (GET /integrations/moneybird/quotes/{id})
 	GetMoneybirdQuoteDocument(c *gin.Context, id Id)
 	// SendQuoteToMoneybird Send a quote to Moneybird as an estimate (again updates the draft estimate)
 	// (POST /integrations/moneybird/quotes/{id}/send)
 	SendQuoteToMoneybird(c *gin.Context, id Id)
+	// DeleteMoneybirdSalesOrderDocument Delete a sales order's invoice from Moneybird and unlink it, so it can be sent again
+	// (DELETE /integrations/moneybird/sales-orders/{id})
+	DeleteMoneybirdSalesOrderDocument(c *gin.Context, id Id)
 	// GetMoneybirdSalesOrderDocument Where a sales order stands in Moneybird
 	// (GET /integrations/moneybird/sales-orders/{id})
 	GetMoneybirdSalesOrderDocument(c *gin.Context, id Id)
@@ -312,6 +326,31 @@ func (siw *ServerInterfaceWrapper) ConnectMoneybird(c *gin.Context) {
 	}
 
 	siw.Handler.ConnectMoneybird(c)
+}
+
+// DeleteMoneybirdQuoteDocument operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMoneybirdQuoteDocument(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteMoneybirdQuoteDocument(c, id)
 }
 
 // GetMoneybirdQuoteDocument operation middleware
@@ -362,6 +401,31 @@ func (siw *ServerInterfaceWrapper) SendQuoteToMoneybird(c *gin.Context) {
 	}
 
 	siw.Handler.SendQuoteToMoneybird(c, id)
+}
+
+// DeleteMoneybirdSalesOrderDocument operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMoneybirdSalesOrderDocument(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteMoneybirdSalesOrderDocument(c, id)
 }
 
 // GetMoneybirdSalesOrderDocument operation middleware
@@ -457,8 +521,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/integrations/moneybird", wrapper.GetMoneybirdSetup)
 	router.POST(options.BaseURL+"/integrations/moneybird/connect", wrapper.ConnectMoneybird)
 	router.PATCH(options.BaseURL+"/integrations/moneybird/settings", wrapper.UpdateMoneybirdSettings)
+	router.DELETE(options.BaseURL+"/integrations/moneybird/quotes/:id", wrapper.DeleteMoneybirdQuoteDocument)
 	router.GET(options.BaseURL+"/integrations/moneybird/quotes/:id", wrapper.GetMoneybirdQuoteDocument)
 	router.POST(options.BaseURL+"/integrations/moneybird/quotes/:id/send", wrapper.SendQuoteToMoneybird)
+	router.DELETE(options.BaseURL+"/integrations/moneybird/sales-orders/:id", wrapper.DeleteMoneybirdSalesOrderDocument)
 	router.GET(options.BaseURL+"/integrations/moneybird/sales-orders/:id", wrapper.GetMoneybirdSalesOrderDocument)
 	router.POST(options.BaseURL+"/integrations/moneybird/sales-orders/:id/send", wrapper.SendSalesOrderToMoneybird)
 }
@@ -468,42 +534,44 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"AP//",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

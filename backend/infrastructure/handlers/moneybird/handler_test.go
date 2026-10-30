@@ -43,6 +43,13 @@ type stubs struct {
 	sendErr    error
 	status     *appmb.DocumentStatus
 	statusType mb.SourceType
+	deleted    []string
+	deleteErr  error
+}
+
+func (s *stubs) Delete(_ context.Context, t mb.SourceType, id string) error {
+	s.deleted = append(s.deleted, string(t)+"/"+id)
+	return s.deleteErr
 }
 
 func (s *stubs) Connect(_ context.Context, in appmb.ConnectInput) (*integrationsDomain.Connection, error) {
@@ -90,7 +97,7 @@ func router(t *testing.T, s *stubs) *gin.Engine {
 	g.Use(ginmiddleware.OapiRequestValidatorWithOptions(spec, &ginmiddleware.Options{SilenceServersWarning: true}))
 	moneybirdhandler.RegisterRoutes(g, moneybirdhandler.NewHandler(moneybirdhandler.UseCases{
 		Connect: connectFn(s.Connect), Setup: setupFn(s.Setup), Update: updateFn(s.Update),
-		SendOrder: sendFn(s.SendOrder), SendQuote: sendFn(s.SendQuote), Status: statusFn(s.Status),
+		SendOrder: sendFn(s.SendOrder), SendQuote: sendFn(s.SendQuote), Status: statusFn(s.Status), Delete: deleteFn(s.Delete),
 	}))
 	return r
 }
@@ -114,6 +121,12 @@ func (f updateFn) Execute(ctx context.Context, in appmb.UpdateSettingsInput) (*m
 type sendFn func(context.Context, string) (*mb.Document, error)
 
 func (f sendFn) Execute(ctx context.Context, id string) (*mb.Document, error) { return f(ctx, id) }
+
+type deleteFn func(context.Context, mb.SourceType, string) error
+
+func (f deleteFn) Execute(ctx context.Context, t mb.SourceType, id string) error {
+	return f(ctx, t, id)
+}
 
 type statusFn func(context.Context, mb.SourceType, string) (*appmb.DocumentStatus, error)
 
@@ -325,4 +338,26 @@ func TestUpdateSettings_ordersWithoutAPaymentMethod(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Equal(t, []mb.PaymentMethodMapping{{Method: "", MoneybirdPaymentMethod: "bank_transfer"}}, *s.updateIn.PaymentMethods)
+}
+
+func TestDeleteDocument(t *testing.T) {
+	s := &stubs{}
+	r := router(t, s)
+
+	w := call(t, r, http.MethodDelete, "/api/v1/integrations/moneybird/sales-orders/"+orderID, "", middleware.RoleCustomerOwner)
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	w = call(t, r, http.MethodDelete, "/api/v1/integrations/moneybird/quotes/"+orderID, "", middleware.RoleCustomerAdmin)
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Equal(t, []string{"sales_order/" + orderID, "quote/" + orderID}, s.deleted)
+
+	assert.Equal(t, http.StatusForbidden, call(t, r, http.MethodDelete, "/api/v1/integrations/moneybird/sales-orders/"+orderID, "", middleware.RoleCustomerUser).Code)
+	assert.Equal(t, http.StatusUnauthorized, call(t, r, http.MethodDelete, "/api/v1/integrations/moneybird/sales-orders/"+orderID, "", "").Code)
+
+	s.deleteErr = mb.ErrDocumentNotFound
+	w = call(t, r, http.MethodDelete, "/api/v1/integrations/moneybird/sales-orders/"+orderID, "", middleware.RoleCustomerOwner)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, "MONEYBIRD_DOCUMENT_NOT_FOUND", errorCode(t, w))
+
+	s.deleteErr = fmt.Errorf("x: %w", mb.ErrRequestFailed)
+	assert.Equal(t, http.StatusBadGateway, call(t, r, http.MethodDelete, "/api/v1/integrations/moneybird/sales-orders/"+orderID, "", middleware.RoleCustomerOwner).Code)
 }

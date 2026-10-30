@@ -120,6 +120,10 @@ func (f *fakeDocuments) Save(_ context.Context, d *mb.Document) error {
 	return nil
 }
 func (f *fakeDocuments) last() mb.Document { return f.saved[len(f.saved)-1] }
+func (f *fakeDocuments) Delete(_ context.Context, t mb.SourceType, id string) error {
+	delete(f.byKey, string(t)+"/"+id)
+	return nil
+}
 
 type fakeContacts struct{ byCustomer map[string]string }
 
@@ -154,12 +158,26 @@ type fakeClient struct {
 	estimates        map[string]mb.RemoteDocument
 	createdEstimates []mb.Estimate
 	updatedEstimates []mb.Estimate
+	deletedInvoices  []string
+	deletedEstimates []string
+	deleteErr        error
+}
+
+func (c *fakeClient) DeleteInvoice(_ context.Context, id string) error {
+	c.deletedInvoices = append(c.deletedInvoices, id)
+	return c.deleteErr
+}
+func (c *fakeClient) DeleteEstimate(_ context.Context, id string) error {
+	c.deletedEstimates = append(c.deletedEstimates, id)
+	return c.deleteErr
 }
 
 func (c *fakeClient) ListAdministrations(context.Context) ([]mb.Administration, error) {
 	return c.administrations, c.err
 }
-func (c *fakeClient) ListSalesTaxRates(context.Context) ([]mb.TaxRate, error) { return c.taxRates, c.err }
+func (c *fakeClient) ListSalesTaxRates(context.Context) ([]mb.TaxRate, error) {
+	return c.taxRates, c.err
+}
 func (c *fakeClient) ListRevenueLedgerAccounts(context.Context) ([]mb.LedgerAccount, error) {
 	return c.ledgers, c.err
 }
@@ -231,7 +249,7 @@ func (c *fakeClient) UpdateEstimate(_ context.Context, id string, e mb.Estimate)
 }
 
 type fakeFactory struct {
-	client          *fakeClient
+	client           *fakeClient
 	tokens, adminIDs []string
 }
 

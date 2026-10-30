@@ -126,3 +126,29 @@ func TestMoneybirdContactRepo_Integration_RemembersCustomersContact(t *testing.T
 	assert.Empty(t, before)
 	assert.Equal(t, "mb-c-2", after)
 }
+
+func TestMoneybirdDocumentRepo_Integration_Delete(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewMoneybirdDocumentRepo(db)
+	connID := seedConnectionOf(t, db, ctx, integrationsDomain.ProviderMoneybird)
+	orderID := uuid.NewString()
+
+	var found *mb.Document
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		if err := repo.Save(ctx, &mb.Document{TenantID: tenant.IDFromContext(ctx), ConnectionID: connID, SourceType: mb.SourceSalesOrder,
+			SourceID: orderID, MoneybirdID: "inv-1", Status: mb.DocumentSynced, SyncedAt: time.Now()}); err != nil {
+			return err
+		}
+		if err := repo.Delete(ctx, mb.SourceSalesOrder, orderID); err != nil {
+			return err
+		}
+		if err := repo.Delete(ctx, mb.SourceSalesOrder, orderID); err != nil { // none left: still fine
+			return err
+		}
+		var err error
+		found, err = repo.Find(ctx, mb.SourceSalesOrder, orderID)
+		return err
+	}))
+	assert.Nil(t, found)
+}

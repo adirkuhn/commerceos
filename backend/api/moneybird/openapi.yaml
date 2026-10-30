@@ -80,6 +80,23 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/MoneybirdDocumentStateResponse' }
         '404': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteMoneybirdQuoteDocument
+      summary: Delete a quote's estimate from Moneybird and unlink it, so it can be sent again
+      description: >-
+        For a document booked wrong (e.g. the wrong VAT) -- a booked
+        document can't be changed. One already deleted in Moneybird by hand
+        is just unlinked. When Moneybird refuses, nothing changes.
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: deleted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MoneybirdDeletedResponse' }
+        '404': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
 
   /integrations/moneybird/quotes/{id}/send:
     post:
@@ -110,6 +127,23 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/MoneybirdDocumentStateResponse' }
         '404': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteMoneybirdSalesOrderDocument
+      summary: Delete a sales order's invoice from Moneybird and unlink it, so it can be sent again
+      description: >-
+        For a document booked wrong (e.g. the wrong VAT) -- a booked
+        document can't be changed. One already deleted in Moneybird by hand
+        is just unlinked. When Moneybird refuses, nothing changes.
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200':
+          description: deleted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MoneybirdDeletedResponse' }
+        '404': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
 
   /integrations/moneybird/sales-orders/{id}/send:
     post:
@@ -307,6 +341,16 @@ components:
       type: object
       properties:
         data: { $ref: '#/components/schemas/MoneybirdDocumentState' }
+        error: { nullable: true }
+
+    MoneybirdDeletedResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          required: [source_id]
+          properties:
+            source_id: { type: string }
         error: { nullable: true }
 
     ErrorResponse:

@@ -114,6 +114,11 @@ type Client interface {
 	// UpdateEstimate replaces the estimate's lines and fields; Moneybird only
 	// allows it while the estimate is a draft.
 	UpdateEstimate(ctx context.Context, id string, e Estimate) (*RemoteDocument, error)
+
+	// DeleteInvoice/DeleteEstimate remove a document from Moneybird; one
+	// already gone there is not an error.
+	DeleteInvoice(ctx context.Context, id string) error
+	DeleteEstimate(ctx context.Context, id string) error
 }
 
 // ClientFactory builds a Client for an API token, scoped to an

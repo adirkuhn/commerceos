@@ -367,7 +367,14 @@
       "update": "Atualizar no Moneybird",
       "registerPayment": "Registrar pagamento no Moneybird",
       "sending": "Enviando…",
-      "bookedNoMethod": "Lançado no Moneybird. Pagamento não registrado: o pedido não tem forma de pagamento."
+      "bookedNoMethod": "Lançado no Moneybird. Pagamento não registrado: o pedido não tem forma de pagamento.",
+      "delete": "Excluir do Moneybird",
+      "deleteTitle": "Excluir {{reference}} do Moneybird?",
+      "deleteMessage": "Ele sai da sua contabilidade no Moneybird. Depois você pode enviá-lo de novo, por exemplo com o IVA certo.",
+      "deleteContinue": "Continuar",
+      "deleteSureTitle": "Excluir {{reference}} de vez?",
+      "deleteSureMessage": "Isso não pode ser desfeito.",
+      "deleteConfirm": "Excluir"
     },
     "admin": {
       "title": "Administração",

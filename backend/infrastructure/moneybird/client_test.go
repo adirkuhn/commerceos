@@ -205,3 +205,31 @@ func TestClient_requestFailedCarriesMoneybirdsReason(t *testing.T) {
 	_, err := testClient(srv, "").ListAdministrations(context.Background())
 	assert.Contains(t, err.Error(), "is not valid")
 }
+
+func TestClient_deleteInvoiceAndEstimate(t *testing.T) {
+	srv, calls := server(t, map[string]func(http.ResponseWriter){
+		"DELETE /adm/external_sales_invoices/inv-1.json": reply(204, ``),
+		"DELETE /adm/estimates/est-1.json":               reply(204, ``),
+	})
+	c := testClient(srv, "adm")
+
+	require.NoError(t, c.DeleteInvoice(context.Background(), "inv-1"))
+	require.NoError(t, c.DeleteEstimate(context.Background(), "est-1"))
+	assert.Len(t, *calls, 2)
+}
+
+// Already deleted in Moneybird by hand: nothing left to do.
+func TestClient_deleteSomethingAlreadyGoneIsNotAnError(t *testing.T) {
+	srv, _ := server(t, map[string]func(http.ResponseWriter){
+		"DELETE /adm/external_sales_invoices/inv-1.json": reply(404, `{"error":"record not found"}`),
+	})
+	require.NoError(t, testClient(srv, "adm").DeleteInvoice(context.Background(), "inv-1"))
+}
+
+func TestClient_deleteRefused(t *testing.T) {
+	srv, _ := server(t, map[string]func(http.ResponseWriter){
+		"DELETE /adm/external_sales_invoices/inv-1.json": reply(422, `{"error":"cannot delete"}`),
+	})
+	err := testClient(srv, "adm").DeleteInvoice(context.Background(), "inv-1")
+	assert.True(t, errors.Is(err, mb.ErrRequestFailed))
+}

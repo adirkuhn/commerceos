@@ -24,6 +24,8 @@ var (
 		"A Moneybird connection's settings changed (changes: administration_id, default_ledger_account_id, auto_sync, tax_rates, payment_methods, guest_contact_id). entity_id is the connection.")
 	MoneybirdDocumentSynced = defineAction("integrations.moneybird_document.synced",
 		"A quote (as an estimate) or sales order (as an external sales invoice) was booked in Moneybird. entity_id is the quote/order. data: source_type, moneybird_id, reference, payment_registered.")
+	MoneybirdDocumentDeleted = defineAction("integrations.moneybird_document.deleted",
+		"A quote's estimate or an order's invoice was deleted from Moneybird and unlinked, so it can be sent again. entity_id is the quote/order. data: source_type, moneybird_id, reference.")
 	MoneybirdDocumentSyncFailed = defineAction("integrations.moneybird_document.sync_failed",
 		"Booking a quote or sales order in Moneybird failed. entity_id is the quote/order. data: source_type, moneybird_id (when the document itself was created), reference, error.")
 )

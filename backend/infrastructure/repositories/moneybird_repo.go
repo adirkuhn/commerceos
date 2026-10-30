@@ -53,7 +53,9 @@ type MoneybirdSettingsRepo struct{ db *gorm.DB }
 
 var _ mb.SettingsRepository = (*MoneybirdSettingsRepo)(nil)
 
-func NewMoneybirdSettingsRepo(db *gorm.DB) *MoneybirdSettingsRepo { return &MoneybirdSettingsRepo{db: db} }
+func NewMoneybirdSettingsRepo(db *gorm.DB) *MoneybirdSettingsRepo {
+	return &MoneybirdSettingsRepo{db: db}
+}
 
 func (r *MoneybirdSettingsRepo) Get(ctx context.Context, connectionID string) (*mb.Settings, error) {
 	tx, err := moneybirdTx(ctx, "moneybirdSettingsRepo")
@@ -137,7 +139,9 @@ type MoneybirdDocumentRepo struct{ db *gorm.DB }
 
 var _ mb.DocumentRepository = (*MoneybirdDocumentRepo)(nil)
 
-func NewMoneybirdDocumentRepo(db *gorm.DB) *MoneybirdDocumentRepo { return &MoneybirdDocumentRepo{db: db} }
+func NewMoneybirdDocumentRepo(db *gorm.DB) *MoneybirdDocumentRepo {
+	return &MoneybirdDocumentRepo{db: db}
+}
 
 func (r *MoneybirdDocumentRepo) Find(ctx context.Context, sourceType mb.SourceType, sourceID string) (*mb.Document, error) {
 	tx, err := moneybirdTx(ctx, "moneybirdDocumentRepo")
@@ -179,6 +183,17 @@ func (r *MoneybirdDocumentRepo) Save(ctx context.Context, d *mb.Document) error 
 		return fmt.Errorf("moneybirdDocumentRepo.Save: %w", err)
 	}
 	d.ID = m.ID
+	return nil
+}
+
+func (r *MoneybirdDocumentRepo) Delete(ctx context.Context, sourceType mb.SourceType, sourceID string) error {
+	tx, err := moneybirdTx(ctx, "moneybirdDocumentRepo")
+	if err != nil {
+		return err
+	}
+	if err := tx.Where("source_type = ? AND source_id = ?", string(sourceType), sourceID).Delete(&moneybirdDocumentModel{}).Error; err != nil {
+		return fmt.Errorf("moneybirdDocumentRepo.Delete: %w", err)
+	}
 	return nil
 }
 

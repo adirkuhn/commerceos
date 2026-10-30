@@ -5,7 +5,7 @@ import { useMoneybirdDocument } from '../useMoneybirdDocument'
 import { CodedApiError } from '../../../api/codedApiError'
 import type { MoneybirdDocument } from '../../types'
 
-vi.mock('../../api', () => ({ getMoneybirdDocument: vi.fn(), sendToMoneybird: vi.fn() }))
+vi.mock('../../api', () => ({ getMoneybirdDocument: vi.fn(), sendToMoneybird: vi.fn(), deleteFromMoneybird: vi.fn() }))
 import * as api from '../../api'
 
 const booked: MoneybirdDocument = {
@@ -58,5 +58,29 @@ describe('useMoneybirdDocument', () => {
     expect(result.current.sendError).toBe('Moneybird already has an invoice with this number. It was not booked again.')
     expect(api.getMoneybirdDocument).toHaveBeenCalledTimes(2)
     expect(result.current.sending).toBe(false)
+  })
+
+  it('deletes, then shows it as not sent', async () => {
+    vi.mocked(api.getMoneybirdDocument).mockResolvedValue({ document: booked, administration_id: 'adm-1', auto_sync: false })
+    vi.mocked(api.deleteFromMoneybird).mockResolvedValue(undefined)
+    const { result } = renderHook(() => useMoneybirdDocument('t', 'sales_order', 'so-1'))
+    await waitFor(() => expect(result.current.state?.document).toEqual(booked))
+
+    await act(() => result.current.remove())
+
+    expect(api.deleteFromMoneybird).toHaveBeenCalledWith('t', 'sales_order', 'so-1')
+    expect(result.current.state?.document).toBeNull()
+  })
+
+  it('a refused delete shows why and keeps the document', async () => {
+    vi.mocked(api.getMoneybirdDocument).mockResolvedValue({ document: booked, administration_id: 'adm-1', auto_sync: false })
+    vi.mocked(api.deleteFromMoneybird).mockRejectedValue(new CodedApiError('MONEYBIRD_REQUEST_FAILED', 'x', 'cannot delete'))
+    const { result } = renderHook(() => useMoneybirdDocument('t', 'sales_order', 'so-1'))
+    await waitFor(() => expect(result.current.state?.document).toEqual(booked))
+
+    await act(() => result.current.remove())
+
+    expect(result.current.sendError).toBe("Moneybird didn't accept the request. (cannot delete)")
+    expect(result.current.state?.document).toEqual(booked)
   })
 })

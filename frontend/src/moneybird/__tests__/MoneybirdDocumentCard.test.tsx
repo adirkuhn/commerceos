@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MoneybirdDocumentCard } from '../MoneybirdDocumentCard'
@@ -11,7 +11,7 @@ import { useMoneybirdDocument } from '../hooks/useMoneybirdDocument'
 
 function doc(over: Partial<UseMoneybirdDocument> = {}): UseMoneybirdDocument {
   return {
-    connected: true, loading: false, error: null, sending: false, sendError: null, send: vi.fn().mockResolvedValue(undefined),
+    connected: true, loading: false, error: null, sending: false, sendError: null, send: vi.fn().mockResolvedValue(undefined), remove: vi.fn().mockResolvedValue(undefined),
     state: { document: null, administration_id: 'adm-1', auto_sync: false }, ...over,
   }
 }
@@ -44,7 +44,7 @@ describe('MoneybirdDocumentCard', () => {
 
     expect(screen.getByText('Booked in Moneybird, payment registered.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open in Moneybird' })).toHaveAttribute('href', 'https://moneybird.com/adm-1/external_sales_invoices/inv-9')
-    expect(screen.queryByRole('button', { name: /Moneybird/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(Send|Register payment|Update|Try again)/ })).not.toBeInTheDocument()
   })
 
   it('a sent quote can be updated and links to its estimate', () => {
@@ -83,7 +83,7 @@ describe('MoneybirdDocumentCard', () => {
     vi.mocked(useMoneybirdDocument).mockReturnValue(doc({ state }))
     const { rerender } = render(<MoneybirdDocumentCard sourceType="sales_order" sourceId="so-1" />)
     expect(screen.getByText('Booked in Moneybird.')).toBeInTheDocument()
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(Send|Register payment|Update|Try again)/ })).not.toBeInTheDocument()
 
     rerender(<MoneybirdDocumentCard sourceType="sales_order" sourceId="so-1" orderPaid />)
     expect(screen.getByRole('button', { name: 'Register payment in Moneybird' })).toBeInTheDocument()
@@ -97,7 +97,7 @@ describe('MoneybirdDocumentCard', () => {
     render(<MoneybirdDocumentCard sourceType="sales_order" sourceId="so-1" orderPaid orderPaymentMethod="" />)
 
     expect(screen.getByText('Booked in Moneybird. Payment not registered: the order has no payment method.')).toBeInTheDocument()
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(Send|Register payment|Update|Try again)/ })).not.toBeInTheDocument()
   })
 
   it('a blocked send says why', () => {
@@ -112,5 +112,43 @@ describe('MoneybirdDocumentCard', () => {
     vi.mocked(useMoneybirdDocument).mockReturnValue(doc({ sending: true }))
     render(<MoneybirdDocumentCard sourceType="sales_order" sourceId="so-1" />)
     expect(screen.getByRole('button', { name: 'Sending…' })).toBeDisabled()
+  })
+
+  it('deletes from Moneybird only after two confirmations', async () => {
+    const d = doc({ state: { administration_id: 'adm-1', auto_sync: false, document: {
+      source_type: 'sales_order', source_id: 'so-1', moneybird_id: 'inv-9', reference: 'CO-1002', status: 'synced',
+      payment_registered: false, error: '', synced_at: '2026-10-29T10:00:00Z',
+    } } })
+    vi.mocked(useMoneybirdDocument).mockReturnValue(d)
+    render(<MoneybirdDocumentCard sourceType="sales_order" sourceId="so-1" />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete from Moneybird' }))
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Continue' }))
+    expect(d.remove).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('This cannot be undone')
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
+
+    expect(d.remove).toHaveBeenCalled()
+  })
+
+  it('cancelling either confirmation deletes nothing', async () => {
+    const d = doc({ state: { administration_id: 'adm-1', auto_sync: false, document: {
+      source_type: 'sales_order', source_id: 'so-1', moneybird_id: 'inv-9', reference: 'CO-1002', status: 'synced',
+      payment_registered: false, error: '', synced_at: '2026-10-29T10:00:00Z',
+    } } })
+    vi.mocked(useMoneybirdDocument).mockReturnValue(d)
+    render(<MoneybirdDocumentCard sourceType="sales_order" sourceId="so-1" />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete from Moneybird' }))
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Continue' }))
+    await userEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Cancel' }))
+
+    expect(d.remove).not.toHaveBeenCalled()
+  })
+
+  it('nothing to delete before it was sent', () => {
+    vi.mocked(useMoneybirdDocument).mockReturnValue(doc())
+    render(<MoneybirdDocumentCard sourceType="sales_order" sourceId="so-1" />)
+    expect(screen.queryByRole('button', { name: 'Delete from Moneybird' })).not.toBeInTheDocument()
   })
 })

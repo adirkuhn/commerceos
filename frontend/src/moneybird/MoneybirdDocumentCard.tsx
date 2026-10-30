@@ -1,7 +1,8 @@
-import { ExternalLink, Send } from 'lucide-react'
+import { ExternalLink, Send, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { useMoneybirdDocument } from './hooks/useMoneybirdDocument'
+import { useConfirm } from '../components/common/useConfirm'
 import type { MoneybirdDocument, MoneybirdSourceType } from './types'
 
 const DOCUMENT_PATH: Record<MoneybirdSourceType, string> = { quote: 'estimates', sales_order: 'external_sales_invoices' }
@@ -30,6 +31,7 @@ export function MoneybirdDocumentCard({ sourceType, sourceId, orderPaid = false,
   const { token } = useAuth()
   const { t } = useTranslation('integrations')
   const mb = useMoneybirdDocument(token ?? '', sourceType, sourceId)
+  const { confirm, confirmDialog } = useConfirm()
   if (!mb.connected || !mb.state) return null
 
   const doc = mb.state.document
@@ -49,6 +51,15 @@ export function MoneybirdDocumentCard({ sourceType, sourceId, orderPaid = false,
   else if (booked && sourceType === 'quote') action = t('moneybird.card.update')
   else if (booked) action = t('moneybird.card.registerPayment')
 
+  // Two confirmations: a booked invoice is bookkeeping, and the delete
+  // can't be undone.
+  const confirmDelete = async () => {
+    const what = { reference: doc?.reference ?? '' }
+    if (!(await confirm({ title: t('moneybird.card.deleteTitle', what), message: t('moneybird.card.deleteMessage'), confirmLabel: t('moneybird.card.deleteContinue') }))) return
+    if (!(await confirm({ title: t('moneybird.card.deleteSureTitle', what), message: t('moneybird.card.deleteSureMessage'), confirmLabel: t('moneybird.card.deleteConfirm'), destructive: true }))) return
+    await mb.remove()
+  }
+
   return (
     <section aria-label={t('moneybird.name')} className="rounded-xl border border-line bg-raised p-4 space-y-2">
       <div className="flex items-center justify-between gap-3">
@@ -63,12 +74,21 @@ export function MoneybirdDocumentCard({ sourceType, sourceId, orderPaid = false,
       <p className={doc?.status === 'failed' ? 'text-xs text-danger' : 'text-xs text-ink-3'}>{status}</p>
       {mb.state.auto_sync && <p className="text-2xs text-ink-4">{t('moneybird.card.autoSyncOn')}</p>}
       {mb.sendError && <p role="alert" className="text-xs text-danger">{mb.sendError}</p>}
+      <div className="flex flex-wrap items-center gap-2">
       {!done && (
         <button type="button" onClick={() => void mb.send()} disabled={mb.sending || Boolean(blockedReason)} title={blockedReason}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50">
           <Send size={12} aria-hidden /> {mb.sending ? t('moneybird.card.sending') : action}
         </button>
       )}
+      {doc && (
+        <button type="button" onClick={() => void confirmDelete()} disabled={mb.sending}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line text-xs text-ink-3 hover:text-danger hover:border-danger/40 disabled:opacity-50">
+          <Trash2 size={12} aria-hidden /> {t('moneybird.card.delete')}
+        </button>
+      )}
+      </div>
+      {confirmDialog}
     </section>
   )
 }

@@ -29,6 +29,7 @@ func (f *fakeOrders) FindByID(_ context.Context, id string) (*oms.SalesOrder, er
 	o := f.order
 	return &o, nil
 }
+
 type fakeLines struct{ orders *fakeOrders }
 
 func (f fakeLines) ListBySalesOrder(_ context.Context, _ string) ([]oms.SalesOrderLineItem, error) {
@@ -41,7 +42,9 @@ func (f fakePayments) ListBySalesOrder(_ context.Context, _ string) (oms.SalesOr
 	return f.orders.payments, nil
 }
 
-type fakeCustomers struct{ byID map[string]customersDomain.Customer }
+type fakeCustomers struct {
+	byID map[string]customersDomain.Customer
+}
 
 func (f *fakeCustomers) FindByID(_ context.Context, id string) (*customersDomain.Customer, error) {
 	c, ok := f.byID[id]

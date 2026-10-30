@@ -359,7 +359,14 @@
       "update": "Bijwerken in Moneybird",
       "registerPayment": "Betaling registreren in Moneybird",
       "sending": "Versturen…",
-      "bookedNoMethod": "Geboekt in Moneybird. Betaling niet geregistreerd: de bestelling heeft geen betaalmethode."
+      "bookedNoMethod": "Geboekt in Moneybird. Betaling niet geregistreerd: de bestelling heeft geen betaalmethode.",
+      "delete": "Verwijderen uit Moneybird",
+      "deleteTitle": "{{reference}} verwijderen uit Moneybird?",
+      "deleteMessage": "Het verdwijnt uit je boekhouding in Moneybird. Daarna kun je het opnieuw versturen, bijvoorbeeld met de juiste btw.",
+      "deleteContinue": "Doorgaan",
+      "deleteSureTitle": "{{reference}} definitief verwijderen?",
+      "deleteSureMessage": "Dit kan niet ongedaan worden gemaakt.",
+      "deleteConfirm": "Verwijderen"
     },
     "admin": {
       "title": "Administratie",

@@ -16,6 +16,8 @@ export interface UseMoneybirdDocument {
   sending: boolean
   sendError: string | null
   send: () => Promise<void>
+  // Deletes the document from Moneybird; a refusal shows in sendError.
+  remove: () => Promise<void>
 }
 
 // Where a quote or order stands in Moneybird, and sending it there.
@@ -61,5 +63,18 @@ export function useMoneybirdDocument(token: string, sourceType: MoneybirdSourceT
     }
   }, [token, sourceType, id, load])
 
-  return { connected, state, loading, error, sending, sendError, send }
+  const remove = useCallback(async () => {
+    setSending(true)
+    setSendError(null)
+    try {
+      await api.deleteFromMoneybird(token, sourceType, id)
+      setState(prev => prev ? { ...prev, document: null } : prev)
+    } catch (err) {
+      setSendError(apiErrorText(err) ?? i18next.t('integrations:moneybird.sendFailed'))
+    } finally {
+      setSending(false)
+    }
+  }, [token, sourceType, id])
+
+  return { connected, state, loading, error, sending, sendError, send, remove }
 }

@@ -463,5 +463,6 @@
   "MONEYBIRD_RATE_LIMITED": "O Moneybird está ocupado. Tente de novo em alguns minutos.",
   "MONEYBIRD_TOTALS_DONT_ADD_UP": "As linhas do pedido não somam o total dele, então ele não pode ser lançado.",
   "MONEYBIRD_UNKNOWN_ID": "O Moneybird não tem esta administração, conta contábil, alíquota ou forma de pagamento.",
-  "MONEYBIRD_DUPLICATE_MAPPING": "Cada alíquota de IVA e forma de pagamento só pode ser associada uma vez."
+  "MONEYBIRD_DUPLICATE_MAPPING": "Cada alíquota de IVA e forma de pagamento só pode ser associada uma vez.",
+  "MONEYBIRD_DOCUMENT_NOT_FOUND": "Isto nunca foi enviado ao Moneybird."
 }

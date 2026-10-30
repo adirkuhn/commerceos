@@ -463,5 +463,6 @@
   "MONEYBIRD_RATE_LIMITED": "Moneybird is druk. Probeer het over een paar minuten opnieuw.",
   "MONEYBIRD_TOTALS_DONT_ADD_UP": "De regels van de bestelling tellen niet op tot het totaal, dus hij kan niet worden geboekt.",
   "MONEYBIRD_UNKNOWN_ID": "Moneybird kent deze administratie, grootboekrekening, dit btw-tarief of deze betaalmethode niet.",
-  "MONEYBIRD_DUPLICATE_MAPPING": "Elk btw-tarief en elke betaalmethode kan maar één keer worden gekoppeld."
+  "MONEYBIRD_DUPLICATE_MAPPING": "Elk btw-tarief en elke betaalmethode kan maar één keer worden gekoppeld.",
+  "MONEYBIRD_DOCUMENT_NOT_FOUND": "Dit is nooit naar Moneybird verstuurd."
 }

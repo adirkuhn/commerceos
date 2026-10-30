@@ -359,7 +359,14 @@
       "update": "Update in Moneybird",
       "registerPayment": "Register payment in Moneybird",
       "sending": "Sending…",
-      "bookedNoMethod": "Booked in Moneybird. Payment not registered: the order has no payment method."
+      "bookedNoMethod": "Booked in Moneybird. Payment not registered: the order has no payment method.",
+      "delete": "Delete from Moneybird",
+      "deleteTitle": "Delete {{reference}} from Moneybird?",
+      "deleteMessage": "It is removed from your books in Moneybird. Afterwards you can send it again, e.g. with the right VAT.",
+      "deleteContinue": "Continue",
+      "deleteSureTitle": "Delete {{reference}} for good?",
+      "deleteSureMessage": "This cannot be undone.",
+      "deleteConfirm": "Delete"
     },
     "admin": {
       "title": "Administration",

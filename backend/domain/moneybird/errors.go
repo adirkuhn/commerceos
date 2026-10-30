@@ -20,7 +20,9 @@ var (
 	// ErrDocumentLocked: the estimate was sent/accepted in Moneybird and
 	// can no longer be changed from here.
 	ErrDocumentLocked = errs.NewWithCause("MONEYBIRD_DOCUMENT_LOCKED", "the Moneybird document can no longer be changed")
-	ErrNothingToBook  = errs.New("MONEYBIRD_NOTHING_TO_BOOK", "there are no lines to book")
-	ErrRequestFailed  = errs.NewWithCause("MONEYBIRD_REQUEST_FAILED", "Moneybird request failed")
-	ErrRateLimited    = errs.New("MONEYBIRD_RATE_LIMITED", "Moneybird is busy, try again in a few minutes")
+	// ErrDocumentNotFound: the quote/order was never sent to Moneybird.
+	ErrDocumentNotFound = errs.New("MONEYBIRD_DOCUMENT_NOT_FOUND", "this was never sent to Moneybird")
+	ErrNothingToBook    = errs.New("MONEYBIRD_NOTHING_TO_BOOK", "there are no lines to book")
+	ErrRequestFailed    = errs.NewWithCause("MONEYBIRD_REQUEST_FAILED", "Moneybird request failed")
+	ErrRateLimited      = errs.New("MONEYBIRD_RATE_LIMITED", "Moneybird is busy, try again in a few minutes")
 )
