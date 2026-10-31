@@ -123,6 +123,8 @@ jobs:
       - uses: actions/checkout@v5
       - name: deploy.sh tests
         run: deploy/prod/deploy_test.sh
+      - name: Admin frontend startup config tests
+        run: frontend/docker/write-config_test.sh
       - name: Production compose is valid
         working-directory: deploy/prod
         run: |
@@ -165,8 +167,8 @@ jobs:
         with:
           platforms: arm64
       - uses: docker/setup-buildx-action@v3
-      # Admin frontend URLs are compiled in (Vite); they come from the
-      # repository's Actions variables. Unused by the other images.
+      # No server settings are baked in: the admin frontend reads them at
+      # startup from the server's .env (frontend/docker/write-config.sh).
       - name: Build (${{ env.PLATFORM }})
         uses: docker/build-push-action@v6
         with:
@@ -174,12 +176,6 @@ jobs:
           platforms: ${{ env.PLATFORM }}
           load: true
           tags: ${{ env.LOCAL_IMAGE }}
-          build-args: |
-            VITE_LM2_LOGIN_URL=${{ vars.VITE_LM2_LOGIN_URL }}
-            VITE_LM2_CALLBACK_PATH=${{ vars.VITE_LM2_CALLBACK_PATH }}
-            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
-            VITE_STOREFRONT_URL=${{ vars.VITE_STOREFRONT_URL }}
-            VITE_DESIGN_DEFAULT=${{ vars.VITE_DESIGN_DEFAULT }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,scope=${{ matrix.image }},mode=max
       - name: Programs run on ${{ env.PLATFORM }} (QEMU)
@@ -228,12 +224,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VITE_LM2_LOGIN_URL=${{ vars.VITE_LM2_LOGIN_URL }}
-            VITE_LM2_CALLBACK_PATH=${{ vars.VITE_LM2_CALLBACK_PATH }}
-            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
-            VITE_STOREFRONT_URL=${{ vars.VITE_STOREFRONT_URL }}
-            VITE_DESIGN_DEFAULT=${{ vars.VITE_DESIGN_DEFAULT }}
           cache-from: type=gha,scope=${{ matrix.image }}
       - name: Summary
         env:

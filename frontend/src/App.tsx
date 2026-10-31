@@ -19,8 +19,9 @@ import { PAGE_ROUTES, SUB_PAGE_ROUTES } from './routes'
 import { useApp } from './context/AppContext'
 import { GO_TO_SHORTCUTS } from './components/layout/navConfig'
 import { useGoToShortcuts } from './shortcuts/useGoToShortcuts'
+import { appEnv } from './config/appEnv'
 
-const CALLBACK_PATH = (import.meta.env.VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
+const CALLBACK_PATH = (appEnv().VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
 const SCANNER_CALLBACK_PATH = '/scanner/auth/callback'
 const ACCEPT_INVITE_PATH = '/accept-invite'
 

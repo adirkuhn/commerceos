@@ -1,8 +1,9 @@
 import { CodedApiError, codedRequest } from '../codedRequest'
 import type { NotificationPreferences, NotificationPreferencesInput } from './types'
+import { appEnv } from '../../config/appEnv'
 
 function url(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/settings/notification-preferences`
+  return `${appEnv().VITE_API_BASE_URL}/settings/notification-preferences`
 }
 
 const RECIPIENT_CODES = new Set(['NOTIFICATION_RECIPIENT_INVALID', 'NOTIFICATION_TOO_MANY_RECIPIENTS', 'NOTIFICATION_RECIPIENTS_REQUIRED'])

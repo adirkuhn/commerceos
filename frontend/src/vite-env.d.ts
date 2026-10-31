@@ -17,3 +17,8 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// Written by the frontend container at startup (/config.js, from the
+// server's .env) -- see src/config/appEnv.ts.
+// eslint-disable-next-line no-var
+declare var __COMMERCEOS_CONFIG__: Partial<Record<keyof ImportMetaEnv, string>> | undefined

@@ -4,9 +4,10 @@ import type {
   ShippingAddresses, UpdateShippingAddressesInput, PostNLAccount, UpdatePostNLAccountInput,
 } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/shipping`
+  return `${appEnv().VITE_API_BASE_URL}/shipping`
 }
 
 async function request<T>(path: string, options: RequestInit, token: string): Promise<T> {

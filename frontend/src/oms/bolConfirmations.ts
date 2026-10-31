@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next'
 import type { APIResponse } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 // Mirrors api/bolconfirmations/openapi.yaml's BolShipmentConfirmation: one
 // attempt to tell Bol a Bol order shipped, and what Bol made of it.
@@ -32,7 +33,7 @@ export interface BolShipmentConfirmation {
 
 // listBolShipmentConfirmations returns the order's attempts, newest first.
 export async function listBolShipmentConfirmations(token: string, salesOrderId: string): Promise<BolShipmentConfirmation[]> {
-  const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/sales-orders/${salesOrderId}/bol-shipment-confirmations`, {
+  const res = await fetch(`${appEnv().VITE_API_BASE_URL}/sales-orders/${salesOrderId}/bol-shipment-confirmations`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
   })

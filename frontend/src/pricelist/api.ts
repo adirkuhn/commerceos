@@ -1,5 +1,6 @@
 import { CodedApiError } from '../api/codedApiError'
 import type { PriceListPage, PriceListQuery, PriceListRow } from './types'
+import { appEnv } from '../config/appEnv'
 
 interface PriceListResponse {
   data: PriceListRow[] | null
@@ -15,7 +16,7 @@ export async function listPriceList(token: string, query: PriceListQuery): Promi
   if (query.productIds?.length) qs.set('product_ids', query.productIds.join(','))
   const params = qs.toString()
 
-  const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pms/price-list${params ? `?${params}` : ''}`, {
+  const res = await fetch(`${appEnv().VITE_API_BASE_URL}/pms/price-list${params ? `?${params}` : ''}`, {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
   })
   const body: PriceListResponse = await res.json()
@@ -27,7 +28,7 @@ export async function listPriceList(token: string, query: PriceListQuery): Promi
 
 /** Sets the SKU's cost without pinning it: the next goods receipt still blends into it. */
 export async function setAutomaticCostPrice(token: string, skuId: string, costMinorUnits: number): Promise<void> {
-  const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/pms/skus/${skuId}/cost-price/automatic`, {
+  const res = await fetch(`${appEnv().VITE_API_BASE_URL}/pms/skus/${skuId}/cost-price/automatic`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ cost_price_minor_units: costMinorUnits }),

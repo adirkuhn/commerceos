@@ -6,9 +6,10 @@ import type {
   APIResponse,
 } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function apiBase(): string {
-  return import.meta.env.VITE_API_BASE_URL
+  return appEnv().VITE_API_BASE_URL
 }
 
 function base(): string {

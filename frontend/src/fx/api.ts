@@ -1,8 +1,9 @@
 import type { ExchangeRate, UpsertExchangeRateInput, APIResponse } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/fx`
+  return `${appEnv().VITE_API_BASE_URL}/fx`
 }
 
 async function request<T>(

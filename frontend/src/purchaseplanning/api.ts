@@ -1,8 +1,9 @@
 import type { APIResponse, CreatePlanOrderInput, CreatedPurchaseOrder, ReorderRecommendations, ReorderRecommendationsQuery, SeasonEvent, SeasonPlan, SeasonPlanQuery } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/procurement`
+  return `${appEnv().VITE_API_BASE_URL}/procurement`
 }
 
 async function request<T>(path: string, token: string, init: RequestInit = { method: 'GET' }): Promise<T> {

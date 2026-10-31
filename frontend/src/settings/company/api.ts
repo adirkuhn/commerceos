@@ -1,8 +1,9 @@
 import { CodedApiError, codedRequest } from '../codedRequest'
 import type { CompanyProfile, CompanyProfileField, CompanyProfileInput } from './types'
+import { appEnv } from '../../config/appEnv'
 
 function url(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/settings/company-profile`
+  return `${appEnv().VITE_API_BASE_URL}/settings/company-profile`
 }
 
 // Backend error code -> the form field it belongs to (see

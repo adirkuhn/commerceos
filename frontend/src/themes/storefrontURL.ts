@@ -1,9 +1,10 @@
 import type { ThemePreference } from '../theme/themePreference'
+import { appEnv } from '../config/appEnv'
 
 // Where the storefront app (shops + theme editor) is served: /store on
 // VITE_STOREFRONT_URL, or on the API's own origin when that isn't set
 // (the storefront is path-mounted on API_DOMAIN -- see docker-compose.yml).
-export function storefrontOrigin(env: { VITE_STOREFRONT_URL?: string; VITE_API_BASE_URL?: string } = import.meta.env): string {
+export function storefrontOrigin(env: { VITE_STOREFRONT_URL?: string; VITE_API_BASE_URL?: string } = appEnv()): string {
   if (env.VITE_STOREFRONT_URL) return env.VITE_STOREFRONT_URL.replace(/\/+$/, '')
   try {
     return new URL(env.VITE_API_BASE_URL ?? '').origin

@@ -1,8 +1,9 @@
 import type { SalesSummaryReport, ProductPerformanceReport, ProductPerformanceMatrix, CustomerPerformanceReport, CategoryPerformanceReport, SlowMovingProductsReport, ProfitabilityReport, ProfitabilityTrendReport, RevenueByChannelReport, InventorySalesReport, BusinessInsightsReport, SalesTrendsReport, SalesTrendGranularity, ShipmentsReport, ShipmentGranularity, ShipmentBasis, ProductLifecycleReport, CustomerCohortsReport, PromotionPerformanceReport, CustomerRFMReport, FrequentlyBoughtTogetherReport, StockoutRiskReport, ProductRecommendationsReport, APIResponse } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/reports`
+  return `${appEnv().VITE_API_BASE_URL}/reports`
 }
 
 async function request<T>(

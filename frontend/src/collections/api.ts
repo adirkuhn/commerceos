@@ -1,8 +1,9 @@
 import type { Collection, CollectionInput } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/collections`
+  return `${appEnv().VITE_API_BASE_URL}/collections`
 }
 
 interface Envelope<T> {

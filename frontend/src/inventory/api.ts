@@ -8,9 +8,10 @@ import type {
   DiscardBatchInput, DiscardRecord, DiscardRecordReport, ListDiscardsParams, ListDiscardsResult,
 } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/inventory`
+  return `${appEnv().VITE_API_BASE_URL}/inventory`
 }
 
 async function request<T>(

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import * as api from './api'
 import ProviderWebhooksPanel from './ProviderWebhooksPanel'
 import { apiErrorText } from '../api/apiErrorText'
+import { appEnv } from '../config/appEnv'
 
 // The webhook receiver itself lives at a URL outside VITE_API_BASE_URL's
 // per-domain convention (see ../api.ts's base()) -- it's the single
@@ -10,7 +11,7 @@ import { apiErrorText } from '../api/apiErrorText'
 // on the API's root router, not under /integrations. Built here rather
 // than exported from api.ts since it's pure display, no request involved.
 function webhookURL(tenantId: string, provider: string): string {
-  const apiBase = (import.meta.env.VITE_API_BASE_URL as string) ?? ''
+  const apiBase = (appEnv().VITE_API_BASE_URL as string) ?? ''
   return `${apiBase}/webhooks/v1/${tenantId}/${provider}`
 }
 

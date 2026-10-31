@@ -1,8 +1,9 @@
 import type { SalesOrder, SalesOrderDetail, SalesOrderStatus, SalesOrderSource, CreateSalesOrderInput, EditSalesOrderInput, UpdateSalesOrderInput, APIResponse, SalesOrderSortField, SortDirection, LinkLineItemSKUInput, RetryStockDecrementResult, ForceAcceptStockResult, SalesOrderActivity, SalesOrderLineChange, PickList, OrderQueue } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/sales-orders`
+  return `${appEnv().VITE_API_BASE_URL}/sales-orders`
 }
 
 async function request<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
@@ -94,7 +95,7 @@ export function listPackingQueue(token: string, params: { page?: number; perPage
   if (params.page) qs.set('page', String(params.page))
   if (params.perPage) qs.set('per_page', String(params.perPage))
   const query = qs.toString()
-  return request<OrderQueue>(`${import.meta.env.VITE_API_BASE_URL}/packing-queue${query ? `?${query}` : ''}`, token)
+  return request<OrderQueue>(`${appEnv().VITE_API_BASE_URL}/packing-queue${query ? `?${query}` : ''}`, token)
 }
 
 // Picking list mode: marks the whole order picked in one action.
@@ -109,7 +110,7 @@ export function listPickingQueue(token: string, params: { page?: number; perPage
   if (params.page) qs.set('page', String(params.page))
   if (params.perPage) qs.set('per_page', String(params.perPage))
   const query = qs.toString()
-  return request<OrderQueue>(`${import.meta.env.VITE_API_BASE_URL}/picking-queue${query ? `?${query}` : ''}`, token)
+  return request<OrderQueue>(`${appEnv().VITE_API_BASE_URL}/picking-queue${query ? `?${query}` : ''}`, token)
 }
 
 export function getPickList(token: string, salesOrderIds: string[]): Promise<PickList> {

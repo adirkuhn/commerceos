@@ -1,8 +1,9 @@
 import type { TenantSettings, TenantSettingsInput, ApiKey, ApiKeyCreated, APIResponse } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/settings`
+  return `${appEnv().VITE_API_BASE_URL}/settings`
 }
 
 async function request<T>(

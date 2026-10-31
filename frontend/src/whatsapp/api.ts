@@ -1,8 +1,9 @@
 import type { WhatsAppConversation, WhatsAppConversationMessage, APIResponse } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/whatsapp`
+  return `${appEnv().VITE_API_BASE_URL}/whatsapp`
 }
 
 async function request<T>(path: string, token: string, method: string = 'GET'): Promise<T> {

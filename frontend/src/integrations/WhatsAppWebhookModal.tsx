@@ -6,6 +6,7 @@ import * as api from './api'
 import type { Connection } from './types'
 import { Dialog } from '../components/common/Dialog'
 import { apiErrorText } from '../api/apiErrorText'
+import { appEnv } from '../config/appEnv'
 
 // The webhook receiver lives outside VITE_API_BASE_URL's per-domain
 // convention -- see integrations/WooCommerceSyncSettingsPage.tsx's own
@@ -18,7 +19,7 @@ import { apiErrorText } from '../api/apiErrorText'
 // so breaks the old URL immediately, so the old value must be replaced in
 // evolution-go's webhook settings right after.
 function webhookURL(tenantId: string, secret: string): string {
-  const apiBase = (import.meta.env.VITE_API_BASE_URL as string) ?? ''
+  const apiBase = (appEnv().VITE_API_BASE_URL as string) ?? ''
   return `${apiBase}/webhooks/v1/${tenantId}/whatsapp/${secret}`
 }
 

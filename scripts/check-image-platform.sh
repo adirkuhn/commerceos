@@ -24,6 +24,7 @@ backend)
 	;;
 frontend)
 	check "nginx config ok"  "successful" "$(run nginx -t)"
+	check "writes config at start" "40-commerceos-config.sh" "$(run ls /docker-entrypoint.d)"
 	;;
 storefront)
 	check "node runs"        "v24" "$(run node --version)"

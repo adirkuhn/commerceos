@@ -8,6 +8,7 @@ import type { ShippingCarrierOverride } from './types'
 import * as integrationsApi from '../integrations/api'
 import ProviderWebhooksPanel from '../integrations/ProviderWebhooksPanel'
 import { apiErrorText } from '../api/apiErrorText'
+import { appEnv } from '../config/appEnv'
 
 // Same tier as WooCommerceSyncSettingsPage's webhook-secret tab -- exposes
 // a signing secret + the ability to register/remove live provider
@@ -22,7 +23,7 @@ function canManageWebhooks(role: string | undefined): boolean {
 // convention, the single unauthenticated route mounted at
 // /webhooks/v1/{tenant_id}/{provider} on the API's root router.
 function webhookURL(tenantId: string): string {
-  const apiBase = (import.meta.env.VITE_API_BASE_URL as string) ?? ''
+  const apiBase = (appEnv().VITE_API_BASE_URL as string) ?? ''
   return `${apiBase}/webhooks/v1/${tenantId}/myparcel`
 }
 

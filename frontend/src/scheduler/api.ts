@@ -1,8 +1,9 @@
 import type { Job, SyncScheduleRow, APIResponse } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/scheduler`
+  return `${appEnv().VITE_API_BASE_URL}/scheduler`
 }
 
 async function request<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {

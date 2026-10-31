@@ -1,8 +1,9 @@
 import type { SessionPurpose, SessionToken, Theme, ThemePreset, VersionSummary } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/theme`
+  return `${appEnv().VITE_API_BASE_URL}/theme`
 }
 
 interface Envelope<T> {

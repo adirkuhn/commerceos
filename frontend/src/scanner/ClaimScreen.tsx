@@ -5,6 +5,7 @@ import * as api from './api'
 import { CameraScanner } from './CameraScanner'
 import { hasLoginUrl, APP_ID, lm2Origin } from '../auth/loginConfig'
 import { apiErrorText } from '../api/apiErrorText'
+import { appEnv } from '../config/appEnv'
 
 interface ClaimScreenProps {
   onClaimed: (token: string) => void
@@ -174,7 +175,7 @@ export function ClaimScreen({ onClaimed }: ClaimScreenProps) {
         <CameraScanner onDecode={handleCameraDecode} onClose={() => setCameraOpen(false)} />
       )}
 
-      {hasLoginUrl(import.meta.env) && (
+      {hasLoginUrl(appEnv()) && (
         <div className="w-full max-w-xs space-y-3">
           <div className="flex items-center gap-3 text-2xs text-gray-400">
             <div className="h-px flex-1 bg-night-700" />

@@ -1,8 +1,9 @@
 import type { TaxClass, CreateTaxClassInput, UpdateTaxClassInput, TaxRate, UpsertTaxRateInput, ExternalTaxClassLink, UpsertExternalTaxClassLinkInput, APIResponse } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/tax`
+  return `${appEnv().VITE_API_BASE_URL}/tax`
 }
 
 async function request<T>(

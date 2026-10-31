@@ -1,8 +1,9 @@
 import type { Supplier, SupplierInput, APIResponse } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/suppliers`
+  return `${appEnv().VITE_API_BASE_URL}/suppliers`
 }
 
 async function request<T>(

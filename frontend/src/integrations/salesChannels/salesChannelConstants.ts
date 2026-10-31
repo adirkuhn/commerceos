@@ -1,5 +1,6 @@
 import i18next from 'i18next'
 import type { EnrollmentMode, ChannelType } from '../types'
+import { appEnv } from '../../config/appEnv'
 
 export const ENROLLMENT_MODES: EnrollmentMode[] = ['all', 'category', 'tag', 'manual']
 
@@ -71,7 +72,7 @@ export function headlessApiEndpoints(): { method: string; path: string; summary:
 }
 
 export function apiBaseURL(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/storefront/v1`
+  return `${appEnv().VITE_API_BASE_URL}/storefront/v1`
 }
 
 export const CONNECTION_REQUIRED_TYPES: ChannelType[] = CHANNEL_TYPES.filter(t => t !== INTERNAL_TYPE)

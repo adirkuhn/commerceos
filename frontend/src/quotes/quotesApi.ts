@@ -1,5 +1,6 @@
 import { CodedApiError } from '../api/codedApiError'
 import type { ConvertQuoteResult, QuoteInput, QuoteStockCheck, SavedQuote, SavedQuotePage, SavedQuoteSummary } from './types'
+import { appEnv } from '../config/appEnv'
 
 interface Envelope<T> {
   data: T | null
@@ -7,7 +8,7 @@ interface Envelope<T> {
   error: { code: string; message: string } | null
 }
 
-const base = () => import.meta.env.VITE_API_BASE_URL
+const base = () => appEnv().VITE_API_BASE_URL
 
 async function call<T>(token: string, path: string, init: RequestInit = {}): Promise<Envelope<T>> {
   const res = await fetch(`${base()}${path}`, {

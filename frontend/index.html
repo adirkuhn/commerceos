@@ -6,6 +6,9 @@
     <title>CommerceOS</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="theme-color" content="#2F33B8" />
+    <!-- Settings the container writes at startup from the server's .env
+         (frontend/docker/write-config.sh); empty in dev. See src/config/appEnv.ts. -->
+    <script src="/config.js"></script>
     <script>
       // Apply the appearance before first paint (no light/dark flash).
       // Mirrors src/theme/themePreference.ts -- keep the key in sync.
@@ -15,7 +18,8 @@
         if (dark) document.documentElement.classList.add('dark')
       } catch (e) {}
       // Design (classic | depot) -- mirrors src/theme/designPreference.ts.
-      var design = '%VITE_DESIGN_DEFAULT%' === 'classic' ? 'classic' : 'depot'
+      var designDefault = (window.__COMMERCEOS_CONFIG__ || {}).VITE_DESIGN_DEFAULT || '%VITE_DESIGN_DEFAULT%'
+      var design = designDefault === 'classic' ? 'classic' : 'depot'
       try {
         var stored = localStorage.getItem('commerceos.design')
         if (stored === 'classic' || stored === 'depot') design = stored

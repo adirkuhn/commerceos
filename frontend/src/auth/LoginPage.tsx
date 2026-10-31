@@ -3,9 +3,10 @@ import { Trans, useTranslation } from 'react-i18next'
 import { hasLoginUrl, APP_ID, lm2Origin } from './loginConfig'
 import { AuthLayout, primaryButtonClass, secondaryButtonClass } from './AuthLayout'
 import { apiErrorText } from '../api/apiErrorText'
+import { appEnv } from '../config/appEnv'
 
-const LM2_LOGIN_URL = import.meta.env.VITE_LM2_LOGIN_URL as string
-const CALLBACK_PATH = (import.meta.env.VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
+const LM2_LOGIN_URL = appEnv().VITE_LM2_LOGIN_URL as string
+const CALLBACK_PATH = (appEnv().VITE_LM2_CALLBACK_PATH as string) ?? '/auth/callback'
 
 function ConfigMissing() {
   const { t } = useTranslation('auth')
@@ -22,7 +23,7 @@ export function LoginPage() {
   const [googleError, setGoogleError] = useState<string | null>(null)
   const [googleLoading, setGoogleLoading] = useState(false)
 
-  if (!hasLoginUrl(import.meta.env)) {
+  if (!hasLoginUrl(appEnv())) {
     return <ConfigMissing />
   }
 

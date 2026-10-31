@@ -1,8 +1,9 @@
 import { codedRequest } from '../codedRequest'
 import type { Appearance, AppearanceSettings } from '../../theme/appearance'
+import { appEnv } from '../../config/appEnv'
 
 function url(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/settings/appearance`
+  return `${appEnv().VITE_API_BASE_URL}/settings/appearance`
 }
 
 // GET /settings/appearance: the shop's admin look (defaults, with

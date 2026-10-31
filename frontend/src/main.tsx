@@ -5,9 +5,10 @@ import { initI18n } from './i18n/i18n'
 import { defaultDesign } from './theme/designPreference'
 import { initDesign } from './theme/useDesign'
 import './index.css'
+import { appEnv } from './config/appEnv'
 
 initI18n()
-initDesign(defaultDesign(import.meta.env.VITE_DESIGN_DEFAULT))
+initDesign(defaultDesign(appEnv().VITE_DESIGN_DEFAULT))
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

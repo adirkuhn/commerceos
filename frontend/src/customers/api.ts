@@ -1,8 +1,9 @@
 import type { ContactPerson, ContactPersonInput, Customer, CustomerInput, WhatsAppMessage, APIResponse } from './types'
 import { CodedApiError } from '../api/codedApiError'
+import { appEnv } from '../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/customers`
+  return `${appEnv().VITE_API_BASE_URL}/customers`
 }
 
 async function request<T>(

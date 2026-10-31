@@ -1,9 +1,10 @@
 import { CodedApiError } from '../../api/codedApiError'
 import type { APIResponse } from '../types'
 import type { CloseToExpiryList, CloseToExpiryQuery } from './types'
+import { appEnv } from '../../config/appEnv'
 
 function base(): string {
-  return `${import.meta.env.VITE_API_BASE_URL}/inventory/batches`
+  return `${appEnv().VITE_API_BASE_URL}/inventory/batches`
 }
 
 async function send(url: string, init: RequestInit, token: string): Promise<Response> {

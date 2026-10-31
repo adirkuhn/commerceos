@@ -62,12 +62,7 @@ A rollback starts from images already on the server if the registry can't be rea
    | `DEPLOY_SSH_KEY` | private key of a new key pair made only for this: `ssh-keygen -t ed25519 -f commerceos-deploy -N ''` |
    | `DEPLOY_KNOWN_HOSTS` | output of `ssh-keyscan -p <port> <host>` |
 
-3. **Settings → Secrets and variables → Actions → Variables** (repository level). Use the same values as the `VITE_*` lines in the server's current `.env`. They're compiled into the admin frontend image.
-   - `VITE_API_BASE_URL`
-   - `VITE_LM2_LOGIN_URL`
-   - `VITE_LM2_CALLBACK_PATH`
-   - `VITE_STOREFRONT_URL`
-   - `VITE_DESIGN_DEFAULT` (optional)
+All server settings, the admin frontend's `VITE_*` URLs included, live only in the server's `.env`. The images carry none of them: the frontend container writes them to `/config.js` when it starts. Changing a URL means editing `.env` and restarting the frontend (`docker compose up -d frontend`), not a new release.
 
 ### Server
 
