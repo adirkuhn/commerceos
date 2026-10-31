@@ -2,6 +2,7 @@ package inventory_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -24,7 +25,7 @@ func TestSplitCaseIntoUnits_convertsCaseStockIntoUnitStock(t *testing.T) {
 		{SKUID: "sku-case-1", WarehouseID: "warehouse-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 5},
 	}}
 	outboxRepo := &stubOutboxRepo{}
-	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), skuRepo, &stubBatchRepo{}, movementRepo, outboxRepo)
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), skuRepo, &stubBatchRepo{}, movementRepo, outboxRepo, nil)
 
 	result, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
 		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", CasesToSplit: 2,
@@ -43,7 +44,7 @@ func TestSplitCaseIntoUnits_convertsCaseStockIntoUnitStock(t *testing.T) {
 
 func TestSplitCaseIntoUnits_rejectsWhenSKUIsNotACase(t *testing.T) {
 	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1"}}
-	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), skuRepo, &stubBatchRepo{}, &stubStockMovementRepo{}, &stubOutboxRepo{})
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), skuRepo, &stubBatchRepo{}, &stubStockMovementRepo{}, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
 		CaseSKUID: "sku-1", WarehouseID: "warehouse-1", CasesToSplit: 1,
@@ -57,7 +58,7 @@ func TestSplitCaseIntoUnits_rejectsInsufficientCaseStock(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-case-1", WarehouseID: "warehouse-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 1},
 	}}
-	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), skuRepo, &stubBatchRepo{}, movementRepo, &stubOutboxRepo{})
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), skuRepo, &stubBatchRepo{}, movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
 		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", CasesToSplit: 2,
@@ -73,7 +74,7 @@ func TestSplitCaseIntoUnits_scopesStockCheckToWarehouseAndBatch(t *testing.T) {
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-case-1", WarehouseID: "warehouse-other", Type: invDomain.MovementTypeReceipt, QuantityDelta: 5},
 	}}
-	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), skuRepo, &stubBatchRepo{}, movementRepo, &stubOutboxRepo{})
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), skuRepo, &stubBatchRepo{}, movementRepo, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
 		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", CasesToSplit: 1,
@@ -83,7 +84,7 @@ func TestSplitCaseIntoUnits_scopesStockCheckToWarehouseAndBatch(t *testing.T) {
 }
 
 func TestSplitCaseIntoUnits_rejectsNonPositiveCasesToSplit(t *testing.T) {
-	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), &stubSKURepo{}, &stubBatchRepo{}, &stubStockMovementRepo{}, &stubOutboxRepo{})
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), &stubSKURepo{}, &stubBatchRepo{}, &stubStockMovementRepo{}, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
 		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", CasesToSplit: 0,
@@ -94,7 +95,7 @@ func TestSplitCaseIntoUnits_rejectsNonPositiveCasesToSplit(t *testing.T) {
 
 func TestSplitCaseIntoUnits_propagatesSKUNotFound(t *testing.T) {
 	skuRepo := &stubSKURepo{findByIDErr: pmsDomain.ErrSKUNotFound}
-	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), skuRepo, &stubBatchRepo{}, &stubStockMovementRepo{}, &stubOutboxRepo{})
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), skuRepo, &stubBatchRepo{}, &stubStockMovementRepo{}, &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
 		CaseSKUID: "missing", WarehouseID: "warehouse-1", CasesToSplit: 1,
@@ -125,7 +126,7 @@ func TestSplitCaseIntoUnits_fromBatchCreatesMatchingUnitBatch(t *testing.T) {
 		LotNumber: "300326", ExpiryDate: &expiry, ReceivedAt: received, Status: invDomain.BatchStatusActive,
 	}}
 	batchID := "batch-case-1"
-	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), batchRepo, caseStockInBatch(batchID, 5), &stubOutboxRepo{})
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), batchRepo, caseStockInBatch(batchID, 5), &stubOutboxRepo{}, nil)
 
 	result, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
 		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", BatchID: &batchID, CasesToSplit: 1,
@@ -161,7 +162,7 @@ func TestSplitCaseIntoUnits_fromBatchReusesExistingMatchingUnitBatch(t *testing.
 		},
 	}
 	batchID := "batch-case-1"
-	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), batchRepo, caseStockInBatch(batchID, 5), &stubOutboxRepo{})
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), batchRepo, caseStockInBatch(batchID, 5), &stubOutboxRepo{}, nil)
 
 	result, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
 		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", BatchID: &batchID, CasesToSplit: 1,
@@ -178,7 +179,7 @@ func TestSplitCaseIntoUnits_fromGeneralLedgerKeepsUnitsInGeneralLedger(t *testin
 	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
 		{SKUID: "sku-case-1", WarehouseID: "warehouse-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 5},
 	}}
-	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), batchRepo, movementRepo, &stubOutboxRepo{})
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), batchRepo, movementRepo, &stubOutboxRepo{}, nil)
 
 	result, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
 		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", CasesToSplit: 1,
@@ -192,7 +193,7 @@ func TestSplitCaseIntoUnits_fromGeneralLedgerKeepsUnitsInGeneralLedger(t *testin
 func TestSplitCaseIntoUnits_rejectsBatchOfAnotherSKU(t *testing.T) {
 	batchRepo := &stubBatchRepo{findResult: &invDomain.Batch{ID: "batch-x", SKUID: "sku-other", WarehouseID: "warehouse-1"}}
 	batchID := "batch-x"
-	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), batchRepo, caseStockInBatch(batchID, 5), &stubOutboxRepo{})
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), batchRepo, caseStockInBatch(batchID, 5), &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
 		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", BatchID: &batchID, CasesToSplit: 1,
@@ -204,7 +205,7 @@ func TestSplitCaseIntoUnits_rejectsBatchOfAnotherSKU(t *testing.T) {
 func TestSplitCaseIntoUnits_rejectsBatchInAnotherWarehouse(t *testing.T) {
 	batchRepo := &stubBatchRepo{findResult: &invDomain.Batch{ID: "batch-case-1", SKUID: "sku-case-1", WarehouseID: "warehouse-2"}}
 	batchID := "batch-case-1"
-	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), batchRepo, caseStockInBatch(batchID, 5), &stubOutboxRepo{})
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), batchRepo, caseStockInBatch(batchID, 5), &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
 		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", BatchID: &batchID, CasesToSplit: 1,
@@ -216,7 +217,7 @@ func TestSplitCaseIntoUnits_rejectsBatchInAnotherWarehouse(t *testing.T) {
 func TestSplitCaseIntoUnits_propagatesBatchNotFound(t *testing.T) {
 	batchRepo := &stubBatchRepo{findErr: invDomain.ErrBatchNotFound}
 	batchID := "missing"
-	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), batchRepo, caseStockInBatch(batchID, 5), &stubOutboxRepo{})
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), batchRepo, caseStockInBatch(batchID, 5), &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
 		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", BatchID: &batchID, CasesToSplit: 1,
@@ -232,11 +233,99 @@ func TestSplitCaseIntoUnits_propagatesUnitBatchCreateError(t *testing.T) {
 		createErr:  createErr,
 	}
 	batchID := "batch-case-1"
-	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), batchRepo, caseStockInBatch(batchID, 5), &stubOutboxRepo{})
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), batchRepo, caseStockInBatch(batchID, 5), &stubOutboxRepo{}, nil)
 
 	_, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
 		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", BatchID: &batchID, CasesToSplit: 1,
 	})
 
 	require.ErrorIs(t, err, createErr)
+}
+
+// costedCaseSKURepo is a 20-unit case costing 13.99.
+func costedCaseSKURepo() *stubSKURepo {
+	return &stubSKURepo{findByIDResult: &pmsDomain.SKU{
+		ID: "sku-case-1", CaseOfSKUID: strPtr("sku-unit-1"), UnitsPerCase: int64Ptr(20), CostPriceMinorUnits: int64Ptr(1399),
+	}}
+}
+
+// TestSplitCaseIntoUnits_unitsArriveAtTheCaseCostPerUnit: the units a split
+// brings in are a receipt for the unit SKU at the case's cost spread over
+// its units, so the unit's moving-average cost picks them up.
+func TestSplitCaseIntoUnits_unitsArriveAtTheCaseCostPerUnit(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-case-1", WarehouseID: "warehouse-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 5},
+	}}
+	costs := &stubSKUCostUpdater{}
+	occurredAt := time.Date(2026, 10, 31, 10, 0, 0, 0, time.UTC)
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), costedCaseSKURepo(), &stubBatchRepo{}, movementRepo, &stubOutboxRepo{}, costs)
+
+	_, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
+		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", CasesToSplit: 2, OccurredAt: occurredAt,
+	})
+
+	require.NoError(t, err)
+	require.Len(t, costs.calls, 1)
+	call := costs.calls[0]
+	assert.Equal(t, "sku-unit-1", call.SKUID)
+	assert.Equal(t, int64(40), call.ReceivedQuantity, "2 cases * 20 units")
+	assert.Equal(t, int64(70), call.LandedUnitCostMinorUnits, "13.99 / 20 rounded half up")
+	assert.Equal(t, "stock_movement", call.ReferenceType)
+	assert.Equal(t, occurredAt, call.OccurredAt)
+}
+
+// TestSplitCaseIntoUnits_batchSplitUsesTheCaseBatchCost: a lot keeps what
+// it actually cost -- the new unit batch gets the case batch's landed cost
+// per unit, and that (not the case SKU's average) is what is blended in.
+func TestSplitCaseIntoUnits_batchSplitUsesTheCaseBatchCost(t *testing.T) {
+	batchRepo := &stubBatchRepo{findResult: &invDomain.Batch{
+		ID: "batch-case-1", SKUID: "sku-case-1", WarehouseID: "warehouse-1", LotNumber: "L1",
+		LandedCostMinorUnits: int64Ptr(1500), Status: invDomain.BatchStatusActive,
+	}}
+	batchID := "batch-case-1"
+	costs := &stubSKUCostUpdater{}
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), costedCaseSKURepo(), batchRepo, caseStockInBatch(batchID, 5), &stubOutboxRepo{}, costs)
+
+	_, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
+		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", BatchID: &batchID, CasesToSplit: 1,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, batchRepo.created)
+	require.NotNil(t, batchRepo.created.LandedCostMinorUnits)
+	assert.Equal(t, int64(75), *batchRepo.created.LandedCostMinorUnits)
+	require.Len(t, costs.calls, 1)
+	assert.Equal(t, int64(75), costs.calls[0].LandedUnitCostMinorUnits)
+	assert.Equal(t, int64(20), costs.calls[0].ReceivedQuantity)
+}
+
+func TestSplitCaseIntoUnits_noCostKnownLeavesUnitCostAlone(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-case-1", WarehouseID: "warehouse-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 5},
+	}}
+	costs := &stubSKUCostUpdater{}
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), caseSKURepo(), &stubBatchRepo{}, movementRepo, &stubOutboxRepo{}, costs)
+
+	_, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
+		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", CasesToSplit: 1,
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, costs.calls)
+}
+
+func TestSplitCaseIntoUnits_reportsCostUpdateFailureAfterTheSplitCommitted(t *testing.T) {
+	movementRepo := &stubStockMovementRepo{bySKU: []invDomain.StockMovement{
+		{SKUID: "sku-case-1", WarehouseID: "warehouse-1", Type: invDomain.MovementTypeReceipt, QuantityDelta: 5},
+	}}
+	costs := &stubSKUCostUpdater{err: errors.New("boom")}
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(newMockGormDB(t), costedCaseSKURepo(), &stubBatchRepo{}, movementRepo, &stubOutboxRepo{}, costs)
+
+	result, err := uc.Execute(context.Background(), appinventory.SplitCaseIntoUnitsInput{
+		CaseSKUID: "sku-case-1", WarehouseID: "warehouse-1", CasesToSplit: 1,
+	})
+
+	require.Error(t, err)
+	require.NotNil(t, result, "the split itself is committed")
+	assert.Len(t, movementRepo.created, 2)
 }

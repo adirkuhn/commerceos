@@ -39,12 +39,21 @@ type SplitCaseIntoUnitsResult struct {
 // resolveUnitBatch) -- so FEFO, expiry alerts and batch-tied promotions
 // keep seeing them. Splitting from the general ledger lands the units in
 // the unit SKU's general ledger.
+//
+// The units carry the case's cost: the case batch's landed cost when the
+// split is from a costed lot, else the case SKU's current cost, spread
+// over the units (pmsDomain.UnitCostFromCaseMinorUnits). A new unit batch
+// keeps that as its landed cost, and once the split commits the units are
+// handed to costUpdater as a receipt, blending into the unit SKU's
+// moving-average cost. No known cost: the unit's cost is left alone.
 type SplitCaseIntoUnitsUseCase struct {
 	db           *gorm.DB
 	skuRepo      pmsDomain.SKURepository
 	batchRepo    splitBatchStore
 	movementRepo invDomain.StockMovementRepository
 	outboxRepo   outbox.Repository
+	// costUpdater is optional (nil: no cost follows the units).
+	costUpdater skuCostUpdaterForReceiveStock
 }
 
 // splitBatchStore is the slice of invDomain.BatchRepository a split needs
@@ -61,8 +70,9 @@ func NewSplitCaseIntoUnitsUseCase(
 	batchRepo splitBatchStore,
 	movementRepo invDomain.StockMovementRepository,
 	outboxRepo outbox.Repository,
+	costUpdater skuCostUpdaterForReceiveStock,
 ) *SplitCaseIntoUnitsUseCase {
-	return &SplitCaseIntoUnitsUseCase{db: db, skuRepo: skuRepo, batchRepo: batchRepo, movementRepo: movementRepo, outboxRepo: outboxRepo}
+	return &SplitCaseIntoUnitsUseCase{db: db, skuRepo: skuRepo, batchRepo: batchRepo, movementRepo: movementRepo, outboxRepo: outboxRepo, costUpdater: costUpdater}
 }
 
 func (uc *SplitCaseIntoUnitsUseCase) Execute(ctx context.Context, in SplitCaseIntoUnitsInput) (*SplitCaseIntoUnitsResult, error) {
@@ -71,6 +81,8 @@ func (uc *SplitCaseIntoUnitsUseCase) Execute(ctx context.Context, in SplitCaseIn
 	}
 
 	var result SplitCaseIntoUnitsResult
+	// unitCost is the cost per unit the split brings in; nil when unknown.
+	var unitCost *int64
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		caseSKU, err := uc.skuRepo.FindByID(ctx, in.CaseSKUID)
 		if err != nil {
@@ -88,7 +100,15 @@ func (uc *SplitCaseIntoUnitsUseCase) Execute(ctx context.Context, in SplitCaseIn
 			return err
 		}
 
-		unitBatchID, err := uc.resolveUnitBatch(ctx, in, *caseSKU.CaseOfSKUID)
+		var caseBatch *invDomain.Batch
+		if in.BatchID != nil {
+			if caseBatch, err = uc.caseBatch(ctx, in); err != nil {
+				return err
+			}
+		}
+		unitCost = splitUnitCost(*caseSKU, caseBatch)
+
+		unitBatchID, err := uc.resolveUnitBatch(ctx, caseBatch, *caseSKU.CaseOfSKUID, unitCost)
 		if err != nil {
 			return err
 		}
@@ -124,27 +144,67 @@ func (uc *SplitCaseIntoUnitsUseCase) Execute(ctx context.Context, in SplitCaseIn
 	if err != nil {
 		return nil, fmt.Errorf("splitCaseIntoUnits: %w", err)
 	}
+
+	if unitCost != nil && uc.costUpdater != nil {
+		occurredAt := in.OccurredAt
+		if occurredAt.IsZero() {
+			occurredAt = time.Now()
+		}
+		// Its own transaction after the split committed (tenant.WithTenant
+		// must never nest) -- same accepted gap as ReceiveStockUseCase: a
+		// failure leaves the unit cost behind, the split itself stands.
+		if err := uc.costUpdater.Execute(ctx, SKUCostReceiptInput{
+			SKUID: result.UnitInMovement.SKUID, ReceivedQuantity: result.UnitInMovement.QuantityDelta,
+			LandedUnitCostMinorUnits: *unitCost,
+			ReferenceType:            "stock_movement", ReferenceID: result.UnitInMovement.ID,
+			OccurredAt: occurredAt,
+		}); err != nil {
+			return &result, fmt.Errorf("splitCaseIntoUnits: cost update: %w", err)
+		}
+	}
 	return &result, nil
 }
 
-// resolveUnitBatch returns the unit-side batch ID for a split: nil for a
-// general-ledger split, otherwise the unit SKU's active batch in the same
-// warehouse with the same lot number and expiry date -- created (copying
-// the case batch's lot, expiry and receipt date) when none exists yet, so
-// repeated splits of one lot top up a single unit batch.
-func (uc *SplitCaseIntoUnitsUseCase) resolveUnitBatch(ctx context.Context, in SplitCaseIntoUnitsInput, unitSKUID string) (*string, error) {
-	if in.BatchID == nil {
-		return nil, nil
+// splitUnitCost is what one split-out unit costs: the case lot's landed
+// cost when known, else the case SKU's current cost, per unit; nil when
+// neither is known.
+func splitUnitCost(caseSKU pmsDomain.SKU, caseBatch *invDomain.Batch) *int64 {
+	caseCost := caseSKU.CostPriceMinorUnits
+	if caseBatch != nil && caseBatch.LandedCostMinorUnits != nil {
+		caseCost = caseBatch.LandedCostMinorUnits
 	}
-	caseBatch, err := uc.batchRepo.FindByID(ctx, *in.BatchID)
+	if caseCost == nil {
+		return nil
+	}
+	cost := pmsDomain.UnitCostFromCaseMinorUnits(*caseCost, *caseSKU.UnitsPerCase)
+	return &cost
+}
+
+// caseBatch loads the batch a split takes cases from, checking it is the
+// case SKU's and in the split's warehouse.
+func (uc *SplitCaseIntoUnitsUseCase) caseBatch(ctx context.Context, in SplitCaseIntoUnitsInput) (*invDomain.Batch, error) {
+	b, err := uc.batchRepo.FindByID(ctx, *in.BatchID)
 	if err != nil {
 		return nil, err
 	}
-	if caseBatch.SKUID != in.CaseSKUID {
+	if b.SKUID != in.CaseSKUID {
 		return nil, invDomain.ErrBatchDoesNotBelongToSKU
 	}
-	if caseBatch.WarehouseID != in.WarehouseID {
+	if b.WarehouseID != in.WarehouseID {
 		return nil, invDomain.ErrBatchNotInWarehouse
+	}
+	return b, nil
+}
+
+// resolveUnitBatch returns the unit-side batch ID for a split: nil for a
+// general-ledger split (caseBatch nil), otherwise the unit SKU's active
+// batch in the same warehouse with the same lot number and expiry date --
+// created (copying the case batch's lot, expiry and receipt date, at
+// unitCost) when none exists yet, so repeated splits of one lot top up a
+// single unit batch.
+func (uc *SplitCaseIntoUnitsUseCase) resolveUnitBatch(ctx context.Context, caseBatch *invDomain.Batch, unitSKUID string, unitCost *int64) (*string, error) {
+	if caseBatch == nil {
+		return nil, nil
 	}
 
 	unitBatches, err := uc.batchRepo.ListBySKU(ctx, unitSKUID)
@@ -162,7 +222,8 @@ func (uc *SplitCaseIntoUnitsUseCase) resolveUnitBatch(ctx context.Context, in Sp
 	unitBatch := invDomain.Batch{
 		TenantID: tenant.IDFromContext(ctx), SKUID: unitSKUID, WarehouseID: caseBatch.WarehouseID,
 		LotNumber: caseBatch.LotNumber, ExpiryDate: caseBatch.ExpiryDate, ReceivedAt: caseBatch.ReceivedAt,
-		Status: invDomain.BatchStatusActive, CreatedAt: now, UpdatedAt: now,
+		LandedCostMinorUnits: unitCost,
+		Status:               invDomain.BatchStatusActive, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := uc.batchRepo.Create(ctx, &unitBatch); err != nil {
 		return nil, err

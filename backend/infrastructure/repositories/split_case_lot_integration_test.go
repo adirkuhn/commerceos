@@ -63,7 +63,7 @@ func TestSplitCaseIntoUnits_Integration_UnitsInheritTheCaseLot(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	uc := appinventory.NewSplitCaseIntoUnitsUseCase(db, skuRepo, batchRepo, movementRepo, repositories.NewOutboxRepository(db))
+	uc := appinventory.NewSplitCaseIntoUnitsUseCase(db, skuRepo, batchRepo, movementRepo, repositories.NewOutboxRepository(db), nil)
 	split := func() *appinventory.SplitCaseIntoUnitsResult {
 		result, err := uc.Execute(ctx, appinventory.SplitCaseIntoUnitsInput{
 			CaseSKUID: caseSKUID, WarehouseID: warehouseID, BatchID: &caseBatchID, CasesToSplit: 1, OccurredAt: time.Now(),
