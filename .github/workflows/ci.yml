@@ -1,6 +1,6 @@
 # Runs every suite on pushes to master, on release tags (v*) and on pull
-# requests. Images are built only from code whose tests passed; pushes and
-# tags publish them to GHCR. A release tag then deploys, after approval.
+# requests. Images build alongside the tests; pushes and tags publish them
+# to GHCR only once every test passed. A release tag then deploys, after approval.
 # See docs/deploy.md.
 name: CI
 
@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend (Go)
+    name: Backend (vet, codegen, unit tests)
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -30,10 +30,9 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
-      - name: Vet (including integration tests)
-        run: |
-          go vet ./...
-          go vet -tags integration ./...
+      # With the integration tag vet sees every file (none are !integration).
+      - name: Vet
+        run: go vet -tags integration ./...
       - name: Generated API code is up to date (oapi-codegen)
         run: |
           go generate ./api/...
@@ -41,13 +40,26 @@ jobs:
           test -z "$(git status --porcelain)"
       - name: Unit tests (includes the docs/events.md freshness check)
         run: go test ./...
+
+  backend-integration:
+    name: Backend (integration tests)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      # One Postgres container per package; each test gets its own copy of
+      # a migrated template database (see integration_helper_test.go).
       - name: Integration tests (real Postgres via testcontainers)
-        # One Postgres container per test: the repositories package alone
-        # runs past go test's default 10m timeout.
-        run: go test -tags integration -timeout 45m ./...
+        run: go test -tags integration ./...
 
   frontend:
-    name: Admin frontend
+    name: Admin frontend (i18n, type check, build)
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -61,9 +73,29 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run i18n:check
-      - run: npx vitest run
       - name: Type check and build
         run: npm run build
+
+  # ~375 test files: split over parallel runners (vitest --shard).
+  frontend-tests:
+    name: Admin frontend tests (${{ matrix.shard }}/4)
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx vitest run --shard=${{ matrix.shard }}/4
 
   storefront:
     name: Storefront
@@ -115,13 +147,11 @@ jobs:
   # Production runs on an ARM64 server (Oracle Ampere), so images are built
   # for linux/arm64 only. The Dockerfiles cross-compile on the runner (no
   # emulation); QEMU is only used to check the result actually runs.
+  # Builds run in parallel with the tests; `publish` pushes them (from this
+  # job's build cache) only once every test passed.
   images:
     name: Image (${{ matrix.image }})
-    needs: [backend, frontend, storefront, deploy-files]
     runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
     strategy:
       fail-fast: true
       matrix:
@@ -135,17 +165,6 @@ jobs:
         with:
           platforms: arm64
       - uses: docker/setup-buildx-action@v3
-      - name: Image tags and labels
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/commerceos-${{ matrix.image }}
-          flavor: latest=false
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=ref,event=branch
-            type=sha
       # Admin frontend URLs are compiled in (Vite); they come from the
       # repository's Actions variables. Unused by the other images.
       - name: Build (${{ env.PLATFORM }})
@@ -165,15 +184,43 @@ jobs:
           cache-to: type=gha,scope=${{ matrix.image }},mode=max
       - name: Programs run on ${{ env.PLATFORM }} (QEMU)
         run: scripts/check-image-platform.sh "${{ matrix.image }}" "$LOCAL_IMAGE" "$PLATFORM"
+
+  publish:
+    name: Publish (${{ matrix.image }})
+    if: github.event_name == 'push'
+    needs: [backend, backend-integration, frontend, frontend-tests, storefront, deploy-files, images]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        image: [backend, frontend, storefront]
+    env:
+      PLATFORM: linux/arm64
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Image tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/commerceos-${{ matrix.image }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=branch
+            type=sha
       - name: Log in to GHCR
-        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # Same inputs as the tested build, so every layer comes from its cache.
       - name: Push
-        if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.image }}
@@ -189,7 +236,6 @@ jobs:
             VITE_DESIGN_DEFAULT=${{ vars.VITE_DESIGN_DEFAULT }}
           cache-from: type=gha,scope=${{ matrix.image }}
       - name: Summary
-        if: github.event_name == 'push'
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
         run: |
@@ -203,7 +249,7 @@ jobs:
   deploy:
     name: Deploy
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [images]
+    needs: [publish]
     uses: ./.github/workflows/deploy.yml
     with:
       version: ${{ github.ref_name }}
