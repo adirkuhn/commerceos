@@ -1,7 +1,9 @@
-FROM node:20-alpine AS builder
+# The build output is static files, so the builder runs on the build
+# machine's own platform (no emulation); only the nginx runtime is per-target.
+FROM --platform=$BUILDPLATFORM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
 COPY . .
 ARG VITE_LM2_LOGIN_URL
 ARG VITE_LM2_CALLBACK_PATH

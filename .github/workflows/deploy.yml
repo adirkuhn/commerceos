@@ -1,0 +1,58 @@
+# Deploys a published version to production over SSH. Called by CI for a
+# release tag, and runnable by hand (Actions -> Deploy -> Run workflow) to
+# redeploy any published version or roll back:
+#   version: 1.2.3      deploy that release (images must already be in GHCR)
+#   version: rollback   go back to the version the current one replaced
+# Runs in the `production` environment, which holds the SSH secrets and
+# requires approval. The server's authorized_keys entry forces
+# deploy/prod/deploy.sh, so the key can only deploy a version or roll back.
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Release to deploy (1.2.3 or v1.2.3), or "rollback"
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release to deploy (1.2.3 or v1.2.3), or "rollback"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.version }} (production)
+    runs-on: ubuntu-24.04
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - name: Deploy over SSH
+        env:
+          VERSION: ${{ inputs.version }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          version=${VERSION#v}
+          if [[ $version != rollback && ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::'$VERSION' is not a release like 1.2.3, or rollback"
+            exit 2
+          fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" "$version"
+          echo "### Deployed \`$version\`" >> "$GITHUB_STEP_SUMMARY"

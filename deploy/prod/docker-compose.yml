@@ -1,0 +1,324 @@
+# Production stack: runs only images CI published to GHCR (never builds).
+# Copy this folder's files to the server (see docs/deploy.md) and deploy with
+# deploy.sh <release> -- it pulls, records COMMERCEOS_VERSION in .env and
+# starts; migrate runs first and the app services start only if it succeeds.
+#
+# Same services, networks and volumes as the repo-root docker-compose.yml
+# (keep them in step), and the same project name, so an existing install's
+# volumes and Traefik routes carry over. Traefik, Postgres (on `database`) and
+# MinIO (on `minio`) run in their own stacks.
+name: commerceos
+
+x-backend-image: &backend-image ${COMMERCEOS_IMAGE_PREFIX:-ghcr.io/adirkuhn/commerceos}-backend:${COMMERCEOS_VERSION:?set COMMERCEOS_VERSION in .env}
+
+x-logging:
+  # No service here wrote to a file to begin with (every Go binary just
+  # logs to stdout/stderr) -- the unbounded growth was Docker's own
+  # json-file driver, which has no size cap unless told to. 10m x 3 files
+  # = 30MB retained per service before the oldest is dropped.
+  &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  nats:
+    image: nats:2.10-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    # Config file, not flags -- this image's nats-server CLI has no
+    # -max_payload flag; raising it (see nats.conf) requires -c.
+    command: [ "-c", "/etc/nats/nats.conf" ]
+    networks:
+      - commerceos
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats_data:/data
+      - ./nats.conf:/etc/nats/nats.conf:ro
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/healthz" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  createbuckets:
+    # pgsty/mc: community build of the MinIO client -- MinIO removed
+    # minio/mc from Docker Hub (Sept 2026) and quay.io no longer allows
+    # anonymous pulls. Same mc commands. Pinned: it's a fork, so a new
+    # release is a deliberate bump, not a surprise on deploy.
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
+    logging: *default-logging
+    networks:
+      - minio
+    # S3_ACCESS_KEY_ID/S3_SECRET_ACCESS_KEY are passed as real container env
+    # vars (like every other service) and referenced here with $$ (quoted)
+    # so the shell resolves and quotes them at runtime -- not spliced as
+    # raw text into this YAML string by compose's own ${...} substitution
+    # (the old shape), which left them unquoted in the resulting shell
+    # command: word-splits on any whitespace in the secret, and re-evaluates
+    # any $/backtick in it a second time. That's what silently corrupted
+    # credentials for any *other* consumer of the same secret (backend
+    # reads it as a plain env var, no shell involved) once someone
+    # backslash-escaped special characters to work around it here.
+    environment:
+      S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+      S3_BUCKET: ${S3_BUCKET:-product-media}
+      S3_USE_SSL: ${S3_USE_SSL:-false}
+    entrypoint: >
+      /bin/sh -c ' SCHEME=http; [ "$$S3_USE_SSL" = true ] && SCHEME=https; mc alias set target "$$SCHEME://$$S3_ENDPOINT" "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY" && mc mb -p "target/$$S3_BUCKET" && mc anonymous set download "target/$$S3_BUCKET" '
+
+  migrate:
+    image: *backend-image
+    logging: *default-logging
+    networks:
+      - commerceos
+      - database
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: "host=postgres user=${POSTGRES_USER:-commerceos} password=${POSTGRES_PASSWORD:-commerceos} dbname=${POSTGRES_DB:-commerceos} sslmode=disable"
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB:-commerceos}
+      PGUSER: ${POSTGRES_USER:-commerceos}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-commerceos}
+      APP_DB_USER: ${APP_DB_USER:-commerceos_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
+    # Migrations are baked into the image (/migrations).
+    working_dir: /migrations
+    # 020_app_role_and_force_rls.sql creates commerceos_app with a
+    # non-secret placeholder password (it can't read env vars from inside a
+    # SQL file) -- rotate it to the real secret here, every run, so it's
+    # never committed to git. commerceos still owns the schema and runs
+    # migrations; commerceos_app is what backend/relay/scheduler connect as.
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - |
+        set -e
+        /goose up
+        psql -v ON_ERROR_STOP=1 -c "ALTER ROLE \"$$APP_DB_USER\" PASSWORD '$$APP_DB_PASSWORD'"
+
+  backend:
+    image: *backend-image
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - traefik-public
+      - commerceos
+      - minio
+      - database
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    depends_on:
+      nats:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      createbuckets:
+        condition: service_completed_successfully
+    environment:
+      DB_DSN: "host=postgres user=${APP_DB_USER:-commerceos_app} password=${APP_DB_PASSWORD:?APP_DB_PASSWORD is required} dbname=${POSTGRES_DB:-commerceos} port=5432 sslmode=disable"
+      NATS_URL: nats://nats:4222
+      HTTP_PORT: ${HTTP_PORT:-8080}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      INTEGRATIONS_ENCRYPTION_SECRET: ${INTEGRATIONS_ENCRYPTION_SECRET:?INTEGRATIONS_ENCRYPTION_SECRET is required}
+      API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL:?API_PUBLIC_BASE_URL is required}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL is required}
+      # Optional -- /pos/* routes aren't mounted at all when unset. See
+      # .env.example.
+      LM2_LICENSE_PUBLIC_KEY_URL: ${LM2_LICENSE_PUBLIC_KEY_URL:-}
+      MEDIA_UPLOAD_DIR: /data/uploads
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-s3}
+      S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+      S3_BUCKET: ${S3_BUCKET:-product-media}
+      S3_USE_SSL: ${S3_USE_SSL:-false}
+      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:?S3_PUBLIC_BASE_URL is required}
+    volumes:
+      - media_uploads:/data/uploads
+    command: [ "/api" ]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.backend.entrypoints=https"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.tls.certresolver=le"
+
+  relay:
+    image: *backend-image
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - commerceos
+      - database
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    depends_on:
+      nats:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DB_DSN: "host=postgres user=${APP_DB_USER:-commerceos_app} password=${APP_DB_PASSWORD:?APP_DB_PASSWORD is required} dbname=${POSTGRES_DB:-commerceos} port=5432 sslmode=disable"
+      NATS_URL: nats://nats:4222
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      INTEGRATIONS_ENCRYPTION_SECRET: ${INTEGRATIONS_ENCRYPTION_SECRET:?INTEGRATIONS_ENCRYPTION_SECRET is required}
+      API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL:?API_PUBLIC_BASE_URL is required}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL is required}
+    command: [ "/relay" ]
+
+  webhook-processor:
+    image: *backend-image
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - commerceos
+      - database
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    depends_on:
+      nats:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DB_DSN: "host=postgres user=${APP_DB_USER:-commerceos_app} password=${APP_DB_PASSWORD:?APP_DB_PASSWORD is required} dbname=${POSTGRES_DB:-commerceos} port=5432 sslmode=disable"
+      NATS_URL: nats://nats:4222
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      INTEGRATIONS_ENCRYPTION_SECRET: ${INTEGRATIONS_ENCRYPTION_SECRET:?INTEGRATIONS_ENCRYPTION_SECRET is required}
+      API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL:?API_PUBLIC_BASE_URL is required}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL is required}
+    command: [ "/webhook-processor" ]
+
+  webhook-forwarder:
+    image: *backend-image
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - commerceos
+      - database
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DB_DSN: "host=postgres user=${APP_DB_USER:-commerceos_app} password=${APP_DB_PASSWORD:?APP_DB_PASSWORD is required} dbname=${POSTGRES_DB:-commerceos} port=5432 sslmode=disable"
+      # Not otherwise used by this process (no NATS/JWT dependency of its
+      # own) -- config.Load() requires the same full env-var set every
+      # other cmd/* deployable does, so these are supplied purely to
+      # satisfy that shared loader.
+      NATS_URL: nats://nats:4222
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      INTEGRATIONS_ENCRYPTION_SECRET: ${INTEGRATIONS_ENCRYPTION_SECRET:?INTEGRATIONS_ENCRYPTION_SECRET is required}
+      API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL:?API_PUBLIC_BASE_URL is required}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL is required}
+    command: [ "/webhook-forwarder" ]
+
+  scheduler:
+    image: *backend-image
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - commerceos
+      - minio
+      - database
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      createbuckets:
+        condition: service_completed_successfully
+    environment:
+      DB_DSN: "host=postgres user=${APP_DB_USER:-commerceos_app} password=${APP_DB_PASSWORD:?APP_DB_PASSWORD is required} dbname=${POSTGRES_DB:-commerceos} port=5432 sslmode=disable"
+      INTEGRATIONS_ENCRYPTION_SECRET: ${INTEGRATIONS_ENCRYPTION_SECRET:?INTEGRATIONS_ENCRYPTION_SECRET is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      NATS_URL: nats://nats:4222
+      API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL:?API_PUBLIC_BASE_URL is required}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL is required}
+      MEDIA_UPLOAD_DIR: /data/uploads
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-s3}
+      S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+      S3_BUCKET: ${S3_BUCKET:-product-media}
+      S3_USE_SSL: ${S3_USE_SSL:-false}
+      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:?S3_PUBLIC_BASE_URL is required}
+    volumes:
+      - media_uploads:/data/uploads
+    command: [ "/scheduler" ]
+
+  frontend:
+    image: ${COMMERCEOS_IMAGE_PREFIX:-ghcr.io/adirkuhn/commerceos}-frontend:${COMMERCEOS_VERSION:?set COMMERCEOS_VERSION in .env}
+    env_file:
+      - .env
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      - backend
+    networks:
+      - traefik-public
+      - commerceos
+      - minio
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN}`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.frontend.entrypoints=https"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.tls.certresolver=le"
+
+  # commerceos-storefront -- server-rendered shops (/store/{channelKey}/...)
+  # and the GrapesJS theme editor (/store/editor), see storefront/ and
+  # docs/storefront-architecture.md. One deployment serves every tenant's
+  # internal channels in "theme" mode. SSR calls the backend over the
+  # internal network; browsers use the public API URL.
+  storefront:
+    image: ${COMMERCEOS_IMAGE_PREFIX:-ghcr.io/adirkuhn/commerceos}-storefront:${COMMERCEOS_VERSION:?set COMMERCEOS_VERSION in .env}
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      - backend
+    environment:
+      STOREFRONT_API_INTERNAL_URL: http://backend:${HTTP_PORT:-8080}/api/v1
+      STOREFRONT_API_PUBLIC_URL: ${STOREFRONT_API_PUBLIC_URL:-${VITE_API_BASE_URL}}
+      # Origin shoppers reach /store on: canonical URLs, sitemaps, structured data.
+      STOREFRONT_PUBLIC_URL: ${STOREFRONT_PUBLIC_URL:-https://${API_DOMAIN}}
+    networks:
+      - traefik-public
+      - commerceos
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.storefront.rule=Host(`${API_DOMAIN}`) && PathPrefix(`/store`)"
+      - "traefik.http.services.storefront.loadbalancer.server.port=3100"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.storefront.entrypoints=https"
+      - "traefik.http.routers.storefront.tls=true"
+      - "traefik.http.routers.storefront.tls.certresolver=le"
+
+volumes:
+  postgres_data:
+  nats_data:
+  media_uploads:
+
+networks:
+  traefik-public:
+    external: true
+  minio:
+    external: true
+  commerceos:
+  database:
+    external: true

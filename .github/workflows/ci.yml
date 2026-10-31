@@ -1,0 +1,208 @@
+# Runs every suite on pushes to master, on release tags (v*) and on pull
+# requests. Images are built only from code whose tests passed; pushes and
+# tags publish them to GHCR. A release tag then deploys, after approval.
+# See docs/deploy.md.
+name: CI
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Vet (including integration tests)
+        run: |
+          go vet ./...
+          go vet -tags integration ./...
+      - name: Generated API code is up to date (oapi-codegen)
+        run: |
+          go generate ./api/...
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+      - name: Unit tests (includes the docs/events.md freshness check)
+        run: go test ./...
+      - name: Integration tests (real Postgres via testcontainers)
+        run: go test -tags integration ./...
+
+  frontend:
+    name: Admin frontend
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run i18n:check
+      - run: npx vitest run
+      - name: Type check and build
+        run: npm run build
+
+  storefront:
+    name: Storefront
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: storefront
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: storefront/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run i18n:check
+      - run: npx vitest run
+      - name: Type check, build and bundle budget
+        run: npm run build
+
+  deploy-files:
+    name: Deploy script and production compose
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: deploy.sh tests
+        run: deploy/prod/deploy_test.sh
+      - name: Production compose is valid
+        working-directory: deploy/prod
+        run: |
+          cat > .env <<'ENV'
+          COMMERCEOS_VERSION=0.0.0
+          APP_DB_PASSWORD=x
+          JWT_SECRET=x
+          INTEGRATIONS_ENCRYPTION_SECRET=x
+          API_PUBLIC_BASE_URL=https://api.example.test
+          FRONTEND_BASE_URL=https://example.test
+          S3_ENDPOINT=minio:9000
+          S3_ACCESS_KEY_ID=x
+          S3_SECRET_ACCESS_KEY=x
+          S3_PUBLIC_BASE_URL=https://media.example.test
+          API_DOMAIN=api.example.test
+          FRONTEND_DOMAIN=example.test
+          VITE_API_BASE_URL=https://api.example.test/api/v1
+          ENV
+          docker compose config --quiet
+          test -f nats.conf
+
+  # Production runs on an ARM64 server (Oracle Ampere), so images are built
+  # for linux/arm64 only. The Dockerfiles cross-compile on the runner (no
+  # emulation); QEMU is only used to check the result actually runs.
+  images:
+    name: Image (${{ matrix.image }})
+    needs: [backend, frontend, storefront, deploy-files]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        image: [backend, frontend, storefront]
+    env:
+      PLATFORM: linux/arm64
+      LOCAL_IMAGE: commerceos-${{ matrix.image }}:ci
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@v3
+      - name: Image tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/commerceos-${{ matrix.image }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=branch
+            type=sha
+      # Admin frontend URLs are compiled in (Vite); they come from the
+      # repository's Actions variables. Unused by the other images.
+      - name: Build (${{ env.PLATFORM }})
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.image }}
+          platforms: ${{ env.PLATFORM }}
+          load: true
+          tags: ${{ env.LOCAL_IMAGE }}
+          build-args: |
+            VITE_LM2_LOGIN_URL=${{ vars.VITE_LM2_LOGIN_URL }}
+            VITE_LM2_CALLBACK_PATH=${{ vars.VITE_LM2_CALLBACK_PATH }}
+            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
+            VITE_STOREFRONT_URL=${{ vars.VITE_STOREFRONT_URL }}
+            VITE_DESIGN_DEFAULT=${{ vars.VITE_DESIGN_DEFAULT }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
+      - name: Programs run on ${{ env.PLATFORM }} (QEMU)
+        run: scripts/check-image-platform.sh "${{ matrix.image }}" "$LOCAL_IMAGE" "$PLATFORM"
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.image }}
+          platforms: ${{ env.PLATFORM }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_LM2_LOGIN_URL=${{ vars.VITE_LM2_LOGIN_URL }}
+            VITE_LM2_CALLBACK_PATH=${{ vars.VITE_LM2_CALLBACK_PATH }}
+            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
+            VITE_STOREFRONT_URL=${{ vars.VITE_STOREFRONT_URL }}
+            VITE_DESIGN_DEFAULT=${{ vars.VITE_DESIGN_DEFAULT }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+      - name: Summary
+        if: github.event_name == 'push'
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          {
+            echo "### Published ${{ matrix.image }} ($PLATFORM)"
+            for tag in $TAGS; do echo "- \`$tag\`"; done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Release tags only, once every image is in GHCR. Waits for approval in the
+  # `production` environment (see deploy.yml).
+  deploy:
+    name: Deploy
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [images]
+    uses: ./.github/workflows/deploy.yml
+    with:
+      version: ${{ github.ref_name }}
+    secrets: inherit

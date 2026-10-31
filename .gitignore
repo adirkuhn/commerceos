@@ -37,3 +37,7 @@ docker-compose.override.yml
 
 # --- Logs ---
 *.log
+
+# --- Deploy (server-side state, see deploy/prod/deploy.sh) ---
+deploy/prod/.deploy.lock
+deploy/prod/.deploy-history
