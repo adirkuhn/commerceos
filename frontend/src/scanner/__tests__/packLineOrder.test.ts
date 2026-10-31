@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { orderPackLines, packLineChanges, packLineState } from '../packLineOrder'
+import { orderPackLines, packLineChanges, packLineState, type PackLineHistory } from '../packLineOrder'
 
 const lines = [
   { id: 'a', quantity: 2 },
@@ -8,6 +8,7 @@ const lines = [
   { id: 'd', quantity: 1 },
 ]
 const ids = (ls: { id: string }[]) => ls.map(l => l.id)
+const history = (h: Partial<PackLineHistory>): PackLineHistory => ({ partialOrder: [], settling: new Map(), ...h })
 
 describe('packLineState', () => {
   it('is todo, partial or done by packed quantity', () => {
@@ -23,20 +24,29 @@ describe('orderPackLines', () => {
     expect(ids(orderPackLines(lines, new Map()))).toEqual(['a', 'b', 'c', 'd'])
   })
 
-  it('puts partly packed lines on top, then lines not packed, then done lines at the end', () => {
-    const packed = new Map([['a', 2], ['c', 1], ['d', 1]])
-    expect(ids(orderPackLines(lines, packed))).toEqual(['c', 'b', 'a', 'd'])
+  it('puts partly packed lines first, then lines not packed, then done lines in the order\'s own order', () => {
+    const packed = new Map([['d', 1], ['c', 1], ['b', 1]])
+    expect(ids(orderPackLines(lines, packed))).toEqual(['c', 'a', 'b', 'd'])
   })
 
-  it('keeps the original order inside each group', () => {
-    const packed = new Map([['b', 1], ['a', 1], ['c', 1]])
-    // a and c partial (a before c), d todo, b done.
-    expect(ids(orderPackLines(lines, packed))).toEqual(['a', 'c', 'd', 'b'])
+  it('puts the line just finished in one scan on top, before the partly packed ones', () => {
+    const packed = new Map([['c', 1], ['b', 1]])
+    expect(ids(orderPackLines(lines, packed, history({ top: 'b' })))).toEqual(['b', 'c', 'a', 'd'])
+  })
+
+  it('orders partly packed lines by when they were first scanned', () => {
+    const packed = new Map([['a', 1], ['c', 1]])
+    expect(ids(orderPackLines(lines, packed, history({ partialOrder: ['c', 'a'] })))).toEqual(['c', 'a', 'b', 'd'])
+  })
+
+  it('ignores a top line that is no longer done (a scan was removed)', () => {
+    expect(ids(orderPackLines(lines, new Map(), history({ top: 'b' })))).toEqual(['a', 'b', 'c', 'd'])
   })
 
   it('leaves a settling line where it was before it completed', () => {
-    const packed = new Map([['a', 2]])
-    expect(ids(orderPackLines(lines, packed, new Map([['a', 'todo']])))).toEqual(['a', 'b', 'c', 'd'])
+    const packed = new Map([['a', 2], ['c', 1]])
+    const h = history({ partialOrder: ['a', 'c'], settling: new Map([['a', 'partial']]) })
+    expect(ids(orderPackLines(lines, packed, h))).toEqual(['a', 'c', 'b', 'd'])
   })
 })
 

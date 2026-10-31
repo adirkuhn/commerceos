@@ -13,8 +13,9 @@ interface PackingLineListProps {
   onOpenLine: (lineItem: PickingSessionLineItem, packedSoFar: number) => void
 }
 
-// The scanner's packing lines: partly packed on top, then not packed yet,
-// then done (see usePackLineOrder) -- same order and effects as the admin.
+// The scanner's packing lines: the line just finished on top, then partly
+// packed, then not packed yet, then done (see usePackLineOrder) -- same
+// order and effects as the admin.
 export function PackingLineList({ token, sessionId, lineItems, packedByLineItem, readOnly, onOpenLine }: PackingLineListProps) {
   const { lines, highlight } = usePackLineOrder(sessionId, lineItems, packedByLineItem)
   const flipRef = useFlipList(lines.map(li => li.id))

@@ -1,7 +1,11 @@
-// Packing list order: lines being worked on stay in reach, finished ones
-// get out of the way. Partly packed lines go on top, then lines not packed
-// yet, then done lines at the end; each group keeps the order's own line
-// order, so a fresh order opens exactly as the order lists it.
+// Packing list order, built so the packer always sees what they just did:
+//   1. the line just finished in ONE scan (it was not packed at all before),
+//      until the next scan of any kind;
+//   2. partly packed lines, in the order they were first scanned;
+//   3. lines not packed yet, in the order's own order;
+//   4. done lines, in the order's own order -- including a line finished
+//      from partly packed, which goes straight here.
+// A fresh order therefore opens exactly as the order lists it.
 
 export interface PackLine {
   id: string
@@ -10,22 +14,40 @@ export interface PackLine {
 
 export type PackLineState = 'partial' | 'todo' | 'done'
 
-const GROUP_RANK: Record<PackLineState, number> = { partial: 0, todo: 1, done: 2 }
+// What the scans so far tell the ordering, beyond packed quantities.
+export interface PackLineHistory {
+  // The line the last scan finished from not packed at all.
+  top?: string
+  // Partly packed lines, in the order they were first scanned.
+  partialOrder: string[]
+  // Lines that just completed, with the state they had before: they keep
+  // that place while their completion flashes (see usePackLineOrder).
+  settling: Map<string, PackLineState>
+}
+
+export const emptyPackLineHistory = (): PackLineHistory => ({ partialOrder: [], settling: new Map() })
+
+const GROUP_RANK = { top: 0, partial: 1, todo: 2, done: 3 } as const
 
 export function packLineState(line: PackLine, packed: number): PackLineState {
   if (packed >= line.quantity) return 'done'
   return packed > 0 ? 'partial' : 'todo'
 }
 
-// settling: lines that just completed, with the state they had before --
-// they keep that place while their completion flashes (see usePackLineOrder).
 export function orderPackLines<L extends PackLine>(
-  lines: L[], packed: Map<string, number>, settling: Map<string, PackLineState> = new Map(),
+  lines: L[], packed: Map<string, number>, history: PackLineHistory = emptyPackLineHistory(),
 ): L[] {
-  const rank = (l: L) => GROUP_RANK[settling.get(l.id) ?? packLineState(l, packed.get(l.id) ?? 0)]
-  return lines
-    .map((line, index) => ({ line, index, rank: rank(line) }))
-    .sort((x, y) => x.rank - y.rank || x.index - y.index)
+  const firstScanned = new Map(history.partialOrder.map((id, i) => [id, i]))
+  const placed = lines.map((line, index) => {
+    const state = history.settling.get(line.id) ?? packLineState(line, packed.get(line.id) ?? 0)
+    const group = line.id === history.top && state === 'done' ? 'top' : state
+    // Partly packed lines go by first scan; ones from before this screen
+    // was open (no scan seen) come after those, in the order's own order.
+    const within = group === 'partial' ? (firstScanned.get(line.id) ?? lines.length + index) : index
+    return { line, rank: GROUP_RANK[group], within }
+  })
+  return placed
+    .sort((x, y) => x.rank - y.rank || x.within - y.within)
     .map(x => x.line)
 }
 

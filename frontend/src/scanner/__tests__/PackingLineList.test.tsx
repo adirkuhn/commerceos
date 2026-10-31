@@ -12,14 +12,15 @@ function line(id: string, name: string, quantity: number): PickingSessionLineIte
 }
 
 describe('PackingLineList', () => {
-  it('puts partly packed lines on top and moves finished ones to the end after their flash', () => {
+  it('keeps the line just finished on top, green, until the next scan (same as the admin)', () => {
     vi.useFakeTimers()
     try {
       const props = {
         token: 'tok', sessionId: 's1', readOnly: false, onOpenLine: vi.fn(),
         lineItems: [line('a', 'Arroz', 1), line('b', 'Feijao', 2), line('c', 'Farofa', 1)],
       }
-      const names = () => screen.getAllByRole('button').map(b => b.querySelector('p')?.textContent)
+      const buttons = () => screen.getAllByRole('button')
+      const names = () => buttons().map(b => b.querySelector('p')?.textContent)
       const { rerender } = render(<PackingLineList {...props} packedByLineItem={new Map()} />)
       expect(names()).toEqual(['Arroz', 'Feijao', 'Farofa'])
 
@@ -27,11 +28,13 @@ describe('PackingLineList', () => {
       expect(names()).toEqual(['Feijao', 'Arroz', 'Farofa'])
 
       rerender(<PackingLineList {...props} packedByLineItem={new Map([['b', 1], ['a', 1]])} />)
-      expect(names()).toEqual(['Feijao', 'Arroz', 'Farofa'])
-      expect(screen.getAllByRole('button')[1].className).toContain('ring-green-500')
-
       act(() => { vi.advanceTimersByTime(PACK_LINE_SETTLE_MS) })
-      expect(names()).toEqual(['Feijao', 'Farofa', 'Arroz'])
+      expect(names()).toEqual(['Arroz', 'Feijao', 'Farofa'])
+      expect(buttons()[0].className).toContain('ring-green-500')
+
+      rerender(<PackingLineList {...props} packedByLineItem={new Map([['b', 1], ['a', 1], ['c', 1]])} />)
+      expect(names()).toEqual(['Farofa', 'Feijao', 'Arroz'])
+      expect(buttons()[2].className).not.toContain('ring-green-500')
     } finally {
       vi.useRealTimers()
     }

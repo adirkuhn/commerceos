@@ -19,8 +19,8 @@ interface PackLineItemListProps {
 }
 
 // The order's lines with how much of each is packed; tapping one opens it.
-// Partly packed lines sit on top, then lines not packed yet, then done
-// ones (see usePackLineOrder).
+// The line just finished sits on top, then partly packed lines, then lines
+// not packed yet, then done ones (see usePackLineOrder).
 export function PackLineItemList({ token, sessionId, lineItems, packedByLineItem, readOnly, onOpenLine }: PackLineItemListProps) {
   const { t } = useTranslation('packing')
   const { lines, highlight } = usePackLineOrder(sessionId, lineItems, packedByLineItem)

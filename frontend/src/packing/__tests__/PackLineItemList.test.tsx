@@ -26,7 +26,7 @@ describe('PackLineItemList', () => {
     expect(screen.queryByText(/Sold exp\./)).not.toBeInTheDocument()
   })
 
-  it('moves a partly packed line to the top and a finished one to the end, after its flash', () => {
+  it('keeps the line just finished on top with a lasting highlight until the next scan', () => {
     vi.useFakeTimers()
     try {
       const lines = [
@@ -35,7 +35,8 @@ describe('PackLineItemList', () => {
         line({ id: 'c', name: 'Farofa', quantity: 1 }),
       ]
       const props = { token: 'tok', sessionId: 's1', lineItems: lines, readOnly: false, onOpenLine: vi.fn() }
-      const names = () => screen.getAllByTestId('pack-line').map(el => el.dataset.lineId)
+      const rows = () => screen.getAllByTestId('pack-line')
+      const names = () => rows().map(el => el.dataset.lineId)
       const { rerender } = render(<PackLineItemList {...props} packedByLineItem={new Map()} />)
       expect(names()).toEqual(['a', 'b', 'c'])
 
@@ -43,11 +44,14 @@ describe('PackLineItemList', () => {
       expect(names()).toEqual(['b', 'a', 'c'])
 
       rerender(<PackLineItemList {...props} packedByLineItem={new Map([['b', 1], ['a', 1]])} />)
-      expect(names()).toEqual(['b', 'a', 'c'])
-      expect(screen.getAllByTestId('pack-line')[1].dataset.highlight).toBe('done')
-
       act(() => { vi.advanceTimersByTime(PACK_LINE_SETTLE_MS) })
-      expect(names()).toEqual(['b', 'c', 'a'])
+      expect(names()).toEqual(['a', 'b', 'c'])
+      expect(rows()[0].dataset.highlight).toBe('done')
+
+      rerender(<PackLineItemList {...props} packedByLineItem={new Map([['b', 1], ['a', 1], ['c', 1]])} />)
+      expect(names()).toEqual(['c', 'b', 'a'])
+      expect(rows()[0].dataset.highlight).toBe('done')
+      expect(rows()[2].dataset.highlight).toBeUndefined()
     } finally {
       vi.useRealTimers()
     }
