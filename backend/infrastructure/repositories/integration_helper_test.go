@@ -48,13 +48,28 @@ var shared struct {
 	admin     *sql.DB  // connected to "postgres", issues CREATE/DROP DATABASE
 }
 
-// TestMain stops the shared container after the run (Ryuk would too, but
-// only if it's enabled).
+// TestMain owns the shared container's lifecycle: it stops it after the run.
+//
+// Ryuk (testcontainers' cleanup sidecar) is off for this binary: its session
+// is keyed on the parent process, so every package binary of one
+// `go test ./...` shares it, and when another package (internal/db) finished
+// Ryuk removed this package's container mid-run. Trade-off: a hard-killed run
+// (panic, timeout, Ctrl-C) leaves the container behind.
 func TestMain(m *testing.M) {
+	if err := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true"); err != nil {
+		fmt.Fprintln(os.Stderr, "disable ryuk:", err)
+		os.Exit(1)
+	}
 	code := m.Run()
+	if shared.admin != nil {
+		if err := shared.admin.Close(); err != nil {
+			fmt.Fprintln(os.Stderr, "close admin connection:", err)
+		}
+	}
 	if shared.container != nil {
-		_ = shared.admin.Close()
-		_ = shared.container.Terminate(context.Background())
+		if err := shared.container.Terminate(context.Background()); err != nil {
+			fmt.Fprintln(os.Stderr, "stop shared Postgres:", err)
+		}
 	}
 	os.Exit(code)
 }
@@ -83,7 +98,9 @@ func newIntegrationDBAndDSN(t *testing.T) (*gorm.DB, string) {
 	require.NoError(t, err)
 	// Registered first, so it runs last: after every connection below closed.
 	t.Cleanup(func() {
-		_, _ = shared.admin.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %q WITH (FORCE)`, name))
+		if _, err := shared.admin.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %q WITH (FORCE)`, name)); err != nil {
+			t.Errorf("drop test database %s: %v", name, err)
+		}
 	})
 
 	dsn := databaseURL(name)
