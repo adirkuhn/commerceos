@@ -42,7 +42,9 @@ jobs:
       - name: Unit tests (includes the docs/events.md freshness check)
         run: go test ./...
       - name: Integration tests (real Postgres via testcontainers)
-        run: go test -tags integration ./...
+        # One Postgres container per test: the repositories package alone
+        # runs past go test's default 10m timeout.
+        run: go test -tags integration -timeout 45m ./...
 
   frontend:
     name: Admin frontend
