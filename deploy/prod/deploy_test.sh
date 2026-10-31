@@ -17,6 +17,7 @@ setup() {
 	tmpdirs+=("$T")
 	mkdir "$T/bin"
 	cp "$HERE/deploy.sh" "$T/"
+	: >"$T/docker-compose.yml"
 	printf 'API_DOMAIN=x.test\nCOMMERCEOS_VERSION=1.0.0\nCOMMERCEOS_PREVIOUS_VERSION=0.9.0\nJWT_SECRET=secret\n' >"$T/.env"
 	cat >"$T/bin/docker" <<'FAKE'
 #!/usr/bin/env bash
@@ -136,5 +137,14 @@ setup
 rm "$T/.env"
 deploy 1.2.3
 check "missing .env fails"                2 $?
+check "missing .env names the file"       1 "$(grep -c "$T/.env not found" "$T/out")"
+
+# compose reads .env from the compose file's folder: both must sit next to deploy.sh.
+setup
+rm "$T/docker-compose.yml"
+deploy 1.2.3
+check "missing docker-compose.yml fails"  2 $?
+check "missing compose file is named"     1 "$(grep -c "$T/docker-compose.yml not found" "$T/out")"
+check "missing compose file runs no docker" "" "$(calls)"
 
 exit $fail

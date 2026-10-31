@@ -35,7 +35,7 @@ Then go to GitHub → Actions → the CI run → **Review deployments** → appr
 Any of these works:
 
 - **GitHub:** Actions → **Deploy** → Run workflow → version `rollback`, to go back to the version the current one replaced. You can also enter any published release, e.g. `1.2.2`.
-- **On the server:** `cd /var/www/commerceos-prod && ./deploy.sh rollback`, or `./deploy.sh 1.2.2`.
+- **On the server:** `cd /var/www/commerceos && ./deploy.sh rollback`, or `./deploy.sh 1.2.2`.
 - **Automatic:** a deploy whose new version fails to start puts the previous version back by itself and reports the deploy as failed.
 
 A rollback starts from images already on the server if the registry can't be reached. Every deploy and rollback is logged in `.deploy-history`.
@@ -73,31 +73,36 @@ A rollback starts from images already on the server if the registry can't be rea
 
 These steps work on any Docker host with Traefik (network `traefik-public`), Postgres (container `postgres` on network `database`) and MinIO (network `minio`) already running.
 
-1. **Deploy user.** It needs the `docker` group, which is root-equivalent on that host; its SSH key is locked to `deploy.sh` (step 4).
+`/var/www/commerceos` becomes the deploy folder: `docker-compose.yml` (the production one), `deploy.sh`, `nats.conf` and `.env` side by side. Compose reads `.env` from the compose file's own folder, so they must stay together (`deploy.sh` refuses to run otherwise). The server needs no source checkout: CI builds the images.
+
+1. **Deploy user.** One `deploy` user can serve several projects. Each project gets its **own SSH key**, and each key is locked to that project's `deploy.sh` (step 4). If the user already exists (e.g. for akache), skip to the group lines. The `docker` group is root-equivalent on that host.
    ```bash
-   sudo adduser --disabled-password --gecos '' deploy
+   sudo adduser --disabled-password --gecos '' deploy   # only if it doesn't exist yet
    sudo usermod -aG docker deploy
    sudo groupadd -f commerceos && sudo usermod -aG commerceos deploy && sudo usermod -aG commerceos ubuntu
    ```
-2. **Deploy folder** next to the old checkout. `-L` copies `nats.conf` instead of the repo's symlink.
+2. **Deploy folder.** Move the old source checkout out of the way, then fill the folder from it. `-L` copies `nats.conf` instead of the repo's symlink.
    ```bash
-   sudo install -d -o deploy -g commerceos -m 2770 /var/www/commerceos-prod
-   cd /var/www/commerceos && git pull
-   cp -L deploy/prod/docker-compose.yml deploy/prod/deploy.sh deploy/prod/nats.conf /var/www/commerceos-prod/
-   cp .env /var/www/commerceos-prod/.env   # the existing production settings
-   cd /var/www/commerceos-prod
+   sudo mv /var/www/commerceos /var/www/commerceos-src
+   cd /var/www/commerceos-src && git pull
+   sudo install -d -o deploy -g commerceos -m 2770 /var/www/commerceos
+   cp -L deploy/prod/docker-compose.yml deploy/prod/deploy.sh deploy/prod/nats.conf /var/www/commerceos/
+   cp .env /var/www/commerceos/.env          # the existing production settings
+   cd /var/www/commerceos
    echo 'COMMERCEOS_VERSION=1.0.0' >> .env   # the first release you tag
    chgrp commerceos .env deploy.sh docker-compose.yml nats.conf && chmod 660 .env
    ```
-3. **GHCR login as `deploy`.** The images are private. Create a classic GitHub token with only `read:packages`, then:
+   Compare `.env` with `deploy/prod/.env.example`: `HTTP_PORT` must be `80`, and anything the example lists must be set.
+3. **GHCR login as `deploy`.** The images are private. A classic GitHub token with only `read:packages` covers every package you own, so if `deploy` is already logged in to `ghcr.io` for another of your projects, skip this.
    ```bash
    sudo -iu deploy docker login ghcr.io -u adirkuhn   # paste the token as the password
    ```
-4. **Forced command.** Append to `/home/deploy/.ssh/authorized_keys` (directory `700`, file `600`, owned by `deploy`):
+4. **Forced command: a second key, next to the other projects' lines.** Make a key just for CommerceOS (`ssh-keygen -t ed25519 -f commerceos-deploy -N ''`), put the private key in this repo's `DEPLOY_SSH_KEY` secret, and **add** a line to `/home/deploy/.ssh/authorized_keys` (directory `700`, file `600`, owned by `deploy`). Keep the existing lines:
    ```
-   restrict,command="/var/www/commerceos-prod/deploy.sh" ssh-ed25519 AAAA… github-actions-deploy
+   restrict,command="/var/www/akache/deploy.sh" ssh-ed25519 AAAA…(akache key) github-actions-deploy
+   restrict,command="/var/www/commerceos/deploy.sh" ssh-ed25519 AAAA…(commerceos-deploy.pub) github-actions-commerceos
    ```
-   The key can now only run `deploy.sh <version>` or `deploy.sh rollback`.
+   SSH picks the line by the key that connects, so each repo's key can only run its own `deploy.sh <version>` or `deploy.sh rollback`.
 
 ### Switching over from the source-built stack
 
@@ -106,16 +111,16 @@ These steps work on any Docker host with Traefik (network `traefik-public`), Pos
 1. Tag the first release: `git tag v1.0.0 && git push origin v1.0.0`. Let CI publish the images. Don't approve that run's deployment yet.
 2. Deploy by hand once:
    ```bash
-   sudo -iu deploy sh -c 'cd /var/www/commerceos-prod && ./deploy.sh 1.0.0'
+   sudo -iu deploy sh -c 'cd /var/www/commerceos && ./deploy.sh 1.0.0'
    ```
-3. Check the site. From then on, stop running `docker compose` in `/var/www/commerceos`: it would build from source over the published images. That folder is now only where the deploy files come from.
+3. Check the site. From then on, never run `docker compose` in `/var/www/commerceos-src`: it would build from source over the published images. That checkout is only where updated deploy files come from (or delete it and copy them from GitHub).
 
 ## Day to day
 
-- **The deploy files changed** (`docker-compose.yml`, `nats.conf` or `deploy.sh` in `deploy/prod/`): copy them to the server again before the release that needs them. `deploy.sh` only ever changes the version.
+- **The deploy files changed** (`docker-compose.yml`, `nats.conf` or `deploy.sh` in `deploy/prod/`): copy them from `/var/www/commerceos-src` (after `git pull`) to `/var/www/commerceos` before the release that needs them. `deploy.sh` only ever changes the version.
 - **One-off commands** (repair or backfill programs in the backend image):
   ```bash
-  cd /var/www/commerceos-prod
+  cd /var/www/commerceos
   docker compose run --rm --no-deps backend /repair-unmanaged-woo-stock
   ```
 - **What's running:** `grep COMMERCEOS_ .env`, `tail .deploy-history`, `docker compose ps`.

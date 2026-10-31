@@ -38,10 +38,15 @@ main() {
 		echo "deploy: invalid argument '$arg' (expected a release like 1.2.3, or rollback)" >&2
 		return 2
 	fi
-	if [[ ! -f $ENV_FILE ]]; then
-		echo "deploy: $ENV_FILE not found" >&2
-		return 2
-	fi
+	# Compose reads .env (and env_file) from the compose file's own folder, so
+	# both must sit next to this script.
+	local f
+	for f in "$ENV_FILE" "$dir/docker-compose.yml"; do
+		if [[ ! -f $f ]]; then
+			echo "deploy: $f not found (docker-compose.yml, .env and deploy.sh must be in one folder)" >&2
+			return 2
+		fi
+	done
 
 	exec 9>"$dir/.deploy.lock"
 	if ! flock -n 9; then
