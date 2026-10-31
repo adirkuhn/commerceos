@@ -140,10 +140,12 @@ func main() {
 		invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
 		procurementapp.NewListReceivedCostLinesForSKUUseCase(db, lineItemRepo),
 	)
+	syncUnitCostFromCaseUC := pmsapp.NewSyncUnitCostFromCaseUseCase(db, skuRepo, variantRepo, repositories.NewSKUCostPriceLedgerRepo(db),
+		invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo), outboxRepo)
 	jobRunners := map[string]schedulerapp.JobRunner{
 		schedulerDomain.JobExpiredSalePrices:      schedulerapp.NewRunExpiredSalePricesUseCase(db, skuRepo, expireSalePriceUC),
 		schedulerDomain.JobExpiredBatches:         schedulerapp.NewRunExpiredBatchesUseCase(db, batchRepo, expireBatchUC),
-		schedulerDomain.JobCostPriceRecalculation: schedulerapp.NewRunCostPriceRecalculationUseCase(db, skuRepo, recalculateCostPricesUC),
+		schedulerDomain.JobCostPriceRecalculation: schedulerapp.NewRunCostPriceRecalculationUseCase(db, skuRepo, recalculateCostPricesUC, syncUnitCostFromCaseUC),
 		schedulerDomain.JobPromotionActivation:    schedulerapp.NewRunPromotionActivationUseCase(db, promotionSKURepo, applyPromotionSKUUC, revertPromotionSKUUC, promotionSKURepo, finishClearanceLinesUC),
 	}
 	runJobNowUC := schedulerapp.NewRunJobNowUseCase(db, jobRepo, jobRunners, outboxRepo)
@@ -245,6 +247,21 @@ func main() {
 	if sub := subscribeConsumer(js, events.SKUPricePerKiloChanged{}.EventName(), "weight-package-repricer-scheduler",
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, perKiloConsumer.Handle); sub != nil {
 		defer sub.Unsubscribe()
+	}
+
+	// A unit sold out of a sealed case takes the case's cost: when a case's
+	// cost changes and when a case link is made or changed (product changed).
+	for _, c := range []struct {
+		subject  string
+		consumer *consumers.UnitCostFromCaseConsumer
+	}{
+		{events.SKUCostPriceChanged.Subject, consumers.NewUnitCostOnCaseCostChangedConsumer(processedEventRepo, syncUnitCostFromCaseUC, js)},
+		{events.ProductChanged{}.EventName(), consumers.NewUnitCostOnProductChangedConsumer(processedEventRepo, syncUnitCostFromCaseUC, js)},
+	} {
+		if sub := subscribeConsumer(js, c.subject, c.consumer.Name(),
+			consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, c.consumer.Handle); sub != nil {
+			defer sub.Unsubscribe()
+		}
 	}
 
 	// Moneybird auto sync: a no-op per tenant unless they turned it on.

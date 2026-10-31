@@ -42,6 +42,10 @@ const (
 	// this SKU (see ProductMerge): its on-hand stock joins at its own cost,
 	// blending the average (BlendMovingAverageCost).
 	SKUCostPriceLedgerSourceMerge SKUCostPriceLedgerSourceType = "merge"
+	// SKUCostPriceLedgerSourceCaseLink is a unit SKU taking its cost from
+	// the sealed case it is sold out of (SKU.CaseOfSKUID): case cost /
+	// units per case (UnitCostFromCaseMinorUnits). Changes cost only.
+	SKUCostPriceLedgerSourceCaseLink SKUCostPriceLedgerSourceType = "case_link"
 )
 
 // SKUCostPriceLedgerEntry is one immutable row in a SKU's cost/quantity

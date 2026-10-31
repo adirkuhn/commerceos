@@ -93,6 +93,8 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 		appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
 		appprocurement.NewListReceivedCostLinesForSKUUseCase(db, lineItemRepo),
 	)
+	syncUnitCostFromCaseUC := apppms.NewSyncUnitCostFromCaseUseCase(db, skuRepo, variantRepo, repositories.NewSKUCostPriceLedgerRepo(db),
+		appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo), outboxRepo)
 	stockLevelUC := appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, settingsRepo)
 	categoryLinkRepo := repositories.NewExternalCategoryLinkRepo(db)
 	resolveCategoryLinkUC := appchannels.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo, repositories.NewOutboxRepository(db))
@@ -120,7 +122,7 @@ func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClie
 	runners := map[string]appscheduler.JobRunner{
 		schedulerDomain.JobExpiredSalePrices:           appscheduler.NewRunExpiredSalePricesUseCase(db, skuRepo, expireSalePriceUC),
 		schedulerDomain.JobExpiredBatches:              appscheduler.NewRunExpiredBatchesUseCase(db, batchRepo, expireBatchUC),
-		schedulerDomain.JobCostPriceRecalculation:      appscheduler.NewRunCostPriceRecalculationUseCase(db, skuRepo, recalculateCostPricesUC),
+		schedulerDomain.JobCostPriceRecalculation:      appscheduler.NewRunCostPriceRecalculationUseCase(db, skuRepo, recalculateCostPricesUC, syncUnitCostFromCaseUC),
 		schedulerDomain.JobResyncAllProductsToChannels: appscheduler.NewRunResyncProductsToChannelsUseCase(db, listingRepo, resyncProductToChannelsUC),
 		schedulerDomain.JobStockExpiryReport: appscheduler.NewRunStockExpiryReportUseCase(db, repositories.NewTenantSettingsRepo(db),
 			appinventory.NewReportStockCloseToExpiryUseCase(db, repositories.NewExpiringStockRepo(db), repositories.NewOutboxRepository(db), time.Now)),
