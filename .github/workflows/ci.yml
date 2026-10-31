@@ -53,6 +53,16 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
+      # Docker Hub sometimes answers 5xx; one failed pull would fail every
+      # test. Pull up front, retrying, so the tests find the image locally.
+      - name: Pull Postgres image (with retries)
+        run: |
+          for attempt in 1 2 3 4 5; do
+            docker pull postgres:16-alpine && exit 0
+            echo "::warning::pull failed (attempt $attempt), retrying in $((attempt * 10))s"
+            sleep $((attempt * 10))
+          done
+          exit 1
       # One Postgres container per package; each test gets its own copy of
       # a migrated template database (see integration_helper_test.go).
       - name: Integration tests (real Postgres via testcontainers)
