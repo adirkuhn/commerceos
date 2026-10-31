@@ -81,16 +81,17 @@ These steps work on any Docker host with Traefik (network `traefik-public`), Pos
    sudo usermod -aG docker deploy
    sudo groupadd -f commerceos && sudo usermod -aG commerceos deploy && sudo usermod -aG commerceos ubuntu
    ```
-2. **Deploy folder.** Move the old source checkout out of the way, then fill the folder from it. `-L` copies `nats.conf` instead of the repo's symlink.
+2. **Deploy folder.** Needs the `commerceos` group from step 1. Move the old source checkout out of the way, then fill the folder from it. The copies use `sudo` because a new group membership only applies after you log in again. `-L` copies `nats.conf` instead of the repo's symlink.
    ```bash
    sudo mv /var/www/commerceos /var/www/commerceos-src
    cd /var/www/commerceos-src && git pull
    sudo install -d -o deploy -g commerceos -m 2770 /var/www/commerceos
-   cp -L deploy/prod/docker-compose.yml deploy/prod/deploy.sh deploy/prod/nats.conf /var/www/commerceos/
-   cp .env /var/www/commerceos/.env          # the existing production settings
+   sudo cp -L deploy/prod/{docker-compose.yml,deploy.sh,nats.conf} /var/www/commerceos/
+   sudo cp .env /var/www/commerceos/.env          # the existing production settings
+   echo 'COMMERCEOS_VERSION=1.0.0' | sudo tee -a /var/www/commerceos/.env >/dev/null   # the first release you tag
    cd /var/www/commerceos
-   echo 'COMMERCEOS_VERSION=1.0.0' >> .env   # the first release you tag
-   chgrp commerceos .env deploy.sh docker-compose.yml nats.conf && chmod 660 .env
+   sudo chown deploy:commerceos docker-compose.yml deploy.sh nats.conf .env
+   sudo chmod 770 deploy.sh && sudo chmod 660 .env docker-compose.yml nats.conf
    ```
    Compare `.env` with `deploy/prod/.env.example`: `HTTP_PORT` must be `80`, and anything the example lists must be set.
 3. **GHCR login as `deploy`.** The images are private. A classic GitHub token with only `read:packages` covers every package you own, so if `deploy` is already logged in to `ghcr.io` for another of your projects, skip this.
