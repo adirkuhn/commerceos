@@ -128,7 +128,7 @@ export function ScanPicking() {
             <PickProgressBar progress={progress} />
 
             <PickLineList
-              token={token ?? ''} lineItems={session.line_items} pickedByLineItem={progress.pickedByLineItem}
+              token={token ?? ''} sessionId={session.session.id} lineItems={session.line_items} pickedByLineItem={progress.pickedByLineItem}
               readOnly={ps.readOnly} onOpenLine={sheet.open}
             />
 

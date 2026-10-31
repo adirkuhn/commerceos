@@ -11,7 +11,6 @@ import type { PickingSessionDetail, PickingSessionLineItem } from './types'
 import { StockShortfallDialog } from './StockShortfallDialog'
 import type { SalesOrder } from '../oms/types'
 import { PickLineSheet } from './PickingLineSheet'
-import { SoldExpiryNote } from '../oms/SoldExpiryNote'
 import { isAuthError } from '../auth/isAuthError'
 import { useScanSession, type ScanSessionApi } from './useScanSession'
 import { useSessionCompletion } from './useSessionCompletion'
@@ -23,7 +22,7 @@ import { PickingBillingLine } from './PickingOrderDetails'
 import { ScanSessionOrderBand, StartOverButton } from './ScanSessionOrderBand'
 import { ScanSessionLockBanner } from './ScanSessionLockBanner'
 import { ScanSessionScanForm } from './ScanSessionScanForm'
-import { SCANNER_SOLD_EXPIRY_CLASS, ScanSessionLineRow } from './ScanSessionLines'
+import { PickingLineList } from './PickingLineList'
 import { ScanErrorDialog, StartOverDialog } from './ScanSessionDialogs'
 import { apiErrorText } from '../api/apiErrorText'
 
@@ -165,18 +164,10 @@ export function PickingScreen({ token, sessionId, order, onExit, onAuthError, on
 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
         {session.loading && <p className="text-center text-sm text-gray-400 py-8">{t('common:status.loading')}</p>}
-        {detail?.line_items.map(li => {
-          const pickedQty = pickedByLineItem.get(li.id) ?? 0
-          return (
-            <ScanSessionLineRow
-              key={li.id} token={token} lineItem={li} doneQty={pickedQty} disabled={readOnly}
-              onClick={() => setPickLine({ lineItem: li, pickedSoFar: pickedQty })}
-            >
-              <SoldExpiryNote date={li.sold_expiry_date} className={SCANNER_SOLD_EXPIRY_CLASS} />
-              {!li.sku_id && <p className="text-xs text-amber-400">{t('shared.notLinked')}</p>}
-            </ScanSessionLineRow>
-          )
-        })}
+        <PickingLineList
+          token={token} sessionId={sessionId} lineItems={detail?.line_items ?? []} pickedByLineItem={pickedByLineItem}
+          readOnly={readOnly} onOpenLine={(lineItem, pickedSoFar) => setPickLine({ lineItem, pickedSoFar })}
+        />
 
         <PickingAddedItems items={addedItems} />
       </div>

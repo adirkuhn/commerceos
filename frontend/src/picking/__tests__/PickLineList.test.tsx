@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { PickLineList } from '../PickLineList'
+import { PACK_LINE_SETTLE_MS } from '../../scanner/usePackLineOrder'
 import type { PickingSessionLineItem } from '../../scanner/types'
 
 vi.mock('../../pms/api', () => ({ listProductMedia: vi.fn().mockResolvedValue([]) }))
@@ -11,7 +12,7 @@ function line(overrides: Partial<PickingSessionLineItem> = {}): PickingSessionLi
 }
 
 function renderList(lineItems: PickingSessionLineItem[]) {
-  render(<PickLineList token="tok" lineItems={lineItems} pickedByLineItem={new Map()} readOnly={false} onOpenLine={vi.fn()} />)
+  render(<PickLineList token="tok" sessionId="s1" lineItems={lineItems} pickedByLineItem={new Map()} readOnly={false} onOpenLine={vi.fn()} />)
 }
 
 describe('PickLineList', () => {
@@ -23,5 +24,37 @@ describe('PickLineList', () => {
   it('shows no sold expiry for a line without one', () => {
     renderList([line()])
     expect(screen.queryByText(/Sold exp\./)).not.toBeInTheDocument()
+  })
+
+  // Same order as packing (see usePackLineOrder).
+  it('keeps the line just picked in one scan on top, green, until the next scan', () => {
+    vi.useFakeTimers()
+    try {
+      const lines = [
+        line({ id: 'a', name: 'Arroz', quantity: 1 }),
+        line({ id: 'b', name: 'Feijao', quantity: 2 }),
+        line({ id: 'c', name: 'Farofa', quantity: 1 }),
+      ]
+      const props = { token: 'tok', sessionId: 's1', lineItems: lines, readOnly: false, onOpenLine: vi.fn() }
+      const rows = () => screen.getAllByTestId('pick-line')
+      const names = () => rows().map(el => el.dataset.lineId)
+      const { rerender } = render(<PickLineList {...props} pickedByLineItem={new Map()} />)
+      expect(names()).toEqual(['a', 'b', 'c'])
+
+      rerender(<PickLineList {...props} pickedByLineItem={new Map([['b', 1]])} />)
+      expect(names()).toEqual(['b', 'a', 'c'])
+      expect(rows()[0].dataset.highlight).toBe('partial')
+
+      rerender(<PickLineList {...props} pickedByLineItem={new Map([['b', 1], ['a', 1]])} />)
+      act(() => { vi.advanceTimersByTime(PACK_LINE_SETTLE_MS) })
+      expect(names()).toEqual(['a', 'b', 'c'])
+      expect(rows()[0].dataset.highlight).toBe('done')
+
+      rerender(<PickLineList {...props} pickedByLineItem={new Map([['b', 1], ['a', 1], ['c', 1]])} />)
+      expect(names()).toEqual(['c', 'b', 'a'])
+      expect(rows()[2].dataset.highlight).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

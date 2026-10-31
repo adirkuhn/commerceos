@@ -6,6 +6,8 @@ import { ProductThumb, ADMIN_THUMB } from '../pms/ProductThumb'
 import { SoldExpiryNote } from '../oms/SoldExpiryNote'
 import { actionLabel } from './pickingDisplay'
 import type { PickProgress } from './pickingProgress'
+import { usePackLineOrder, PACK_LINE_HIGHLIGHT_CLASS } from '../scanner/usePackLineOrder'
+import { useFlipList } from '../fulfillment/useFlipList'
 
 interface PickProgressBarProps {
   progress: PickProgress
@@ -31,6 +33,8 @@ export function PickProgressBar({ progress }: PickProgressBarProps) {
 
 interface PickLineListProps {
   token: string
+  // The picking session -- opening another order sorts without effects.
+  sessionId: string
   lineItems: PickingSessionLineItem[]
   pickedByLineItem: Map<string, number>
   readOnly: boolean
@@ -38,18 +42,24 @@ interface PickLineListProps {
 }
 
 // The order's lines, each with picked/ordered; tapping an unfinished one
-// opens the pick sheet.
-export function PickLineList({ token, lineItems, pickedByLineItem, readOnly, onOpenLine }: PickLineListProps) {
+// opens the pick sheet. Same order as packing: the line just picked on top,
+// then partly picked, then not picked yet, then done (see usePackLineOrder).
+export function PickLineList({ token, sessionId, lineItems, pickedByLineItem, readOnly, onOpenLine }: PickLineListProps) {
   const { t } = useTranslation('picking')
+  const { lines, highlight } = usePackLineOrder(sessionId, lineItems, pickedByLineItem)
+  const flipRef = useFlipList(lines.map(li => li.id))
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-2">
-      {lineItems.map(li => {
+      {lines.map(li => {
         const picked = pickedByLineItem.get(li.id) ?? 0
         const done = picked >= li.quantity
         const partial = picked > 0 && picked < li.quantity
+        const flash = highlight.get(li.id)
         return (
           <div
             key={li.id}
+            ref={flipRef(li.id)}
+            data-testid="pick-line" data-line-id={li.id} data-highlight={flash}
             onClick={() => !done && !readOnly && onOpenLine(li, picked)}
             className={clsx(
               'flex items-center gap-4 p-3 rounded-xl border transition-all',
@@ -57,6 +67,7 @@ export function PickLineList({ token, lineItems, pickedByLineItem, readOnly, onO
               done ? 'dark:bg-green-500/5 dark:border-green-500/20 border-green-200 bg-green-50' :
               partial ? 'dark:bg-amber-500/5 dark:border-amber-500/20 border-amber-200 bg-amber-50' :
               'bg-raised border-line',
+              flash && PACK_LINE_HIGHLIGHT_CLASS[flash],
             )}
           >
             {done ? (
