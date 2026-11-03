@@ -221,6 +221,29 @@ func CorrectionEntries(lineEntries []SupplierCostEntry, adjustmentValueMinorUnit
 	return []SupplierCostEntry{out, in}, true
 }
 
+// ReversalEntry takes quantity units of received stock back off one
+// purchase order line, at the line's current cost -- never more than the
+// line still has standing. lineEntries are that line's rows. ok is false
+// when there is nothing to take back.
+func ReversalEntry(lineEntries []SupplierCostEntry, quantity int64, at time.Time) (SupplierCostEntry, bool) {
+	if len(lineEntries) == 0 || quantity <= 0 {
+		return SupplierCostEntry{}, false
+	}
+	var excluded int
+	lines := netLines(lineEntries, lineEntries[0].CurrencyCode, &excluded)
+	if len(lines) != 1 || !lines[0].standing() {
+		return SupplierCostEntry{}, false
+	}
+	l := lines[0]
+	e := l.first
+	e.ID, e.BatchID = "", nil
+	e.Kind = SupplierCostKindReversal
+	e.Quantity = -min(quantity, l.qty)
+	e.LandedUnitCostMinorUnits = l.cost()
+	e.ReceivedAt = at
+	return e, true
+}
+
 func supplierKey(id *string) string {
 	if id == nil {
 		return ""

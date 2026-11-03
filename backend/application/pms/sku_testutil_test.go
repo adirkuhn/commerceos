@@ -136,6 +136,11 @@ func (s *stubSKURepo) SetManualCostPrice(_ context.Context, skuID string, costPr
 	return s.setManualCostPriceErr
 }
 
+// UpdateCostPriceFromReceipt records into updateCostPriceCalls too.
+func (s *stubSKURepo) UpdateCostPriceFromReceipt(ctx context.Context, skuID string, costPriceMinorUnits int64) error {
+	return s.UpdateCostPrice(ctx, skuID, costPriceMinorUnits)
+}
+
 func (s *stubSKURepo) ClearCostPriceOverride(_ context.Context, skuID string) error {
 	s.clearOverrideCalls = append(s.clearOverrideCalls, skuID)
 	return s.clearOverrideErr

@@ -33,6 +33,7 @@ import (
 	bolinfra "github.com/adirkuhn/commerceos/infrastructure/bol"
 	"github.com/adirkuhn/commerceos/infrastructure/carriers"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
+	"github.com/adirkuhn/commerceos/infrastructure/costhistory"
 	"github.com/adirkuhn/commerceos/infrastructure/dlq"
 	"github.com/adirkuhn/commerceos/infrastructure/evolutionapi"
 	moneybirdhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/moneybird"
@@ -143,12 +144,14 @@ func main() {
 		invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
 		procurementapp.NewListReceivedCostLinesForSKUUseCase(db, lineItemRepo),
 	)
+	// The cost price follows the last receipt in the supplier cost history (COM-11).
+	syncCostPriceFromHistoryUC := pmsapp.NewSyncCostPriceFromHistoryUseCase(db, skuRepo, costhistory.NewLastReceiptFromDB(db), outboxRepo)
 	syncUnitCostFromCaseUC := pmsapp.NewSyncUnitCostFromCaseUseCase(db, skuRepo, variantRepo, repositories.NewSKUCostPriceLedgerRepo(db),
 		invapp.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo), outboxRepo)
 	jobRunners := map[string]schedulerapp.JobRunner{
 		schedulerDomain.JobExpiredSalePrices:      schedulerapp.NewRunExpiredSalePricesUseCase(db, skuRepo, expireSalePriceUC),
 		schedulerDomain.JobExpiredBatches:         schedulerapp.NewRunExpiredBatchesUseCase(db, batchRepo, expireBatchUC),
-		schedulerDomain.JobCostPriceRecalculation: schedulerapp.NewRunCostPriceRecalculationUseCase(db, skuRepo, recalculateCostPricesUC, syncUnitCostFromCaseUC),
+		schedulerDomain.JobCostPriceRecalculation: schedulerapp.NewRunCostPriceRecalculationUseCase(db, skuRepo, recalculateCostPricesUC, syncUnitCostFromCaseUC, syncCostPriceFromHistoryUC),
 		schedulerDomain.JobPromotionActivation:    schedulerapp.NewRunPromotionActivationUseCase(db, promotionSKURepo, applyPromotionSKUUC, revertPromotionSKUUC, promotionSKURepo, finishClearanceLinesUC),
 	}
 	runJobNowUC := schedulerapp.NewRunJobNowUseCase(db, jobRepo, jobRunners, outboxRepo)
@@ -274,6 +277,26 @@ func main() {
 	supplierCostConsumer := consumers.NewSupplierCostOnGoodsReceivedConsumer(processedEventRepo, recordSupplierCostUC, js)
 	if sub := subscribeConsumer(js, events.GoodsReceived{}.EventName(), supplierCostConsumer.Name(),
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, supplierCostConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
+	}
+
+	// A booking correction takes received stock back off a PO line.
+	reversalConsumer := consumers.NewSupplierCostOnReceiptCorrectedConsumer(processedEventRepo,
+		procurementapp.NewReverseGoodsReceivedCostUseCase(db, repositories.NewSupplierCostRepo(db), outboxRepo), js)
+	if sub := subscribeConsumer(js, events.GoodsReceiptCorrected.Subject, reversalConsumer.Name(),
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, reversalConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
+	}
+	// A cost correction referencing a PO line reprices it in the history.
+	correctionConsumer := consumers.NewSupplierCostOnCostCorrectedConsumer(processedEventRepo,
+		procurementapp.NewCorrectSupplierCostUseCase(db, repositories.NewSupplierCostRepo(db), outboxRepo), js)
+	if sub := subscribeConsumer(js, events.SKUInventoryCostChanged.Subject, correctionConsumer.Name(),
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, correctionConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
+	}
+	costPriceFromHistoryConsumer := consumers.NewCostPriceOnSupplierCostRecordedConsumer(processedEventRepo, syncCostPriceFromHistoryUC, js)
+	if sub := subscribeConsumer(js, events.SupplierCostRecorded.Subject, costPriceFromHistoryConsumer.Name(),
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, costPriceFromHistoryConsumer.Handle); sub != nil {
 		defer sub.Unsubscribe()
 	}
 

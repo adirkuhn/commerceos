@@ -193,3 +193,32 @@ func TestCorrectionEntries_nothingToCorrectOnAnEmptyLine(t *testing.T) {
 	_, ok = procurement.CorrectionEntries(nil, 1000, on(2))
 	assert.False(t, ok)
 }
+
+func TestReversalEntry_takesReceivedStockBackOffTheLineAtItsCost(t *testing.T) {
+	line := []procurement.SupplierCostEntry{receipt("l1", "acme", on(0), 10, 500)}
+
+	e, ok := procurement.ReversalEntry(line, 3, on(1))
+
+	require.True(t, ok)
+	assert.Equal(t, procurement.SupplierCostKindReversal, e.Kind)
+	assert.Equal(t, int64(-3), e.Quantity)
+	assert.Equal(t, int64(500), e.LandedUnitCostMinorUnits)
+	assert.Equal(t, on(1), e.ReceivedAt)
+	assert.Equal(t, "l1", e.PurchaseOrderLineItemID)
+}
+
+func TestReversalEntry_neverTakesBackMoreThanStands(t *testing.T) {
+	line := []procurement.SupplierCostEntry{receipt("l1", "acme", on(0), 2, 500)}
+
+	e, ok := procurement.ReversalEntry(line, 5, on(1))
+
+	require.True(t, ok)
+	assert.Equal(t, int64(-2), e.Quantity)
+
+	_, ok = procurement.ReversalEntry(append(line, e), 1, on(2))
+	assert.False(t, ok, "nothing left standing")
+	_, ok = procurement.ReversalEntry(nil, 1, on(2))
+	assert.False(t, ok)
+	_, ok = procurement.ReversalEntry(line, 0, on(2))
+	assert.False(t, ok)
+}

@@ -28,6 +28,11 @@ func ApplyValueCorrectionToCost(existingQty int64, existingAvgCostMinorUnits int
 	return (newValue + existingQty/2) / existingQty, nil
 }
 
+// CorrectionAdjustmentDataKey carries a correction's signed value change on
+// its pms.sku.inventory_cost_changed event, so the supplier cost history
+// can reprice the purchase order line it references.
+const CorrectionAdjustmentDataKey = "adjustment_value_minor_units"
+
 // CorrectCostInput is a manual cost correction -- e.g. a supplier invoice
 // arrives correcting what a prior PO's landed cost should have been.
 // AdjustmentValueMinorUnits is signed: how much total inventory value
@@ -124,7 +129,8 @@ func (uc *CorrectCostUseCase) Execute(ctx context.Context, in CorrectCostInput) 
 			return err
 		}
 		return recordInventoryCostChanged(ctx, uc.outbox, before, newCost,
-			CostPriceChangeReasonCorrection, in.ReferenceType, in.ReferenceID)
+			CostPriceChangeReasonCorrection, in.ReferenceType, in.ReferenceID,
+			eventrecord.Data{CorrectionAdjustmentDataKey: in.AdjustmentValueMinorUnits})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("correctCost: %w", err)

@@ -12,6 +12,7 @@ import (
 	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
+	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
 )
 
 // stubSupplierCosts is an in-memory SupplierCostRepository.
@@ -137,4 +138,135 @@ func TestRecordGoodsReceivedCost_rejectsAnEmptyReceipt(t *testing.T) {
 	err := uc.Execute(context.Background(), appprocurement.RecordGoodsReceivedCostInput{EventID: "evt-1", SKUID: "sku-1", PurchaseOrderLineItemID: "line-1", Quantity: 0})
 
 	require.Error(t, err)
+}
+
+type stubTenantCurrency struct {
+	settings *settingsDomain.TenantSettings
+	err      error
+}
+
+func (s stubTenantCurrency) Get(context.Context) (*settingsDomain.TenantSettings, error) {
+	return s.settings, s.err
+}
+
+func TestGetSupplierCostSummary_summarizesTheSKUsHistoryInTheTenantCurrency(t *testing.T) {
+	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	costs := &stubSupplierCosts{entries: []procurementDomain.SupplierCostEntry{
+		{SKUID: "sku-1", PurchaseOrderLineItemID: "l1", Kind: procurementDomain.SupplierCostKindReceipt, Quantity: 10, LandedUnitCostMinorUnits: 500, CurrencyCode: "EUR", ReceivedAt: at},
+		{SKUID: "sku-1", PurchaseOrderLineItemID: "l2", Kind: procurementDomain.SupplierCostKindReceipt, Quantity: 10, LandedUnitCostMinorUnits: 900, CurrencyCode: "USD", ReceivedAt: at.Add(time.Hour)},
+		{SKUID: "sku-2", PurchaseOrderLineItemID: "l3", Kind: procurementDomain.SupplierCostKindReceipt, Quantity: 1, LandedUnitCostMinorUnits: 1, CurrencyCode: "EUR", ReceivedAt: at},
+	}}
+	uc := appprocurement.NewGetSupplierCostSummaryUseCase(newMockGormDB(t), costs,
+		stubTenantCurrency{settings: &settingsDomain.TenantSettings{DefaultCurrency: "EUR"}})
+
+	report, err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, "EUR", report.Currency)
+	assert.Len(t, report.Entries, 2, "the whole history, every currency")
+	require.NotNil(t, report.Summary.Last)
+	assert.Equal(t, int64(500), report.Summary.Last.LandedUnitCostMinorUnits, "a USD receipt is left out")
+	assert.Equal(t, 1, report.Summary.ExcludedOtherCurrency)
+}
+
+func TestGetSupplierCostSummary_propagatesErrors(t *testing.T) {
+	boom := errors.New("boom")
+	uc := appprocurement.NewGetSupplierCostSummaryUseCase(newMockGormDB(t), &stubSupplierCosts{listErr: boom}, stubTenantCurrency{settings: &settingsDomain.TenantSettings{}})
+	_, err := uc.Execute(context.Background(), "sku-1")
+	require.ErrorIs(t, err, boom)
+
+	uc = appprocurement.NewGetSupplierCostSummaryUseCase(newMockGormDB(t), &stubSupplierCosts{}, stubTenantCurrency{err: boom})
+	_, err = uc.Execute(context.Background(), "sku-1")
+	require.ErrorIs(t, err, boom)
+}
+
+func TestCorrectSupplierCost_repricesTheLineAndRaisesTheEvent(t *testing.T) {
+	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	costs := &stubSupplierCosts{entries: []procurementDomain.SupplierCostEntry{{
+		SKUID: "sku-1", SupplierID: strp("acme"), PurchaseOrderID: "po-1", PurchaseOrderLineItemID: "line-1",
+		Kind: procurementDomain.SupplierCostKindReceipt, Quantity: 10, LandedUnitCostMinorUnits: 500, CurrencyCode: "EUR", ReceivedAt: at,
+	}}}
+	outbox := &eventrecordtest.Outbox{}
+	uc := appprocurement.NewCorrectSupplierCostUseCase(newMockGormDB(t), costs, outbox)
+
+	err := uc.Execute(context.Background(), appprocurement.CorrectSupplierCostInput{
+		EventID: "evt-9", SKUID: "sku-1", PurchaseOrderLineItemID: "line-1", AdjustmentValueMinorUnits: 1000, At: at.Add(time.Hour),
+	})
+
+	require.NoError(t, err)
+	require.Len(t, costs.appended, 1)
+	pair := costs.appended[0]
+	require.Len(t, pair, 2)
+	assert.Equal(t, "correction:evt-9:out", pair[0].SourceKey)
+	assert.Equal(t, "correction:evt-9:in", pair[1].SourceKey)
+	assert.Equal(t, int64(600), pair[1].LandedUnitCostMinorUnits)
+	ev, err := outbox.Only()
+	require.NoError(t, err)
+	assert.Equal(t, "procurement.supplier_cost.recorded", ev.Subject)
+	assert.Equal(t, "correction", ev.Data()["kind"])
+	assert.Equal(t, float64(600), ev.Data()["landed_unit_cost_minor_units"])
+}
+
+func TestCorrectSupplierCost_nothingToRepriceIsANoOp(t *testing.T) {
+	outbox := &eventrecordtest.Outbox{}
+	costs := &stubSupplierCosts{}
+	uc := appprocurement.NewCorrectSupplierCostUseCase(newMockGormDB(t), costs, outbox)
+
+	err := uc.Execute(context.Background(), appprocurement.CorrectSupplierCostInput{
+		EventID: "evt-9", SKUID: "sku-1", PurchaseOrderLineItemID: "line-unknown", AdjustmentValueMinorUnits: 1000, At: time.Now(),
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, costs.appended)
+	assert.Empty(t, outbox.Events)
+}
+
+func TestCorrectSupplierCost_ignoresAnotherSKUsLine(t *testing.T) {
+	costs := &stubSupplierCosts{entries: []procurementDomain.SupplierCostEntry{{
+		SKUID: "sku-2", PurchaseOrderLineItemID: "line-1", Kind: procurementDomain.SupplierCostKindReceipt, Quantity: 10, LandedUnitCostMinorUnits: 500, CurrencyCode: "EUR",
+	}}}
+	uc := appprocurement.NewCorrectSupplierCostUseCase(newMockGormDB(t), costs, &eventrecordtest.Outbox{})
+
+	require.NoError(t, uc.Execute(context.Background(), appprocurement.CorrectSupplierCostInput{
+		EventID: "evt-9", SKUID: "sku-1", PurchaseOrderLineItemID: "line-1", AdjustmentValueMinorUnits: 1000, At: time.Now(),
+	}))
+
+	assert.Empty(t, costs.appended)
+}
+
+func TestReverseGoodsReceivedCost_takesTheStockBackOffTheLine(t *testing.T) {
+	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	costs := &stubSupplierCosts{entries: []procurementDomain.SupplierCostEntry{{
+		SKUID: "sku-1", PurchaseOrderID: "po-1", PurchaseOrderLineItemID: "line-1",
+		Kind: procurementDomain.SupplierCostKindReceipt, Quantity: 10, LandedUnitCostMinorUnits: 500, CurrencyCode: "EUR", ReceivedAt: at,
+	}}}
+	outbox := &eventrecordtest.Outbox{}
+	uc := appprocurement.NewReverseGoodsReceivedCostUseCase(newMockGormDB(t), costs, outbox)
+
+	err := uc.Execute(context.Background(), appprocurement.ReverseGoodsReceivedCostInput{
+		EventID: "evt-5", SKUID: "sku-1", PurchaseOrderLineItemID: "line-1", Quantity: -3, At: at.Add(time.Hour),
+	})
+
+	require.NoError(t, err)
+	require.Len(t, costs.appended, 1)
+	e := costs.appended[0][0]
+	assert.Equal(t, procurementDomain.SupplierCostKindReversal, e.Kind)
+	assert.Equal(t, int64(-3), e.Quantity)
+	assert.Equal(t, "reversal:evt-5", e.SourceKey)
+	ev, err := outbox.Only()
+	require.NoError(t, err)
+	assert.Equal(t, "reversal", ev.Data()["kind"])
+}
+
+func TestReverseGoodsReceivedCost_nothingStandingIsANoOp(t *testing.T) {
+	costs := &stubSupplierCosts{}
+	outbox := &eventrecordtest.Outbox{}
+	uc := appprocurement.NewReverseGoodsReceivedCostUseCase(newMockGormDB(t), costs, outbox)
+
+	require.NoError(t, uc.Execute(context.Background(), appprocurement.ReverseGoodsReceivedCostInput{
+		EventID: "evt-5", SKUID: "sku-1", PurchaseOrderLineItemID: "line-1", Quantity: -3, At: time.Now(),
+	}))
+
+	assert.Empty(t, costs.appended)
+	assert.Empty(t, outbox.Events)
 }

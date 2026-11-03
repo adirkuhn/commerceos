@@ -12,6 +12,7 @@ import (
 	apptax "github.com/adirkuhn/commerceos/application/tax"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	"github.com/adirkuhn/commerceos/infrastructure/costhistory"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
 
@@ -336,7 +337,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewUpdateSKUUseCase(db, variantRepo, skuRepo, outboxRepo, priceHistoryRepo),
 		apppms.NewDeleteSKUUseCase(db, skuRepo, variantRepo, listingRepo, outboxRepo),
 		apppms.NewSetManualCostPriceUseCase(db, skuRepo, outboxRepo),
-		apppms.NewClearCostPriceOverrideUseCase(db, skuRepo, outboxRepo),
+		apppms.NewClearCostPriceOverrideUseCase(db, skuRepo, costhistory.NewLastReceiptFromDB(db), outboxRepo),
 		apppms.NewUploadMediaUseCase(db, productRepo, variantRepo, mediaRepo, fileStorage, outboxRepo),
 		apppms.NewListProductMediaUseCase(db, mediaRepo),
 		apppms.NewDeleteMediaUseCase(db, mediaRepo, fileStorage, outboxRepo),

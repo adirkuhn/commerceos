@@ -29,6 +29,12 @@ type RunCostPriceRecalculationUseCase struct {
 	skuRepo                 activeSKULister
 	recalculateCostPricesUC costPriceRecalculator
 	unitCostSyncer          unitCostFromCaseSyncer
+	historySyncer           costPriceFromHistorySyncer
+}
+
+// costPriceFromHistorySyncer is pmsapp.SyncCostPriceFromHistoryUseCase (ISP).
+type costPriceFromHistorySyncer interface {
+	Execute(ctx context.Context, skuID string) error
 }
 
 type activeSKULister interface {
@@ -45,8 +51,10 @@ type unitCostFromCaseSyncer interface {
 	SyncFromCase(ctx context.Context, skuID string) error
 }
 
-func NewRunCostPriceRecalculationUseCase(db *gorm.DB, skuRepo activeSKULister, recalculateCostPricesUC costPriceRecalculator, unitCostSyncer unitCostFromCaseSyncer) *RunCostPriceRecalculationUseCase {
-	return &RunCostPriceRecalculationUseCase{db: db, skuRepo: skuRepo, recalculateCostPricesUC: recalculateCostPricesUC, unitCostSyncer: unitCostSyncer}
+func NewRunCostPriceRecalculationUseCase(db *gorm.DB, skuRepo activeSKULister, recalculateCostPricesUC costPriceRecalculator,
+	unitCostSyncer unitCostFromCaseSyncer, historySyncer costPriceFromHistorySyncer) *RunCostPriceRecalculationUseCase {
+	return &RunCostPriceRecalculationUseCase{db: db, skuRepo: skuRepo, recalculateCostPricesUC: recalculateCostPricesUC,
+		unitCostSyncer: unitCostSyncer, historySyncer: historySyncer}
 }
 
 func (uc *RunCostPriceRecalculationUseCase) Run(ctx context.Context) error {
@@ -64,6 +72,9 @@ func (uc *RunCostPriceRecalculationUseCase) Run(ctx context.Context) error {
 
 	for _, s := range skus {
 		runCtx := tenant.WithTenantID(adminCtx, s.TenantID)
+		if err := uc.historySyncer.Execute(runCtx, s.ID); err != nil {
+			log.Printf("sync cost price from supplier history sku %s: %v", s.ID, err)
+		}
 		if err := uc.unitCostSyncer.SyncFromCase(runCtx, s.ID); err != nil {
 			log.Printf("sync unit cost from case sku %s: %v", s.ID, err)
 		}

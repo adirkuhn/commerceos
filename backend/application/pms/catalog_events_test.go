@@ -125,7 +125,7 @@ func TestSetManualCostPrice_RecordsCostPriceChanged(t *testing.T) {
 func TestClearCostPriceOverride_RecordsCostPriceChanged(t *testing.T) {
 	outbox := &eventrecordtest.Outbox{}
 	repo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceSource: pmsDomain.SKUCostPriceSourceManual}}
-	uc := apppms.NewClearCostPriceOverrideUseCase(newMockGormDB(t), repo, outbox)
+	uc := apppms.NewClearCostPriceOverrideUseCase(newMockGormDB(t), repo, stubLastReceiptCost{}, outbox)
 
 	_, err := uc.Execute(context.Background(), "sku-1")
 
@@ -168,13 +168,15 @@ func TestCorrectCost_RecordsInventoryCostChanged(t *testing.T) {
 	uc := apppms.NewCorrectCostUseCase(newMockGormDB(t), skuRepo, &stubCostLedgerRepo{},
 		&stubBatchListerForReceiptCost{batches: []invDomain.Batch{{Quantity: 100}}}, outbox)
 
-	_, err := uc.Execute(context.Background(), apppms.CorrectCostInput{SKUID: "sku-1", AdjustmentValueMinorUnits: 5000, OccurredAt: time.Now()})
+	_, err := uc.Execute(context.Background(), apppms.CorrectCostInput{SKUID: "sku-1", AdjustmentValueMinorUnits: 5000,
+		ReferenceType: "purchase_order_line_item", ReferenceID: "line-1", OccurredAt: time.Now()})
 
 	require.NoError(t, err)
 	e := onlyEvent(t, outbox)
 	assert.Equal(t, "pms.sku.inventory_cost_changed", e.Subject)
 	assert.Equal(t, map[string][2]any{"inventory_cost_minor_units": {float64(300), float64(350)}}, e.Changes())
-	assert.Equal(t, "correction", e.Data()["reason"])
+	assert.Equal(t, map[string]any{"reason": "correction", "reference_type": "purchase_order_line_item", "reference_id": "line-1",
+		"adjustment_value_minor_units": float64(5000)}, e.Data(), "the supplier cost history reprices the line from this")
 }
 
 func TestBarcodeAlias_RecordsCreatedAndDeleted(t *testing.T) {

@@ -39,8 +39,13 @@ func recordCostPriceChanged(ctx context.Context, outbox eventrecord.Enqueuer, be
 // (moving weighted average of the stock on hand); before is the SKU as it
 // was. reason is one of the CostPriceChangeReason* values.
 func recordInventoryCostChanged(ctx context.Context, outbox eventrecord.Enqueuer, before pmsDomain.SKU, after int64,
-	reason, referenceType, referenceID string) error {
+	reason, referenceType, referenceID string, extra ...eventrecord.Data) error {
 	data := eventrecord.Data{"reason": reason}
+	for _, e := range extra {
+		for k, v := range e {
+			data[k] = v
+		}
+	}
 	if referenceType != "" {
 		data["reference_type"] = referenceType
 	}

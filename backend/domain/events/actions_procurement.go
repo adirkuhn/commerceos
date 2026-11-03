@@ -63,6 +63,8 @@ var (
 		"A booking scan was undone. data: booking_id, sku_id, action_type.")
 	SupplierIssueUpdated = defineAction("procurement.supplier_issue.updated",
 		"The claim status of a purchase order's missing, damaged or lost item changed (changes: status -- open, claimed, resolved; note). entity_id is the issue's source_id. data: purchase_order_id, source (booking_shortfall, booking_scan, receiving_discrepancy), kind (missing, damaged, lost).")
+	GoodsReceiptCorrected = defineAction("procurement.goods.receipt_corrected",
+		"A scanner booking's correction took received stock back off a purchase order line (counted wrong); entity_id is the SKU. data: purchase_order_line_item_id, booking_id, scan_id, quantity (negative).")
 	SupplierCostRecorded = defineAction("procurement.supplier_cost.recorded",
 		"A SKU's cost history by supplier gained rows (append-only, COM-11). entity_id is the SKU. data: kind (receipt -- stock booked in against a PO line; reversal -- received stock taken back off a line; correction -- a line repriced after the fact), purchase_order_id, purchase_order_line_item_id, supplier_id, quantity, landed_unit_cost_minor_units, currency_code.")
 	SupplierIssueReportEmailed = defineAction("procurement.supplier_issue_report.emailed",

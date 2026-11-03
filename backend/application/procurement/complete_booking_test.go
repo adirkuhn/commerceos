@@ -424,3 +424,35 @@ func TestCompleteBooking_rowWithoutALineItemIsNamedBySKU(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "sku-1 · L9", detail)
 }
+
+// A correction that takes received stock back off a PO line tells the
+// supplier cost history (COM-11) -- in the same transaction that marks the
+// row replayed, so a retried Finish never raises it twice.
+func TestCompleteBooking_aCorrectionRaisesReceiptCorrectedForItsLine(t *testing.T) {
+	db := newMockGormDBN(t, 4)
+	bookingRepo, poRepo := completableBookingFixtures()
+	lineItemRepo := &stubLineItemRepo{byPO: []procurementDomain.PurchaseOrderLineItem{{ID: "line-1", SKUID: strPtr("sku-1"), Quantity: 10, LineType: procurementDomain.LineItemTypeProduct}}}
+	batchID := "batch-1"
+	scanRepo := &stubBookingScanRepo{byBooking: []procurementDomain.BookingScan{
+		{ID: "scan-1", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionReceive, Quantity: 10, BatchID: &batchID},
+		{ID: "scan-2", SKUID: "sku-1", ActionType: procurementDomain.BookingScanActionCorrection, Quantity: -3, BatchID: &batchID},
+	}}
+	outbox := &eventrecordtest.Outbox{}
+	uc := appprocurement.NewCompleteBookingUseCase(db, bookingRepo, poRepo, lineItemRepo, scanRepo, &stubReceiveStockForBooking{},
+		&stubRecordAdjustmentForBooking{}, &stubMarkDamagedOrLostForBooking{}, outbox)
+
+	_, err := uc.Execute(context.Background(), "booking-1", "user-1")
+
+	require.NoError(t, err)
+	var corrected []eventrecordtest.Event
+	for _, e := range outbox.Events {
+		if e.Subject == "procurement.goods.receipt_corrected" {
+			corrected = append(corrected, e)
+		}
+	}
+	require.Len(t, corrected, 1)
+	assert.Equal(t, "sku-1", corrected[0].Payload["entity_id"])
+	assert.Equal(t, map[string]any{
+		"purchase_order_line_item_id": "line-1", "booking_id": "booking-1", "scan_id": "scan-2", "quantity": float64(-3),
+	}, corrected[0].Data())
+}

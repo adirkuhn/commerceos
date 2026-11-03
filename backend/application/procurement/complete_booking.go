@@ -249,21 +249,11 @@ func (uc *CompleteBookingUseCase) replayRow(ctx context.Context, bookingID, ware
 	case procurementDomain.BookingScanActionReceive:
 		var lineItemID *string
 		var unitCost *int64
-		// Best-effort match by SKU: BookingScan has no LineItemID of its
-		// own (it's resolved by scanning a barcode, not picking a line),
-		// so if two line items on the same PO share a SKU the first one
-		// found wins the landed-cost attribution. Rare in practice (a PO
-		// wouldn't normally list the same product twice) and not worse
-		// than having no cost basis at all.
-		for i := range lineItems {
-			if lineItems[i].SKUID != nil && *lineItems[i].SKUID == s.SKUID {
-				li := lineItems[i].ID
-				lineItemID = &li
-				cost, err := AllocateLandedUnitCost(lineItems, li)
-				if err == nil {
-					unitCost = &cost
-				}
-				break
+		if li := lineForSKU(lineItems, s.SKUID); li != nil {
+			lineItemID = &li.ID
+			cost, err := AllocateLandedUnitCost(lineItems, li.ID)
+			if err == nil {
+				unitCost = &cost
 			}
 		}
 		receipt, err := uc.receiveStock.Execute(ctx, invapp.ReceiveStockInput{
@@ -295,7 +285,7 @@ func (uc *CompleteBookingUseCase) replayRow(ctx context.Context, bookingID, ware
 		}); err != nil {
 			return err
 		}
-		if err := uc.markReplayed(ctx, s.ID, batchID); err != nil {
+		if err := uc.markCorrectionReplayed(ctx, bookingID, lineForSKU(lineItems, s.SKUID), s, batchID); err != nil {
 			return err
 		}
 
@@ -366,6 +356,39 @@ func (uc *CompleteBookingUseCase) markReplayed(ctx context.Context, scanID strin
 	return tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		return uc.scanRepo.MarkReplayed(ctx, scanID, time.Now(), batchID)
 	})
+}
+
+// markCorrectionReplayed marks a correction row replayed and, when it took
+// received stock back off a PO line, raises
+// procurement.goods.receipt_corrected for the supplier cost history -- one
+// transaction, so a retried Finish never raises it twice.
+func (uc *CompleteBookingUseCase) markCorrectionReplayed(ctx context.Context, bookingID string, line *procurementDomain.PurchaseOrderLineItem,
+	s procurementDomain.BookingScan, batchID *string) error {
+	return tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		if err := uc.scanRepo.MarkReplayed(ctx, s.ID, time.Now(), batchID); err != nil {
+			return err
+		}
+		if line == nil || s.Quantity >= 0 {
+			return nil
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.GoodsReceiptCorrected, s.SKUID, eventrecord.Data{
+			"purchase_order_line_item_id": line.ID, "booking_id": bookingID, "scan_id": s.ID, "quantity": s.Quantity,
+		})
+	})
+}
+
+// lineForSKU is the PO line a scanned SKU books against. Best-effort match
+// by SKU: BookingScan has no LineItemID of its own (it's resolved by
+// scanning a barcode, not picking a line), so if two line items on the same
+// PO share a SKU the first one found wins. Rare in practice (a PO wouldn't
+// normally list the same product twice) and not worse than no attribution.
+func lineForSKU(lineItems []procurementDomain.PurchaseOrderLineItem, skuID string) *procurementDomain.PurchaseOrderLineItem {
+	for i := range lineItems {
+		if lineItems[i].SKUID != nil && *lineItems[i].SKUID == skuID {
+			return &lineItems[i]
+		}
+	}
+	return nil
 }
 
 // missingBookingItems is procurementDomain.Shortfalls shaped for the

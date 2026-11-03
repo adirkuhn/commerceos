@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-243 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+244 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -270,7 +270,7 @@ Payload (`events.EntityAction`):
 | `pms.scale_code_alias.created` | action | An extra scale code (a second weighing scale's PLU) was linked to a SKU. data: sku_id, code. | envelope |
 | `pms.scale_code_alias.deleted` | action | An extra scale code was unlinked from its SKU. | envelope |
 | `pms.sku.cost_price_changed` | action | A SKU's cost price changed (changes: cost_price_minor_units, cost_price_source). data: reason -- receipt (stock received against a purchase order: the landed cost of the last receipt), correction (a value correction such as a corrected invoice), manual (set by hand, overrides computed cost), set (set by hand but still computed -- the next receipt replaces it), override_cleared (back to the last receipt's cost) or case_link (a unit SKU took its cost from the sealed case it is sold out of: case cost / units per case); reference_type, reference_id. | envelope |
-| `pms.sku.inventory_cost_changed` | action | A SKU's inventory cost -- the moving weighted average of its stock on hand, used for COGS and stock value -- changed (changes: inventory_cost_minor_units). data: reason -- receipt (stock received at a landed cost), correction (a value correction such as a corrected invoice), merge (another product's stock was merged in) or case_link (a unit SKU took its cost from the sealed case it is sold out of); reference_type, reference_id. | envelope |
+| `pms.sku.inventory_cost_changed` | action | A SKU's inventory cost -- the moving weighted average of its stock on hand, used for COGS and stock value -- changed (changes: inventory_cost_minor_units). data: reason -- receipt (stock received at a landed cost), correction (a value correction such as a corrected invoice -- data.adjustment_value_minor_units is the signed value change), merge (another product's stock was merged in) or case_link (a unit SKU took its cost from the sealed case it is sold out of); reference_type, reference_id. | envelope |
 | `pms.sku.price_per_kilo_changed` | typed | SKUPricePerKiloChanged is raised when a scale-sold weight pool's price per kilo changes. | `SKUPricePerKiloChanged`: event_id, occurred_at, tenant_id, sku_id, old_price_per_kilo_minor_units, new_price_per_kilo_minor_units |
 | `pms.sku_currency_price.deleted` | action | A SKU's fixed price in another currency was removed -- it falls back to exchange-rate conversion (entity_id is the SKU). data: currency_code. | envelope |
 | `pms.sku_currency_price.saved` | action | A SKU's fixed price in another currency was set or changed (entity_id is the SKU; changes: price_minor_units, sale_price_minor_units, sale_end_date). data: currency_code. | envelope |
@@ -286,6 +286,7 @@ Payload (`events.EntityAction`):
 | `procurement.booking.started` | action | Stock booking (scanning a delivery in) started for a purchase order. data: purchase_order_id. | envelope |
 | `procurement.booking_scan.created` | action | An item was scanned during stock booking. data: booking_id, sku_id, action_type (receive, correction, damaged, lost), quantity, write_off_quantity, lot_number, expiry_date. | envelope |
 | `procurement.booking_scan.deleted` | action | A booking scan was undone. data: booking_id, sku_id, action_type. | envelope |
+| `procurement.goods.receipt_corrected` | action | A scanner booking's correction took received stock back off a purchase order line (counted wrong); entity_id is the SKU. data: purchase_order_line_item_id, booking_id, scan_id, quantity (negative). | envelope |
 | `procurement.goods.received` | typed | GoodsReceived is raised when a purchase-order line item's stock is actually received into inventory -- a real inventory.Batch created with a landed cost basis (application/inventory.ReceiveStockUseCase), not merely a PO being created or edited (see procurement.PurchaseOrder's own design: "don't change inventory cost merely because a PO was created"). | `GoodsReceived`: event_id, occurred_at, tenant_id, sku_id, warehouse_id, batch_id, purchase_order_line_item_id, quantity, landed_unit_cost_minor_units |
 | `procurement.purchase_order.created` | action | A purchase order was created. data.source: manual, document or purchase_planner. | envelope |
 | `procurement.purchase_order.deleted` | action | A purchase order was deleted with its line items. data: supplier_id, status. | envelope |
