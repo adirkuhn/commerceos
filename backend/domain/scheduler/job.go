@@ -34,6 +34,9 @@ const (
 	// JobRepushWooOrderStatuses re-pushes order statuses Woo missed, e.g.
 	// during a store outage (see application/channels.RepushWooOrderStatusesUseCase).
 	JobRepushWooOrderStatuses = "repush_woo_order_statuses"
+	// JobCheckDeadLetters alerts each tenant that has events a consumer
+	// gave up on (see application/deadletters.CheckDeadLettersUseCase).
+	JobCheckDeadLetters = "check_dead_letters"
 )
 
 // JobKeys lists every known job -- cmd/scheduler must have a runner for
@@ -42,7 +45,7 @@ func JobKeys() []string {
 	return []string{
 		JobExpiredSalePrices, JobExpiredBatches, JobCostPriceRecalculation, JobResyncAllProductsToChannels,
 		JobPromotionActivation, JobReconcileFulfilledOrders, JobCheckBolShipmentConfirmations,
-		JobStockExpiryReport, JobRepushWooOrderStatuses,
+		JobStockExpiryReport, JobRepushWooOrderStatuses, JobCheckDeadLetters,
 	}
 }
 

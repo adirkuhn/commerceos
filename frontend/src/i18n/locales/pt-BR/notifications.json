@@ -81,6 +81,20 @@
           "title": "Falha ao ler a fatura"
         }
       }
+    },
+    "deadletters": {
+      "dead_letter": {
+        "waiting": {
+          "title": "Algumas ações automáticas falharam",
+          "message": "{{count}} eventos não puderam ser processados e aguardam uma nova tentativa do suporte.",
+          "messageOne": "1 evento não pôde ser processado e aguarda uma nova tentativa do suporte."
+        },
+        "stale": {
+          "title": "Ações automáticas com falha ainda aguardam",
+          "message": "{{count}} eventos não foram processados há {{hours}} horas. Fale com o suporte se isso continuar acontecendo.",
+          "messageOne": "1 evento não foi processado há {{hours}} horas. Fale com o suporte se isso continuar acontecendo."
+        }
+      }
     }
   }
 }

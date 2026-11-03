@@ -50,6 +50,12 @@ const (
 	// after that (see application/channels.RecordSyncRunUseCase).
 	TypeChannelSyncFailing   Type = "channels.sync_schedule.failing"
 	TypeChannelSyncRecovered Type = "channels.sync_schedule.recovered"
+
+	// TypeDeadLettersWaiting/Stale: the daily dead-letter check found events
+	// of this tenant a consumer gave up on; Stale once the oldest waited
+	// deadletter.StaleAfter (see application/deadletters.CheckDeadLettersUseCase).
+	TypeDeadLettersWaiting Type = "deadletters.dead_letter.waiting"
+	TypeDeadLettersStale   Type = "deadletters.dead_letter.stale"
 )
 
 // messageCenterEmailTypes are the types whose email a Message Center rule

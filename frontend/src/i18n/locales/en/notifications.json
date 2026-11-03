@@ -81,6 +81,20 @@
           "title": "Invoice parsing failed"
         }
       }
+    },
+    "deadletters": {
+      "dead_letter": {
+        "waiting": {
+          "title": "Some automatic actions failed",
+          "message": "{{count}} events could not be processed and are waiting for a retry by support.",
+          "messageOne": "1 event could not be processed and is waiting for a retry by support."
+        },
+        "stale": {
+          "title": "Failed automatic actions are still waiting",
+          "message": "{{count}} events have not been processed for {{hours}} hours. Contact support if this keeps happening.",
+          "messageOne": "1 event has not been processed for {{hours}} hours. Contact support if this keeps happening."
+        }
+      }
     }
   }
 }

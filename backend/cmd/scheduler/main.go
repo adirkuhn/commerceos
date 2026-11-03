@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 
 	channelsapp "github.com/adirkuhn/commerceos/application/channels"
+	deadlettersapp "github.com/adirkuhn/commerceos/application/deadletters"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	messagecenterapp "github.com/adirkuhn/commerceos/application/messagecenter"
 	notificationsapp "github.com/adirkuhn/commerceos/application/notifications"
@@ -31,6 +33,7 @@ import (
 	bolinfra "github.com/adirkuhn/commerceos/infrastructure/bol"
 	"github.com/adirkuhn/commerceos/infrastructure/carriers"
 	"github.com/adirkuhn/commerceos/infrastructure/consumers"
+	"github.com/adirkuhn/commerceos/infrastructure/dlq"
 	"github.com/adirkuhn/commerceos/infrastructure/evolutionapi"
 	moneybirdhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/moneybird"
 	"github.com/adirkuhn/commerceos/infrastructure/messaging/noop"
@@ -343,6 +346,13 @@ func main() {
 	jobRunners[schedulerDomain.JobReconcileFulfilledOrders] = schedulerapp.NewReconcileFulfilledOrdersUseCase(db, salesOrderRepo, updateSalesOrderUC)
 	jobRunners[schedulerDomain.JobRepushWooOrderStatuses] = channelsapp.NewRepushWooOrderStatusesUseCase(db, salesOrderRepo,
 		channelsapp.NewWooConnectionClients(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret), pushSalesOrderStatusUC)
+	// Daily dead-letter alert (COM-14): reads both DLQ streams by sequence,
+	// never through a consumer, and notifies each affected tenant.
+	jsDLQ, err := jetstream.New(nc)
+	if err != nil {
+		log.Fatalf("scheduler: jetstream: %v", err)
+	}
+	jobRunners[schedulerDomain.JobCheckDeadLetters] = deadlettersapp.NewCheckDeadLettersUseCase(dlq.NewStore(jsDLQ), notifyUC, time.Now)
 
 	// Bol orders: once the carrier has the parcel, tell Bol (transporter +
 	// track & trace, or a correction after a replaced label) so the order

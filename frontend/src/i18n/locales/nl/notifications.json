@@ -81,6 +81,20 @@
           "title": "Factuur lezen mislukt"
         }
       }
+    },
+    "deadletters": {
+      "dead_letter": {
+        "waiting": {
+          "title": "Sommige automatische acties zijn mislukt",
+          "message": "{{count}} events konden niet worden verwerkt en wachten op een nieuwe poging door support.",
+          "messageOne": "1 event kon niet worden verwerkt en wacht op een nieuwe poging door support."
+        },
+        "stale": {
+          "title": "Mislukte automatische acties wachten nog steeds",
+          "message": "{{count}} events zijn al {{hours}} uur niet verwerkt. Neem contact op met support als dit blijft gebeuren.",
+          "messageOne": "1 event is al {{hours}} uur niet verwerkt. Neem contact op met support als dit blijft gebeuren."
+        }
+      }
     }
   }
 }

@@ -12,6 +12,7 @@ var Types = []Type{
 	TypeReceivingParsingCompleted, TypeReceivingParsingFailed, TypeReceivingDiscrepanciesFound,
 	TypeBolNotForSale, TypeStockCloseToExpiry,
 	TypeChannelSyncFailing, TypeChannelSyncRecovered,
+	TypeDeadLettersWaiting, TypeDeadLettersStale,
 }
 
 // Text is a notification's title and message in one language.
@@ -182,6 +183,28 @@ var typeTexts = map[Type]map[locale.Locale]TypeText{
 		locale.English:    {Title: "Sync with {{store}} works again", Message: "Automatic sync has recovered."},
 		locale.Portuguese: {Title: "A sincronização com {{store}} voltou a funcionar", Message: "A sincronização automática se recuperou."},
 		locale.Dutch:      {Title: "Synchronisatie met {{store}} werkt weer", Message: "De automatische synchronisatie is hersteld."},
+	},
+	TypeDeadLettersWaiting: {
+		locale.English: {Title: "Some automatic actions failed",
+			Message:    "{{count}} events could not be processed and are waiting for a retry by support.",
+			MessageOne: "1 event could not be processed and is waiting for a retry by support."},
+		locale.Portuguese: {Title: "Algumas ações automáticas falharam",
+			Message:    "{{count}} eventos não puderam ser processados e aguardam uma nova tentativa do suporte.",
+			MessageOne: "1 evento não pôde ser processado e aguarda uma nova tentativa do suporte."},
+		locale.Dutch: {Title: "Sommige automatische acties zijn mislukt",
+			Message:    "{{count}} events konden niet worden verwerkt en wachten op een nieuwe poging door support.",
+			MessageOne: "1 event kon niet worden verwerkt en wacht op een nieuwe poging door support."},
+	},
+	TypeDeadLettersStale: {
+		locale.English: {Title: "Failed automatic actions are still waiting",
+			Message:    "{{count}} events have not been processed for {{hours}} hours. Contact support if this keeps happening.",
+			MessageOne: "1 event has not been processed for {{hours}} hours. Contact support if this keeps happening."},
+		locale.Portuguese: {Title: "Ações automáticas com falha ainda aguardam",
+			Message:    "{{count}} eventos não foram processados há {{hours}} horas. Fale com o suporte se isso continuar acontecendo.",
+			MessageOne: "1 evento não foi processado há {{hours}} horas. Fale com o suporte se isso continuar acontecendo."},
+		locale.Dutch: {Title: "Mislukte automatische acties wachten nog steeds",
+			Message:    "{{count}} events zijn al {{hours}} uur niet verwerkt. Neem contact op met support als dit blijft gebeuren.",
+			MessageOne: "1 event is al {{hours}} uur niet verwerkt. Neem contact op met support als dit blijft gebeuren."},
 	},
 	TypeStockCloseToExpiry: {
 		locale.English: {Title: "Stock close to expiry", Message: "{{count}} products expire within {{window_days}} days",
