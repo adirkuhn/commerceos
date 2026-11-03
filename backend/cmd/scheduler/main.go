@@ -491,6 +491,8 @@ func main() {
 	receivingParsingJobTicker := time.NewTicker(receivingParsingJobPollInterval)
 	defer receivingParsingJobTicker.Stop()
 
+	recordSyncRunUC := channelsapp.NewRecordSyncRunUseCase(db, scheduleRepo, connRepo, outboxRepo, notifyUC)
+
 	log.Println("scheduler started")
 	for {
 		select {
@@ -498,7 +500,7 @@ func main() {
 			log.Println("scheduler shutting down")
 			return
 		case <-ticker.C:
-			runDue(ctx, db, scheduleRepo, rs)
+			runDue(ctx, db, scheduleRepo, recordSyncRunUC, rs)
 			runDueJobs(ctx, db, jobRepo, runJobNowUC)
 		case <-importJobTicker.C:
 			runPendingImportJobs(ctx, db, importJobRepo, runManualWooImportUC, notifyUC)

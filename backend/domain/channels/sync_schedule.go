@@ -73,6 +73,11 @@ type SyncSchedule struct {
 	LastRunStatus      string // "" | "success" | "error"
 	LastRunError       string
 	NextRunAt          *time.Time
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	// FailingSince is when the current run of consecutive failures began;
+	// nil while healthy. FailureAlerted: staff were told about it (see
+	// ApplyRunOutcome).
+	FailingSince   *time.Time
+	FailureAlerted bool
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }

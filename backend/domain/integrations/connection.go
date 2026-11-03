@@ -94,6 +94,15 @@ func (s StoreURL) Validate() error {
 
 func (s StoreURL) String() string { return string(s) }
 
+// Host is the store's host name (e.g. "cantinhobrasileiro.nl") -- how
+// staff recognise the store in a message; the raw value if unparseable.
+func (s StoreURL) Host() string {
+	if u, err := url.Parse(strings.TrimSpace(string(s))); err == nil && u.Host != "" {
+		return u.Host
+	}
+	return string(s)
+}
+
 type Connection struct {
 	ID       string
 	TenantID string

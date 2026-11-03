@@ -103,6 +103,9 @@ type SyncScheduleRepository interface {
 	// other runner passes cursorAt == ranAt, unchanged from before this
 	// field existed.
 	RecordRunResult(ctx context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time, cursorAt time.Time, advanceLastRunAt bool) error
+	// RecordHealth stores the failure streak SyncSchedule.ApplyRunOutcome
+	// computed (FailingSince nil = healthy).
+	RecordHealth(ctx context.Context, id string, failingSince *time.Time, failureAlerted bool) error
 }
 
 type SalesChannelRepository interface {

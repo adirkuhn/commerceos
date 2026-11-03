@@ -8,6 +8,18 @@
         }
       }
     },
+    "channels": {
+      "sync_schedule": {
+        "failing": {
+          "message": "Pedidos, estoque e status não estão sincronizando. Último erro: {{error}}",
+          "title": "A sincronização com {{store}} continua falhando"
+        },
+        "recovered": {
+          "message": "A sincronização automática se recuperou.",
+          "title": "A sincronização com {{store}} voltou a funcionar"
+        }
+      }
+    },
     "import": {
       "completed": {
         "message": "{{products}} produtos importados ({{already_linked}} já vinculados, {{skipped}} ignorados)",

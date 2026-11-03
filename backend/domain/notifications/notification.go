@@ -44,6 +44,12 @@ const (
 	// bell entry. Its email is a Message Center template + rule (merchant
 	// editable, with extra recipients), so see EmailSentByMessageCenter.
 	TypeStockCloseToExpiry Type = "inventory.stock.close_to_expiry"
+
+	// TypeChannelSyncFailing/Recovered: a connection's automatic sync kept
+	// failing for channels.SyncFailureAlertAfter, and its first success
+	// after that (see application/channels.RecordSyncRunUseCase).
+	TypeChannelSyncFailing   Type = "channels.sync_schedule.failing"
+	TypeChannelSyncRecovered Type = "channels.sync_schedule.recovered"
 )
 
 // messageCenterEmailTypes are the types whose email a Message Center rule

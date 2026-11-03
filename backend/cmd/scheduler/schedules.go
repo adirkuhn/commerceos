@@ -7,6 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
+	channelsapp "github.com/adirkuhn/commerceos/application/channels"
 	schedulerapp "github.com/adirkuhn/commerceos/application/scheduler"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	schedulerDomain "github.com/adirkuhn/commerceos/domain/scheduler"
@@ -18,7 +19,7 @@ import (
 // app.current_tenant = 'bypass_rls'), the same mechanism the JWT
 // super_admin role uses. Never crashes the loop: a failure here or in any
 // one schedule's run is logged and the next tick tries again.
-func runDue(ctx context.Context, db *gorm.DB, scheduleRepo channelsDomain.SyncScheduleRepository, rs runners) {
+func runDue(ctx context.Context, db *gorm.DB, scheduleRepo channelsDomain.SyncScheduleRepository, recorder syncRunRecorder, rs runners) {
 	adminCtx := tenant.WithSuperAdmin(ctx)
 
 	var due []channelsDomain.SyncSchedule
@@ -33,7 +34,7 @@ func runDue(ctx context.Context, db *gorm.DB, scheduleRepo channelsDomain.SyncSc
 	}
 
 	for _, s := range due {
-		runOne(adminCtx, db, scheduleRepo, rs, s)
+		runOne(adminCtx, recorder, rs, s)
 	}
 }
 
@@ -41,33 +42,24 @@ func runDue(ctx context.Context, db *gorm.DB, scheduleRepo channelsDomain.SyncSc
 // (SuperAdmin keeps RLS bypassed for the query itself, but IDFromContext
 // must still resolve to the schedule's real TenantID so any rows the
 // underlying use case creates — imported products, stock movements — are
-// stamped with the correct tenant, not blank).
-func runOne(adminCtx context.Context, db *gorm.DB, scheduleRepo channelsDomain.SyncScheduleRepository, rs runners, s channelsDomain.SyncSchedule) {
+// stamped with the correct tenant, not blank). Recording the outcome
+// (and alerting on a failure streak) is RecordSyncRunUseCase's job.
+func runOne(adminCtx context.Context, recorder syncRunRecorder, rs runners, s channelsDomain.SyncSchedule) {
 	runCtx := tenant.WithTenantID(adminCtx, s.TenantID)
 
 	ranAt := time.Now()
-	status := "success"
-	errMsg := ""
 	cursorAt, err := rs.dispatch(runCtx, s)
 	if err != nil {
-		status = "error"
-		errMsg = err.Error()
 		log.Printf("sync schedule %s (%s/%s): %v", s.ID, s.EntityType, s.Direction, err)
 	}
-	// cursorAt nil means the runner has no cursor of its own separate from
-	// wall-clock time (every runner except orders import) -- see runner's
-	// doc comment in dispatch.go.
-	if cursorAt == nil {
-		cursorAt = &ranAt
-	}
-
-	nextRunAt := ranAt.Add(time.Duration(s.IntervalMinutes) * time.Minute)
-	err = tenant.WithTenant(adminCtx, db, func(ctx context.Context) error {
-		return scheduleRepo.RecordRunResult(ctx, s.ID, ranAt, status, errMsg, nextRunAt, *cursorAt, status == "success")
-	})
-	if err != nil {
+	if err := recorder.Execute(runCtx, channelsapp.RecordSyncRunInput{Schedule: s, RanAt: ranAt, CursorAt: cursorAt, RunErr: err}); err != nil {
 		log.Printf("record run result for schedule %s: %v", s.ID, err)
 	}
+}
+
+// syncRunRecorder is channelsapp.RecordSyncRunUseCase narrowed to point of use.
+type syncRunRecorder interface {
+	Execute(ctx context.Context, in channelsapp.RecordSyncRunInput) error
 }
 
 // runDueJobs polls domain/scheduler's global cron-job registry (see

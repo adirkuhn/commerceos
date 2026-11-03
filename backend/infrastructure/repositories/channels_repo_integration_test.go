@@ -811,3 +811,65 @@ func TestExternalCategoryLinkRepo_Integration_UpsertFindListDelete(t *testing.T)
 	})
 	require.ErrorIs(t, err, channelsDomain.ErrExternalCategoryLinkNotFound)
 }
+
+// TestSyncScheduleRepo_Integration_RecordHealth_RoundTripsTheFailureStreak:
+// the failing streak survives a reload and an Upsert (editing the schedule
+// must not silently reset it), and clears on a healthy write.
+func TestSyncScheduleRepo_Integration_RecordHealth_RoundTripsTheFailureStreak(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	connRepo := repositories.NewConnectionRepo(db)
+	scheduleRepo := repositories.NewSyncScheduleRepo(db)
+
+	var schedule *channelsDomain.SyncSchedule
+	since := time.Now().Add(-2 * time.Hour).UTC().Truncate(time.Microsecond)
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		now := time.Now()
+		conn := &integrationsDomain.Connection{
+			TenantID: tenant.IDFromContext(ctx), Provider: integrationsDomain.ProviderWooCommerce,
+			StoreURL: "https://itest-sync-health.example.com", ConsumerKey: "ck", ConsumerSecretEncrypted: "enc",
+			Status: integrationsDomain.StatusConnected, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := connRepo.Create(ctx, conn); err != nil {
+			return err
+		}
+		schedule = &channelsDomain.SyncSchedule{
+			TenantID: tenant.IDFromContext(ctx), ConnectionID: conn.ID,
+			EntityType: channelsDomain.SyncEntityOrders, Direction: channelsDomain.SyncDirectionImport,
+			Enabled: true, IntervalMinutes: 15, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := scheduleRepo.Upsert(ctx, schedule); err != nil {
+			return err
+		}
+		if err := scheduleRepo.RecordHealth(ctx, schedule.ID, &since, true); err != nil {
+			return err
+		}
+		schedule.IntervalMinutes = 30
+		return scheduleRepo.Upsert(ctx, schedule)
+	})
+	require.NoError(t, err)
+
+	reload := func() channelsDomain.SyncSchedule {
+		var got []channelsDomain.SyncSchedule
+		require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+			var err error
+			got, err = scheduleRepo.ListByConnection(ctx, schedule.ConnectionID)
+			return err
+		}))
+		require.Len(t, got, 1)
+		return got[0]
+	}
+
+	failing := reload()
+	require.NotNil(t, failing.FailingSince)
+	require.WithinDuration(t, since, *failing.FailingSince, time.Second)
+	require.True(t, failing.FailureAlerted)
+	require.Equal(t, 30, failing.IntervalMinutes)
+
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		return scheduleRepo.RecordHealth(ctx, schedule.ID, nil, false)
+	}))
+	healthy := reload()
+	require.Nil(t, healthy.FailingSince)
+	require.False(t, healthy.FailureAlerted)
+}

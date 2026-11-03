@@ -8,6 +8,18 @@
         }
       }
     },
+    "channels": {
+      "sync_schedule": {
+        "failing": {
+          "message": "Orders, stock and statuses are not syncing. Last error: {{error}}",
+          "title": "Sync with {{store}} keeps failing"
+        },
+        "recovered": {
+          "message": "Automatic sync has recovered.",
+          "title": "Sync with {{store}} works again"
+        }
+      }
+    },
     "import": {
       "completed": {
         "message": "Imported {{products}} products ({{already_linked}} already linked, {{skipped}} skipped)",

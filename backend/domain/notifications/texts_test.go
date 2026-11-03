@@ -15,7 +15,7 @@ var languages = []locale.Locale{locale.English, locale.Portuguese, locale.Dutch}
 
 func TestTypes_everyTypeIsTranslatedInEveryLanguage(t *testing.T) {
 	sample := map[string]any{"error": "x", "reason": "x", "product": "x", "count": 3, "window_days": 30,
-		"products": 1, "already_linked": 0, "skipped": 0, "customers": 2, "orders": 4}
+		"products": 1, "already_linked": 0, "skipped": 0, "customers": 2, "orders": 4, "store": "x"}
 	for _, typ := range notifications.Types {
 		for _, lang := range languages {
 			text, ok := typ.Render(lang, sample)

@@ -28,6 +28,8 @@ type syncScheduleModel struct {
 	LastRunStatus      string `gorm:"not null"`
 	LastRunError       string `gorm:"not null"`
 	NextRunAt          *time.Time
+	FailingSince       *time.Time
+	FailureAlerted     bool `gorm:"not null"`
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 }
@@ -181,6 +183,20 @@ func (r *SyncScheduleRepo) RecordRunResult(ctx context.Context, id string, ranAt
 	return nil
 }
 
+func (r *SyncScheduleRepo) RecordHealth(ctx context.Context, id string, failingSince *time.Time, failureAlerted bool) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&syncScheduleModel{}).Where("id = ?", id).Updates(map[string]any{
+		"failing_since":   failingSince,
+		"failure_alerted": failureAlerted,
+	}).Error; err != nil {
+		return fmt.Errorf("syncScheduleRepo.RecordHealth: %w", err)
+	}
+	return nil
+}
+
 func toSyncScheduleDomain(m syncScheduleModel) *channelsDomain.SyncSchedule {
 	return &channelsDomain.SyncSchedule{
 		ID:                 m.ID,
@@ -196,6 +212,8 @@ func toSyncScheduleDomain(m syncScheduleModel) *channelsDomain.SyncSchedule {
 		LastRunStatus:      m.LastRunStatus,
 		LastRunError:       m.LastRunError,
 		NextRunAt:          m.NextRunAt,
+		FailingSince:       m.FailingSince,
+		FailureAlerted:     m.FailureAlerted,
 		CreatedAt:          m.CreatedAt,
 		UpdatedAt:          m.UpdatedAt,
 	}

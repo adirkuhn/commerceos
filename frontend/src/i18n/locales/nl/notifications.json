@@ -8,6 +8,18 @@
         }
       }
     },
+    "channels": {
+      "sync_schedule": {
+        "failing": {
+          "message": "Bestellingen, voorraad en statussen worden niet gesynchroniseerd. Laatste fout: {{error}}",
+          "title": "Synchronisatie met {{store}} blijft mislukken"
+        },
+        "recovered": {
+          "message": "De automatische synchronisatie is hersteld.",
+          "title": "Synchronisatie met {{store}} werkt weer"
+        }
+      }
+    },
     "import": {
       "completed": {
         "message": "{{products}} producten geïmporteerd ({{already_linked}} al gekoppeld, {{skipped}} overgeslagen)",

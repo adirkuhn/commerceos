@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-236 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+238 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -89,6 +89,8 @@ Payload (`events.EntityAction`):
 | `channels.sales_channel.updated` | action | A sales channel's settings changed (changes: name, connection_id, enrollment_mode, enrollment_category_id, enrollment_tag, price_adjustment_basis_points, quantity_breaks, default_warehouse_id, storefront_mode, sign_in_url, storefront_locale, storefront_locales, active, payment_connection_id). | envelope |
 | `channels.sales_channel_product_override.set` | action | A product was explicitly included in or excluded from a sales channel, overriding its enrollment rule. data: channel_id, product_id, included. | envelope |
 | `channels.sync_log_entry.dismissed` | action | A failed channel sync was dismissed from the sync log (no data). | envelope |
+| `channels.sync_schedule.failure_alerted` | action | An automatic sync kept failing for an hour and staff were alerted. data: connection_id, entity_type, direction, failing_since, error. | envelope |
+| `channels.sync_schedule.recovered` | action | An automatic sync that staff were alerted about succeeded again. data: connection_id, entity_type, direction, failing_since. | envelope |
 | `channels.sync_schedule.saved` | action | An automatic sync schedule for a connection was created or changed. data: connection_id, entity_type, direction, enabled, interval_minutes, default_warehouse_id, default_currency. | envelope |
 | `channels.tax_class.imported` | action | A tax class was created for an external shop's tax class. data: provider, external_slug, name. | envelope |
 | `channels.tax_rate.imported` | action | A tax rate was created or updated from an external shop's tax rates. data: provider, tax_class_id, country, rate_basis_points. | envelope |

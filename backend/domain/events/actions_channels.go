@@ -16,6 +16,10 @@ var (
 		"A category mapping to an external shop was removed.")
 	SyncScheduleSaved = defineAction("channels.sync_schedule.saved",
 		"An automatic sync schedule for a connection was created or changed. data: connection_id, entity_type, direction, enabled, interval_minutes, default_warehouse_id, default_currency.")
+	SyncScheduleFailureAlerted = defineAction("channels.sync_schedule.failure_alerted",
+		"An automatic sync kept failing for an hour and staff were alerted. data: connection_id, entity_type, direction, failing_since, error.")
+	SyncScheduleRecovered = defineAction("channels.sync_schedule.recovered",
+		"An automatic sync that staff were alerted about succeeded again. data: connection_id, entity_type, direction, failing_since.")
 	ImportJobCreated = defineAction("channels.import_job.created",
 		"A product import from an external shop was queued. data: connection_id, default_warehouse_id, default_currency, is_first_import.")
 )

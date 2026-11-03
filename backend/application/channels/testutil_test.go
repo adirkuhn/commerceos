@@ -958,6 +958,8 @@ type stubSyncScheduleRepo struct {
 	recorded     []stubRunResult
 	triggeredIDs []string
 	triggerErr   error
+	health       []stubHealth
+	healthErr    error
 }
 
 type stubRunResult struct {
@@ -1002,6 +1004,17 @@ func (s *stubSyncScheduleRepo) ListDue(_ context.Context, _ time.Time) ([]channe
 func (s *stubSyncScheduleRepo) RecordRunResult(_ context.Context, id string, ranAt time.Time, status, errMsg string, nextRunAt time.Time, cursorAt time.Time, advanceLastRunAt bool) error {
 	s.recorded = append(s.recorded, stubRunResult{ID: id, RanAt: ranAt, Status: status, ErrMsg: errMsg, NextRunAt: nextRunAt, CursorAt: cursorAt, AdvanceLastRunAt: advanceLastRunAt})
 	return nil
+}
+
+func (s *stubSyncScheduleRepo) RecordHealth(_ context.Context, id string, failingSince *time.Time, failureAlerted bool) error {
+	s.health = append(s.health, stubHealth{ID: id, FailingSince: failingSince, FailureAlerted: failureAlerted})
+	return s.healthErr
+}
+
+type stubHealth struct {
+	ID             string
+	FailingSince   *time.Time
+	FailureAlerted bool
 }
 
 // ── import job stub ──────────────────────────────────────────────────────────

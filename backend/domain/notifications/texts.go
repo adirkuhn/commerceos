@@ -11,6 +11,7 @@ var Types = []Type{
 	TypeDocumentParsingCompleted, TypeDocumentParsingFailed, TypePurchaseOrderNeedsReview,
 	TypeReceivingParsingCompleted, TypeReceivingParsingFailed, TypeReceivingDiscrepanciesFound,
 	TypeBolNotForSale, TypeStockCloseToExpiry,
+	TypeChannelSyncFailing, TypeChannelSyncRecovered,
 }
 
 // Text is a notification's title and message in one language.
@@ -171,6 +172,16 @@ var typeTexts = map[Type]map[locale.Locale]TypeText{
 		locale.English:    {Title: `Bol: "{{product}}" is not for sale`, Message: "{{reason}}"},
 		locale.Portuguese: {Title: `Bol: "{{product}}" não está à venda`, Message: "{{reason}}"},
 		locale.Dutch:      {Title: `Bol: "{{product}}" is niet te koop`, Message: "{{reason}}"},
+	},
+	TypeChannelSyncFailing: {
+		locale.English:    {Title: "Sync with {{store}} keeps failing", Message: "Orders, stock and statuses are not syncing. Last error: {{error}}"},
+		locale.Portuguese: {Title: "A sincronização com {{store}} continua falhando", Message: "Pedidos, estoque e status não estão sincronizando. Último erro: {{error}}"},
+		locale.Dutch:      {Title: "Synchronisatie met {{store}} blijft mislukken", Message: "Bestellingen, voorraad en statussen worden niet gesynchroniseerd. Laatste fout: {{error}}"},
+	},
+	TypeChannelSyncRecovered: {
+		locale.English:    {Title: "Sync with {{store}} works again", Message: "Automatic sync has recovered."},
+		locale.Portuguese: {Title: "A sincronização com {{store}} voltou a funcionar", Message: "A sincronização automática se recuperou."},
+		locale.Dutch:      {Title: "Synchronisatie met {{store}} werkt weer", Message: "De automatische synchronisatie is hersteld."},
 	},
 	TypeStockCloseToExpiry: {
 		locale.English: {Title: "Stock close to expiry", Message: "{{count}} products expire within {{window_days}} days",
