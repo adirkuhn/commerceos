@@ -472,5 +472,7 @@
   "DEAD_LETTER_RETRY_FAILED": "The event could not be published again. The dead letter is still there.",
   "DEAD_LETTER_FORBIDDEN": "Only a super-admin can manage dead letters.",
   "WOO_PRODUCT_NOT_FOUND": "The product no longer exists in WooCommerce (deleted in the store).",
-  "ORDER_CHANNEL_UNRESOLVED": "The order's sales channel has no integration to send to. Connect the integration or link the sales channel to it."
+  "ORDER_CHANNEL_UNRESOLVED": "The order's sales channel has no integration to send to. Connect the integration or link the sales channel to it.",
+  "SALES_ORDER_ORIGIN_INVALID": "The order's origin is invalid.",
+  "SALES_ORDER_ORIGIN_NOT_FOUND": "Where this order came from is not known."
 }

@@ -5,10 +5,16 @@ import (
 )
 
 var (
-	ErrConnectionNotFound   = errs.New("CONNECTION_NOT_FOUND", "integration connection not found")
-	ErrStoreURLInvalid      = errs.New("STORE_URL_INVALID", "store URL must be a valid http(s) URL")
-	ErrProviderNotSupported = errs.New("INTEGRATION_PROVIDER_NOT_SUPPORTED", "integration provider not supported")
-	ErrStateInvalid         = errs.New("CONNECT_STATE_INVALID", "connect state is invalid or expired")
+	ErrConnectionNotFound = errs.New("CONNECTION_NOT_FOUND", "integration connection not found")
+	// ErrSalesOrderOriginInvalid: an origin's references don't fit it (a
+	// shop order without its connection, an order made here with an
+	// external id, an unknown origin).
+	ErrSalesOrderOriginInvalid = errs.New("SALES_ORDER_ORIGIN_INVALID", "the order's origin is invalid")
+	// ErrSalesOrderOriginNotFound: no origin row for that order or external id.
+	ErrSalesOrderOriginNotFound = errs.New("SALES_ORDER_ORIGIN_NOT_FOUND", "the order's origin was not found")
+	ErrStoreURLInvalid          = errs.New("STORE_URL_INVALID", "store URL must be a valid http(s) URL")
+	ErrProviderNotSupported     = errs.New("INTEGRATION_PROVIDER_NOT_SUPPORTED", "integration provider not supported")
+	ErrStateInvalid             = errs.New("CONNECT_STATE_INVALID", "connect state is invalid or expired")
 	// ErrConnectionTestFailed distinguishes an upstream WooCommerce rejection
 	// (bad/revoked credentials) from an internal error — handlers map it to
 	// 502, not 500.

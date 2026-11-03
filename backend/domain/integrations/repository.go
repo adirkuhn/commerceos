@@ -25,3 +25,19 @@ type AIConnectionRepository interface {
 	Upsert(ctx context.Context, c *AIConnection) error
 	Delete(ctx context.Context) error
 }
+
+// SalesOrderOriginRepository stores the one origin row per sales order
+// (COM-15). Every Find returns ErrSalesOrderOriginNotFound when no row
+// matches.
+type SalesOrderOriginRepository interface {
+	// Save writes the order's origin; saving again for the same order
+	// replaces it (one row per order).
+	Save(ctx context.Context, o *SalesOrderOrigin) error
+	FindBySalesOrderID(ctx context.Context, salesOrderID string) (*SalesOrderOrigin, error)
+	// FindByConnectionExternalID finds a shop order by the connection it
+	// came from and that shop's own order id -- the re-import lookup.
+	FindByConnectionExternalID(ctx context.Context, connectionID, externalOrderID string) (*SalesOrderOrigin, error)
+	// FindByOriginExternalID finds an order from a system without a
+	// connection row (POS) by that system's own id.
+	FindByOriginExternalID(ctx context.Context, origin Origin, externalOrderID string) (*SalesOrderOrigin, error)
+}
