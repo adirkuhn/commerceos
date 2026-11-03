@@ -491,6 +491,9 @@ func main() {
 	receivingParsingJobTicker := time.NewTicker(receivingParsingJobPollInterval)
 	defer receivingParsingJobTicker.Stop()
 
+	if missing := missingJobRunners(jobRunners, schedulerDomain.JobKeys()); len(missing) > 0 {
+		log.Fatalf("scheduler: no runner registered for job(s) %v", missing)
+	}
 	recordSyncRunUC := channelsapp.NewRecordSyncRunUseCase(db, scheduleRepo, connRepo, outboxRepo, notifyUC)
 
 	log.Println("scheduler started")

@@ -131,6 +131,8 @@
     "runFailed": "Taak uitvoeren mislukt",
     "running": "Bezig…",
     "runNow": "Nu uitvoeren",
+    "queued": "In de wachtrij…",
+    "queuedHint": "In de wachtrij — de planner voert het binnen een minuut uit.",
     "saveFailed": "Taakinstellingen opslaan mislukt",
     "scheduleDisabled": "Schema is uitgeschakeld",
     "schedules_one": "Synchronisatieschema’s ({{count}})",

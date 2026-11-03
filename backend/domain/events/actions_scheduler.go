@@ -8,4 +8,7 @@ var (
 )
 
 var SchedulerJobRunTriggered = defineAction("scheduler.job.run_triggered",
-	"A scheduled job was run by hand from the admin. entity_id: job key. data: status (success or error), error.")
+	"A scheduled job ran (on its schedule, or after being queued from the admin). entity_id: job key. data: status (success or error), error.")
+
+var SchedulerJobRunRequested = defineAction("scheduler.job.run_requested",
+	"A scheduled job was queued to run now from the admin; the scheduler runs it within a minute. entity_id: job key.")

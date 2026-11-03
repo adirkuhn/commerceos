@@ -131,6 +131,8 @@
     "runFailed": "Failed to run job",
     "running": "Running…",
     "runNow": "Run now",
+    "queued": "Queued…",
+    "queuedHint": "Queued — the scheduler runs it within a minute.",
     "saveFailed": "Failed to save job config",
     "scheduleDisabled": "Schedule is disabled",
     "schedules_one": "Sync schedules ({{count}})",

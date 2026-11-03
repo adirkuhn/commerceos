@@ -132,6 +132,8 @@
     "runFailed": "Não foi possível executar a tarefa",
     "running": "Executando…",
     "runNow": "Executar agora",
+    "queued": "Na fila…",
+    "queuedHint": "Na fila — o agendador executa em até um minuto.",
     "saveFailed": "Não foi possível salvar a configuração da tarefa",
     "scheduleDisabled": "A sincronização está desativada",
     "schedules_one": "Sincronizações agendadas ({{count}})",

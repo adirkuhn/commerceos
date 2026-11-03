@@ -30,14 +30,15 @@ paths:
     post:
       operationId: runJobNow
       summary: >-
-        Run a global cron job synchronously right now and record the
-        outcome -- these are small, bounded cross-tenant sweeps, not
-        paginated per-connection imports.
+        Queue a global cron job to run now -- pulls its next run forward;
+        the scheduler process runs it on its next poll tick (within ~60s),
+        the same way sync schedules' run-now works. Poll the job list until
+        last_run_at changes to see the outcome.
       parameters:
         - $ref: '#/components/parameters/jobKey'
       responses:
-        '200':
-          description: ok
+        '202':
+          description: queued
           content:
             application/json:
               schema:

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Clock, ShieldAlert } from 'lucide-react'
+import { Clock, Loader2, ShieldAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import * as api from '../scheduler/api'
 import type { Job, SyncScheduleRow } from '../scheduler/types'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
+import { stillQueued, QUEUED_RUN_POLL_MS, type QueuedRuns } from '../scheduler/queuedRuns'
 
 function StatusBadge({ status }: { status: string }) {
   const { t } = useTranslation('settings')
@@ -36,6 +37,8 @@ export default function ScheduledJobs() {
   const [runningKey, setRunningKey] = useState<string | null>(null)
   const [edits, setEdits] = useState<Record<string, JobConfigEdit>>({})
   const [savingKey, setSavingKey] = useState<string | null>(null)
+  // Jobs queued with Run now, waiting for the scheduler (see queuedRuns).
+  const [queued, setQueued] = useState<QueuedRuns>({})
 
   const isSuperAdmin = user?.role === 'super_admin'
 
@@ -60,12 +63,28 @@ export default function ScheduledJobs() {
 
   useEffect(() => { load() }, [load])
 
-  async function handleRunJobNow(jobKey: string) {
-    setRunningKey(jobKey)
+  const hasQueued = Object.keys(queued).length > 0
+  useEffect(() => {
+    if (!hasQueued) return
+    const id = setInterval(async () => {
+      try {
+        const latest = await api.listJobs(token ?? '')
+        setJobs(latest)
+        setQueued(prev => stillQueued(prev, latest, Date.now()))
+      } catch (err) {
+        setError(apiErrorText(err) ?? t('jobs.loadFailed'))
+      }
+    }, QUEUED_RUN_POLL_MS)
+    return () => clearInterval(id)
+  }, [hasQueued, token, t])
+
+  // Run now only queues the job; the scheduler runs it within a minute.
+  async function handleRunJobNow(j: Job) {
+    setRunningKey(j.job_key)
     setError('')
     try {
-      await api.runJobNow(token ?? '', jobKey)
-      await load()
+      await api.runJobNow(token ?? '', j.job_key)
+      setQueued(prev => ({ ...prev, [j.job_key]: { lastRunAt: j.last_run_at, queuedAt: Date.now() } }))
     } catch (err) {
       setError(apiErrorText(err) ?? t('jobs.runFailed'))
     } finally {
@@ -187,11 +206,13 @@ export default function ScheduledJobs() {
                           </button>
                         )}
                         <button
-                          onClick={() => handleRunJobNow(j.job_key)}
-                          disabled={runningKey === j.job_key}
-                          className="px-3 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
+                          onClick={() => handleRunJobNow(j)}
+                          disabled={runningKey === j.job_key || j.job_key in queued}
+                          title={j.job_key in queued ? t('jobs.queuedHint') : undefined}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-2xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
                         >
-                          {runningKey === j.job_key ? t('jobs.running') : t('jobs.runNow')}
+                          {j.job_key in queued && <Loader2 size={12} className="animate-spin" aria-hidden />}
+                          {j.job_key in queued ? t('jobs.queued') : runningKey === j.job_key ? t('jobs.running') : t('jobs.runNow')}
                         </button>
                       </td>
                     </tr>

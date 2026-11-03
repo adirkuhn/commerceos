@@ -4,23 +4,15 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
 	genscheduler "github.com/adirkuhn/commerceos/api/scheduler"
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
-	apptax "github.com/adirkuhn/commerceos/application/tax"
-	appinventory "github.com/adirkuhn/commerceos/application/inventory"
-	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
-	apppms "github.com/adirkuhn/commerceos/application/pms"
-	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
 	appscheduler "github.com/adirkuhn/commerceos/application/scheduler"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
-	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	schedulerDomain "github.com/adirkuhn/commerceos/domain/scheduler"
-	bolinfra "github.com/adirkuhn/commerceos/infrastructure/bol"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -63,74 +55,17 @@ var _ genscheduler.ServerInterface = (*Handler)(nil)
 // middleware.RequireRole(middleware.RoleSuperAdmin) already applied --
 // every route here is a cross-tenant platform-operational view/action, not
 // tenant self-service settings (see api/scheduler/openapi.yaml's doc).
-func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClientFactory, encryptionSecret string) {
+func Register(rg gin.IRouter, db *gorm.DB) {
 	jobRepo := repositories.NewScheduledJobRepo(db)
 	scheduleRepo := repositories.NewSyncScheduleRepo(db)
 	connRepo := repositories.NewConnectionRepo(db)
-	skuRepo := repositories.NewSKURepo(db)
-	batchRepo := repositories.NewBatchRepo(db)
-	variantRepo := repositories.NewVariantRepo(db)
-	productRepo := repositories.NewProductRepo(db)
-	categoryRepo := repositories.NewCategoryRepo(db)
-	settingsRepo := repositories.NewTenantSettingsRepo(db)
-	movementRepo := repositories.NewStockMovementRepo(db)
-	warehouseRepo := repositories.NewWarehouseRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
-	costPriceHistoryRepo := repositories.NewSKUCostPriceHistoryRepo(db)
-	priceHistoryRepo := repositories.NewSKUPriceHistoryRepo(db)
-	lineItemRepo := repositories.NewPurchaseOrderLineItemRepo(db)
-	listingRepo := repositories.NewProductChannelListingRepo(db)
-	syncLogRepo := repositories.NewSyncLogRepo(db)
-	mediaRepo := repositories.NewMediaRepo(db)
-	salesChannelRepo := repositories.NewSalesChannelRepo(db)
-	salesChannelOverrideRepo := repositories.NewSalesChannelProductOverrideRepo(db)
-	notificationRepo := repositories.NewNotificationRepo(db)
 
-	expireSalePriceUC := apppms.NewExpireSKUSalePriceUseCase(db, variantRepo, skuRepo, outboxRepo, priceHistoryRepo)
-	expireBatchUC := appinventory.NewExpireBatchUseCase(db, batchRepo, outboxRepo)
-	recalculateCostPricesUC := apppms.NewRecalculateCostPricesUseCase(
-		db, skuRepo, variantRepo, productRepo, categoryRepo, settingsRepo, costPriceHistoryRepo,
-		appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo),
-		appprocurement.NewListReceivedCostLinesForSKUUseCase(db, lineItemRepo),
-	)
-	syncUnitCostFromCaseUC := apppms.NewSyncUnitCostFromCaseUseCase(db, skuRepo, variantRepo, repositories.NewSKUCostPriceLedgerRepo(db),
-		appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, warehouseRepo), outboxRepo)
-	stockLevelUC := appinventory.NewGetSKUStockLevelUseCase(db, movementRepo, batchRepo, settingsRepo)
-	categoryLinkRepo := repositories.NewExternalCategoryLinkRepo(db)
-	resolveCategoryLinkUC := appchannels.NewResolveCategoryLinkUseCase(db, categoryLinkRepo, categoryRepo, repositories.NewOutboxRepository(db))
-	pushProductToWooUC := appchannels.NewPushProductToWooUseCase(
-		db, connRepo, wooFactory, encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, mediaRepo, resolveCategoryLinkUC, repositories.NewOutboxRepository(db),
-	)
-	bolOverrideRepo := repositories.NewBolProductOverrideRepo(db)
-	bolContentRepo := repositories.NewBolProductContentRepo(db)
-	pushProductToBolUC := appchannels.NewPushProductToBolUseCase(
-		db, connRepo, bolinfra.NewClientFactory(), encryptionSecret, productRepo, variantRepo, skuRepo, listingRepo, bolOverrideRepo, bolContentRepo, syncLogRepo, stockLevelUC,
-		appnotifications.NewDeliverNotificationUseCase(db, notificationRepo, repositories.NewNotificationPreferencesRepo(db), repositories.NewOutboxRepository(db)), repositories.NewOutboxRepository(db),
-		apptax.NewTaxRateResolver(repositories.NewTaxClassRepo(db), repositories.NewTaxRateRepo(db)),
-	)
-	syncStockToChannelsUC := appchannels.NewSyncStockToChannelsUseCase(
-		db, skuRepo, variantRepo, listingRepo, syncLogRepo, connRepo, wooFactory, stockLevelUC, encryptionSecret, pushProductToBolUC, repositories.NewOutboxRepository(db),
-	)
-	syncProductToChannelsUC := appchannels.NewSyncProductToChannelsUseCase(
-		db, productRepo, variantRepo, skuRepo, listingRepo, syncLogRepo, connRepo, wooFactory, encryptionSecret, pushProductToWooUC, mediaRepo, resolveCategoryLinkUC, pushProductToBolUC, pushProductToBolUC, syncStockToChannelsUC, stockLevelUC, repositories.NewOutboxRepository(db),
-	)
-	enrollProductInChannelsUC := appchannels.NewEnrollProductInChannelsUseCase(
-		db, productRepo, salesChannelRepo, salesChannelOverrideRepo, pushProductToWooUC, pushProductToBolUC,
-	)
-	resyncProductToChannelsUC := appchannels.NewResyncProductToChannelsUseCase(db, variantRepo, skuRepo, syncProductToChannelsUC, syncStockToChannelsUC, enrollProductInChannelsUC)
-
-	runners := map[string]appscheduler.JobRunner{
-		schedulerDomain.JobExpiredSalePrices:           appscheduler.NewRunExpiredSalePricesUseCase(db, skuRepo, expireSalePriceUC),
-		schedulerDomain.JobExpiredBatches:              appscheduler.NewRunExpiredBatchesUseCase(db, batchRepo, expireBatchUC),
-		schedulerDomain.JobCostPriceRecalculation:      appscheduler.NewRunCostPriceRecalculationUseCase(db, skuRepo, recalculateCostPricesUC, syncUnitCostFromCaseUC),
-		schedulerDomain.JobResyncAllProductsToChannels: appscheduler.NewRunResyncProductsToChannelsUseCase(db, listingRepo, resyncProductToChannelsUC),
-		schedulerDomain.JobStockExpiryReport: appscheduler.NewRunStockExpiryReportUseCase(db, repositories.NewTenantSettingsRepo(db),
-			appinventory.NewReportStockCloseToExpiryUseCase(db, repositories.NewExpiringStockRepo(db), repositories.NewOutboxRepository(db), time.Now)),
-	}
-
+	// Run-now only queues the job: cmd/scheduler owns the one runner
+	// registry (see appscheduler.TriggerJobNowUseCase).
 	h := NewHandler(
 		appscheduler.NewListJobsUseCase(db, jobRepo),
-		appscheduler.NewRunJobNowUseCase(db, jobRepo, runners, repositories.NewOutboxRepository(db)),
+		appscheduler.NewTriggerJobNowUseCase(db, jobRepo, outboxRepo),
 		appscheduler.NewUpdateJobConfigUseCase(db, jobRepo, outboxRepo),
 		appchannels.NewListAllSyncSchedulesUseCase(db, scheduleRepo, connRepo),
 		appchannels.NewTriggerSyncScheduleNowUseCase(db, scheduleRepo),
@@ -159,7 +94,7 @@ func (h *Handler) RunJobNow(c *gin.Context, jobKey genscheduler.JobKey) {
 		mapError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, genscheduler.EmptyResponse{})
+	c.JSON(http.StatusAccepted, genscheduler.EmptyResponse{})
 }
 
 func (h *Handler) UpdateJobConfig(c *gin.Context, jobKey genscheduler.JobKey) {

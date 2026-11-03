@@ -111,7 +111,7 @@ func TestRunJobNow_success(t *testing.T) {
 	run := &stubRunJobNow{}
 	w := doRequest(newTestRouter(&stubListJobs{}, run, &stubListSyncSchedules{}, &stubRunSyncScheduleNow{}), "POST", "/api/v1/scheduler/jobs/expired_batches/run-now", nil)
 
-	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, http.StatusAccepted, w.Code, "queued for the scheduler, not run in the request")
 	assert.Equal(t, "expired_batches", run.gotJobKey)
 }
 

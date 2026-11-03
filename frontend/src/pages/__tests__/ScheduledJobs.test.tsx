@@ -65,17 +65,43 @@ describe('ScheduledJobs', () => {
     expect(screen.getByText('https://mystore.com')).toBeInTheDocument()
   })
 
-  it('runs a global job now and refreshes the list', async () => {
-    vi.mocked(schedulerApi.listJobs).mockResolvedValue([job({ last_run_status: '' })])
-    vi.mocked(schedulerApi.runJobNow).mockResolvedValue(null)
+  it('queues a global job and waits for the scheduler to run it', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      vi.mocked(schedulerApi.listJobs).mockResolvedValue([job()])
+      vi.mocked(schedulerApi.runJobNow).mockResolvedValue(null)
+
+      render(<ScheduledJobs />)
+      await screen.findByText('cost_price_recalculation')
+
+      await userEvent.click(screen.getAllByRole('button', { name: 'Run now' })[0])
+
+      expect(schedulerApi.runJobNow).toHaveBeenCalledWith('test-token', 'cost_price_recalculation')
+      const queued = await screen.findByRole('button', { name: 'Queued…' })
+      expect(queued).toBeDisabled()
+
+      // The scheduler picks it up: last_run_at moves.
+      vi.mocked(schedulerApi.listJobs).mockResolvedValue([job({ last_run_at: '2026-11-03T09:00:40Z' })])
+      await vi.advanceTimersByTimeAsync(5_000)
+
+      expect(await screen.findAllByRole('button', { name: 'Run now' })).not.toHaveLength(0)
+      expect(screen.queryByRole('button', { name: 'Queued…' })).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows the error when queueing fails', async () => {
+    vi.mocked(schedulerApi.listJobs).mockResolvedValue([job()])
+    vi.mocked(schedulerApi.runJobNow).mockRejectedValue(new Error('Scheduled job not found'))
 
     render(<ScheduledJobs />)
     await screen.findByText('cost_price_recalculation')
 
     await userEvent.click(screen.getAllByRole('button', { name: 'Run now' })[0])
 
-    expect(schedulerApi.runJobNow).toHaveBeenCalledWith('test-token', 'cost_price_recalculation')
-    expect(schedulerApi.listJobs).toHaveBeenCalledTimes(2)
+    expect(await screen.findByText('Scheduled job not found')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Queued…' })).toBeNull()
   })
 
   it('runs a sync schedule now', async () => {

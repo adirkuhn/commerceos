@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-238 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+239 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -329,7 +329,8 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
-| `scheduler.job.run_triggered` | action | A scheduled job was run by hand from the admin. entity_id: job key. data: status (success or error), error. | envelope |
+| `scheduler.job.run_requested` | action | A scheduled job was queued to run now from the admin; the scheduler runs it within a minute. entity_id: job key. | envelope |
+| `scheduler.job.run_triggered` | action | A scheduled job ran (on its schedule, or after being queued from the admin). entity_id: job key. data: status (success or error), error. | envelope |
 | `scheduler.job.updated` | action | A scheduled job's configuration changed (changes: enabled, interval_minutes). data: job_key. | envelope |
 
 ### settings

@@ -36,6 +36,16 @@ const (
 	JobRepushWooOrderStatuses = "repush_woo_order_statuses"
 )
 
+// JobKeys lists every known job -- cmd/scheduler must have a runner for
+// each and a migration must seed each (both guarded by tests).
+func JobKeys() []string {
+	return []string{
+		JobExpiredSalePrices, JobExpiredBatches, JobCostPriceRecalculation, JobResyncAllProductsToChannels,
+		JobPromotionActivation, JobReconcileFulfilledOrders, JobCheckBolShipmentConfirmations,
+		JobStockExpiryReport, JobRepushWooOrderStatuses,
+	}
+}
+
 type Job struct {
 	ID              int64
 	JobKey          string

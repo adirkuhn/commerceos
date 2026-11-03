@@ -1,10 +1,10 @@
 package scheduler
 
 import (
-	"github.com/adirkuhn/commerceos/application/eventrecord"
-	"github.com/adirkuhn/commerceos/domain/events"
 	"context"
 	"fmt"
+	"github.com/adirkuhn/commerceos/application/eventrecord"
+	"github.com/adirkuhn/commerceos/domain/events"
 	"time"
 
 	schedulerDomain "github.com/adirkuhn/commerceos/domain/scheduler"
@@ -22,11 +22,10 @@ type JobRunner interface {
 	Run(ctx context.Context) error
 }
 
-// RunJobNowUseCase is the super_admin "Scheduled Jobs" admin page's
-// run-now action for a global cron job -- runs it synchronously (these are
-// small, bounded sweeps, not per-connection paginated imports) and records
-// the outcome the same way cmd/scheduler's periodic due-check loop does, so
-// "last run" stays accurate regardless of which process actually ran it.
+// RunJobNowUseCase runs one global cron job synchronously and records the
+// outcome -- cmd/scheduler's due-job loop calls it for every due job,
+// including one the admin queued with TriggerJobNowUseCase. It lives only
+// in the scheduler process, the single owner of the runner registry.
 type RunJobNowUseCase struct {
 	db      *gorm.DB
 	jobRepo schedulerDomain.JobRepository
