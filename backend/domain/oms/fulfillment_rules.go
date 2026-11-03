@@ -31,6 +31,9 @@ func (s SalesOrderSource) IsFulfillable() bool {
 	return s != SalesOrderSourcePOS
 }
 
+// source is where the order came from (its origin, COM-15) -- passed in,
+// the order itself holds no integration data.
+//
 // CanStartPacking decides whether a packing session may start for this
 // order: not packed, not a POS sale, and still pending/processing/on-hold --
 // picked or not (picking is optional). Status, not Fulfilled, is what says
@@ -39,11 +42,11 @@ func (s SalesOrderSource) IsFulfillable() bool {
 // be packed. An open picking session on the order is the use case's call
 // (StartOrResumePackingUseCase takes it over when its lock allows), not
 // this rule's.
-func (o SalesOrder) CanStartPacking() error {
+func (o SalesOrder) CanStartPacking(source SalesOrderSource) error {
 	if o.Packed {
 		return ErrOrderAlreadyPacked
 	}
-	if !o.Source.IsFulfillable() {
+	if !source.IsFulfillable() {
 		return ErrPOSOrderNotFulfillable
 	}
 	if !o.Status.IsPickable() {
@@ -54,8 +57,8 @@ func (o SalesOrder) CanStartPacking() error {
 
 // CanStartPicking is CanStartPacking's picking-side counterpart.
 // packingInProgress is whether the order has an in_progress packing session.
-func (o SalesOrder) CanStartPicking(packingInProgress bool) error {
-	if !o.Source.IsFulfillable() {
+func (o SalesOrder) CanStartPicking(source SalesOrderSource, packingInProgress bool) error {
+	if !source.IsFulfillable() {
 		return ErrPOSOrderNotFulfillable
 	}
 	if o.Fulfilled {
@@ -91,8 +94,8 @@ func (s PickingSession) IsOpen() bool {
 // CanMarkPicked decides whether the whole order may be marked picked in one
 // action (the picking module's list mode): the same rules as starting a
 // picking session, and the order must still be in a pickable status.
-func (o SalesOrder) CanMarkPicked(packingInProgress bool) error {
-	if err := o.CanStartPicking(packingInProgress); err != nil {
+func (o SalesOrder) CanMarkPicked(source SalesOrderSource, packingInProgress bool) error {
+	if err := o.CanStartPicking(source, packingInProgress); err != nil {
 		return err
 	}
 	if !o.Status.IsPickable() {

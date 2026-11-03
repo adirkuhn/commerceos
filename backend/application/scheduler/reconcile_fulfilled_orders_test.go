@@ -85,8 +85,8 @@ func (s *stubReconcileUpdater) Execute(_ context.Context, id string, in appoms.U
 }
 
 func TestReconcileFulfilledOrders_movesStuckOrdersToShipped(t *testing.T) {
-	orderA := omsDomain.SalesOrder{ID: "order-a", TenantID: "tenant-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: true}
-	orderB := omsDomain.SalesOrder{ID: "order-b", TenantID: "tenant-2", Source: omsDomain.SalesOrderSourceWooCommerce, Status: omsDomain.SalesOrderStatusPending, Fulfilled: true}
+	orderA := omsDomain.SalesOrder{ID: "order-a", TenantID: "tenant-1", Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: true}
+	orderB := omsDomain.SalesOrder{ID: "order-b", TenantID: "tenant-2", Status: omsDomain.SalesOrderStatusPending, Fulfilled: true}
 	repo := &stubReconcileSalesOrderRepo{
 		listResult: []omsDomain.SalesOrder{orderA, orderB},
 		byID:       map[string]omsDomain.SalesOrder{"order-a": orderA, "order-b": orderB},
@@ -109,8 +109,8 @@ func TestReconcileFulfilledOrders_movesStuckOrdersToShipped(t *testing.T) {
 }
 
 func TestReconcileFulfilledOrders_oneOrderFailing_doesNotBlockTheRest(t *testing.T) {
-	orderA := omsDomain.SalesOrder{ID: "order-a", TenantID: "tenant-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: true}
-	orderB := omsDomain.SalesOrder{ID: "order-b", TenantID: "tenant-2", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: true}
+	orderA := omsDomain.SalesOrder{ID: "order-a", TenantID: "tenant-1", Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: true}
+	orderB := omsDomain.SalesOrder{ID: "order-b", TenantID: "tenant-2", Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: true}
 	repo := &stubReconcileSalesOrderRepo{
 		listResult:  []omsDomain.SalesOrder{orderA, orderB},
 		byID:        map[string]omsDomain.SalesOrder{"order-b": orderB},

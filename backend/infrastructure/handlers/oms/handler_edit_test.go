@@ -37,7 +37,7 @@ func newEditRouter(edit *stubEditSalesOrder) *gin.Engine {
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, &stubBulkUpdateSalesOrderStatus{},
 		&stubListSalesOrderActivities{},
 		&stubStartOrResumePacking{}, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
-		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{}, &stubResolvePickScanCode{}, omshandler.SessionLockUseCases{}, &stubListPackingQueue{}, &stubListSalesOrderLineChanges{}).
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{}, &stubResolvePickScanCode{}, omshandler.SessionLockUseCases{}, &stubListPackingQueue{}, &stubListSalesOrderLineChanges{}).WithOrigins(&stubOriginLister{}).
 		WithEditSalesOrder(edit)
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)

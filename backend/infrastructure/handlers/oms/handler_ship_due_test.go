@@ -38,8 +38,8 @@ func TestListSalesOrders_includesShipByDate(t *testing.T) {
 	shipBy := time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC)
 	list := &stubListSalesOrders{out: &appoms.ListSalesOrdersResult{
 		SalesOrders: []omsDomain.SalesOrder{
-			{ID: "so-1", ExternalOrderID: "bol-1", Status: omsDomain.SalesOrderStatusProcessing, ShipByDate: &shipBy},
-			{ID: "so-2", ExternalOrderID: "woo-2", Status: omsDomain.SalesOrderStatusProcessing},
+			{ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing, ShipByDate: &shipBy},
+			{ID: "so-2", Status: omsDomain.SalesOrderStatusProcessing},
 		},
 		Total: 2,
 	}}

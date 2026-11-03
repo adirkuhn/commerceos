@@ -56,12 +56,13 @@ type wooClientResolver interface {
 type BackfillWooOrderPaymentsUseCase struct {
 	db          *gorm.DB
 	orders      omsDomain.MissingPaymentInfoLister
+	origins     orderOriginReader
 	clients     wooClientResolver
 	updateOrder updateSalesOrderUC
 }
 
-func NewBackfillWooOrderPaymentsUseCase(db *gorm.DB, orders omsDomain.MissingPaymentInfoLister, clients wooClientResolver, updateOrder updateSalesOrderUC) *BackfillWooOrderPaymentsUseCase {
-	return &BackfillWooOrderPaymentsUseCase{db: db, orders: orders, clients: clients, updateOrder: updateOrder}
+func NewBackfillWooOrderPaymentsUseCase(db *gorm.DB, orders omsDomain.MissingPaymentInfoLister, origins orderOriginReader, clients wooClientResolver, updateOrder updateSalesOrderUC) *BackfillWooOrderPaymentsUseCase {
+	return &BackfillWooOrderPaymentsUseCase{db: db, orders: orders, origins: origins, clients: clients, updateOrder: updateOrder}
 }
 
 func (uc *BackfillWooOrderPaymentsUseCase) Execute(ctx context.Context, in BackfillWooOrderPaymentsInput) (*BackfillWooOrderPaymentsResult, error) {
@@ -75,10 +76,20 @@ func (uc *BackfillWooOrderPaymentsUseCase) Execute(ctx context.Context, in Backf
 	}
 
 	var batch []omsDomain.SalesOrder
+	wooOrderIDs := map[string]string{}
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
-		batch, err = uc.orders.ListMissingPaymentInfo(ctx, in.ConnectionID, after, BackfillWooOrderPaymentsBatchSize)
-		return err
+		if batch, err = uc.orders.ListMissingPaymentInfo(ctx, in.ConnectionID, after, BackfillWooOrderPaymentsBatchSize); err != nil {
+			return err
+		}
+		for _, o := range batch {
+			origin, err := shopOrderOf(ctx, uc.origins, o.ID)
+			if err != nil {
+				return err
+			}
+			wooOrderIDs[o.ID] = origin.ExternalOrderID
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("backfillWooOrderPayments: %w", err)
@@ -87,9 +98,9 @@ func (uc *BackfillWooOrderPaymentsUseCase) Execute(ctx context.Context, in Backf
 	result := &BackfillWooOrderPaymentsResult{}
 	for _, order := range batch {
 		result.Checked++
-		updated, err := uc.backfillOne(ctx, client, order)
+		updated, err := uc.backfillOne(ctx, client, order, wooOrderIDs[order.ID])
 		if err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %v", order.ExternalOrderID, err))
+			result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %v", wooOrderIDs[order.ID], err))
 			continue
 		}
 		if updated {
@@ -103,8 +114,8 @@ func (uc *BackfillWooOrderPaymentsUseCase) Execute(ctx context.Context, in Backf
 	return result, nil
 }
 
-func (uc *BackfillWooOrderPaymentsUseCase) backfillOne(ctx context.Context, client integrationsDomain.WooClient, order omsDomain.SalesOrder) (bool, error) {
-	wo, err := client.GetOrder(ctx, order.ExternalOrderID)
+func (uc *BackfillWooOrderPaymentsUseCase) backfillOne(ctx context.Context, client integrationsDomain.WooClient, order omsDomain.SalesOrder, wooOrderID string) (bool, error) {
+	wo, err := client.GetOrder(ctx, wooOrderID)
 	if err != nil {
 		return false, fmt.Errorf("fetch: %w", err)
 	}

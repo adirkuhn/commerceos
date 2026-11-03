@@ -39,21 +39,27 @@ type salesOrderStatusPusher interface {
 //
 //events:delegated PushSalesOrderStatusToChannelsUseCase -- records channel.order_status_pushed per successful push
 type RepushWooOrderStatusesUseCase struct {
-	db          *gorm.DB
-	orders      salesOrderLister
-	connections orderConnectionResolver
-	clients     wooClientResolver
-	pusher      salesOrderStatusPusher
+	db      *gorm.DB
+	orders  salesOrderLister
+	origins orderOriginReader
+	clients wooClientResolver
+	pusher  salesOrderStatusPusher
 }
 
-func NewRepushWooOrderStatusesUseCase(db *gorm.DB, orders salesOrderLister, connections orderConnectionResolver, clients wooClientResolver, pusher salesOrderStatusPusher) *RepushWooOrderStatusesUseCase {
-	return &RepushWooOrderStatusesUseCase{db: db, orders: orders, connections: connections, clients: clients, pusher: pusher}
+func NewRepushWooOrderStatusesUseCase(db *gorm.DB, orders salesOrderLister, origins orderOriginReader, clients wooClientResolver, pusher salesOrderStatusPusher) *RepushWooOrderStatusesUseCase {
+	return &RepushWooOrderStatusesUseCase{db: db, orders: orders, origins: origins, clients: clients, pusher: pusher}
+}
+
+// wooOrder is a repush candidate with the Woo order id its origin gives.
+type wooOrder struct {
+	omsDomain.SalesOrder
+	wooOrderID string
 }
 
 func (uc *RepushWooOrderStatusesUseCase) Run(ctx context.Context) error {
 	adminCtx := tenant.WithSuperAdmin(ctx)
 
-	var byConnection map[string][]omsDomain.SalesOrder
+	var byConnection map[string][]wooOrder
 	err := tenant.WithTenant(adminCtx, uc.db, func(ctx context.Context) error {
 		candidates, _, err := uc.orders.List(ctx, omsDomain.ListSalesOrdersFilter{
 			Source: []omsDomain.SalesOrderSource{omsDomain.SalesOrderSourceWooCommerce},
@@ -78,7 +84,7 @@ func (uc *RepushWooOrderStatusesUseCase) Run(ctx context.Context) error {
 	return nil
 }
 
-func (uc *RepushWooOrderStatusesUseCase) repushConnection(ctx context.Context, connectionID string, orders []omsDomain.SalesOrder) {
+func (uc *RepushWooOrderStatusesUseCase) repushConnection(ctx context.Context, connectionID string, orders []wooOrder) {
 	client, err := uc.clients.ClientFor(ctx, connectionID)
 	if err != nil {
 		log.Printf("repushWooOrderStatuses: connection %s: %v", connectionID, err)
@@ -86,7 +92,7 @@ func (uc *RepushWooOrderStatusesUseCase) repushConnection(ctx context.Context, c
 	}
 	ids := make([]string, len(orders))
 	for i, o := range orders {
-		ids[i] = o.ExternalOrderID
+		ids[i] = o.wooOrderID
 	}
 	wooStatuses, err := client.ListOrderStatuses(ctx, ids)
 	if err != nil {
@@ -94,12 +100,12 @@ func (uc *RepushWooOrderStatusesUseCase) repushConnection(ctx context.Context, c
 		return
 	}
 	for _, o := range orders {
-		wooStatus, onWoo := wooStatuses[o.ExternalOrderID]
+		wooStatus, onWoo := wooStatuses[o.wooOrderID]
 		if !onWoo || !wooStatusNeedsRepush(o.Status, wooStatus) {
 			continue
 		}
 		if err := uc.pusher.Execute(ctx, o.ID); err != nil {
-			log.Printf("repushWooOrderStatuses: order %s (woo %s): %v", o.ID, o.ExternalOrderID, err)
+			log.Printf("repushWooOrderStatuses: order %s (woo %s): %v", o.ID, o.wooOrderID, err)
 		}
 	}
 }
@@ -115,13 +121,13 @@ func wooStatusNeedsRepush(local omsDomain.SalesOrderStatus, wooStatus string) bo
 	return !local.AcceptsChannelStatus(omsDomain.SalesOrderStatus(wooStatus))
 }
 
-// groupByConnection groups orders by the connection their sales channel
-// uses now (COM-15). An order that resolves nowhere is logged and left out:
-// its own status push already fails (and dead-letters) for the same reason.
-func (uc *RepushWooOrderStatusesUseCase) groupByConnection(ctx context.Context, orders []omsDomain.SalesOrder) (map[string][]omsDomain.SalesOrder, error) {
-	out := map[string][]omsDomain.SalesOrder{}
+// groupByConnection groups orders by the connection their origin came from
+// (COM-15). An order that resolves nowhere is logged and left out: its own
+// status push already fails (and dead-letters) for the same reason.
+func (uc *RepushWooOrderStatusesUseCase) groupByConnection(ctx context.Context, orders []omsDomain.SalesOrder) (map[string][]wooOrder, error) {
+	out := map[string][]wooOrder{}
 	for _, o := range orders {
-		connectionID, err := uc.connections.ConnectionIDFor(ctx, o)
+		origin, err := shopOrderOf(ctx, uc.origins, o.ID)
 		if errors.Is(err, channelsDomain.ErrOrderChannelUnresolved) {
 			log.Printf("repushWooOrderStatuses: %v", err)
 			continue
@@ -129,7 +135,7 @@ func (uc *RepushWooOrderStatusesUseCase) groupByConnection(ctx context.Context, 
 		if err != nil {
 			return nil, err
 		}
-		out[connectionID] = append(out[connectionID], o)
+		out[*origin.ConnectionID] = append(out[*origin.ConnectionID], wooOrder{SalesOrder: o, wooOrderID: origin.ExternalOrderID})
 	}
 	return out, nil
 }

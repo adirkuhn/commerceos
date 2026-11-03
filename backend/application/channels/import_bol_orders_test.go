@@ -97,8 +97,9 @@ func TestImportBolOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	assert.Empty(t, result.Errors)
 	require.Len(t, h.salesOrderRepo.created, 1)
 	created := h.salesOrderRepo.created[0]
-	assert.Equal(t, omsDomain.SalesOrderSourceBol, created.Source)
-	assert.Equal(t, "A2K8290LP8", created.ExternalOrderID)
+	require.Len(t, h.origins.recorded, 1)
+	assert.Equal(t, integrationsDomain.OriginBol, h.origins.recorded[0].Origin)
+	assert.Equal(t, "A2K8290LP8", h.origins.recorded[0].ExternalOrderID)
 	assert.Equal(t, omsDomain.SalesOrderStatusProcessing, created.Status)
 	// The customer pays bol.com, not the store -- no transaction id of its
 	// own, but the order must still read as "paid via bol.com".
@@ -273,7 +274,7 @@ func TestImportBolOrders_losingTheCreateRaceRoutesToUpdateInsteadOfFailing(t *te
 	h.bolClient.getOrderFn = func(_ context.Context, _ string) (*integrationsDomain.BolOrder, error) {
 		return simpleBolOrderDetail(), nil
 	}
-	h.salesOrderRepo.createErr = omsDomain.ErrDuplicateExternalOrder
+	h.salesOrderRepo.createErr = integrationsDomain.ErrExternalOrderAlreadyImported
 	h.salesOrderRepo.winnerAfterCreateFail = map[string]omsDomain.SalesOrder{
 		"A2K8290LP8": {ID: "so-winner", Status: omsDomain.SalesOrderStatusProcessing},
 	}

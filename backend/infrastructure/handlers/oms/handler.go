@@ -139,6 +139,8 @@ type Handler struct {
 	resolvePackScanCode resolvePickScanCodeUC
 	locks               SessionLockUseCases
 	listPickingQueue    listPackingQueueUC
+
+	origins salesOrderOriginLister
 }
 
 func NewHandler(
@@ -215,7 +217,7 @@ func NewUpdateSalesOrderUseCase(db *gorm.DB) *appoms.UpdateSalesOrderUseCase {
 		db, skuRepo, repositories.NewSKUCostPriceLedgerRepo(db), appinventory.NewListBatchesUseCase(db, batchRepo, movementRepo, repositories.NewWarehouseRepo(db)),
 	)}
 	return appoms.NewUpdateSalesOrderUseCase(
-		db, repositories.NewSalesOrderRepo(db), repositories.NewSalesOrderLineItemRepo(db), repositories.NewSalesOrderLineItemStockMovementRepo(db), skuRepo,
+		db, repositories.NewSalesOrderRepo(db), appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), repositories.NewSalesOrderLineItemRepo(db), repositories.NewSalesOrderLineItemStockMovementRepo(db), skuRepo,
 		appinventory.NewAllocateSaleStockUseCase(db, movementRepo, batchRepo, outboxRepo),
 		appinventory.NewRecordStockMovementUseCase(db, movementRepo, outboxRepo, costLedgerRecorder),
 		outboxRepo,
@@ -278,12 +280,12 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewGetSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, repositories.NewSalesOrderPaymentRepo(db)),
 		NewCreateSalesOrderUseCase(db, outboxRepo),
 		updateSalesOrder,
-		appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, recordMovement, outboxRepo),
+		appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), lineItemRepo, linkRepo, recordMovement, outboxRepo),
 		appoms.NewLinkLineItemSKUUseCase(db, salesOrderRepo, lineItemRepo, skuRepo, outboxRepo),
 		appoms.NewRetryStockDecrementUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, outboxRepo),
 		appoms.NewForceAcceptStockUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, outboxRepo),
 		addLineItem,
-		appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo, packScanRepo, outboxRepo),
+		appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), pickingSessionRepo, packingSessionRepo, packScanRepo, outboxRepo),
 		appoms.NewGetPickingSessionUseCase(db, pickingSessionRepo, lineItemRepo, pickScanRepo, skuRepo, variantRepo),
 		appoms.NewTouchPickingSessionUseCase(db, pickingSessionRepo),
 		appoms.NewResetPickingSessionUseCase(db, pickingSessionRepo, pickScanRepo, outboxRepo),
@@ -301,7 +303,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewCompletePickingUseCase(db, pickingSessionRepo, salesOrderRepo, lineItemRepo, linkRepo, pickScanRepo, addLineItem, allocateStock, recordMovement, allocateStock, skuRepo, outboxRepo, refundClientResolver),
 		appoms.NewBulkUpdateSalesOrderStatusUseCase(updateSalesOrder),
 		appoms.NewListSalesOrderActivitiesUseCase(db, repositories.NewSalesOrderActivityRepo(db)),
-		appoms.NewStartOrResumePackingUseCase(db, salesOrderRepo, packingSessionRepo, pickingSessionRepo, pickScanRepo, outboxRepo),
+		appoms.NewStartOrResumePackingUseCase(db, salesOrderRepo, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), packingSessionRepo, pickingSessionRepo, pickScanRepo, outboxRepo),
 		appoms.NewGetPackingSessionUseCase(db, packingSessionRepo, lineItemRepo, packScanRepo, skuRepo, variantRepo),
 		appoms.NewTouchPackingSessionUseCase(db, packingSessionRepo),
 		appoms.NewResetPackingSessionUseCase(db, packingSessionRepo, packScanRepo, outboxRepo),
@@ -310,7 +312,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewCompletePackingUseCase(db, packingSessionRepo, salesOrderRepo, lineItemRepo, packScanRepo, orderChangeApplier, outboxRepo),
 		appoms.NewBuildPickListUseCase(db, salesOrderRepo, lineItemRepo),
 		appoms.NewListPackingQueueUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo, packScanRepo),
-		appoms.NewMarkOrderPickedUseCase(db, salesOrderRepo, packingSessionRepo, packScanRepo, pickingSessionRepo, pickScanRepo, repositories.NewSalesOrderActivityRepo(db), outboxRepo),
+		appoms.NewMarkOrderPickedUseCase(db, salesOrderRepo, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), packingSessionRepo, packScanRepo, pickingSessionRepo, pickScanRepo, repositories.NewSalesOrderActivityRepo(db), outboxRepo),
 		appoms.NewResolvePackScanCodeUseCase(db, packingSessionRepo, lineItemRepo, skuRepo, barcodeAliasRepo, scaleCodeAliasRepo, variantRepo, productRepo),
 		SessionLockUseCases{
 			ReleasePacking:  appoms.NewReleasePackingSessionLockUseCase(db, packingSessionRepo),
@@ -321,7 +323,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret string) {
 		appoms.NewListPickingQueueUseCase(db, salesOrderRepo, pickingSessionRepo, packingSessionRepo, packScanRepo),
 		appoms.NewListSalesOrderLineChangesUseCase(db, appoms.LineChangeSources{Packing: packScanRepo, Picking: pickScanRepo},
 			lineItemRepo, skuRepo, variantRepo, productRepo),
-	).WithEditSalesOrder(appoms.NewEditSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, skuRepo, allocateStock, recordMovement,
+	).WithOrigins(appintegrations.NewListSalesOrderOriginsUseCase(db, repositories.NewSalesOrderOriginRepo(db))).WithEditSalesOrder(appoms.NewEditSalesOrderUseCase(db, salesOrderRepo, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), lineItemRepo, linkRepo, skuRepo, allocateStock, recordMovement,
 		pickingSessionRepo, packingSessionRepo, outboxRepo))
 	genoms.RegisterHandlers(rg, h)
 }

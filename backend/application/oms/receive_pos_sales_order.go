@@ -1,15 +1,15 @@
 package oms
 
 import (
-	"errors"
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/adirkuhn/commerceos/application/eventrecord"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
-	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
+	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -168,8 +168,9 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 
 		now := time.Now()
 		newOrder := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-			ExternalOrderID: in.ExternalOrderID, Number: in.Number, OrderKey: in.OrderKey, Status: status,
+			// No number from the POS: its own id is how the sale is
+			// referred to (it was the display fallback before COM-15).
+			TenantID: tenant.IDFromContext(ctx), Number: orDefault(in.Number, in.ExternalOrderID), Status: status,
 			WarehouseID: in.WarehouseID, CustomerID: in.CustomerID, Billing: in.Billing, Shipping: in.Shipping,
 			CustomerNote: in.CustomerNote, CurrencyCode: in.CurrencyCode,
 			DiscountTotalMinorUnits: in.DiscountTotalMinorUnits, ShippingTotalMinorUnits: in.ShippingTotalMinorUnits,
@@ -238,7 +239,7 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 			soldLines = append(soldLines, newSoldLine(lineItem, sku))
 		}
 		order = &newOrder
-		return recordSalesOrderCreated(ctx, uc.outbox, newOrder, len(soldLines))
+		return recordSalesOrderCreated(ctx, uc.outbox, newOrder, omsDomain.SalesOrderSourcePOS, len(soldLines))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("receivePOSSalesOrder: %w", err)

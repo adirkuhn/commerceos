@@ -54,6 +54,7 @@ type activePackingFinder interface {
 type EditSalesOrderUseCase struct {
 	db              *gorm.DB
 	salesOrderRepo  omsDomain.SalesOrderRepository
+	origins         originFinder
 	lineItemRepo    omsDomain.SalesOrderLineItemRepository
 	linkRepo        omsDomain.SalesOrderLineItemStockMovementRepository
 	skuRepo         skuLookupRepo
@@ -64,8 +65,8 @@ type EditSalesOrderUseCase struct {
 	outbox          eventrecord.Enqueuer
 }
 
-func NewEditSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, allocate recordSaleMovementUC, reverseMovement movementReverser, picking activePickingFinder, packing activePackingFinder, outbox eventrecord.Enqueuer) *EditSalesOrderUseCase {
-	return &EditSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo,
+func NewEditSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, origins originFinder, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, allocate recordSaleMovementUC, reverseMovement movementReverser, picking activePickingFinder, packing activePackingFinder, outbox eventrecord.Enqueuer) *EditSalesOrderUseCase {
+	return &EditSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, origins: origins, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo,
 		allocate: allocate, reverseMovement: reverseMovement, picking: picking, packing: packing, outbox: outbox}
 }
 
@@ -120,7 +121,11 @@ func (uc *EditSalesOrderUseCase) load(ctx context.Context, id string) (*omsDomai
 		if order, err = uc.salesOrderRepo.FindByID(ctx, id); err != nil {
 			return err
 		}
-		if err := order.Editable(); err != nil {
+		source, err := sourceOf(ctx, uc.origins, id)
+		if err != nil {
+			return err
+		}
+		if err := order.Editable(source); err != nil {
 			return err
 		}
 		if picking, err := uc.picking.FindActiveBySalesOrder(ctx, id); err != nil {

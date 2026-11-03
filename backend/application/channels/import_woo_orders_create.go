@@ -44,8 +44,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		now := time.Now()
 		order = omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
-			ExternalOrderID: externalOrderID, ConnectionID: &in.ConnectionID, Number: wo.Number, OrderKey: wo.OrderKey,
+			TenantID: tenant.IDFromContext(ctx), Number: wo.Number,
 			Status: status, WarehouseID: in.DefaultWarehouseID, CustomerID: customerID,
 			Billing: wooAddressToOMS(wo.Billing), Shipping: wooAddressToOMS(wo.Shipping),
 			CustomerNote: wo.CustomerNote, CurrencyCode: wo.Currency,
@@ -65,10 +64,11 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 		if err := uc.salesOrderRepo.Create(ctx, &order); err != nil {
 			return err
 		}
-		if err := uc.origins.Record(ctx, integrationsDomain.SalesOrderOriginInput{
+		origin := integrationsDomain.SalesOrderOriginInput{
 			TenantID: order.TenantID, SalesOrderID: order.ID, Origin: integrationsDomain.OriginWooCommerce,
 			ConnectionID: &in.ConnectionID, ExternalOrderID: externalOrderID, ExternalKey: wo.OrderKey, CreatedAt: now,
-		}); err != nil {
+		}
+		if err := uc.origins.Record(ctx, origin); err != nil {
 			return err
 		}
 		for _, li := range wo.LineItems {
@@ -130,7 +130,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			}
 			order.NeedsSKUReview = true
 		}
-		return recordOrderImported(ctx, uc.outbox, order, len(createdLineItems), unlinkedLines)
+		return recordOrderImported(ctx, uc.outbox, order, origin, len(createdLineItems), unlinkedLines)
 	})
 	if err != nil {
 		if isDuplicateImport(err) {

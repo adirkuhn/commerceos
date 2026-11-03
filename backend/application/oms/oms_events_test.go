@@ -33,7 +33,7 @@ func TestOMSUseCases_FailWhenTheEventCantBeRecorded(t *testing.T) {
 	assert.ErrorIs(t, err, boom, "activity")
 
 	_, err = appoms.NewStartOrResumePickingUseCase(newMockGormDB(t),
-		&stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing}},
+		&stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing}}, &stubOrigins{},
 		&stubPickingSessionRepo{}, &stubPackingSessionRepo{}, &stubPackScanRepo{}, failing).
 		Execute(ctx, "order-1", omsDomain.LockActor{UserID: "u"})
 	assert.ErrorIs(t, err, boom, "start picking")

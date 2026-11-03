@@ -52,7 +52,7 @@ type ConfirmBolShipmentUseCase struct {
 	shipmentRepo   shippingDomain.ShipmentRepository
 	confirmations  channelsDomain.BolShipmentConfirmationRepository
 	clients        bolClientSource
-	connections    orderConnectionResolver
+	origins        orderOriginReader
 	outbox         eventrecord.Enqueuer
 	now            func() time.Time
 }
@@ -63,18 +63,18 @@ func NewConfirmBolShipmentUseCase(
 	shipmentRepo shippingDomain.ShipmentRepository,
 	confirmations channelsDomain.BolShipmentConfirmationRepository,
 	clients bolClientSource,
-	connections orderConnectionResolver,
+	origins orderOriginReader,
 	outbox eventrecord.Enqueuer,
 	now func() time.Time,
 ) *ConfirmBolShipmentUseCase {
 	return &ConfirmBolShipmentUseCase{
 		db: db, salesOrderRepo: salesOrderRepo, shipmentRepo: shipmentRepo, confirmations: confirmations,
-		clients: clients, connections: connections, outbox: outbox, now: now,
+		clients: clients, origins: origins, outbox: outbox, now: now,
 	}
 }
 
 func (uc *ConfirmBolShipmentUseCase) Execute(ctx context.Context, salesOrderID string) error {
-	order, connectionID, err := uc.loadOrder(ctx, salesOrderID)
+	order, origin, err := uc.loadOrder(ctx, salesOrderID)
 	if err != nil {
 		return fmt.Errorf("confirmBolShipment: %w", err)
 	}
@@ -96,8 +96,8 @@ func (uc *ConfirmBolShipmentUseCase) Execute(ctx context.Context, salesOrderID s
 	}
 
 	base := channelsDomain.BolShipmentConfirmation{
-		TenantID: order.TenantID, SalesOrderID: order.ID, ConnectionID: connectionID, ShipmentID: shipment.ID,
-		ExternalOrderID: order.ExternalOrderID, Action: channelsDomain.BolActionCreateShipment,
+		TenantID: order.TenantID, SalesOrderID: order.ID, ConnectionID: *origin.ConnectionID, ShipmentID: shipment.ID,
+		ExternalOrderID: origin.ExternalOrderID, Action: channelsDomain.BolActionCreateShipment,
 		TrackAndTrace: shipment.Barcode, CreatedAt: uc.now(),
 	}
 	transporterCode, err := channelsDomain.BolTransporterCode(shipment.Carrier, shipment.RecipientCC)
@@ -106,13 +106,13 @@ func (uc *ConfirmBolShipmentUseCase) Execute(ctx context.Context, salesOrderID s
 	}
 	base.TransporterCode = transporterCode
 
-	client, err := uc.clients.ClientFor(ctx, connectionID)
+	client, err := uc.clients.ClientFor(ctx, *origin.ConnectionID)
 	if err != nil {
 		return fmt.Errorf("confirmBolShipment: %w", err)
 	}
-	bolOrder, err := client.GetOrder(ctx, order.ExternalOrderID)
+	bolOrder, err := client.GetOrder(ctx, origin.ExternalOrderID)
 	if err != nil {
-		return fmt.Errorf("confirmBolShipment: read bol order %s: %w", order.ExternalOrderID, err)
+		return fmt.Errorf("confirmBolShipment: read bol order %s: %w", origin.ExternalOrderID, err)
 	}
 	if items := openBolOrderItems(bolOrder.OrderItems); len(items) > 0 {
 		return uc.createShipment(ctx, client, base, items)
@@ -197,29 +197,36 @@ func failed(c channelsDomain.BolShipmentConfirmation, reason, message string) ch
 	return c
 }
 
-// loadOrder returns the open Bol order and the connection its sales channel
-// sends through now (COM-15), or a nil order when there is nothing to
-// confirm (not Bol, or already closed). An open Bol order with nowhere to
-// send to is ErrOrderChannelUnresolved, so the signal is retried.
-func (uc *ConfirmBolShipmentUseCase) loadOrder(ctx context.Context, salesOrderID string) (*omsDomain.SalesOrder, string, error) {
+// loadOrder returns the open Bol order and its origin (the connection and
+// Bol order id to confirm on, COM-15), or a nil order when there is
+// nothing to confirm (not Bol, or already closed). An open Bol order with
+// nowhere to send to is ErrOrderChannelUnresolved, so the signal is
+// retried.
+func (uc *ConfirmBolShipmentUseCase) loadOrder(ctx context.Context, salesOrderID string) (*omsDomain.SalesOrder, integrationsDomain.SalesOrderOrigin, error) {
 	var order *omsDomain.SalesOrder
-	var connectionID string
+	var origin integrationsDomain.SalesOrderOrigin
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		o, err := uc.salesOrderRepo.FindByID(ctx, salesOrderID)
 		if err != nil {
 			return err
 		}
-		if o.Source != omsDomain.SalesOrderSourceBol || closedOrderStatuses[o.Status] {
+		from, err := uc.origins.Of(ctx, salesOrderID)
+		if err != nil {
+			return fmt.Errorf("order %s: origin: %w", salesOrderID, err)
+		}
+		if from.Origin != integrationsDomain.OriginBol || closedOrderStatuses[o.Status] {
 			return nil
 		}
-		order = o
-		connectionID, err = uc.connections.ConnectionIDFor(ctx, *o)
-		return err
+		if err := requireShopReference(*from); err != nil {
+			return err
+		}
+		order, origin = o, *from
+		return nil
 	})
 	if err != nil {
-		return nil, "", err
+		return nil, integrationsDomain.SalesOrderOrigin{}, err
 	}
-	return order, connectionID, nil
+	return order, origin, nil
 }
 
 func (uc *ConfirmBolShipmentUseCase) loadShipments(ctx context.Context, salesOrderID string) ([]shippingDomain.Shipment, []channelsDomain.BolShipmentConfirmation, error) {

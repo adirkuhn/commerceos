@@ -87,7 +87,7 @@ func (f planningFixture) sale(t *testing.T, extID, skuID string, status omsDomai
 	t.Helper()
 	f.inTx(t, func(ctx context.Context) error {
 		o := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceManual, ExternalOrderID: extID,
+			TenantID: tenant.IDFromContext(ctx), 
 			WarehouseID: f.warehouseID, Status: status, CurrencyCode: "EUR", TotalMinorUnits: qty * 100, OccurredAt: at, CreatedAt: at,
 		}
 		if err := repositories.NewSalesOrderRepo(f.db).Create(ctx, &o); err != nil {

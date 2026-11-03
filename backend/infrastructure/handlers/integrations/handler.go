@@ -330,20 +330,20 @@ func Register(
 	)}
 	stockRecorderUC := appinventory.NewRecordStockMovementUseCase(db, stockMovementRepo, outboxRepo, costLedgerRecorder)
 	allocateStockUC := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
-	updateSalesOrderForWebhooksUC := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo)
+	updateSalesOrderForWebhooksUC := appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo)
 	retryablePaymentHandlers := map[string]appshipping.RetryableWebhookHandler{
 		"stripe":  apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewStripeEventParser(), updateSalesOrderForWebhooksUC, "stripe"),
 		"revolut": apppayments.NewWebhookDispatchHandler(db, salesOrderRepo, apppayments.NewRevolutEventParser(), updateSalesOrderForWebhooksUC, "revolut"),
 	}
 	fulfilmentOrderRepo := repositories.NewMyParcelFulfilmentOrderRepo(db)
 	deleteSalesOrderUC := appoms.NewDeleteSalesOrderUseCase(
-		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, stockRecorderUC, outboxRepo,
+		db, salesOrderRepo, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), salesOrderLineItemRepo, salesOrderLinkRepo, stockRecorderUC, outboxRepo,
 	)
 	customerRepo := repositories.NewCustomerRepo(db)
 	fetchWooOrderUC := appchannels.NewImportWooOrdersUseCase(
 		db, connRepo, wooFactory, encryptionSecret,
 		salesOrderRepo, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
-		allocateStockUC, appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo), repositories.NewOutboxRepository(db),
+		allocateStockUC, appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo), repositories.NewOutboxRepository(db),
 	)
 
 	stockLevelUC := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, repositories.NewBatchRepo(db), repositories.NewTenantSettingsRepo(db))

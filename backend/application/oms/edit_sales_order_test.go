@@ -2,6 +2,7 @@ package oms_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/domain/integrations"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 )
 
 type editFixture struct {
+	origins  *stubOrigins
 	orders   *stubSalesOrderRepo
 	lines    *stubSalesOrderLineItemRepo
 	links    *stubSalesOrderLineItemStockMovementRepo
@@ -25,14 +27,15 @@ type editFixture struct {
 
 func newEditFixture(order omsDomain.SalesOrder, lines ...omsDomain.SalesOrderLineItem) *editFixture {
 	return &editFixture{
-		orders: &stubSalesOrderRepo{findByIDResult: &order}, lines: &stubSalesOrderLineItemRepo{listBySalesOrder: lines},
+		origins: &stubOrigins{},
+		orders:  &stubSalesOrderRepo{findByIDResult: &order}, lines: &stubSalesOrderLineItemRepo{listBySalesOrder: lines},
 		links: &stubSalesOrderLineItemStockMovementRepo{}, allocate: &stubRecordMovement{}, reverse: &stubReverseMovement{},
 		picking: &stubPickingSessionRepo{}, packing: &stubPackingSessionRepo{}, outbox: &eventrecordtest.Outbox{},
 	}
 }
 
 func (f *editFixture) run(t *testing.T, transactions int, in appoms.EditSalesOrderInput) (*appoms.CreateSalesOrderResult, error) {
-	return appoms.NewEditSalesOrderUseCase(newMockGormDBN(t, transactions), f.orders, f.lines, f.links, &stubSKURepo{},
+	return appoms.NewEditSalesOrderUseCase(newMockGormDBN(t, transactions), f.orders, f.origins, f.lines, f.links, &stubSKURepo{},
 		f.allocate, f.reverse, f.picking, f.packing, f.outbox).Execute(context.Background(), in)
 }
 
@@ -50,7 +53,7 @@ var mateLine = appoms.CreateSalesOrderLineItemInput{SKUID: "sku-1", Name: "Chá 
 	SubtotalMinorUnits: 5083, SubtotalTaxMinorUnits: 420, TotalMinorUnits: 5083, TotalTaxMinorUnits: 420, TotalIncludesTax: true}
 
 func TestEditSalesOrder_replacesLinesAndTotalsOfAPendingOrder(t *testing.T) {
-	f := newEditFixture(omsDomain.SalesOrder{ID: "so-1", Source: omsDomain.SalesOrderSourceManual, Status: omsDomain.SalesOrderStatusPending, Number: "CO-1001", WarehouseID: "wh-1"},
+	f := newEditFixture(omsDomain.SalesOrder{ID: "so-1", Status: omsDomain.SalesOrderStatusPending, Number: "CO-1001", WarehouseID: "wh-1"},
 		omsDomain.SalesOrderLineItem{ID: "old-line"})
 
 	res, err := f.run(t, 2, editInput(mateLine))
@@ -73,7 +76,7 @@ func TestEditSalesOrder_replacesLinesAndTotalsOfAPendingOrder(t *testing.T) {
 
 func TestEditSalesOrder_givesBackTheOldStockAndTakesTheNew(t *testing.T) {
 	sku := "sku-1"
-	f := newEditFixture(omsDomain.SalesOrder{ID: "so-1", Source: omsDomain.SalesOrderSourceManual, Status: omsDomain.SalesOrderStatusProcessing, StockDecremented: true, WarehouseID: "wh-1"},
+	f := newEditFixture(omsDomain.SalesOrder{ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing, StockDecremented: true, WarehouseID: "wh-1"},
 		omsDomain.SalesOrderLineItem{ID: "old-line", SKUID: &sku, Quantity: 10, StockStatus: omsDomain.StockStatusDecremented})
 	f.links.byLineItem = map[string][]omsDomain.SalesOrderLineItemStockMovement{"old-line": {{QuantityDelta: -10}}}
 
@@ -87,7 +90,8 @@ func TestEditSalesOrder_givesBackTheOldStockAndTakesTheNew(t *testing.T) {
 }
 
 func TestEditSalesOrder_refusesAnOrderThatCannotBeEdited(t *testing.T) {
-	f := newEditFixture(omsDomain.SalesOrder{ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, Status: omsDomain.SalesOrderStatusProcessing})
+	f := newEditFixture(omsDomain.SalesOrder{ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing})
+	f.origins.source = integrations.OriginWooCommerce
 
 	_, err := f.run(t, 1, editInput(mateLine))
 
@@ -96,7 +100,7 @@ func TestEditSalesOrder_refusesAnOrderThatCannotBeEdited(t *testing.T) {
 }
 
 func TestEditSalesOrder_refusesAnOrderBeingPicked(t *testing.T) {
-	f := newEditFixture(omsDomain.SalesOrder{ID: "so-1", Source: omsDomain.SalesOrderSourceManual, Status: omsDomain.SalesOrderStatusProcessing})
+	f := newEditFixture(omsDomain.SalesOrder{ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing})
 	f.picking.activeResult = &omsDomain.PickingSession{ID: "ps-1"}
 
 	_, err := f.run(t, 1, editInput(mateLine))
@@ -105,7 +109,7 @@ func TestEditSalesOrder_refusesAnOrderBeingPicked(t *testing.T) {
 }
 
 func TestEditSalesOrder_refusesAnOrderBeingPacked(t *testing.T) {
-	f := newEditFixture(omsDomain.SalesOrder{ID: "so-1", Source: omsDomain.SalesOrderSourceManual, Status: omsDomain.SalesOrderStatusProcessing})
+	f := newEditFixture(omsDomain.SalesOrder{ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing})
 	f.packing.activeResult = &omsDomain.PackingSession{ID: "pk-1"}
 
 	_, err := f.run(t, 1, editInput(mateLine))
@@ -114,7 +118,7 @@ func TestEditSalesOrder_refusesAnOrderBeingPacked(t *testing.T) {
 }
 
 func TestEditSalesOrder_needsAtLeastOneLine(t *testing.T) {
-	f := newEditFixture(omsDomain.SalesOrder{ID: "so-1", Source: omsDomain.SalesOrderSourceManual, Status: omsDomain.SalesOrderStatusPending})
+	f := newEditFixture(omsDomain.SalesOrder{ID: "so-1", Status: omsDomain.SalesOrderStatusPending})
 
 	_, err := f.run(t, 0, editInput())
 
@@ -122,7 +126,7 @@ func TestEditSalesOrder_needsAtLeastOneLine(t *testing.T) {
 }
 
 func TestEditSalesOrder_keepsATypedNumber(t *testing.T) {
-	f := newEditFixture(omsDomain.SalesOrder{ID: "so-1", Source: omsDomain.SalesOrderSourceManual, Status: omsDomain.SalesOrderStatusPending, Number: "CO-1001"})
+	f := newEditFixture(omsDomain.SalesOrder{ID: "so-1", Status: omsDomain.SalesOrderStatusPending, Number: "CO-1001"})
 	in := editInput(mateLine)
 	in.Number = "2026-17"
 

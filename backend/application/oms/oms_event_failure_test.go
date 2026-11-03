@@ -72,7 +72,7 @@ func TestSalesOrderUseCases_FailWhenTheEventCantBeRecorded(t *testing.T) {
 
 	t.Run("update sales order", func(t *testing.T) {
 		lines := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{SKUID: strPtr("sku-1"), Quantity: 3}}}
-		uc := appoms.NewUpdateSalesOrderUseCase(newMockGormDBN(t, 4), &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}, lines,
+		uc := appoms.NewUpdateSalesOrderUseCase(newMockGormDBN(t, 4), &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}, &stubOrigins{}, lines,
 			&stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &stubReverseMovement{}, failingOutboxRepo())
 		status := omsDomain.SalesOrderStatusProcessing
 		_, err := uc.Execute(ctx, "sales-order-1", appoms.UpdateSalesOrderInput{Status: &status})
@@ -80,7 +80,7 @@ func TestSalesOrderUseCases_FailWhenTheEventCantBeRecorded(t *testing.T) {
 	})
 
 	t.Run("delete sales order", func(t *testing.T) {
-		uc := appoms.NewDeleteSalesOrderUseCase(newMockGormDBN(t, 3), &stubSalesOrderRepo{findByIDResult: existingOrder(nil)},
+		uc := appoms.NewDeleteSalesOrderUseCase(newMockGormDBN(t, 3), &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}, &stubOrigins{},
 			&stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubReverseMovement{}, failingOutbox())
 		assert.ErrorIs(t, uc.Execute(ctx, "sales-order-1"), errOMSOutboxDown)
 	})
@@ -141,7 +141,7 @@ func TestStockReviewUseCases_FailWhenTheEventCantBeRecorded(t *testing.T) {
 
 	t.Run("repair stock review flags", func(t *testing.T) {
 		orders := &stubRepairSalesOrderRepo{all: []omsDomain.SalesOrder{
-			{ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, Status: omsDomain.SalesOrderStatusProcessing, StockDecremented: true},
+			{ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing, StockDecremented: true},
 		}}
 		lines := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{
 			{ID: "li-1", SalesOrderID: "so-1", SKUID: strPtr("sku-1"), StockStatus: omsDomain.StockStatusDecremented},
@@ -158,7 +158,7 @@ func TestPickingAndPackingUseCases_FailWhenTheEventCantBeRecorded(t *testing.T) 
 
 	t.Run("resume picking", func(t *testing.T) {
 		sessions := &stubPickingSessionRepo{activeResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusPaused}}
-		uc := appoms.NewStartOrResumePickingUseCase(newMockGormDB(t), &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1"}},
+		uc := appoms.NewStartOrResumePickingUseCase(newMockGormDB(t), &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1"}}, &stubOrigins{},
 			sessions, &stubPackingSessionRepo{}, &stubPackScanRepo{}, failingOutbox())
 		_, err := uc.Execute(ctx, "order-1", actor)
 		assert.ErrorIs(t, err, errOMSOutboxDown)
@@ -166,7 +166,7 @@ func TestPickingAndPackingUseCases_FailWhenTheEventCantBeRecorded(t *testing.T) 
 
 	t.Run("start packing", func(t *testing.T) {
 		orders := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true, Status: omsDomain.SalesOrderStatusProcessing}}
-		uc := appoms.NewStartOrResumePackingUseCase(newMockGormDB(t), orders, &stubPackingSessionRepo{}, &stubPickingSessionRepo{}, &stubPickScanRepo{}, failingOutbox())
+		uc := appoms.NewStartOrResumePackingUseCase(newMockGormDB(t), orders, &stubOrigins{}, &stubPackingSessionRepo{}, &stubPickingSessionRepo{}, &stubPickScanRepo{}, failingOutbox())
 		_, err := uc.Execute(ctx, "order-1", actor)
 		assert.ErrorIs(t, err, errOMSOutboxDown)
 	})
@@ -177,7 +177,7 @@ func TestPickingAndPackingUseCases_FailWhenTheEventCantBeRecorded(t *testing.T) 
 			ID: "picking-1", Status: omsDomain.PickingSessionStatusPaused, LockedBy: &picker, LockedAt: &stale,
 		}}
 		scans := &stubPickScanRepo{listBySession: []omsDomain.PickScan{{ActionType: omsDomain.PickScanActionPick}}}
-		uc := appoms.NewStartOrResumePackingUseCase(newMockGormDB(t), &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing}},
+		uc := appoms.NewStartOrResumePackingUseCase(newMockGormDB(t), &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing}}, &stubOrigins{},
 			&stubPackingSessionRepo{}, picking, scans, failingOutbox())
 		_, err := uc.Execute(ctx, "order-1", actor)
 		assert.ErrorIs(t, err, errOMSOutboxDown)

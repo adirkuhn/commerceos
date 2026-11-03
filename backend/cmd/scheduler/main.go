@@ -365,9 +365,8 @@ func main() {
 		}
 	}()
 
-	orderConnections := channelsapp.NewOrderConnectionResolver(salesChannelRepo)
 	orderOrigins := appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db))
-	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewShipmentRepo(db), repositories.NewShippingCarrierOverrideRepo(db), connRepo, orderConnections, wooFactory, cfg.IntegrationsEncryptionSecret, repositories.NewOutboxRepository(db), settingsRepo)
+	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewShipmentRepo(db), repositories.NewShippingCarrierOverrideRepo(db), connRepo, orderOrigins, wooFactory, cfg.IntegrationsEncryptionSecret, repositories.NewOutboxRepository(db), settingsRepo)
 	salesOrderStatusChangedConsumer := consumers.NewSalesOrderStatusChangedConsumer(processedEventRepo, pushSalesOrderStatusUC, js)
 	if sub := subscribeConsumer(js, events.SalesOrderStatusChanged{}.EventName(), "sales-order-status-changed-scheduler",
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, salesOrderStatusChangedConsumer.Handle); sub != nil {
@@ -387,10 +386,10 @@ func main() {
 	customerRepo := repositories.NewCustomerRepo(db)
 	allocateStockUC := invapp.NewAllocateSaleStockUseCase(db, movementRepo, batchRepo, outboxRepo)
 	updateSalesOrderUC := appoms.NewUpdateSalesOrderUseCase(
-		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo,
+		db, salesOrderRepo, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo,
 	)
 	jobRunners[schedulerDomain.JobReconcileFulfilledOrders] = schedulerapp.NewReconcileFulfilledOrdersUseCase(db, salesOrderRepo, updateSalesOrderUC)
-	jobRunners[schedulerDomain.JobRepushWooOrderStatuses] = channelsapp.NewRepushWooOrderStatusesUseCase(db, salesOrderRepo, orderConnections,
+	jobRunners[schedulerDomain.JobRepushWooOrderStatuses] = channelsapp.NewRepushWooOrderStatusesUseCase(db, salesOrderRepo, orderOrigins,
 		channelsapp.NewWooConnectionClients(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret), pushSalesOrderStatusUC)
 	// Daily dead-letter alert (COM-14): reads both DLQ streams by sequence,
 	// never through a consumer, and notifies each affected tenant.
@@ -405,7 +404,7 @@ func main() {
 	// closes there too, and poll Bol for the outcome.
 	bolClients := channelsapp.NewBolConnectionClients(db, connRepo, bolinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret)
 	bolConfirmationRepo := repositories.NewBolShipmentConfirmationRepo(db)
-	confirmBolShipmentUC := channelsapp.NewConfirmBolShipmentUseCase(db, salesOrderRepo, repositories.NewShipmentRepo(db), bolConfirmationRepo, bolClients, orderConnections, outboxRepo, time.Now)
+	confirmBolShipmentUC := channelsapp.NewConfirmBolShipmentUseCase(db, salesOrderRepo, repositories.NewShipmentRepo(db), bolConfirmationRepo, bolClients, orderOrigins, outboxRepo, time.Now)
 	bolShipmentConfirmationConsumer := consumers.NewBolShipmentConfirmationConsumer(processedEventRepo, confirmBolShipmentUC, js)
 	if sub := subscribeConsumer(js, events.ShipmentFulfillmentSignal{}.EventName(), "bol-shipment-confirmation-on-carrier-scan",
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, bolShipmentConfirmationConsumer.Handle); sub != nil {
@@ -469,7 +468,7 @@ func main() {
 	evaluateAutomationRulesUC := messagecenterapp.NewEvaluateAutomationRulesUseCase(
 		db, repositories.NewAutomationRuleRepo(db), repositories.NewMessageTemplateRepo(db),
 		messagecenterapp.OrderSources{
-			SalesOrders: salesOrderRepo, LineItems: salesOrderLineItemRepo, Customers: customerRepo,
+			SalesOrders: salesOrderRepo, Origins: orderOrigins, LineItems: salesOrderLineItemRepo, Customers: customerRepo,
 			Shipments: repositories.NewShipmentRepo(db), CarrierOverrides: repositories.NewShippingCarrierOverrideRepo(db),
 		},
 		messagecenterapp.StoreSources{CompanyProfile: repositories.NewCompanyProfileRepo(db), Settings: settingsRepo},

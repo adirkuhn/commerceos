@@ -20,7 +20,8 @@ import (
 func (f revenueFixture) setOccurredAt(t *testing.T, extID string, at time.Time) {
 	t.Helper()
 	require.NoError(t, tenant.WithTenant(f.ctx, f.db, func(ctx context.Context) error {
-		return f.db.WithContext(ctx).Exec(`UPDATE sales_orders SET occurred_at = ? WHERE external_order_id = ?`, at, extID).Error
+		return f.db.WithContext(ctx).Exec(`UPDATE sales_orders SET occurred_at = ?
+			WHERE id = (SELECT sales_order_id FROM sales_order_origins WHERE external_order_id = ?)`, at, extID).Error
 	}))
 }
 

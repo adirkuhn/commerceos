@@ -5,6 +5,7 @@ package orderpayments
 import (
 	"context"
 	"errors"
+	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 	"log"
 	"net/http"
 
@@ -35,7 +36,7 @@ var _ genorderpayments.ServerInterface = (*Handler)(nil)
 
 func Register(rg gin.IRouter, db *gorm.DB, wooFactory integrationsDomain.WooClientFactory, encryptionSecret string) {
 	uc := appchannels.NewBackfillWooOrderPaymentsUseCase(
-		db, repositories.NewSalesOrderRepo(db),
+		db, repositories.NewSalesOrderRepo(db), appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)),
 		appchannels.NewWooConnectionClients(db, repositories.NewConnectionRepo(db), wooFactory, encryptionSecret),
 		omshandler.NewUpdateSalesOrderUseCase(db),
 	)

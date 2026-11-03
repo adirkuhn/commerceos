@@ -180,7 +180,7 @@ func TestReceivePOSSalesOrder_mixesAdhocAndCatalogLineItemsInOneOrder(t *testing
 
 func TestReceivePOSSalesOrder_isIdempotentOnExternalOrderID(t *testing.T) {
 	db := newMockGormDB(t)
-	existing := &omsDomain.SalesOrder{ID: "sales-order-existing", ExternalOrderID: "pos-order-1"}
+	existing := &omsDomain.SalesOrder{ID: "sales-order-existing"}
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existing}
 	lineItemRepo := &stubSalesOrderLineItemRepo{}
 	recordMovement := &stubRecordMovement{}

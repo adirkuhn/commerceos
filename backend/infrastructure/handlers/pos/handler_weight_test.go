@@ -32,7 +32,7 @@ func newContractTestRouter(t *testing.T, s *stubs) *gin.Engine {
 
 func receivedOrderStubs() *stubs {
 	return &stubs{receiveOrder: stubReceivePOSSalesOrder{out: &omsDomain.SalesOrder{
-		ID: "so-1", ExternalOrderID: "pos-1", WarehouseID: "wh-1", CurrencyCode: "EUR",
+		ID: "so-1", WarehouseID: "wh-1", CurrencyCode: "EUR",
 		TotalMinorUnits: 1225, OccurredAt: time.Now(), CreatedAt: time.Now(),
 	}}}
 }

@@ -10,7 +10,6 @@ import (
 
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
-	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 )
 
@@ -48,10 +47,13 @@ func (f *fakeStatusPusher) Execute(_ context.Context, salesOrderID string) error
 	return f.err
 }
 
+// repushOrigins records each order's Woo order id (conn-1) as tests build
+// orders with wooOrder.
+var repushOrigins = map[string]string{}
+
 func wooOrder(id, external string, status omsDomain.SalesOrderStatus) omsDomain.SalesOrder {
-	conn := "conn-1"
-	return omsDomain.SalesOrder{ID: id, TenantID: "tenant-1", ExternalOrderID: external, Status: status, ConnectionID: &conn,
-		Source: omsDomain.SalesOrderSourceWooCommerce}
+	repushOrigins[id] = external
+	return omsDomain.SalesOrder{ID: id, TenantID: "tenant-1", Status: status}
 }
 
 func TestRepushWooOrderStatuses_repushesWhereWooIsBehind(t *testing.T) {
@@ -66,7 +68,7 @@ func TestRepushWooOrderStatuses_repushesWhereWooIsBehind(t *testing.T) {
 		"101": "processing", "102": "on-hold", "103": "on-hold", "104": "cancelled",
 	}}
 	pusher := &fakeStatusPusher{}
-	uc := appchannels.NewRepushWooOrderStatusesUseCase(newMockGormDB(t, 1), lister, appchannels.NewOrderConnectionResolver(&stubSalesChannelRepo{}), &fakeWooClients{client: client}, pusher)
+	uc := appchannels.NewRepushWooOrderStatusesUseCase(newMockGormDB(t, 1), lister, wooOrigins(repushOrigins), &fakeWooClients{client: client}, pusher)
 
 	require.NoError(t, uc.Run(context.Background()))
 
@@ -77,23 +79,23 @@ func TestRepushWooOrderStatuses_repushesWhereWooIsBehind(t *testing.T) {
 	assert.Positive(t, lister.gotFilter.Limit)
 }
 
-// COM-15: orders are grouped by the connection their sales channel uses
-// now; an order that resolves nowhere is left out, not grouped under nil.
-func TestRepushWooOrderStatuses_groupsOrdersByTheirSalesChannelsCurrentConnection(t *testing.T) {
-	viaChannel := wooOrder("so-1", "101", omsDomain.SalesOrderStatusShipped)
-	viaChannel.SalesChannelID = strp("ch-woo")
-	orphan := wooOrder("so-2", "102", omsDomain.SalesOrderStatusShipped)
-	orphan.ConnectionID = nil
-	lister := &fakeSalesOrderLister{orders: []omsDomain.SalesOrder{viaChannel, orphan}}
+// COM-15: orders are grouped by the connection their origin came from; an
+// order that resolves nowhere is left out, not grouped under nil.
+func TestRepushWooOrderStatuses_groupsOrdersByTheConnectionTheyCameFrom(t *testing.T) {
+	lister := &fakeSalesOrderLister{orders: []omsDomain.SalesOrder{
+		{ID: "so-1", TenantID: "tenant-1", Status: omsDomain.SalesOrderStatusShipped},
+		{ID: "so-2", TenantID: "tenant-1", Status: omsDomain.SalesOrderStatusShipped},
+	}}
+	origins := shopOrigins(integrationsDomain.OriginWooCommerce, "conn-2", map[string]string{"so-1": "101"})
+	origins.byOrder["so-2"] = integrationsDomain.SalesOrderOrigin{SalesOrderID: "so-2", Origin: integrationsDomain.OriginWooCommerce, ExternalOrderID: "102"}
 	client := &wooStatuses{stubWooClient: &stubWooClient{}, byID: map[string]string{"101": "processing"}}
 	clients := &fakeWooClients{client: client}
-	channels := &stubSalesChannelRepo{findResult: &channelsDomain.SalesChannel{ID: "ch-woo", ConnectionID: strp("conn-now")}}
 	pusher := &fakeStatusPusher{}
-	uc := appchannels.NewRepushWooOrderStatusesUseCase(newMockGormDB(t, 1), lister, appchannels.NewOrderConnectionResolver(channels), clients, pusher)
+	uc := appchannels.NewRepushWooOrderStatusesUseCase(newMockGormDB(t, 1), lister, origins, clients, pusher)
 
 	require.NoError(t, uc.Run(context.Background()))
 
-	assert.Equal(t, []string{"conn-now"}, clients.gotConnections)
+	assert.Equal(t, []string{"conn-2"}, clients.gotConnections)
 	assert.Equal(t, []string{"101"}, client.gotIDs)
 	assert.Equal(t, []string{"so-1"}, pusher.pushed)
 }
@@ -102,7 +104,7 @@ func TestRepushWooOrderStatuses_oneConnectionFailingDoesNotStopTheRun(t *testing
 	lister := &fakeSalesOrderLister{orders: []omsDomain.SalesOrder{wooOrder("so-1", "101", omsDomain.SalesOrderStatusShipped)}}
 	client := &wooStatuses{stubWooClient: &stubWooClient{}, err: errors.New("403")}
 	pusher := &fakeStatusPusher{}
-	uc := appchannels.NewRepushWooOrderStatusesUseCase(newMockGormDB(t, 1), lister, appchannels.NewOrderConnectionResolver(&stubSalesChannelRepo{}), &fakeWooClients{client: client}, pusher)
+	uc := appchannels.NewRepushWooOrderStatusesUseCase(newMockGormDB(t, 1), lister, wooOrigins(repushOrigins), &fakeWooClients{client: client}, pusher)
 
 	assert.NoError(t, uc.Run(context.Background()), "the store is still down -- the next run retries")
 	assert.Empty(t, pusher.pushed)
@@ -115,7 +117,7 @@ func TestRepushWooOrderStatuses_aFailedPushIsLoggedNotFatal(t *testing.T) {
 	}}
 	client := &wooStatuses{stubWooClient: &stubWooClient{}, byID: map[string]string{"101": "processing", "102": "processing"}}
 	pusher := &fakeStatusPusher{err: errors.New("woo down")}
-	uc := appchannels.NewRepushWooOrderStatusesUseCase(newMockGormDB(t, 1), lister, appchannels.NewOrderConnectionResolver(&stubSalesChannelRepo{}), &fakeWooClients{client: client}, pusher)
+	uc := appchannels.NewRepushWooOrderStatusesUseCase(newMockGormDB(t, 1), lister, wooOrigins(repushOrigins), &fakeWooClients{client: client}, pusher)
 
 	assert.NoError(t, uc.Run(context.Background()))
 	assert.Equal(t, []string{"so-1", "so-2"}, pusher.pushed, "keeps going after one failure")
@@ -123,7 +125,7 @@ func TestRepushWooOrderStatuses_aFailedPushIsLoggedNotFatal(t *testing.T) {
 
 func TestRepushWooOrderStatuses_listingFailureFailsTheRun(t *testing.T) {
 	lister := &fakeSalesOrderLister{err: errors.New("db down")}
-	uc := appchannels.NewRepushWooOrderStatusesUseCase(newMockGormDB(t, 1), lister, appchannels.NewOrderConnectionResolver(&stubSalesChannelRepo{}), &fakeWooClients{}, &fakeStatusPusher{})
+	uc := appchannels.NewRepushWooOrderStatusesUseCase(newMockGormDB(t, 1), lister, wooOrigins(repushOrigins), &fakeWooClients{}, &fakeStatusPusher{})
 
 	assert.Error(t, uc.Run(context.Background()))
 }

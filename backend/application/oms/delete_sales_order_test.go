@@ -2,6 +2,8 @@ package oms_test
 
 import (
 	"context"
+	"errors"
+	"github.com/adirkuhn/commerceos/domain/integrations"
 	"testing"
 
 	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
@@ -28,7 +30,7 @@ func TestDeleteSalesOrder_restocksBeforeDeletingWhenStockWasDecremented(t *testi
 	}}
 	reverseMovement := &stubReverseMovement{}
 	outbox := &eventrecordtest.Outbox{}
-	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, reverseMovement, outbox)
+	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, &stubOrigins{}, lineItemRepo, linkRepo, reverseMovement, outbox)
 
 	err := uc.Execute(context.Background(), "sales-order-1")
 
@@ -46,7 +48,7 @@ func TestDeleteSalesOrder_doesNotRestockWhenStockWasNeverDecremented(t *testing.
 	db := newMockGormDBN(t, 2)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}
 	reverseMovement := &stubReverseMovement{}
-	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, reverseMovement, &eventrecordtest.Outbox{})
+	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, &stubOrigins{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, reverseMovement, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "sales-order-1")
 
@@ -57,7 +59,7 @@ func TestDeleteSalesOrder_doesNotRestockWhenStockWasNeverDecremented(t *testing.
 
 func TestDeleteSalesOrder_returnsNotFoundForAMissingOrder(t *testing.T) {
 	db := newMockGormDB(t)
-	uc := appoms.NewDeleteSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubReverseMovement{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewDeleteSalesOrderUseCase(db, &stubSalesOrderRepo{}, &stubOrigins{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubReverseMovement{}, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "missing")
 
@@ -76,10 +78,33 @@ func TestDeleteSalesOrder_propagatesAStockMovementError(t *testing.T) {
 		"li-1": {{SalesOrderLineItemID: "li-1", QuantityDelta: -3}},
 	}}
 	reverseMovement := &stubReverseMovement{err: assert.AnError}
-	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, reverseMovement, &eventrecordtest.Outbox{})
+	uc := appoms.NewDeleteSalesOrderUseCase(db, salesOrderRepo, &stubOrigins{}, lineItemRepo, linkRepo, reverseMovement, &eventrecordtest.Outbox{})
 
 	err := uc.Execute(context.Background(), "sales-order-1")
 
 	assert.ErrorIs(t, err, assert.AnError)
 	assert.Empty(t, salesOrderRepo.gotDeleteID, "must not delete if the restock failed")
+}
+
+// COM-15: the deleted event still says where the order came from -- read
+// from its origin before the row goes with the order.
+func TestDeleteSalesOrder_theEventCarriesTheOrdersSource(t *testing.T) {
+	outbox := &eventrecordtest.Outbox{}
+	uc := appoms.NewDeleteSalesOrderUseCase(newMockGormDBN(t, 2), &stubSalesOrderRepo{findByIDResult: existingOrder(nil)},
+		&stubOrigins{source: integrations.OriginBol}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubReverseMovement{}, outbox)
+
+	require.NoError(t, uc.Execute(context.Background(), "sales-order-1"))
+
+	e, err := outbox.Only()
+	require.NoError(t, err)
+	assert.Equal(t, "bol", e.Data()["source"])
+}
+
+func TestDeleteSalesOrder_anOriginReadFailureKeepsTheOrder(t *testing.T) {
+	repo := &stubSalesOrderRepo{findByIDResult: existingOrder(nil)}
+	uc := appoms.NewDeleteSalesOrderUseCase(newMockGormDBN(t, 2), repo, &stubOrigins{ofErr: errors.New("db down")},
+		&stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubReverseMovement{}, &eventrecordtest.Outbox{})
+
+	require.Error(t, uc.Execute(context.Background(), "sales-order-1"))
+	assert.Empty(t, repo.gotDeleteID)
 }

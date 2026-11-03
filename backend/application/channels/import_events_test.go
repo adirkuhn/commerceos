@@ -216,14 +216,13 @@ func TestDeleteProductFromChannels_RecordsExternalDelete(t *testing.T) {
 func TestPushSalesOrderStatusToChannels_RecordsStatusPushed(t *testing.T) {
 	connID := "conn-1"
 	order := &omsDomain.SalesOrder{
-		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusOnHold,
+		ID: "so-1", Status: omsDomain.SalesOrderStatusOnHold,
 	}
 	encrypted, err := crypto.Encrypt(testEncryptionSecret, "consumer-secret")
 	require.NoError(t, err)
 	outbox := &eventrecordtest.Outbox{}
 	uc := appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, 3), &stubOrdersSalesOrderRepo{findByIDResult: order},
-		&stubShipmentRepo{}, &stubCarrierOverrideRepo{}, &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}, appchannels.NewOrderConnectionResolver(&stubSalesChannelRepo{}),
+		&stubShipmentRepo{}, &stubCarrierOverrideRepo{}, &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}, wooOrigins(map[string]string{"so-1": "501"}),
 		&stubWooClientFactory{client: &stubWooClient{}}, testEncryptionSecret, outbox, &stubTenantSettings{})
 
 	require.NoError(t, uc.Execute(context.Background(), "so-1"))

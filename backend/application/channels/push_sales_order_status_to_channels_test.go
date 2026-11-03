@@ -31,14 +31,13 @@ func newPushSalesOrderStatusUseCaseWithShipments(t *testing.T, n int, salesOrder
 func newPushSalesOrderStatusUseCaseWithOverrides(t *testing.T, n int, salesOrderRepo *stubOrdersSalesOrderRepo, shipmentRepo *stubShipmentRepo, overrideRepo *stubCarrierOverrideRepo, connRepo *stubConnectionRepo, wooFactory *stubWooClientFactory) *appchannels.PushSalesOrderStatusToChannelsUseCase {
 	t.Helper()
 	return appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, n), salesOrderRepo, shipmentRepo, overrideRepo, connRepo,
-		appchannels.NewOrderConnectionResolver(&stubSalesChannelRepo{}), wooFactory, testEncryptionSecret, &eventrecordtest.Outbox{}, &stubTenantSettings{})
+		wooOrigins(map[string]string{"so-1": "501"}), wooFactory, testEncryptionSecret, &eventrecordtest.Outbox{}, &stubTenantSettings{})
 }
 
 func TestPushSalesOrderStatusToChannels_wooOrder_pushesMappedStatus(t *testing.T) {
 	connID := "conn-1"
 	order := &omsDomain.SalesOrder{
-		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusOnHold,
+		ID: "so-1", Status: omsDomain.SalesOrderStatusOnHold,
 	}
 	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
 	encrypted, err := crypto.Encrypt(testEncryptionSecret, "consumer-secret")
@@ -59,8 +58,7 @@ func TestPushSalesOrderStatusToChannels_wooOrder_pushesMappedStatus(t *testing.T
 func TestPushSalesOrderStatusToChannels_shippedWooOrder_pushesOnHoldAndAttachesShipmentNote(t *testing.T) {
 	connID := "conn-1"
 	order := &omsDomain.SalesOrder{
-		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusShipped,
+		ID: "so-1", Status: omsDomain.SalesOrderStatusShipped,
 	}
 	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
 	shipmentRepo := &stubShipmentRepo{bySalesOrder: map[string][]shippingDomain.Shipment{
@@ -86,8 +84,7 @@ func TestPushSalesOrderStatusToChannels_shippedWooOrder_pushesOnHoldAndAttachesS
 func TestPushSalesOrderStatusToChannels_shippedWooOrder_configuredTemplateWinsOverMyParcelLink(t *testing.T) {
 	connID := "conn-1"
 	order := &omsDomain.SalesOrder{
-		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusShipped,
+		ID: "so-1", Status: omsDomain.SalesOrderStatusShipped,
 	}
 	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
 	shipmentRepo := &stubShipmentRepo{bySalesOrder: map[string][]shippingDomain.Shipment{
@@ -117,8 +114,7 @@ func TestPushSalesOrderStatusToChannels_shippedWooOrder_configuredTemplateWinsOv
 func TestPushSalesOrderStatusToChannels_shippedWooOrder_noTrackingURLYet_noteOmitsLink(t *testing.T) {
 	connID := "conn-1"
 	order := &omsDomain.SalesOrder{
-		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusShipped,
+		ID: "so-1", Status: omsDomain.SalesOrderStatusShipped,
 	}
 	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
 	shipmentRepo := &stubShipmentRepo{bySalesOrder: map[string][]shippingDomain.Shipment{
@@ -141,8 +137,7 @@ func TestPushSalesOrderStatusToChannels_shippedWooOrder_noTrackingURLYet_noteOmi
 func TestPushSalesOrderStatusToChannels_onHoldForUnrelatedReason_doesNotAttachNote(t *testing.T) {
 	connID := "conn-1"
 	order := &omsDomain.SalesOrder{
-		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusOnHold,
+		ID: "so-1", Status: omsDomain.SalesOrderStatusOnHold,
 	}
 	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
 	shipmentRepo := &stubShipmentRepo{bySalesOrder: map[string][]shippingDomain.Shipment{
@@ -164,8 +159,7 @@ func TestPushSalesOrderStatusToChannels_onHoldForUnrelatedReason_doesNotAttachNo
 func TestPushSalesOrderStatusToChannels_noteFailure_doesNotFailThePush(t *testing.T) {
 	connID := "conn-1"
 	order := &omsDomain.SalesOrder{
-		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusShipped,
+		ID: "so-1", Status: omsDomain.SalesOrderStatusShipped,
 	}
 	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
 	shipmentRepo := &stubShipmentRepo{bySalesOrder: map[string][]shippingDomain.Shipment{
@@ -184,11 +178,14 @@ func TestPushSalesOrderStatusToChannels_noteFailure_doesNotFailThePush(t *testin
 }
 
 func TestPushSalesOrderStatusToChannels_nonWooSource_isNoOp(t *testing.T) {
-	order := &omsDomain.SalesOrder{ID: "so-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusCompleted}
-	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
+	order := &omsDomain.SalesOrder{ID: "so-1", Status: omsDomain.SalesOrderStatusCompleted}
+	origins := &stubOriginReader{byOrder: map[string]integrationsDomain.SalesOrderOrigin{
+		"so-1": {SalesOrderID: "so-1", Origin: integrationsDomain.OriginPOS, ExternalOrderID: "pos-1"},
+	}}
 	wooClient := &stubWooClient{}
-	wooFactory := &stubWooClientFactory{client: wooClient}
-	uc := newPushSalesOrderStatusUseCase(t, 1, salesOrderRepo, &stubConnectionRepo{}, wooFactory)
+	uc := appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, 1), &stubOrdersSalesOrderRepo{findByIDResult: order}, &stubShipmentRepo{},
+		&stubCarrierOverrideRepo{}, &stubConnectionRepo{}, origins, &stubWooClientFactory{client: wooClient},
+		testEncryptionSecret, &eventrecordtest.Outbox{}, &stubTenantSettings{})
 
 	err := uc.Execute(context.Background(), "so-1")
 
@@ -198,15 +195,15 @@ func TestPushSalesOrderStatusToChannels_nonWooSource_isNoOp(t *testing.T) {
 
 // COM-15: this used to return nil -- the event was acked and the status
 // never reached Woo, with no retry and no dead letter.
-func TestPushSalesOrderStatusToChannels_wooOrderWithNoChannelOrConnection_failsSoItIsRetried(t *testing.T) {
-	order := &omsDomain.SalesOrder{
-		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		ConnectionID: nil, Status: omsDomain.SalesOrderStatusOnHold,
-	}
-	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
+func TestPushSalesOrderStatusToChannels_wooOrderWithNoConnection_failsSoItIsRetried(t *testing.T) {
+	order := &omsDomain.SalesOrder{ID: "so-1", Status: omsDomain.SalesOrderStatusOnHold}
+	origins := &stubOriginReader{byOrder: map[string]integrationsDomain.SalesOrderOrigin{
+		"so-1": {SalesOrderID: "so-1", Origin: integrationsDomain.OriginWooCommerce, ExternalOrderID: "501"},
+	}}
 	wooClient := &stubWooClient{}
-	wooFactory := &stubWooClientFactory{client: wooClient}
-	uc := newPushSalesOrderStatusUseCase(t, 2, salesOrderRepo, &stubConnectionRepo{}, wooFactory)
+	uc := appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, 2), &stubOrdersSalesOrderRepo{findByIDResult: order}, &stubShipmentRepo{},
+		&stubCarrierOverrideRepo{}, &stubConnectionRepo{}, origins, &stubWooClientFactory{client: wooClient},
+		testEncryptionSecret, &eventrecordtest.Outbox{}, &stubTenantSettings{})
 
 	err := uc.Execute(context.Background(), "so-1")
 
@@ -214,33 +211,43 @@ func TestPushSalesOrderStatusToChannels_wooOrderWithNoChannelOrConnection_failsS
 	assert.Empty(t, wooClient.updateOrderStatusCalls)
 }
 
-// The sales channel decides where the order goes: after a reconnect the
-// order still names the old connection, the channel names the current one.
-func TestPushSalesOrderStatusToChannels_pushesThroughTheSalesChannelsCurrentConnection(t *testing.T) {
-	order := &omsDomain.SalesOrder{
-		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		SalesChannelID: strp("ch-woo"), ConnectionID: strp("conn-old"), Status: omsDomain.SalesOrderStatusCompleted,
-	}
+// An order without an origin row (should not exist) is retried too, never
+// silently acked.
+func TestPushSalesOrderStatusToChannels_anOrderWithNoOriginFails(t *testing.T) {
+	order := &omsDomain.SalesOrder{ID: "so-1", Status: omsDomain.SalesOrderStatusOnHold}
+	uc := appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, 1), &stubOrdersSalesOrderRepo{findByIDResult: order}, &stubShipmentRepo{},
+		&stubCarrierOverrideRepo{}, &stubConnectionRepo{}, &stubOriginReader{}, &stubWooClientFactory{client: &stubWooClient{}},
+		testEncryptionSecret, &eventrecordtest.Outbox{}, &stubTenantSettings{})
+
+	err := uc.Execute(context.Background(), "so-1")
+
+	require.ErrorIs(t, err, integrationsDomain.ErrSalesOrderOriginNotFound)
+}
+
+// The order's origin decides where the status goes: the connection and the
+// Woo order id it was imported under.
+func TestPushSalesOrderStatusToChannels_pushesThroughTheConnectionTheOrderCameFrom(t *testing.T) {
+	order := &omsDomain.SalesOrder{ID: "so-1", Status: omsDomain.SalesOrderStatusCompleted}
 	encrypted, err := crypto.Encrypt(testEncryptionSecret, "consumer-secret")
 	require.NoError(t, err)
-	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: "conn-now", ConsumerSecretEncrypted: encrypted}}
+	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: "conn-2", ConsumerSecretEncrypted: encrypted}}
 	wooClient := &stubWooClient{}
-	channels := &stubSalesChannelRepo{findResult: &channelsDomain.SalesChannel{ID: "ch-woo", ConnectionID: strp("conn-now")}}
+	origins := shopOrigins(integrationsDomain.OriginWooCommerce, "conn-2", map[string]string{"so-1": "777"})
 	uc := appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, 3), &stubOrdersSalesOrderRepo{findByIDResult: order}, &stubShipmentRepo{},
-		&stubCarrierOverrideRepo{}, connRepo, appchannels.NewOrderConnectionResolver(channels), &stubWooClientFactory{client: wooClient},
+		&stubCarrierOverrideRepo{}, connRepo, origins, &stubWooClientFactory{client: wooClient},
 		testEncryptionSecret, &eventrecordtest.Outbox{}, &stubTenantSettings{})
 
 	require.NoError(t, uc.Execute(context.Background(), "so-1"))
 
-	assert.Equal(t, []string{"conn-now"}, connRepo.findByIDCalls)
+	assert.Equal(t, []string{"conn-2"}, connRepo.findByIDCalls)
 	require.Len(t, wooClient.updateOrderStatusCalls, 1)
+	assert.Equal(t, "777", wooClient.updateOrderStatusCalls[0].externalOrderID)
 }
 
 func TestPushSalesOrderStatusToChannels_propagatesWooClientError(t *testing.T) {
 	connID := "conn-1"
 	order := &omsDomain.SalesOrder{
-		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusCompleted,
+		ID: "so-1", Status: omsDomain.SalesOrderStatusCompleted,
 	}
 	salesOrderRepo := &stubOrdersSalesOrderRepo{findByIDResult: order}
 	encrypted, err := crypto.Encrypt(testEncryptionSecret, "consumer-secret")
@@ -269,8 +276,7 @@ func TestPushSalesOrderStatusToChannels_propagatesSalesOrderNotFound(t *testing.
 func TestPushSalesOrderStatus_shipmentNoteIsInTheCompanyLanguage(t *testing.T) {
 	connID := "conn-1"
 	order := &omsDomain.SalesOrder{
-		ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "501",
-		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusShipped,
+		ID: "so-1", Status: omsDomain.SalesOrderStatusShipped,
 	}
 	shipmentRepo := &stubShipmentRepo{bySalesOrder: map[string][]shippingDomain.Shipment{
 		"so-1": {{ID: "ship-1", Carrier: shippingDomain.CarrierPostNL, Barcode: "3SMYPA1"}},
@@ -280,7 +286,7 @@ func TestPushSalesOrderStatus_shipmentNoteIsInTheCompanyLanguage(t *testing.T) {
 	connRepo := &stubConnectionRepo{conn: &integrationsDomain.Connection{ID: connID, ConsumerSecretEncrypted: encrypted}}
 	wooClient := &stubWooClient{}
 	uc := appchannels.NewPushSalesOrderStatusToChannelsUseCase(newMockGormDB(t, 5), &stubOrdersSalesOrderRepo{findByIDResult: order}, shipmentRepo,
-		&stubCarrierOverrideRepo{}, connRepo, appchannels.NewOrderConnectionResolver(&stubSalesChannelRepo{}), &stubWooClientFactory{client: wooClient}, testEncryptionSecret, &eventrecordtest.Outbox{},
+		&stubCarrierOverrideRepo{}, connRepo, wooOrigins(map[string]string{"so-1": "501"}), &stubWooClientFactory{client: wooClient}, testEncryptionSecret, &eventrecordtest.Outbox{},
 		&stubTenantSettings{language: locale.Dutch})
 
 	require.NoError(t, uc.Execute(context.Background(), "so-1"))

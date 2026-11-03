@@ -151,7 +151,7 @@ func TestReceivePOSSalesOrder_withoutPaymentsStoresNoPaymentParts(t *testing.T) 
 }
 
 func TestReceivePOSSalesOrder_replayDoesNotStoreThePaymentsAgain(t *testing.T) {
-	existing := &omsDomain.SalesOrder{ID: "sales-order-existing", ExternalOrderID: "pos-order-1"}
+	existing := &omsDomain.SalesOrder{ID: "sales-order-existing"}
 	f := newPaymentsFixture(t, &stubSalesOrderRepo{findByIDResult: existing}, &stubSalesOrderPaymentRepo{byOrder: cashPlusCard()})
 
 	_, err := f.uc.Execute(context.Background(), paidOrderInput(cashPlusCard()))
@@ -161,7 +161,7 @@ func TestReceivePOSSalesOrder_replayDoesNotStoreThePaymentsAgain(t *testing.T) {
 }
 
 func TestReceivePOSSalesOrder_replayReturnsTheStoredPayments(t *testing.T) {
-	existing := &omsDomain.SalesOrder{ID: "sales-order-existing", ExternalOrderID: "pos-order-1"}
+	existing := &omsDomain.SalesOrder{ID: "sales-order-existing"}
 	f := newPaymentsFixture(t, &stubSalesOrderRepo{findByIDResult: existing}, &stubSalesOrderPaymentRepo{byOrder: cashPlusCard()})
 
 	order, err := f.uc.Execute(context.Background(), paidOrderInput(cashPlusCard()))

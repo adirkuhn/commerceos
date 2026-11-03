@@ -95,7 +95,7 @@ func newTestRouterAs(role middleware.Role, s lockStubs) *gin.Engine {
 		&stubListSalesOrderActivities{},
 		s.startPacking, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
 		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, s.queue, s.markPicked, &stubResolvePickScanCode{},
-		omshandler.SessionLockUseCases{ReleasePacking: s.releasePacking, ReleasePicking: s.releasePicking, TakeOverPacking: s.takeOverPacking, TakeOverPicking: s.takeOverPicking}, s.pickingQueue, &stubListSalesOrderLineChanges{})
+		omshandler.SessionLockUseCases{ReleasePacking: s.releasePacking, ReleasePicking: s.releasePicking, TakeOverPacking: s.takeOverPacking, TakeOverPicking: s.takeOverPicking}, s.pickingQueue, &stubListSalesOrderLineChanges{}).WithOrigins(&stubOriginLister{})
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
 		c.Set("jwt_claims", &middleware.Claims{UserID: "user-1", TenantID: "tenant-1", Role: role})

@@ -35,7 +35,7 @@ func newTestRouterWithLineChanges(changes *stubListSalesOrderLineChanges) *gin.E
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{},
 		&stubBulkUpdateSalesOrderStatus{}, &stubListSalesOrderActivities{},
 		&stubStartOrResumePacking{}, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
-		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{}, &stubResolvePickScanCode{}, omshandler.SessionLockUseCases{}, &stubListPackingQueue{}, changes)
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{}, &stubResolvePickScanCode{}, omshandler.SessionLockUseCases{}, &stubListPackingQueue{}, changes).WithOrigins(&stubOriginLister{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r

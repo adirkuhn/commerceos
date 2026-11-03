@@ -48,11 +48,11 @@ var volumePeriodSQL = map[shippingDomain.VolumeGranularity]string{
 
 // countedShipmentsSQL is the shipments the report counts in [?, ?): not
 // cancelled (a replaced label counts once, as its replacement), with the
-// order's source as the channel.
+// order's origin as the channel.
 func countedShipmentsSQL(moment string) string {
 	return `WITH counted AS (
 		SELECT * FROM (
-			SELECT sh.sales_order_id, sh.carrier, sh.recipient_cc, so.source, ` + moment + ` AS at
+			SELECT sh.sales_order_id, sh.carrier, sh.recipient_cc, ` + salesOrderOriginSQL("so") + ` AS source, ` + moment + ` AS at
 			FROM shipments sh
 			JOIN sales_orders so ON so.id = sh.sales_order_id
 			WHERE sh.cancelled_at IS NULL

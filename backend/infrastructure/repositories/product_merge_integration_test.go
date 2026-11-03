@@ -121,7 +121,7 @@ func TestMergeProducts_Integration(t *testing.T) {
 			return err
 		}
 
-		order := omsDomain.SalesOrder{TenantID: tid, Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "pos-merge-1",
+		order := omsDomain.SalesOrder{TenantID: tid, 
 			WarehouseID: warehouseID, CurrencyCode: "USD", OccurredAt: now, CreatedAt: now}
 		if err := repositories.NewSalesOrderRepo(db).Create(ctx, &order); err != nil {
 			return err

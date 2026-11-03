@@ -9,15 +9,14 @@ import (
 // ── GORM models ──────────────────────────────────────────────────────────────
 
 type salesOrderModel struct {
-	ID              string  `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID        string  `gorm:"not null;type:uuid"`
-	Source          string  `gorm:"not null"`
-	ExternalOrderID string  `gorm:"column:external_order_id;not null"`
-	ConnectionID    *string `gorm:"column:connection_id;type:uuid"`
-	SalesChannelID  *string `gorm:"column:sales_channel_id;type:uuid"`
-	Number          string
-	OrderKey        string `gorm:"column:order_key"`
-	Status          string `gorm:"not null;default:completed"`
+	ID       string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID string `gorm:"not null;type:uuid"`
+	// source, external_order_id, connection_id and order_key are no longer
+	// mapped: the order's origin (sales_order_origins) holds them; migration
+	// 247 keeps the columns filled for the previous release until they go.
+	SalesChannelID *string `gorm:"column:sales_channel_id;type:uuid"`
+	Number         string
+	Status         string `gorm:"not null;default:completed"`
 
 	WarehouseID string  `gorm:"not null;type:uuid"`
 	CustomerID  *string `gorm:"type:uuid"`
@@ -88,8 +87,7 @@ func salesOrderModelFromDomain(o *omsDomain.SalesOrder) salesOrderModel {
 	bFirst, bLast, bCompany, bAddr1, bAddr2, bCity, bState, bPostcode, bCountry, bEmail, bPhone := fromAddressDomain(o.Billing)
 	sFirst, sLast, sCompany, sAddr1, sAddr2, sCity, sState, sPostcode, sCountry, _, sPhone := fromAddressDomain(o.Shipping)
 	return salesOrderModel{
-		ID: o.ID, TenantID: o.TenantID, Source: string(o.Source), ExternalOrderID: o.ExternalOrderID,
-		ConnectionID: o.ConnectionID, SalesChannelID: o.SalesChannelID, Number: o.Number, OrderKey: o.OrderKey, Status: string(o.Status),
+		ID: o.ID, TenantID: o.TenantID, SalesChannelID: o.SalesChannelID, Number: o.Number, Status: string(o.Status),
 		WarehouseID: o.WarehouseID, CustomerID: o.CustomerID, QuoteID: o.QuoteID,
 		BillingFirstName: bFirst, BillingLastName: bLast, BillingCompany: bCompany,
 		BillingAddress1: bAddr1, BillingAddress2: bAddr2, BillingCity: bCity, BillingState: bState,
@@ -116,8 +114,7 @@ func salesOrderModelFromDomain(o *omsDomain.SalesOrder) salesOrderModel {
 
 func toSalesOrderDomain(m salesOrderModel) *omsDomain.SalesOrder {
 	return &omsDomain.SalesOrder{
-		ID: m.ID, TenantID: m.TenantID, Source: omsDomain.SalesOrderSource(m.Source),
-		ExternalOrderID: m.ExternalOrderID, ConnectionID: m.ConnectionID, SalesChannelID: m.SalesChannelID, Number: m.Number, OrderKey: m.OrderKey,
+		ID: m.ID, TenantID: m.TenantID, SalesChannelID: m.SalesChannelID, Number: m.Number,
 		Status: omsDomain.SalesOrderStatus(m.Status), WarehouseID: m.WarehouseID, CustomerID: m.CustomerID, QuoteID: m.QuoteID,
 		Billing: omsDomain.Address{
 			FirstName: m.BillingFirstName, LastName: m.BillingLastName, Company: m.BillingCompany,

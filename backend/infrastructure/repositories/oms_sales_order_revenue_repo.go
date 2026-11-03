@@ -24,7 +24,7 @@ func (r *SalesOrderRepo) RevenueSince(ctx context.Context, since time.Time, curr
 }
 
 type channelRevenueRow struct {
-	Source          string
+	Source          string `gorm:"column:order_origin"`
 	TotalMinorUnits int64
 }
 
@@ -36,8 +36,8 @@ func (r *SalesOrderRepo) RevenueByChannelSince(ctx context.Context, since time.T
 	var rows []channelRevenueRow
 	err = tx.Model(&salesOrderModel{}).
 		Where("occurred_at >= ? AND currency_code = ? AND status IN ?", since, currencyCode, revenueCountingStatuses).
-		Select("source, COALESCE(SUM(" + netOrderRevenueSQL("sales_orders") + "), 0) AS total_minor_units").
-		Group("source").Scan(&rows).Error
+		Select(salesOrderOriginSQL("sales_orders") + " AS order_origin, COALESCE(SUM(" + netOrderRevenueSQL("sales_orders") + "), 0) AS total_minor_units").
+		Group("order_origin").Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("salesOrderRepo.RevenueByChannelSince: %w", err)
 	}
@@ -212,8 +212,8 @@ func (r *SalesOrderRepo) RevenueByChannelBetween(ctx context.Context, from, to t
 	var rows []channelRevenueRow
 	err = tx.Model(&salesOrderModel{}).
 		Where("occurred_at >= ? AND occurred_at < ? AND currency_code = ? AND status IN ?", from, to, currencyCode, revenueCountingStatuses).
-		Select("source, COALESCE(SUM(" + netOrderRevenueSQL("sales_orders") + "), 0) AS total_minor_units").
-		Group("source").Scan(&rows).Error
+		Select(salesOrderOriginSQL("sales_orders") + " AS order_origin, COALESCE(SUM(" + netOrderRevenueSQL("sales_orders") + "), 0) AS total_minor_units").
+		Group("order_origin").Scan(&rows).Error
 	if err != nil {
 		return nil, fmt.Errorf("salesOrderRepo.RevenueByChannelBetween: %w", err)
 	}
@@ -226,7 +226,7 @@ func (r *SalesOrderRepo) RevenueByChannelBetween(ctx context.Context, from, to t
 
 type channelRevenueTrendRow struct {
 	PeriodStart       time.Time
-	Source            string
+	Source            string `gorm:"column:order_origin"`
 	RevenueMinorUnits int64
 }
 
@@ -244,12 +244,12 @@ func (r *SalesOrderRepo) RevenueByChannelTrendBetween(ctx context.Context, from,
 	var rows []channelRevenueTrendRow
 	err = tx.Raw(`
 		SELECT date_trunc(?, occurred_at) AS period_start,
-			source,
+			`+salesOrderOriginSQL("sales_orders")+` AS order_origin,
 			COALESCE(SUM(`+netOrderRevenueSQL("sales_orders")+`), 0) AS revenue_minor_units
 		FROM sales_orders
 		WHERE occurred_at >= ? AND occurred_at < ? AND currency_code = ?
 			AND status IN ?
-		GROUP BY period_start, source
+		GROUP BY period_start, order_origin
 		ORDER BY period_start ASC
 	`, string(granularity), from, to, currencyCode, revenueCountingStatuses).Scan(&rows).Error
 	if err != nil {

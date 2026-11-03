@@ -55,7 +55,7 @@ type PushSalesOrderStatusToChannelsUseCase struct {
 	shipmentRepo        shippingDomain.ShipmentRepository
 	carrierOverrideRepo shippingDomain.ShippingCarrierOverrideRepository
 	connRepo            integrationsDomain.ConnectionRepository
-	orderConnections    orderConnectionResolver
+	origins             orderOriginReader
 	wooFactory          integrationsDomain.WooClientFactory
 	encryptionSecret    string
 	outbox              eventrecord.Enqueuer
@@ -69,7 +69,7 @@ func NewPushSalesOrderStatusToChannelsUseCase(
 	shipmentRepo shippingDomain.ShipmentRepository,
 	carrierOverrideRepo shippingDomain.ShippingCarrierOverrideRepository,
 	connRepo integrationsDomain.ConnectionRepository,
-	orderConnections orderConnectionResolver,
+	origins orderOriginReader,
 	wooFactory integrationsDomain.WooClientFactory,
 	encryptionSecret string,
 	outbox eventrecord.Enqueuer,
@@ -77,28 +77,34 @@ func NewPushSalesOrderStatusToChannelsUseCase(
 ) *PushSalesOrderStatusToChannelsUseCase {
 	return &PushSalesOrderStatusToChannelsUseCase{
 		db: db, salesOrderRepo: salesOrderRepo, shipmentRepo: shipmentRepo, carrierOverrideRepo: carrierOverrideRepo,
-		connRepo: connRepo, orderConnections: orderConnections, wooFactory: wooFactory, encryptionSecret: encryptionSecret, settings: settings,
+		connRepo: connRepo, origins: origins, wooFactory: wooFactory, encryptionSecret: encryptionSecret, settings: settings,
 		outbox: outbox,
 	}
 }
 
 func (uc *PushSalesOrderStatusToChannelsUseCase) Execute(ctx context.Context, salesOrderID string) error {
 	var order omsDomain.SalesOrder
+	var origin integrationsDomain.SalesOrderOrigin
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		o, err := uc.salesOrderRepo.FindByID(ctx, salesOrderID)
 		if err != nil {
 			return err
 		}
 		order = *o
+		from, err := uc.origins.Of(ctx, salesOrderID)
+		if err != nil {
+			return fmt.Errorf("order %s: origin: %w", salesOrderID, err)
+		}
+		origin = *from
 		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("pushSalesOrderStatusToChannels: %w", err)
 	}
 
-	switch order.Source {
-	case omsDomain.SalesOrderSourceWooCommerce:
-		return uc.pushToWoo(ctx, order)
+	switch origin.Origin {
+	case integrationsDomain.OriginWooCommerce:
+		return uc.pushToWoo(ctx, order, origin)
 	default:
 		// pos/manual: nothing to push to. bol: Bol has no order status to
 		// set -- a Bol order is confirmed on Bol once the carrier scans
@@ -107,7 +113,7 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) Execute(ctx context.Context, sa
 	}
 }
 
-func (uc *PushSalesOrderStatusToChannelsUseCase) pushToWoo(ctx context.Context, order omsDomain.SalesOrder) error {
+func (uc *PushSalesOrderStatusToChannelsUseCase) pushToWoo(ctx context.Context, order omsDomain.SalesOrder, origin integrationsDomain.SalesOrderOrigin) error {
 	wooStatus, ok := wooStatusBySalesOrderStatus[order.Status]
 	if !ok {
 		// No Woo equivalent for this status -- every current SalesOrderStatus
@@ -119,14 +125,13 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) pushToWoo(ctx context.Context, 
 	var conn integrationsDomain.Connection
 	var secret string
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		// Resolved at send time through the sales channel (COM-15);
-		// nothing to send to is an error, so the event is retried and
-		// dead-lettered instead of acked.
-		connectionID, err := uc.orderConnections.ConnectionIDFor(ctx, order)
-		if err != nil {
+		// The order's origin says where it goes (COM-15); nothing to send
+		// to is an error, so the event is retried and dead-lettered
+		// instead of acked.
+		if err := requireShopReference(origin); err != nil {
 			return err
 		}
-		c, err := uc.connRepo.FindByID(ctx, connectionID)
+		c, err := uc.connRepo.FindByID(ctx, *origin.ConnectionID)
 		if err != nil {
 			return err
 		}
@@ -142,20 +147,20 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) pushToWoo(ctx context.Context, 
 	if err != nil {
 		return fmt.Errorf("pushSalesOrderStatusToChannels: build client: %w", err)
 	}
-	if err := client.UpdateOrderStatus(ctx, order.ExternalOrderID, wooStatus); err != nil {
+	if err := client.UpdateOrderStatus(ctx, origin.ExternalOrderID, wooStatus); err != nil {
 		return fmt.Errorf("pushSalesOrderStatusToChannels: %w", err)
 	}
 	if err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		return eventrecord.Record(ctx, uc.outbox, events.ChannelOrderStatusPushed, order.ID, eventrecord.Data{
 			"provider": string(integrationsDomain.ProviderWooCommerce), "connection_id": conn.ID,
-			"external_order_id": order.ExternalOrderID, "status": string(order.Status), "channel_status": wooStatus,
+			"external_order_id": origin.ExternalOrderID, "status": string(order.Status), "channel_status": wooStatus,
 		})
 	}); err != nil {
 		return fmt.Errorf("pushSalesOrderStatusToChannels: %w", err)
 	}
 
 	if order.Status == omsDomain.SalesOrderStatusShipped {
-		uc.addShipmentNote(ctx, client, order)
+		uc.addShipmentNote(ctx, client, order, origin.ExternalOrderID)
 	}
 	return nil
 }
@@ -169,7 +174,7 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) pushToWoo(ctx context.Context, 
 // here is logged, not returned -- the status push itself already succeeded
 // and is the part that must not be retried into a duplicate Woo call; the
 // note is a courtesy on top of it.
-func (uc *PushSalesOrderStatusToChannelsUseCase) addShipmentNote(ctx context.Context, client integrationsDomain.WooClient, order omsDomain.SalesOrder) {
+func (uc *PushSalesOrderStatusToChannelsUseCase) addShipmentNote(ctx context.Context, client integrationsDomain.WooClient, order omsDomain.SalesOrder, wooOrderID string) {
 	var shipments []shippingDomain.Shipment
 	var lang locale.Locale
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
@@ -196,7 +201,7 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) addShipmentNote(ctx context.Con
 	// the one that actually triggered this fulfillment.
 	s := shipments[0]
 	note := channelsDomain.ShipmentNote(lang, s.Carrier.String(), s.Barcode, uc.resolveTrackingLink(ctx, s))
-	if err := client.AddOrderNote(ctx, order.ExternalOrderID, note); err != nil {
+	if err := client.AddOrderNote(ctx, wooOrderID, note); err != nil {
 		log.Printf("pushSalesOrderStatusToChannels: shipment note: order %s: %v", order.ID, err)
 	}
 }

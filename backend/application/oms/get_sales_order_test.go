@@ -11,7 +11,7 @@ import (
 )
 
 func TestGetSalesOrder_returnsOrderAndLineItems(t *testing.T) {
-	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "so-1", ExternalOrderID: "pos-1"}}
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "so-1"}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-1")}}}
 	uc := appoms.NewGetSalesOrderUseCase(newMockGormDB(t), salesOrderRepo, lineItemRepo, &stubSalesOrderPaymentRepo{})
 

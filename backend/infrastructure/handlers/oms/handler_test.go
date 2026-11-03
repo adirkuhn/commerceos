@@ -1,6 +1,7 @@
 package oms_test
 
 import (
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -512,11 +513,15 @@ func newTestRouterWithPicking(
 		addLineItem, startPicking, getPicking, touchPicking, resetPicking, scan, substitute, refund, resolve, deleteScan, pause, complete, bulk,
 		&stubListSalesOrderActivities{},
 		&stubStartOrResumePacking{}, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
-		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{}, &stubResolvePickScanCode{}, omshandler.SessionLockUseCases{}, &stubListPackingQueue{}, &stubListSalesOrderLineChanges{})
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{}, &stubResolvePickScanCode{}, omshandler.SessionLockUseCases{}, &stubListPackingQueue{}, &stubListSalesOrderLineChanges{}).WithOrigins(testOrigins)
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
 }
+
+// testOrigins is what newTestRouter's handler reads order origins from;
+// a test sets byOrder (and resets it) to check the mapping.
+var testOrigins = &stubOriginLister{}
 
 func newTestRouterWithPacking(packStubs packingStubs) *gin.Engine {
 	h := omshandler.NewHandler(&stubListSalesOrders{}, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{},
@@ -525,7 +530,7 @@ func newTestRouterWithPacking(packStubs packingStubs) *gin.Engine {
 		&stubScanPickItem{}, packStubs.substitute, packStubs.refund,
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{}, &stubBulkUpdateSalesOrderStatus{},
 		&stubListSalesOrderActivities{},
-		packStubs.start, packStubs.get, packStubs.touch, packStubs.reset, packStubs.scan, packStubs.deleteScan, packStubs.complete, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{}, packStubs.resolve, omshandler.SessionLockUseCases{}, &stubListPackingQueue{}, &stubListSalesOrderLineChanges{})
+		packStubs.start, packStubs.get, packStubs.touch, packStubs.reset, packStubs.scan, packStubs.deleteScan, packStubs.complete, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{}, packStubs.resolve, omshandler.SessionLockUseCases{}, &stubListPackingQueue{}, &stubListSalesOrderLineChanges{}).WithOrigins(&stubOriginLister{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -565,8 +570,12 @@ func doRequest(r *gin.Engine, method, path string, body any) *httptest.ResponseR
 }
 
 func TestListSalesOrders_success(t *testing.T) {
+	testOrigins.byOrder = map[string]integrationsDomain.SalesOrderOrigin{
+		"so-1": {SalesOrderID: "so-1", Origin: integrationsDomain.OriginPOS, ExternalOrderID: "pos-1"},
+	}
+	t.Cleanup(func() { testOrigins.byOrder = nil })
 	list := &stubListSalesOrders{out: &appoms.ListSalesOrdersResult{
-		SalesOrders: []omsDomain.SalesOrder{{ID: "so-1", ExternalOrderID: "pos-1", Status: omsDomain.SalesOrderStatusCompleted}},
+		SalesOrders: []omsDomain.SalesOrder{{ID: "so-1", Status: omsDomain.SalesOrderStatusCompleted}},
 		Total:       1,
 	}}
 	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "GET", "/api/v1/sales-orders", nil)
@@ -584,7 +593,7 @@ func TestListSalesOrders_success(t *testing.T) {
 // anywhere to surface the gap.
 func TestListSalesOrders_includesFulfilled(t *testing.T) {
 	list := &stubListSalesOrders{out: &appoms.ListSalesOrdersResult{
-		SalesOrders: []omsDomain.SalesOrder{{ID: "so-1", ExternalOrderID: "pos-1", Status: omsDomain.SalesOrderStatusCompleted, Fulfilled: true}},
+		SalesOrders: []omsDomain.SalesOrder{{ID: "so-1", Status: omsDomain.SalesOrderStatusCompleted, Fulfilled: true}},
 		Total:       1,
 	}}
 	w := doRequest(newTestRouter(list, &stubGetSalesOrder{}, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "GET", "/api/v1/sales-orders", nil)
@@ -605,7 +614,7 @@ func TestListSalesOrders_passesSortByAndSortDirQueryParamsThrough(t *testing.T) 
 
 func TestGetSalesOrder_success(t *testing.T) {
 	get := &stubGetSalesOrder{out: &appoms.GetSalesOrderResult{
-		SalesOrder: omsDomain.SalesOrder{ID: "so-1", ExternalOrderID: "pos-1", Fulfilled: true},
+		SalesOrder: omsDomain.SalesOrder{ID: "so-1", Fulfilled: true},
 		LineItems:  []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 2}},
 	}}
 	w := doRequest(newTestRouter(&stubListSalesOrders{}, get, &stubCreateSalesOrder{}, &stubUpdateSalesOrder{}, &stubDeleteSalesOrder{}, &stubLinkLineItemSKU{}, &stubRetryStockDecrement{}, &stubForceAcceptStock{}), "GET", "/api/v1/sales-orders/so-1", nil)
@@ -642,7 +651,7 @@ func TestListSalesOrderActivities_emptyList(t *testing.T) {
 
 func TestCreateSalesOrder_success(t *testing.T) {
 	create := &stubCreateSalesOrder{out: &appoms.CreateSalesOrderResult{
-		SalesOrder: omsDomain.SalesOrder{ID: "so-1", Source: omsDomain.SalesOrderSourceManual, ExternalOrderID: "generated-1"},
+		SalesOrder: omsDomain.SalesOrder{ID: "so-1"},
 		LineItems:  []omsDomain.SalesOrderLineItem{{ID: "li-1", SKUID: strPtr("sku-1"), Quantity: 2}},
 	}}
 	body := map[string]any{
@@ -903,7 +912,7 @@ func newTestRouterWithActivities(activities *stubListSalesOrderActivities) *gin.
 		&stubResolvePickScanCode{}, &stubDeletePickScan{}, &stubPausePicking{}, &stubCompletePicking{},
 		&stubBulkUpdateSalesOrderStatus{}, activities,
 		&stubStartOrResumePacking{}, &stubGetPackingSession{}, &stubTouchPackingSession{}, &stubResetPackingSession{},
-		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{}, &stubResolvePickScanCode{}, omshandler.SessionLockUseCases{}, &stubListPackingQueue{}, &stubListSalesOrderLineChanges{})
+		&stubScanPackItem{}, &stubDeletePackScan{}, &stubCompletePacking{}, &stubBuildPickList{}, &stubListPackingQueue{}, &stubMarkOrderPicked{}, &stubResolvePickScanCode{}, omshandler.SessionLockUseCases{}, &stubListPackingQueue{}, &stubListSalesOrderLineChanges{}).WithOrigins(&stubOriginLister{})
 	r := gin.New()
 	genoms.RegisterHandlers(r.Group("/api/v1"), h)
 	return r
@@ -1253,4 +1262,24 @@ func TestListSalesOrders_includesPaymentStatus(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), `"payment_status":"awaiting_payment"`)
+}
+
+// stubOriginLister answers every order's origin from byOrder (absent: the
+// zero origin).
+type stubOriginLister struct {
+	byOrder map[string]integrationsDomain.SalesOrderOrigin
+	err     error
+}
+
+func (s *stubOriginLister) Execute(_ context.Context, ids []string) (map[string]integrationsDomain.SalesOrderOrigin, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	out := map[string]integrationsDomain.SalesOrderOrigin{}
+	for _, id := range ids {
+		if o, ok := s.byOrder[id]; ok {
+			out[id] = o
+		}
+	}
+	return out, nil
 }

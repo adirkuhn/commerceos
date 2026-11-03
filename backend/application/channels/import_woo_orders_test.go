@@ -96,8 +96,9 @@ func TestImportWooOrders_createsANewOrderAndDecrementsStock(t *testing.T) {
 	assert.Empty(t, result.Errors)
 	require.Len(t, h.salesOrderRepo.created, 1)
 	created := h.salesOrderRepo.created[0]
-	assert.Equal(t, omsDomain.SalesOrderSourceWooCommerce, created.Source)
-	assert.Equal(t, "501", created.ExternalOrderID)
+	require.Len(t, h.origins.recorded, 1)
+	assert.Equal(t, integrationsDomain.OriginWooCommerce, h.origins.recorded[0].Origin)
+	assert.Equal(t, "501", h.origins.recorded[0].ExternalOrderID)
 	assert.Equal(t, omsDomain.SalesOrderStatusProcessing, created.Status)
 	assert.True(t, created.StockDecremented, "processing reduces stock")
 	assert.False(t, created.Fulfilled, "processing starts unfulfilled")
@@ -594,7 +595,7 @@ func TestImportWooOrders_insufficientStockMarksLineItemPendingInsteadOfFailingTh
 func TestImportWooOrders_losingTheCreateRaceRoutesToUpdateInsteadOfFailing(t *testing.T) {
 	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
 	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
-	h.salesOrderRepo.createErr = omsDomain.ErrDuplicateExternalOrder
+	h.salesOrderRepo.createErr = integrationsDomain.ErrExternalOrderAlreadyImported
 	// Simulate the winner of the race having already committed the order
 	// under this external ID by the time this call's Create fails and falls
 	// back to looking it up -- the *first* FindByExternalID call (before
@@ -845,7 +846,8 @@ func TestImportWooOrders_ExecuteOne_fetchesAndCreatesTheOrder(t *testing.T) {
 	assert.Empty(t, result.Errors)
 	assert.Equal(t, "sales-order-1", result.SalesOrderID)
 	require.Len(t, h.salesOrderRepo.created, 1)
-	assert.Equal(t, "501", h.salesOrderRepo.created[0].ExternalOrderID)
+	require.Len(t, h.origins.recorded, 1)
+	assert.Equal(t, "501", h.origins.recorded[0].ExternalOrderID)
 }
 
 func TestImportWooOrders_ExecuteOne_updatesAnExistingOrdersStatus(t *testing.T) {
@@ -853,7 +855,7 @@ func TestImportWooOrders_ExecuteOne_updatesAnExistingOrdersStatus(t *testing.T) 
 	wo := simpleWooOrder()
 	wo.Status = "completed"
 	h.wooClient.getOrderResult = ptrWooOrder(wo)
-	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{ID: "sales-order-1", ExternalOrderID: "501", Status: omsDomain.SalesOrderStatusProcessing}
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{ID: "sales-order-1", Status: omsDomain.SalesOrderStatusProcessing}
 	uc := h.newImportUseCase(t, 3)
 
 	result, err := uc.ExecuteOne(context.Background(), appchannels.FetchWooOrderInput{

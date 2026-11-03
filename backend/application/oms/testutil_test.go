@@ -784,7 +784,11 @@ func (s *stubPaymentRefundClientResolver) Resolve(_ context.Context, provider st
 func strPtrLI(s string) *string { return &s }
 
 // stubOrigins records every origin written, like the order it came with.
+// Of answers source (manual when unset) for every order.
 type stubOrigins struct {
+	source   integrations.Origin
+	ofErr    error
+	keys     map[string]string
 	recorded []integrations.SalesOrderOriginInput
 	// existing answers FindByExternalID; nil = not found.
 	existing *integrations.SalesOrderOrigin
@@ -812,4 +816,23 @@ func receivedPOSSale(salesOrderID, externalOrderID string) *stubOrigins {
 	return &stubOrigins{existing: &integrations.SalesOrderOrigin{
 		SalesOrderID: salesOrderID, Origin: integrations.OriginPOS, ExternalOrderID: externalOrderID,
 	}}
+}
+
+func (s *stubOrigins) Of(_ context.Context, salesOrderID string) (*integrations.SalesOrderOrigin, error) {
+	if s.ofErr != nil {
+		return nil, s.ofErr
+	}
+	origin := s.source
+	if origin == "" {
+		origin = integrations.OriginManual
+	}
+	return &integrations.SalesOrderOrigin{SalesOrderID: salesOrderID, Origin: origin}, nil
+}
+
+func (s *stubOrigins) SetExternalKey(_ context.Context, salesOrderID, key string) error {
+	if s.keys == nil {
+		s.keys = map[string]string{}
+	}
+	s.keys[salesOrderID] = key
+	return nil
 }

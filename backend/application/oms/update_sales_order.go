@@ -64,6 +64,7 @@ type UpdateSalesOrderInput struct {
 type UpdateSalesOrderUseCase struct {
 	db              *gorm.DB
 	salesOrderRepo  omsDomain.SalesOrderRepository
+	origins         orderKeySetter
 	lineItemRepo    omsDomain.SalesOrderLineItemRepository
 	linkRepo        omsDomain.SalesOrderLineItemStockMovementRepository
 	skuRepo         skuLookupRepo
@@ -72,8 +73,8 @@ type UpdateSalesOrderUseCase struct {
 	outboxRepo      outbox.Repository
 }
 
-func NewUpdateSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, reverseMovement movementReverser, outboxRepo outbox.Repository) *UpdateSalesOrderUseCase {
-	return &UpdateSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo, recordMovement: recordMovement, reverseMovement: reverseMovement, outboxRepo: outboxRepo}
+func NewUpdateSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, origins orderKeySetter, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, reverseMovement movementReverser, outboxRepo outbox.Repository) *UpdateSalesOrderUseCase {
+	return &UpdateSalesOrderUseCase{db: db, salesOrderRepo: salesOrderRepo, origins: origins, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo, recordMovement: recordMovement, reverseMovement: reverseMovement, outboxRepo: outboxRepo}
 }
 
 func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in UpdateSalesOrderInput) (*omsDomain.SalesOrder, error) {
@@ -93,9 +94,11 @@ func (uc *UpdateSalesOrderUseCase) Execute(ctx context.Context, id string, in Up
 			fields["number"] = *in.Number
 			updated.Number = *in.Number
 		}
+		// The order key lives on the order's origin (COM-15).
 		if in.OrderKey != nil {
-			fields["order_key"] = *in.OrderKey
-			updated.OrderKey = *in.OrderKey
+			if err := uc.origins.SetExternalKey(ctx, id, *in.OrderKey); err != nil {
+				return err
+			}
 		}
 		if in.CustomerID != nil {
 			if *in.CustomerID == "" {

@@ -65,10 +65,11 @@ func recordCustomerImported(ctx context.Context, outbox eventrecord.Enqueuer, c 
 	})
 }
 
-// recordOrderImported records a sales order created from a channel order.
-func recordOrderImported(ctx context.Context, outbox eventrecord.Enqueuer, o omsDomain.SalesOrder, lineCount, unlinkedLines int) error {
+// recordOrderImported records a sales order created from a channel order,
+// with the origin it was recorded under.
+func recordOrderImported(ctx context.Context, outbox eventrecord.Enqueuer, o omsDomain.SalesOrder, origin integrationsDomain.SalesOrderOriginInput, lineCount, unlinkedLines int) error {
 	return eventrecord.Record(ctx, outbox, events.ChannelOrderImported, o.ID, eventrecord.Data{
-		"provider": string(o.Source), "connection_id": o.ConnectionID, "external_order_id": o.ExternalOrderID,
+		"provider": string(origin.Origin), "connection_id": origin.ConnectionID, "external_order_id": origin.ExternalOrderID,
 		"number": o.Number, "status": string(o.Status), "currency_code": o.CurrencyCode,
 		"total_minor_units": o.TotalMinorUnits, "line_count": lineCount,
 		"unlinked_line_count": unlinkedLines, "needs_sku_review": o.NeedsSKUReview,

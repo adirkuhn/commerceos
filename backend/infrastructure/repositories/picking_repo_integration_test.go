@@ -22,8 +22,8 @@ func seedSalesOrderForPickingDB(t *testing.T, db *gorm.DB, ctx context.Context, 
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-			ExternalOrderID: "pos-order-picking-" + tenant.IDFromContext(ctx), WarehouseID: warehouseID,
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID,
 			CurrencyCode: "USD", Status: omsDomain.SalesOrderStatusProcessing,
 			TotalMinorUnits: 1000, OccurredAt: now, CreatedAt: now, UpdatedAt: now,
 		}

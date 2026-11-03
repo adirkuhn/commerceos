@@ -3,6 +3,7 @@ package oms_test
 import (
 	"context"
 	"errors"
+	"github.com/adirkuhn/commerceos/domain/integrations"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 )
 
 type markPickedFixture struct {
+	origins    *stubOrigins
 	orders     *stubSalesOrderRepo
 	packing    *stubPackingSessionRepo
 	picking    *stubPickingSessionRepo
@@ -25,14 +27,15 @@ type markPickedFixture struct {
 
 func newMarkPickedFixture(order omsDomain.SalesOrder) markPickedFixture {
 	return markPickedFixture{
-		orders: &stubSalesOrderRepo{findByIDResult: &order}, packing: &stubPackingSessionRepo{},
+		origins: &stubOrigins{},
+		orders:  &stubSalesOrderRepo{findByIDResult: &order}, packing: &stubPackingSessionRepo{},
 		picking: &stubPickingSessionRepo{}, scans: &stubPickScanRepo{}, packScans: &stubPackScanRepo{}, activities: &stubSalesOrderActivityRepo{},
 		outbox: &eventrecordtest.Outbox{},
 	}
 }
 
 func (f markPickedFixture) run(t *testing.T, actor omsDomain.LockActor) error {
-	uc := appoms.NewMarkOrderPickedUseCase(newMockGormDB(t), f.orders, f.packing, f.packScans, f.picking, f.scans, f.activities, f.outbox)
+	uc := appoms.NewMarkOrderPickedUseCase(newMockGormDB(t), f.orders, f.origins, f.packing, f.packScans, f.picking, f.scans, f.activities, f.outbox)
 	return uc.Execute(context.Background(), "order-1", actor)
 }
 
@@ -67,7 +70,8 @@ func TestMarkOrderPicked_rejectsWhatThePickingRuleRejects(t *testing.T) {
 }
 
 func TestMarkOrderPicked_rejectsPOSOrder(t *testing.T) {
-	f := newMarkPickedFixture(omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing})
+	f := newMarkPickedFixture(omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing})
+	f.origins.source = integrations.OriginPOS
 
 	err := f.run(t, omsDomain.LockActor{UserID: "user-1"})
 

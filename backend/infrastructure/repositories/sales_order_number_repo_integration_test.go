@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -50,24 +49,24 @@ func TestMigration235_Integration_numbersOrdersMadeHere(t *testing.T) {
 	require.NoError(t, goose.DownTo(sqlDB, migrationsDir, 234))
 	t.Cleanup(func() { _ = goose.Up(sqlDB, migrationsDir) })
 
+	// Raw SQL: at version 234 the order still carried its source and
+	// external id (the domain no longer does, COM-15).
 	now := time.Now()
-	orders := []omsDomain.SalesOrder{
-		{Source: omsDomain.SalesOrderSourceManual, ExternalOrderID: "m-2", CreatedAt: now},
-		{Source: omsDomain.SalesOrderSourceManual, ExternalOrderID: "m-1", CreatedAt: now.Add(-time.Hour)},
-		{Source: omsDomain.SalesOrderSourceWhatsApp, ExternalOrderID: "w-1", CreatedAt: now.Add(time.Hour)},
-		{Source: omsDomain.SalesOrderSourceManual, ExternalOrderID: "m-typed", Number: "2026-17", CreatedAt: now},
-		{Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "26217", Number: "26217", CreatedAt: now},
+	orders := []struct {
+		source, externalID, number string
+		createdAt                  time.Time
+	}{
+		{"manual", "m-2", "", now},
+		{"manual", "m-1", "", now.Add(-time.Hour)},
+		{"whatsapp", "w-1", "", now.Add(time.Hour)},
+		{"manual", "m-typed", "2026-17", now},
+		{"woocommerce", "26217", "26217", now},
 	}
-	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		for i := range orders {
-			o := &orders[i]
-			o.TenantID, o.WarehouseID, o.CurrencyCode, o.OccurredAt, o.UpdatedAt = tenantID, warehouseID, "EUR", now, now
-			if err := repositories.NewSalesOrderRepo(db).Create(ctx, o); err != nil {
-				return err
-			}
-		}
-		return nil
-	}))
+	for _, o := range orders {
+		require.NoError(t, db.Exec(`INSERT INTO sales_orders (tenant_id, source, external_order_id, number, warehouse_id,
+				currency_code, occurred_at, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, 'EUR', ?, ?, ?)`, tenantID, o.source, o.externalID, o.number, warehouseID, now, o.createdAt, now).Error)
+	}
 	require.NoError(t, goose.UpTo(sqlDB, migrationsDir, 235))
 
 	numbers := map[string]string{}

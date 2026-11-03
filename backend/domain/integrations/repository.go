@@ -34,6 +34,9 @@ type SalesOrderOriginRepository interface {
 	// replaces it (one row per order).
 	Save(ctx context.Context, o *SalesOrderOrigin) error
 	FindBySalesOrderID(ctx context.Context, salesOrderID string) (*SalesOrderOrigin, error)
+	// ListBySalesOrderIDs returns the origins of those orders (any order
+	// without one is simply absent); empty ids is an empty result.
+	ListBySalesOrderIDs(ctx context.Context, salesOrderIDs []string) ([]SalesOrderOrigin, error)
 	// FindByConnectionExternalID finds a shop order by the connection it
 	// came from and that shop's own order id -- the re-import lookup.
 	FindByConnectionExternalID(ctx context.Context, connectionID, externalOrderID string) (*SalesOrderOrigin, error)

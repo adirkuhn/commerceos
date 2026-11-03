@@ -36,7 +36,7 @@ func (s *stubRepairSalesOrderRepo) List(_ context.Context, filter omsDomain.List
 func TestRepairStockReviewFlags_flagsAnOrderWithAMissingMovementDespiteStockDecrementedTrue(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubRepairSalesOrderRepo{all: []omsDomain.SalesOrder{
-		{ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, Status: omsDomain.SalesOrderStatusProcessing, StockDecremented: true},
+		{ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing, StockDecremented: true},
 	}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{
 		{ID: "li-1", SalesOrderID: "so-1", SKUID: strPtr("sku-1"), StockStatus: omsDomain.StockStatusDecremented},
@@ -65,7 +65,7 @@ func TestRepairStockReviewFlags_flagsAnOrderWithAMissingMovementDespiteStockDecr
 func TestRepairStockReviewFlags_leavesAnOrderWithARecordedMovementUntouched(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubRepairSalesOrderRepo{all: []omsDomain.SalesOrder{
-		{ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, Status: omsDomain.SalesOrderStatusProcessing, StockDecremented: true},
+		{ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing, StockDecremented: true},
 	}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{
 		{ID: "li-1", SalesOrderID: "so-1", SKUID: strPtr("sku-1"), StockStatus: omsDomain.StockStatusDecremented},
@@ -88,7 +88,7 @@ func TestRepairStockReviewFlags_ignoresASkipStockMovementsBootstrapOrder(t *test
 	// SkipStockMovements bootstrap signature. Must never be flagged even
 	// though its line item also has no recorded movement, by design.
 	salesOrderRepo := &stubRepairSalesOrderRepo{all: []omsDomain.SalesOrder{
-		{ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, Status: omsDomain.SalesOrderStatusProcessing, StockDecremented: false},
+		{ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing, StockDecremented: false},
 	}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{
 		{ID: "li-1", SalesOrderID: "so-1", SKUID: strPtr("sku-1"), StockStatus: omsDomain.StockStatusDecremented},
@@ -107,7 +107,7 @@ func TestRepairStockReviewFlags_ignoresASkipStockMovementsBootstrapOrder(t *test
 func TestRepairStockReviewFlags_flagsAnUnmatchedSKULineItemAndMarksItPending(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubRepairSalesOrderRepo{all: []omsDomain.SalesOrder{
-		{ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, Status: omsDomain.SalesOrderStatusProcessing, StockDecremented: true},
+		{ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing, StockDecremented: true},
 	}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{
 		{ID: "li-1", SalesOrderID: "so-1", SKUID: nil, StockStatus: omsDomain.StockStatusDecremented},
@@ -127,7 +127,7 @@ func TestRepairStockReviewFlags_flagsAnUnmatchedSKULineItemAndMarksItPending(t *
 func TestRepairStockReviewFlags_isIdempotentOnASecondRun(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubRepairSalesOrderRepo{all: []omsDomain.SalesOrder{
-		{ID: "so-1", Source: omsDomain.SalesOrderSourceWooCommerce, Status: omsDomain.SalesOrderStatusProcessing,
+		{ID: "so-1", Status: omsDomain.SalesOrderStatusProcessing,
 			StockDecremented: true, NeedsStockReview: true},
 	}}
 	lineItemRepo := &stubSalesOrderLineItemRepo{listBySalesOrder: []omsDomain.SalesOrderLineItem{

@@ -27,8 +27,8 @@ func TestSalesOrderLineItemRepo_Integration_WeightGramsRoundTrips(t *testing.T) 
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-			ExternalOrderID: "pos-order-weighed-1", WarehouseID: warehouseID,
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID,
 			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 1725,
 			OccurredAt: now, CreatedAt: now, UpdatedAt: now,
 		}

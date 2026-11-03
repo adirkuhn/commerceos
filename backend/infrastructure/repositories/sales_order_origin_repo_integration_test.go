@@ -100,6 +100,33 @@ func TestSalesOrderOriginRepo_Integration_savesAndFindsAnOrdersOrigin(t *testing
 	})
 }
 
+func TestSalesOrderOriginRepo_Integration_listsTheOriginsOfManyOrdersAtOnce(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	shop := seedWooConnection(t, db, ctx, "https://shop.example")
+	woo := insertLegacyOrder(t, db, ctx, warehouseID, "woocommerce", "1001", &shop, "wc_k")
+	pos := insertLegacyOrder(t, db, ctx, warehouseID, "pos", "pos-1", nil, "")
+	insertLegacyOrder(t, db, ctx, warehouseID, "manual", "not-asked", nil, "")
+
+	withOrigins(t, db, ctx, func(ctx context.Context, repo *repositories.SalesOrderOriginRepo) {
+		got, err := repo.ListBySalesOrderIDs(ctx, []string{woo, pos})
+		require.NoError(t, err)
+		require.Len(t, got, 2)
+		bySO := map[string]integrationsDomain.SalesOrderOrigin{}
+		for _, o := range got {
+			bySO[o.SalesOrderID] = o
+		}
+		assert.Equal(t, "1001", bySO[woo].ExternalOrderID)
+		assert.Equal(t, "wc_k", bySO[woo].ExternalKey)
+		assert.Equal(t, integrationsDomain.OriginPOS, bySO[pos].Origin)
+
+		none, err := repo.ListBySalesOrderIDs(ctx, nil)
+		require.NoError(t, err)
+		assert.Empty(t, none)
+	})
+}
+
 // A second order claiming the same shop order is a lost import race.
 func TestSalesOrderOriginRepo_Integration_theSameShopOrderTwiceIsAlreadyImported(t *testing.T) {
 	db := newIntegrationDB(t)
@@ -244,4 +271,14 @@ func TestMigration246_Integration_backfillsAnOriginForEveryOrder(t *testing.T) {
 
 	assert.Equal(t, "manual", origins[manual].Origin)
 	assert.Nil(t, origins[manual].ExternalOrderID)
+}
+
+// setOrigin gives an order created through SalesOrderRepo (origin manual by
+// default) the origin a test needs. Runs inside the caller's tenant tx.
+func setOrigin(t *testing.T, ctx context.Context, salesOrderID string, origin integrationsDomain.Origin, connectionID *string, externalOrderID string) {
+	t.Helper()
+	tx, ok := txctx.FromContext(ctx)
+	require.True(t, ok, "setOrigin runs inside tenant.WithTenant")
+	require.NoError(t, tx.Exec(`UPDATE sales_order_origins SET origin = ?, connection_id = ?, external_order_id = NULLIF(?, '')
+		WHERE sales_order_id = ?`, string(origin), connectionID, externalOrderID, salesOrderID).Error)
 }

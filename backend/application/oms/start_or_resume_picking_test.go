@@ -2,6 +2,7 @@ package oms_test
 
 import (
 	"context"
+	"github.com/adirkuhn/commerceos/domain/integrations"
 	"testing"
 	"time"
 
@@ -17,7 +18,7 @@ func TestStartOrResumePicking_createsNewSessionWhenNoneActive(t *testing.T) {
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1"}}
 	sessionRepo := &stubPickingSessionRepo{}
 	outbox := &eventrecordtest.Outbox{}
-	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{}, &stubPackScanRepo{}, outbox)
+	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, &stubOrigins{}, sessionRepo, &stubPackingSessionRepo{}, &stubPackScanRepo{}, outbox)
 
 	session, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
@@ -35,7 +36,7 @@ func TestStartOrResumePicking_reusesInProgressSession(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1"}}
 	sessionRepo := &stubPickingSessionRepo{activeResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress}}
-	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, &stubOrigins{}, sessionRepo, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
 
 	session, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
@@ -50,7 +51,7 @@ func TestStartOrResumePicking_resumesPausedSession(t *testing.T) {
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1"}}
 	sessionRepo := &stubPickingSessionRepo{activeResult: &omsDomain.PickingSession{ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusPaused}}
 	outbox := &eventrecordtest.Outbox{}
-	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{}, &stubPackScanRepo{}, outbox)
+	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, &stubOrigins{}, sessionRepo, &stubPackingSessionRepo{}, &stubPackScanRepo{}, outbox)
 
 	session, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
@@ -68,7 +69,7 @@ func TestStartOrResumePicking_rejectsAlreadyFulfilledOrder(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Fulfilled: true}}
 	sessionRepo := &stubPickingSessionRepo{}
-	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, &stubOrigins{}, sessionRepo, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
@@ -80,7 +81,7 @@ func TestStartOrResumePicking_rejectsAlreadyPackedOrder(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Packed: true}}
 	sessionRepo := &stubPickingSessionRepo{}
-	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, &stubOrigins{}, sessionRepo, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
@@ -94,7 +95,7 @@ func TestStartOrResumePicking_rejectsWhenPackingSessionInProgress(t *testing.T) 
 	sessionRepo := &stubPickingSessionRepo{}
 	packer, now := "packer", time.Now()
 	packingRepo := &stubPackingSessionRepo{activeResult: &omsDomain.PackingSession{ID: "packing-1", Status: omsDomain.PackingSessionStatusInProgress, LockedBy: &packer, LockedAt: &now}}
-	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, packingRepo, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, &stubOrigins{}, sessionRepo, packingRepo, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
@@ -107,7 +108,7 @@ func TestStartOrResumePicking_rejectsWhenPackingAlreadyRecordedSomething(t *test
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing}}
 	packingRepo := &stubPackingSessionRepo{activeResult: &omsDomain.PackingSession{ID: "packing-1", Status: omsDomain.PackingSessionStatusInProgress}}
 	scans := &stubPackScanRepo{sessionsWithScans: []string{"packing-1"}}
-	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, &stubPickingSessionRepo{}, packingRepo, scans, &eventrecordtest.Outbox{})
+	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, &stubOrigins{}, &stubPickingSessionRepo{}, packingRepo, scans, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
@@ -120,7 +121,7 @@ func TestStartOrResumePicking_aPackingSessionMerelyOpenedDoesNotBlock(t *testing
 	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing}}
 	sessionRepo := &stubPickingSessionRepo{}
 	packingRepo := &stubPackingSessionRepo{activeResult: &omsDomain.PackingSession{ID: "packing-1", Status: omsDomain.PackingSessionStatusInProgress}}
-	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, packingRepo, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, &stubOrigins{}, sessionRepo, packingRepo, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
@@ -130,9 +131,9 @@ func TestStartOrResumePicking_aPackingSessionMerelyOpenedDoesNotBlock(t *testing
 
 func TestStartOrResumePicking_rejectsPOSOrder(t *testing.T) {
 	db := newMockGormDB(t)
-	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing}}
+	salesOrderRepo := &stubSalesOrderRepo{findByIDResult: &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing}}
 	sessionRepo := &stubPickingSessionRepo{}
-	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, &stubOrigins{source: integrations.OriginPOS}, sessionRepo, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 
@@ -143,7 +144,7 @@ func TestStartOrResumePicking_rejectsPOSOrder(t *testing.T) {
 func TestStartOrResumePicking_propagatesSalesOrderNotFound(t *testing.T) {
 	db := newMockGormDB(t)
 	salesOrderRepo := &stubSalesOrderRepo{findByIDErr: omsDomain.ErrSalesOrderNotFound}
-	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, &stubPickingSessionRepo{}, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, &stubOrigins{}, &stubPickingSessionRepo{}, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "missing", omsDomain.LockActor{UserID: "user-1"})
 
@@ -159,7 +160,7 @@ func TestStartOrResumePicking_opensAnotherUsersSessionReadOnly(t *testing.T) {
 		ID: "session-1", SalesOrderID: "order-1", Status: omsDomain.PickingSessionStatusInProgress,
 		LockedBy: &otherUser, LockedAt: &lockedAt,
 	}}
-	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, sessionRepo, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
+	uc := appoms.NewStartOrResumePickingUseCase(db, salesOrderRepo, &stubOrigins{}, sessionRepo, &stubPackingSessionRepo{}, &stubPackScanRepo{}, &eventrecordtest.Outbox{})
 
 	session, err := uc.Execute(context.Background(), "order-1", omsDomain.LockActor{UserID: "user-1"})
 

@@ -24,13 +24,14 @@ type StartOrResumePackingUseCase struct {
 	outbox         eventrecord.Enqueuer
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
+	origins        originFinder
 	sessionRepo    omsDomain.PackingSessionRepository
 	pickingRepo    pickingSessionTakeover
 	pickScanRepo   pickScanLister
 }
 
-func NewStartOrResumePackingUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, sessionRepo omsDomain.PackingSessionRepository, pickingRepo pickingSessionTakeover, pickScanRepo pickScanLister, outbox eventrecord.Enqueuer) *StartOrResumePackingUseCase {
-	return &StartOrResumePackingUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, sessionRepo: sessionRepo, pickingRepo: pickingRepo, pickScanRepo: pickScanRepo}
+func NewStartOrResumePackingUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, origins originFinder, sessionRepo omsDomain.PackingSessionRepository, pickingRepo pickingSessionTakeover, pickScanRepo pickScanLister, outbox eventrecord.Enqueuer) *StartOrResumePackingUseCase {
+	return &StartOrResumePackingUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, origins: origins, sessionRepo: sessionRepo, pickingRepo: pickingRepo, pickScanRepo: pickScanRepo}
 }
 
 func (uc *StartOrResumePackingUseCase) Execute(ctx context.Context, salesOrderID string, actor omsDomain.LockActor) (*omsDomain.PackingSession, error) {
@@ -40,7 +41,11 @@ func (uc *StartOrResumePackingUseCase) Execute(ctx context.Context, salesOrderID
 		if err != nil {
 			return err
 		}
-		if err := order.CanStartPacking(); err != nil {
+		source, err := sourceOf(ctx, uc.origins, salesOrderID)
+		if err != nil {
+			return err
+		}
+		if err := order.CanStartPacking(source); err != nil {
 			return err
 		}
 		now := time.Now()

@@ -61,13 +61,13 @@ func paidWooOrder(id int, txn string) integrationsDomain.WooOrder {
 func TestBackfillWooOrderPayments_fillsInWhatWooHasForEachOrder(t *testing.T) {
 	at := time.Date(2026, 9, 20, 9, 0, 0, 0, time.UTC)
 	lister := &fakeMissingPaymentLister{orders: []omsDomain.SalesOrder{
-		{ID: "so-1", ExternalOrderID: "101", Status: omsDomain.SalesOrderStatusCompleted, PaymentMethod: "stripe", OccurredAt: at},
-		{ID: "so-2", ExternalOrderID: "102", Status: omsDomain.SalesOrderStatusOnHold, OccurredAt: at.Add(-time.Hour)},
+		{ID: "so-1", Status: omsDomain.SalesOrderStatusCompleted, PaymentMethod: "stripe", OccurredAt: at},
+		{ID: "so-2", Status: omsDomain.SalesOrderStatusOnHold, OccurredAt: at.Add(-time.Hour)},
 	}}
 	bacs := integrationsDomain.WooOrder{ID: 102, Status: "on-hold", PaymentMethod: "bacs", PaymentMethodTitle: "Bank transfer"}
 	clients := &fakeWooClients{client: wooOrdersByID{&stubWooClient{}, map[string]integrationsDomain.WooOrder{"101": paidWooOrder(101, "ch_101"), "102": bacs}}}
 	update := &stubUpdateSalesOrderUC{}
-	uc := appchannels.NewBackfillWooOrderPaymentsUseCase(newMockGormDB(t, 1), lister, clients, update)
+	uc := appchannels.NewBackfillWooOrderPaymentsUseCase(newMockGormDB(t, 1), lister, wooOrigins(map[string]string{"so-1": "101", "so-2": "102"}), clients, update)
 
 	result, err := uc.Execute(context.Background(), appchannels.BackfillWooOrderPaymentsInput{ConnectionID: "conn-1"})
 
@@ -91,12 +91,12 @@ func TestBackfillWooOrderPayments_fillsInWhatWooHasForEachOrder(t *testing.T) {
 
 func TestBackfillWooOrderPayments_countsAnOrderWooHasNothingNewForAsChecked(t *testing.T) {
 	lister := &fakeMissingPaymentLister{orders: []omsDomain.SalesOrder{
-		{ID: "so-1", ExternalOrderID: "101", Status: omsDomain.SalesOrderStatusCompleted, PaymentMethod: "cod", PaymentMethodTitle: "Cash on delivery"},
+		{ID: "so-1", Status: omsDomain.SalesOrderStatusCompleted, PaymentMethod: "cod", PaymentMethodTitle: "Cash on delivery"},
 	}}
 	cod := integrationsDomain.WooOrder{ID: 101, Status: "completed", PaymentMethod: "cod", PaymentMethodTitle: "Cash on delivery"}
 	clients := &fakeWooClients{client: wooOrdersByID{&stubWooClient{}, map[string]integrationsDomain.WooOrder{"101": cod}}}
 	update := &stubUpdateSalesOrderUC{}
-	uc := appchannels.NewBackfillWooOrderPaymentsUseCase(newMockGormDB(t, 1), lister, clients, update)
+	uc := appchannels.NewBackfillWooOrderPaymentsUseCase(newMockGormDB(t, 1), lister, wooOrigins(map[string]string{"so-1": "101"}), clients, update)
 
 	result, err := uc.Execute(context.Background(), appchannels.BackfillWooOrderPaymentsInput{ConnectionID: "conn-1"})
 
@@ -108,12 +108,12 @@ func TestBackfillWooOrderPayments_countsAnOrderWooHasNothingNewForAsChecked(t *t
 
 func TestBackfillWooOrderPayments_oneFailingOrderDoesNotStopTheBatch(t *testing.T) {
 	lister := &fakeMissingPaymentLister{orders: []omsDomain.SalesOrder{
-		{ID: "so-1", ExternalOrderID: "999"},
-		{ID: "so-2", ExternalOrderID: "102", Status: omsDomain.SalesOrderStatusCompleted},
+		{ID: "so-1"},
+		{ID: "so-2", Status: omsDomain.SalesOrderStatusCompleted},
 	}}
 	clients := &fakeWooClients{client: wooOrdersByID{&stubWooClient{}, map[string]integrationsDomain.WooOrder{"102": paidWooOrder(102, "ch_102")}}}
 	update := &stubUpdateSalesOrderUC{}
-	uc := appchannels.NewBackfillWooOrderPaymentsUseCase(newMockGormDB(t, 1), lister, clients, update)
+	uc := appchannels.NewBackfillWooOrderPaymentsUseCase(newMockGormDB(t, 1), lister, wooOrigins(map[string]string{"so-1": "999", "so-2": "102"}), clients, update)
 
 	result, err := uc.Execute(context.Background(), appchannels.BackfillWooOrderPaymentsInput{ConnectionID: "conn-1"})
 
@@ -128,14 +128,16 @@ func TestBackfillWooOrderPayments_aFullBatchReturnsACursorThatResumesAfterIt(t *
 	at := time.Date(2026, 9, 20, 9, 0, 0, 0, time.UTC)
 	orders := make([]omsDomain.SalesOrder, appchannels.BackfillWooOrderPaymentsBatchSize)
 	byID := map[string]integrationsDomain.WooOrder{}
+	wooIDs := map[string]string{}
 	for i := range orders {
 		ext := string(rune('a'+i%26)) + time.Duration(i).String()
-		orders[i] = omsDomain.SalesOrder{ID: "so-" + ext, ExternalOrderID: ext, OccurredAt: at.Add(-time.Duration(i) * time.Minute)}
+		orders[i] = omsDomain.SalesOrder{ID: "so-" + ext, OccurredAt: at.Add(-time.Duration(i) * time.Minute)}
+		wooIDs["so-"+ext] = ext
 		byID[ext] = integrationsDomain.WooOrder{}
 	}
 	lister := &fakeMissingPaymentLister{orders: orders}
 	clients := &fakeWooClients{client: wooOrdersByID{&stubWooClient{}, byID}}
-	uc := appchannels.NewBackfillWooOrderPaymentsUseCase(newMockGormDB(t, 2), lister, clients, &stubUpdateSalesOrderUC{})
+	uc := appchannels.NewBackfillWooOrderPaymentsUseCase(newMockGormDB(t, 2), lister, wooOrigins(wooIDs), clients, &stubUpdateSalesOrderUC{})
 
 	first, err := uc.Execute(context.Background(), appchannels.BackfillWooOrderPaymentsInput{ConnectionID: "conn-1"})
 	require.NoError(t, err)
@@ -153,7 +155,7 @@ func TestBackfillWooOrderPayments_aFullBatchReturnsACursorThatResumesAfterIt(t *
 }
 
 func TestBackfillWooOrderPayments_rejectsAMalformedCursor(t *testing.T) {
-	uc := appchannels.NewBackfillWooOrderPaymentsUseCase(newMockGormDB(t, 0), &fakeMissingPaymentLister{}, &fakeWooClients{client: &stubWooClient{}}, &stubUpdateSalesOrderUC{})
+	uc := appchannels.NewBackfillWooOrderPaymentsUseCase(newMockGormDB(t, 0), &fakeMissingPaymentLister{}, wooOrigins(nil), &fakeWooClients{client: &stubWooClient{}}, &stubUpdateSalesOrderUC{})
 
 	_, err := uc.Execute(context.Background(), appchannels.BackfillWooOrderPaymentsInput{ConnectionID: "conn-1", Cursor: "not-a-cursor"})
 
@@ -161,7 +163,7 @@ func TestBackfillWooOrderPayments_rejectsAMalformedCursor(t *testing.T) {
 }
 
 func TestBackfillWooOrderPayments_propagatesAConnectionThatIsNotWooCommerce(t *testing.T) {
-	uc := appchannels.NewBackfillWooOrderPaymentsUseCase(newMockGormDB(t, 0), &fakeMissingPaymentLister{},
+	uc := appchannels.NewBackfillWooOrderPaymentsUseCase(newMockGormDB(t, 0), &fakeMissingPaymentLister{}, wooOrigins(nil),
 		&fakeWooClients{err: integrationsDomain.ErrProviderNotSupported}, &stubUpdateSalesOrderUC{})
 
 	_, err := uc.Execute(context.Background(), appchannels.BackfillWooOrderPaymentsInput{ConnectionID: "conn-bol"})

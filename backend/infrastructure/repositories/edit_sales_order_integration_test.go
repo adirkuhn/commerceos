@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
+	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
@@ -49,7 +49,7 @@ func TestEditSalesOrder_Integration_replacesLinesAndRetakesStock(t *testing.T) {
 	}
 	require.Equal(t, int64(10), stock())
 
-	edit := appoms.NewEditSalesOrderUseCase(db, orders, lines, links, repositories.NewSKURepo(db), allocate,
+	edit := appoms.NewEditSalesOrderUseCase(db, orders, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), lines, links, repositories.NewSKURepo(db), allocate,
 		appinventory.NewRecordStockMovementUseCase(db, movements, outbox, nil),
 		repositories.NewPickingSessionRepo(db), repositories.NewPackingSessionRepo(db), outbox)
 	_, err = edit.Execute(ctx, appoms.EditSalesOrderInput{

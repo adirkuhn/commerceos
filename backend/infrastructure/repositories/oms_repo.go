@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -35,10 +34,6 @@ func (r *SalesOrderRepo) Create(ctx context.Context, o *omsDomain.SalesOrder) er
 	}
 	m := salesOrderModelFromDomain(o)
 	if err := tx.Create(&m).Error; err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.ConstraintName == "sales_orders_tenant_source_external_id_unique" {
-			return omsDomain.ErrDuplicateExternalOrder
-		}
 		return fmt.Errorf("salesOrderRepo.Create: %w", err)
 	}
 	o.ID = m.ID
@@ -81,22 +76,6 @@ func (r *SalesOrderRepo) FindByID(ctx context.Context, id string) (*omsDomain.Sa
 	return toSalesOrderDomain(m), nil
 }
 
-func (r *SalesOrderRepo) FindByExternalID(ctx context.Context, source omsDomain.SalesOrderSource, externalOrderID string) (*omsDomain.SalesOrder, error) {
-	tx, err := r.tx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var m salesOrderModel
-	err = tx.Where("source = ? AND external_order_id = ?", string(source), externalOrderID).First(&m).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("salesOrderRepo.FindByExternalID: %w", err)
-	}
-	return toSalesOrderDomain(m), nil
-}
-
 func (r *SalesOrderRepo) FindByNumber(ctx context.Context, number string) (*omsDomain.SalesOrder, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
@@ -127,7 +106,7 @@ func salesOrderOrderClause(filter omsDomain.ListSalesOrdersFilter) string {
 	case omsDomain.SalesOrderSortCustomer:
 		return "billing_last_name " + dir + ", billing_first_name " + dir
 	case omsDomain.SalesOrderSortSource:
-		return "source " + dir
+		return salesOrderOriginSQL("sales_orders") + " " + dir
 	case omsDomain.SalesOrderSortStatus:
 		return "status " + dir
 	case omsDomain.SalesOrderSortTotal:
@@ -162,7 +141,7 @@ func salesOrdersMatching(tx *gorm.DB, filter omsDomain.ListSalesOrdersFilter) *g
 		for i, s := range filter.Source {
 			sources[i] = string(s)
 		}
-		q = q.Where("source IN ?", sources)
+		q = q.Where(salesOrderOriginSQL("sales_orders")+" IN ?", sources)
 	}
 	if filter.Fulfilled != nil {
 		q = q.Where("fulfilled = ?", *filter.Fulfilled)
@@ -173,12 +152,12 @@ func salesOrdersMatching(tx *gorm.DB, filter omsDomain.ListSalesOrdersFilter) *g
 	if filter.AwaitingPicking {
 		q = q.Where("fulfilled = false").
 			Where("status IN ?", salesOrderStatusStrings(omsDomain.PickableStatuses())).
-			Where("source <> ?", string(omsDomain.SalesOrderSourcePOS))
+			Where(notPOSSaleSQL("sales_orders"))
 	}
 	if filter.AwaitingPacking {
 		q = q.Where("packed = false").
 			Where("status IN ?", salesOrderStatusStrings(omsDomain.PickableStatuses())).
-			Where("source <> ?", string(omsDomain.SalesOrderSourcePOS))
+			Where(notPOSSaleSQL("sales_orders"))
 	}
 	if len(filter.Status) > 0 {
 		q = q.Where("status IN ?", salesOrderStatusStrings(filter.Status))
@@ -196,7 +175,7 @@ func salesOrdersMatching(tx *gorm.DB, filter omsDomain.ListSalesOrdersFilter) *g
 		q = q.Where("ship_by_date IS NOT NULL").
 			Where("ship_by_date <= ?::date", filter.ShipDueOnOrBefore.Format(time.DateOnly)).
 			Where("status IN ?", salesOrderStatusStrings(omsDomain.PickableStatuses())).
-			Where("source <> ?", string(omsDomain.SalesOrderSourcePOS))
+			Where(notPOSSaleSQL("sales_orders"))
 	}
 	return q
 }
@@ -252,7 +231,7 @@ func (r *SalesOrderRepo) ListMissingPaymentInfo(ctx context.Context, connectionI
 		return nil, err
 	}
 	q := tx.Model(&salesOrderModel{}).
-		Where("connection_id = ?", connectionID).
+		Where(fromConnectionSQL("sales_orders"), connectionID).
 		Where("transaction_id = '' AND date_paid IS NULL").
 		Where("status IN ?", salesOrderStatusStrings(omsDomain.PaymentRecordExpectedStatuses()))
 	if after != nil {
@@ -275,7 +254,7 @@ func (r *SalesOrderRepo) ListByConnection(ctx context.Context, connectionID stri
 		return nil, err
 	}
 	var rows []salesOrderModel
-	if err := tx.Where("connection_id = ?", connectionID).Find(&rows).Error; err != nil {
+	if err := tx.Where(fromConnectionSQL("sales_orders"), connectionID).Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("salesOrderRepo.ListByConnection: %w", err)
 	}
 	out := make([]omsDomain.SalesOrder, len(rows))

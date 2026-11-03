@@ -270,13 +270,9 @@ func registerPayments(ctx context.Context, client mb.Client, remote *mb.RemoteDo
 	return nil
 }
 
-// orderReference is the order's own number, as the customer knows it.
-func orderReference(o oms.SalesOrder) string {
-	if o.Number != "" {
-		return o.Number
-	}
-	return o.ExternalOrderID
-}
+// orderReference is the order's own number, as the customer knows it
+// (every order has one: imported orders take the shop's, migration 247).
+func orderReference(o oms.SalesOrder) string { return o.Number }
 
 func orderParty(src *orderToBook) party {
 	b := src.order.Billing

@@ -29,6 +29,7 @@ type MarkOrderPickedUseCase struct {
 	outbox       eventrecord.Enqueuer
 	db           *gorm.DB
 	orderRepo    omsDomain.SalesOrderRepository
+	origins      originFinder
 	packingRepo  activeSessionFinderForMarkPicked
 	packScans    packSessionScanChecker
 	pickingRepo  pickingSessionTakeover
@@ -36,8 +37,8 @@ type MarkOrderPickedUseCase struct {
 	activityRepo activityCreator
 }
 
-func NewMarkOrderPickedUseCase(db *gorm.DB, orderRepo omsDomain.SalesOrderRepository, packingRepo activeSessionFinderForMarkPicked, packScans packSessionScanChecker, pickingRepo pickingSessionTakeover, pickScanRepo pickScanLister, activityRepo activityCreator, outbox eventrecord.Enqueuer) *MarkOrderPickedUseCase {
-	return &MarkOrderPickedUseCase{outbox: outbox, db: db, orderRepo: orderRepo, packingRepo: packingRepo, packScans: packScans, pickingRepo: pickingRepo, pickScanRepo: pickScanRepo, activityRepo: activityRepo}
+func NewMarkOrderPickedUseCase(db *gorm.DB, orderRepo omsDomain.SalesOrderRepository, origins originFinder, packingRepo activeSessionFinderForMarkPicked, packScans packSessionScanChecker, pickingRepo pickingSessionTakeover, pickScanRepo pickScanLister, activityRepo activityCreator, outbox eventrecord.Enqueuer) *MarkOrderPickedUseCase {
+	return &MarkOrderPickedUseCase{outbox: outbox, db: db, orderRepo: orderRepo, origins: origins, packingRepo: packingRepo, packScans: packScans, pickingRepo: pickingRepo, pickScanRepo: pickScanRepo, activityRepo: activityRepo}
 }
 
 func (uc *MarkOrderPickedUseCase) Execute(ctx context.Context, salesOrderID string, actor omsDomain.LockActor) error {
@@ -55,7 +56,11 @@ func (uc *MarkOrderPickedUseCase) Execute(ctx context.Context, salesOrderID stri
 		if err != nil {
 			return err
 		}
-		if err := order.CanMarkPicked(inPacking); err != nil {
+		source, err := sourceOf(ctx, uc.origins, salesOrderID)
+		if err != nil {
+			return err
+		}
+		if err := order.CanMarkPicked(source, inPacking); err != nil {
 			return err
 		}
 		if err := abandonOpenPicking(ctx, uc.pickingRepo, uc.pickScanRepo, uc.outbox, salesOrderID, actor, now); err != nil {

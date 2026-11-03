@@ -23,6 +23,7 @@ type StartOrResumePickingUseCase struct {
 	outbox         eventrecord.Enqueuer
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
+	origins        originFinder
 	sessionRepo    omsDomain.PickingSessionRepository
 	packingRepo    activePackingSessionFinder
 	packScans      packSessionScanChecker
@@ -34,8 +35,8 @@ type activePackingSessionFinder interface {
 	FindActiveBySalesOrder(ctx context.Context, salesOrderID string) (*omsDomain.PackingSession, error)
 }
 
-func NewStartOrResumePickingUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, sessionRepo omsDomain.PickingSessionRepository, packingRepo activePackingSessionFinder, packScans packSessionScanChecker, outbox eventrecord.Enqueuer) *StartOrResumePickingUseCase {
-	return &StartOrResumePickingUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, sessionRepo: sessionRepo, packingRepo: packingRepo, packScans: packScans}
+func NewStartOrResumePickingUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, origins originFinder, sessionRepo omsDomain.PickingSessionRepository, packingRepo activePackingSessionFinder, packScans packSessionScanChecker, outbox eventrecord.Enqueuer) *StartOrResumePickingUseCase {
+	return &StartOrResumePickingUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, origins: origins, sessionRepo: sessionRepo, packingRepo: packingRepo, packScans: packScans}
 }
 
 func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID string, actor omsDomain.LockActor) (*omsDomain.PickingSession, error) {
@@ -53,7 +54,11 @@ func (uc *StartOrResumePickingUseCase) Execute(ctx context.Context, salesOrderID
 		if err != nil {
 			return err
 		}
-		if err := order.CanStartPicking(inPacking); err != nil {
+		source, err := sourceOf(ctx, uc.origins, salesOrderID)
+		if err != nil {
+			return err
+		}
+		if err := order.CanStartPicking(source, inPacking); err != nil {
 			return err
 		}
 

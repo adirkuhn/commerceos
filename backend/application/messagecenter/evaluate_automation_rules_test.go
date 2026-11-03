@@ -111,7 +111,7 @@ func newEvalUseCase(t *testing.T, d evalDeps) *appmc.EvaluateAutomationRulesUseC
 		d.settings = &settingsDomain.TenantSettings{}
 	}
 	orders := appmc.OrderSources{
-		SalesOrders: d.salesOrders, Customers: d.customers, LineItems: fakeLineItems{bySO: d.lines},
+		SalesOrders: d.salesOrders, Origins: manualOrigins{}, Customers: d.customers, LineItems: fakeLineItems{bySO: d.lines},
 		Shipments: fakeShipments{bySO: d.shipments}, CarrierOverrides: noCarrierOverrides{},
 	}
 	store := appmc.StoreSources{CompanyProfile: fixedProfile{d.profile}, Settings: fixedSettings{d.settings}}
@@ -348,4 +348,11 @@ func TestEvaluateAutomationRules_customerWithNoDestinationForChannel_sendsNothin
 
 	require.NoError(t, err)
 	assert.Empty(t, email.sent)
+}
+
+// manualOrigins: every order was made here (manual).
+type manualOrigins struct{}
+
+func (manualOrigins) Of(_ context.Context, salesOrderID string) (*integrationsDomain.SalesOrderOrigin, error) {
+	return &integrationsDomain.SalesOrderOrigin{SalesOrderID: salesOrderID, Origin: integrationsDomain.OriginManual}, nil
 }

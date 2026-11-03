@@ -25,7 +25,7 @@ func mapError(c *gin.Context, err error) error {
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, omsDomain.ErrEmptyLineItems), errors.Is(err, invDomain.ErrInsufficientStock),
 		errors.Is(err, invDomain.ErrInvalidQuantity), errors.Is(err, omsDomain.ErrLineItemNotOnOrder),
-		errors.Is(err, omsDomain.ErrOrderNotStockReducing), errors.Is(err, omsDomain.ErrDuplicateExternalOrder),
+		errors.Is(err, omsDomain.ErrOrderNotStockReducing),
 		errors.Is(err, omsDomain.ErrPickingSessionNotActive), errors.Is(err, omsDomain.ErrOrderAlreadyFulfilled),
 		errors.Is(err, omsDomain.ErrPickScanCodeOrSKURequired), errors.Is(err, omsDomain.ErrInvalidPickScanActionType),
 		errors.Is(err, omsDomain.ErrPickLineItemRequired), errors.Is(err, omsDomain.ErrLineItemSKUMismatch),

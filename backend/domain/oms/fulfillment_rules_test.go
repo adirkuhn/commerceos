@@ -46,11 +46,10 @@ func TestCanStartPacking(t *testing.T) {
 		{"picked but completed", omsDomain.SalesOrder{Fulfilled: true, Status: omsDomain.SalesOrderStatusCompleted}, omsDomain.ErrOrderNotPackable},
 		{"picked but shipped", omsDomain.SalesOrder{Fulfilled: true, Status: omsDomain.SalesOrderStatusShipped}, omsDomain.ErrOrderNotPackable},
 		{"picked on-hold order", omsDomain.SalesOrder{Fulfilled: true, Status: omsDomain.SalesOrderStatusOnHold}, nil},
-		{"point-of-sale order", omsDomain.SalesOrder{Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing}, omsDomain.ErrPOSOrderNotFulfillable},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.order.CanStartPacking()
+			err := tc.order.CanStartPacking(omsDomain.SalesOrderSourceWooCommerce)
 			if tc.want == nil {
 				assert.NoError(t, err)
 			} else {
@@ -71,11 +70,10 @@ func TestCanStartPicking(t *testing.T) {
 		{"already fulfilled", omsDomain.SalesOrder{Fulfilled: true}, false, omsDomain.ErrOrderAlreadyFulfilled},
 		{"already packed", omsDomain.SalesOrder{Packed: true}, false, omsDomain.ErrOrderAlreadyPacked},
 		{"packing session in progress", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusProcessing}, true, omsDomain.ErrOrderPackingInProgress},
-		{"point-of-sale order", omsDomain.SalesOrder{Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing}, false, omsDomain.ErrPOSOrderNotFulfillable},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.order.CanStartPicking(tc.packingInProgress)
+			err := tc.order.CanStartPicking(omsDomain.SalesOrderSourceWooCommerce, tc.packingInProgress)
 			if tc.want == nil {
 				assert.NoError(t, err)
 			} else {
@@ -116,11 +114,10 @@ func TestCanMarkPicked(t *testing.T) {
 		{"packing in progress", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusProcessing}, true, omsDomain.ErrOrderPackingInProgress},
 		{"cancelled order", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusCancelled}, false, omsDomain.ErrOrderNotPickable},
 		{"unpaid (pending) order", omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusPending}, false, omsDomain.ErrOrderNotPickable},
-		{"point-of-sale order", omsDomain.SalesOrder{Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing}, false, omsDomain.ErrPOSOrderNotFulfillable},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.order.CanMarkPicked(tc.packingInProgress)
+			err := tc.order.CanMarkPicked(omsDomain.SalesOrderSourceWooCommerce, tc.packingInProgress)
 			if tc.want == nil {
 				assert.NoError(t, err)
 			} else {
@@ -138,4 +135,12 @@ func TestSalesOrderSource_IsFulfillable(t *testing.T) {
 	} {
 		assert.True(t, src.IsFulfillable(), src)
 	}
+}
+
+// A POS sale was handed over at the counter: never picked or packed.
+func TestFulfillmentRules_aPOSSaleIsNeverPickedOrPacked(t *testing.T) {
+	order := omsDomain.SalesOrder{Status: omsDomain.SalesOrderStatusProcessing}
+	assert.ErrorIs(t, order.CanStartPacking(omsDomain.SalesOrderSourcePOS), omsDomain.ErrPOSOrderNotFulfillable)
+	assert.ErrorIs(t, order.CanStartPicking(omsDomain.SalesOrderSourcePOS, false), omsDomain.ErrPOSOrderNotFulfillable)
+	assert.ErrorIs(t, order.CanMarkPicked(omsDomain.SalesOrderSourcePOS, false), omsDomain.ErrPOSOrderNotFulfillable)
 }

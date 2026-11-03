@@ -4,6 +4,7 @@ package repositories_test
 
 import (
 	"context"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"testing"
 	"time"
 
@@ -27,8 +28,8 @@ func seedSalesOrderWithLineItemForPackingDB(t *testing.T, db *gorm.DB, ctx conte
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-			ExternalOrderID: "pos-order-packing-" + tenant.IDFromContext(ctx), WarehouseID: warehouseID,
+			TenantID:     tenant.IDFromContext(ctx),
+			WarehouseID:  warehouseID,
 			CurrencyCode: "USD", Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: true,
 			TotalMinorUnits: 1000, OccurredAt: now, CreatedAt: now, UpdatedAt: now,
 		}
@@ -36,6 +37,7 @@ func seedSalesOrderWithLineItemForPackingDB(t *testing.T, db *gorm.DB, ctx conte
 			return err
 		}
 		orderID = order.ID
+		setOrigin(t, ctx, orderID, integrationsDomain.OriginPOS, nil, "pos-order-pack-"+orderID)
 
 		line := omsDomain.SalesOrderLineItem{
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: orderID, SKUID: &skuID,

@@ -69,6 +69,25 @@ func (r *SalesOrderOriginRepo) FindBySalesOrderID(ctx context.Context, salesOrde
 	return r.findOne(ctx, "FindBySalesOrderID", "sales_order_id = ?", salesOrderID)
 }
 
+func (r *SalesOrderOriginRepo) ListBySalesOrderIDs(ctx context.Context, salesOrderIDs []string) ([]integrationsDomain.SalesOrderOrigin, error) {
+	if len(salesOrderIDs) == 0 {
+		return nil, nil
+	}
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []salesOrderOriginModel
+	if err := tx.Where("sales_order_id IN ?", salesOrderIDs).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("salesOrderOrigins.ListBySalesOrderIDs: %w", err)
+	}
+	out := make([]integrationsDomain.SalesOrderOrigin, len(rows))
+	for i, m := range rows {
+		out[i] = fromSalesOrderOriginModel(m)
+	}
+	return out, nil
+}
+
 func (r *SalesOrderOriginRepo) FindByConnectionExternalID(ctx context.Context, connectionID, externalOrderID string) (*integrationsDomain.SalesOrderOrigin, error) {
 	return r.findOne(ctx, "FindByConnectionExternalID", "connection_id = ? AND external_order_id = ?", connectionID, externalOrderID)
 }

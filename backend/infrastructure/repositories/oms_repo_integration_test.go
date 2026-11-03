@@ -4,7 +4,6 @@ package repositories_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -37,14 +36,14 @@ func TestSalesOrderRepo_Integration_SearchByNumberAndBillingName(t *testing.T) {
 		now := time.Now()
 		orders := []omsDomain.SalesOrder{
 			{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-				ExternalOrderID: "search-order-1", Number: "SO-10042", WarehouseID: warehouseID, CurrencyCode: "USD",
+				TenantID: tenant.IDFromContext(ctx), 
+				Number: "SO-10042", WarehouseID: warehouseID, CurrencyCode: "USD",
 				TotalMinorUnits: 1000, OccurredAt: now, CreatedAt: now,
 				Billing: omsDomain.Address{FirstName: "José", LastName: "Conceição"},
 			},
 			{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-				ExternalOrderID: "search-order-2", Number: "SO-20099", WarehouseID: warehouseID, CurrencyCode: "USD",
+				TenantID: tenant.IDFromContext(ctx), 
+				Number: "SO-20099", WarehouseID: warehouseID, CurrencyCode: "USD",
 				TotalMinorUnits: 1000, OccurredAt: now, CreatedAt: now,
 				Billing: omsDomain.Address{FirstName: "Renée", LastName: "Müller"},
 			},
@@ -79,7 +78,7 @@ func TestSalesOrderRepo_Integration_SearchByNumberAndBillingName(t *testing.T) {
 	}
 }
 
-func TestSalesOrderRepo_Integration_CreateFindByIDAndByExternalID(t *testing.T) {
+func TestSalesOrderRepo_Integration_CreateAndFindByID(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()
 	skuID, warehouseID := seedProductSKUWarehouse(t, db, ctx)
@@ -90,8 +89,8 @@ func TestSalesOrderRepo_Integration_CreateFindByIDAndByExternalID(t *testing.T) 
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-			ExternalOrderID: "pos-order-int-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID, CurrencyCode: "USD",
 			TotalMinorUnits: 1000, OccurredAt: now, CreatedAt: now,
 		}
 		if err := salesOrderRepo.Create(ctx, &order); err != nil {
@@ -108,15 +107,11 @@ func TestSalesOrderRepo_Integration_CreateFindByIDAndByExternalID(t *testing.T) 
 	})
 	require.NoError(t, err)
 
-	var byID, byExternal *omsDomain.SalesOrder
+	var byID *omsDomain.SalesOrder
 	var lineItems []omsDomain.SalesOrderLineItem
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		var err error
 		byID, err = salesOrderRepo.FindByID(ctx, orderID)
-		if err != nil {
-			return err
-		}
-		byExternal, err = salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourcePOS, "pos-order-int-1")
 		if err != nil {
 			return err
 		}
@@ -126,8 +121,6 @@ func TestSalesOrderRepo_Integration_CreateFindByIDAndByExternalID(t *testing.T) 
 	require.NoError(t, err)
 	require.Equal(t, orderID, byID.ID)
 	require.Equal(t, int64(1000), byID.TotalMinorUnits)
-	require.NotNil(t, byExternal)
-	require.Equal(t, orderID, byExternal.ID)
 	require.Len(t, lineItems, 1)
 	require.NotNil(t, lineItems[0].SKUID)
 	require.Equal(t, skuID, *lineItems[0].SKUID)
@@ -154,8 +147,8 @@ func TestSalesOrderLineItemRepo_Integration_RoundTripsANilSKUID(t *testing.T) {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
-			ExternalOrderID: "woo-order-unlinked-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID, CurrencyCode: "USD",
 			TotalMinorUnits: 500, OccurredAt: now, CreatedAt: now,
 		}
 		if err := salesOrderRepo.Create(ctx, &order); err != nil {
@@ -211,9 +204,9 @@ func TestSalesOrderRepo_Integration_WooFieldsRoundTrip(t *testing.T) {
 
 		datePaid := now
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-			ExternalOrderID: "pos-order-woo-1", WarehouseID: warehouseID, CustomerID: &customerID,
-			Status: omsDomain.SalesOrderStatusCompleted, Number: "1001", OrderKey: "wc_order_abc123",
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID, CustomerID: &customerID,
+			Status: omsDomain.SalesOrderStatusCompleted, Number: "1001", 
 			Billing: omsDomain.Address{
 				FirstName: "Jane", LastName: "Doe", Address1: "123 Main St", Address2: "Apt 4",
 				City: "Springfield", State: "IL", Postcode: "62701", Country: "US", Email: "jane@example.com", Phone: "555-0100",
@@ -271,8 +264,8 @@ func TestSalesOrderRepo_Integration_RefundFieldsRoundTrip(t *testing.T) {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWhatsApp,
-			ExternalOrderID: "wa-order-refund-1", WarehouseID: warehouseID,
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID,
 			Status: omsDomain.SalesOrderStatusProcessing, CurrencyCode: "USD", TotalMinorUnits: 1000,
 			PaymentProvider: "stripe", PaymentExternalID: "cs_test_123",
 			OccurredAt: now, CreatedAt: now, UpdatedAt: now,
@@ -332,8 +325,8 @@ func TestSalesOrderLineItemRepo_Integration_RefundedFieldsRoundTrip(t *testing.T
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-			ExternalOrderID: "pos-order-refund-1", WarehouseID: warehouseID,
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID,
 			Status: omsDomain.SalesOrderStatusProcessing, CurrencyCode: "USD", TotalMinorUnits: 1000,
 			OccurredAt: now, CreatedAt: now, UpdatedAt: now,
 		}
@@ -382,8 +375,8 @@ func TestSalesOrderLineItemRepo_Integration_SoldExpiryDateRoundTrips(t *testing.
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
-			ExternalOrderID: "woo-order-expiry-1", WarehouseID: warehouseID,
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID,
 			Status: omsDomain.SalesOrderStatusProcessing, CurrencyCode: "USD", TotalMinorUnits: 1000,
 			OccurredAt: now, CreatedAt: now, UpdatedAt: now,
 		}
@@ -437,10 +430,10 @@ func TestSalesOrderRepo_Integration_List(t *testing.T) {
 
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
-		for _, extID := range []string{"pos-list-1", "pos-list-2"} {
+		for range 2 {
 			order := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-				ExternalOrderID: extID, WarehouseID: warehouseID, CurrencyCode: "USD",
+				TenantID: tenant.IDFromContext(ctx), 
+				WarehouseID: warehouseID, CurrencyCode: "USD",
 				OccurredAt: now, CreatedAt: now,
 			}
 			if err := salesOrderRepo.Create(ctx, &order); err != nil {
@@ -476,6 +469,7 @@ func TestSalesOrderRepo_Integration_ListByConnection(t *testing.T) {
 	connRepo := repositories.NewConnectionRepo(db)
 
 	var conn1ID, conn2ID string
+	var conn1Orders []string
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		for i, id := range []*string{&conn1ID, &conn2ID} {
@@ -493,15 +487,28 @@ func TestSalesOrderRepo_Integration_ListByConnection(t *testing.T) {
 		}
 
 		orders := []omsDomain.SalesOrder{
-			{TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "woo-conn1-a", ConnectionID: &conn1ID, WarehouseID: warehouseID, CurrencyCode: "USD", OccurredAt: now, CreatedAt: now},
-			{TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "woo-conn1-b", ConnectionID: &conn1ID, WarehouseID: warehouseID, CurrencyCode: "USD", OccurredAt: now, CreatedAt: now},
-			{TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "woo-conn2-a", ConnectionID: &conn2ID, WarehouseID: warehouseID, CurrencyCode: "USD", OccurredAt: now, CreatedAt: now},
-			{TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "pos-no-conn", WarehouseID: warehouseID, CurrencyCode: "USD", OccurredAt: now, CreatedAt: now},
+			{TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID, CurrencyCode: "USD", OccurredAt: now, CreatedAt: now},
+			{TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID, CurrencyCode: "USD", OccurredAt: now, CreatedAt: now},
+			{TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID, CurrencyCode: "USD", OccurredAt: now, CreatedAt: now},
+			{TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID, CurrencyCode: "USD", OccurredAt: now, CreatedAt: now},
 		}
-		for _, o := range orders {
-			o := o
-			if err := salesOrderRepo.Create(ctx, &o); err != nil {
+		origins := []struct {
+			origin integrationsDomain.Origin
+			conn   *string
+			ext    string
+		}{
+			{integrationsDomain.OriginWooCommerce, &conn1ID, "woo-conn1-a"},
+			{integrationsDomain.OriginWooCommerce, &conn1ID, "woo-conn1-b"},
+			{integrationsDomain.OriginWooCommerce, &conn2ID, "woo-conn2-a"},
+			{integrationsDomain.OriginPOS, nil, "pos-no-conn"},
+		}
+		for i := range orders {
+			if err := salesOrderRepo.Create(ctx, &orders[i]); err != nil {
 				return err
+			}
+			setOrigin(t, ctx, orders[i].ID, origins[i].origin, origins[i].conn, origins[i].ext)
+			if i < 2 {
+				conn1Orders = append(conn1Orders, orders[i].ID)
 			}
 		}
 		return nil
@@ -515,11 +522,11 @@ func TestSalesOrderRepo_Integration_ListByConnection(t *testing.T) {
 		return err
 	})
 	require.NoError(t, err)
-	require.Len(t, found, 2)
-	for _, o := range found {
-		require.NotNil(t, o.ConnectionID)
-		require.Equal(t, conn1ID, *o.ConnectionID)
+	ids := make([]string, len(found))
+	for i, o := range found {
+		ids[i] = o.ID
 	}
+	assert.ElementsMatch(t, conn1Orders, ids)
 }
 
 // TestSalesOrderRepo_Integration_ListSortsByTotalAndDefaultsToOccurredAtDesc
@@ -549,8 +556,8 @@ func TestSalesOrderRepo_Integration_ListSortsByTotalAndDefaultsToOccurredAtDesc(
 		}
 		for _, s := range specs {
 			order := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-				ExternalOrderID: s.extID, WarehouseID: warehouseID, CurrencyCode: "USD",
+				TenantID: tenant.IDFromContext(ctx), 
+				WarehouseID: warehouseID, CurrencyCode: "USD",
 				TotalMinorUnits: s.total, OccurredAt: s.occurredAt, CreatedAt: now,
 			}
 			if err := salesOrderRepo.Create(ctx, &order); err != nil {
@@ -585,20 +592,6 @@ func TestSalesOrderRepo_Integration_ListSortsByTotalAndDefaultsToOccurredAtDesc(
 	require.Equal(t, midID, byDefault[0].ID, "no SortBy/SortDir set -- must default to occurred_at desc, the most-recently-created of these three")
 }
 
-func TestSalesOrderRepo_Integration_FindByExternalIDReturnsNilNotErrorWhenMissing(t *testing.T) {
-	db := newIntegrationDB(t)
-	_, ctx := newTestTenant()
-	salesOrderRepo := repositories.NewSalesOrderRepo(db)
-
-	var found *omsDomain.SalesOrder
-	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		var err error
-		found, err = salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourcePOS, "does-not-exist")
-		return err
-	})
-	require.NoError(t, err)
-	require.Nil(t, found)
-}
 
 func TestSalesOrderRepo_Integration_FindByNumberReturnsNilNotErrorWhenMissing(t *testing.T) {
 	db := newIntegrationDB(t)
@@ -624,8 +617,8 @@ func TestSalesOrderRepo_Integration_FindByNumberFindsTheOrder(t *testing.T) {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWhatsApp,
-			Number: "WA-1A2B3C4D", ExternalOrderID: "wa-order-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			TenantID: tenant.IDFromContext(ctx), 
+			Number: "WA-1A2B3C4D", WarehouseID: warehouseID, CurrencyCode: "USD",
 			OccurredAt: now, CreatedAt: now,
 		}
 		return salesOrderRepo.Create(ctx, &order)
@@ -640,37 +633,8 @@ func TestSalesOrderRepo_Integration_FindByNumberFindsTheOrder(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, found)
-	assert.Equal(t, "wa-order-1", found.ExternalOrderID)
 }
 
-func TestSalesOrderRepo_Integration_ExternalOrderIDIsUniquePerTenantAndSource(t *testing.T) {
-	db := newIntegrationDB(t)
-	_, ctx := newTestTenant()
-	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
-	salesOrderRepo := repositories.NewSalesOrderRepo(db)
-
-	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		now := time.Now()
-		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-			ExternalOrderID: "pos-order-dup", WarehouseID: warehouseID, CurrencyCode: "USD",
-			OccurredAt: now, CreatedAt: now,
-		}
-		return salesOrderRepo.Create(ctx, &order)
-	})
-	require.NoError(t, err)
-
-	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		now := time.Now()
-		dup := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-			ExternalOrderID: "pos-order-dup", WarehouseID: warehouseID, CurrencyCode: "USD",
-			OccurredAt: now, CreatedAt: now,
-		}
-		return salesOrderRepo.Create(ctx, &dup)
-	})
-	require.Error(t, err, "DB unique constraint (tenant_id, source, external_order_id) must reject this")
-}
 
 func TestSalesOrderRepo_Integration_Update(t *testing.T) {
 	db := newIntegrationDB(t)
@@ -682,8 +646,8 @@ func TestSalesOrderRepo_Integration_Update(t *testing.T) {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceManual,
-			ExternalOrderID: "manual-order-update-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID, CurrencyCode: "USD",
 			Status: omsDomain.SalesOrderStatusPending, OccurredAt: now, CreatedAt: now,
 		}
 		if err := salesOrderRepo.Create(ctx, &order); err != nil {
@@ -736,8 +700,8 @@ func TestSalesOrderRepo_Integration_DeleteCascadesLineItems(t *testing.T) {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceManual,
-			ExternalOrderID: "manual-order-delete-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID, CurrencyCode: "USD",
 			OccurredAt: now, CreatedAt: now,
 		}
 		if err := salesOrderRepo.Create(ctx, &order); err != nil {
@@ -780,8 +744,8 @@ func TestSalesOrderLineItemStockMovementRepo_Integration_Create(t *testing.T) {
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceManual,
-			ExternalOrderID: "manual-order-link-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID, CurrencyCode: "USD",
 			OccurredAt: now, CreatedAt: now,
 		}
 		if err := salesOrderRepo.Create(ctx, &order); err != nil {
@@ -825,103 +789,7 @@ func TestSalesOrderLineItemStockMovementRepo_Integration_Create(t *testing.T) {
 	require.Equal(t, int64(-1), links[0].QuantityDelta)
 }
 
-// TestSalesOrderRepo_Integration_CreateReturnsTypedDuplicateExternalOrderError
-// proves Create maps the (tenant_id, source, external_order_id) unique
-// violation to the typed omsDomain.ErrDuplicateExternalOrder -- what
-// ImportWooOrdersUseCase.createOne relies on (errors.Is) to detect it lost a
-// create race against a concurrent import of the same Woo order and fall
-// back to routing through the update path, instead of surfacing a raw DB
-// error as a run failure.
-func TestSalesOrderRepo_Integration_CreateReturnsTypedDuplicateExternalOrderError(t *testing.T) {
-	db := newIntegrationDB(t)
-	_, ctx := newTestTenant()
-	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
-	salesOrderRepo := repositories.NewSalesOrderRepo(db)
 
-	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		now := time.Now()
-		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
-			ExternalOrderID: "woo-order-dup-typed", WarehouseID: warehouseID, CurrencyCode: "USD",
-			OccurredAt: now, CreatedAt: now,
-		}
-		return salesOrderRepo.Create(ctx, &order)
-	})
-	require.NoError(t, err)
-
-	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		now := time.Now()
-		dup := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
-			ExternalOrderID: "woo-order-dup-typed", WarehouseID: warehouseID, CurrencyCode: "USD",
-			OccurredAt: now, CreatedAt: now,
-		}
-		return salesOrderRepo.Create(ctx, &dup)
-	})
-	require.ErrorIs(t, err, omsDomain.ErrDuplicateExternalOrder)
-}
-
-// TestSalesOrderRepo_Integration_ConcurrentCreatesForTheSameExternalOrderIDOnlyOneWins
-// is the mid-task-added hardening test: two goroutines racing to create a
-// sales order for the same (tenant, source, external_order_id) -- simulating
-// two scheduler replicas, or the manual fetch-order endpoint racing the
-// scheduler, both importing the same Woo order at once -- must not both
-// succeed. Exactly one Create call succeeds; the other gets
-// ErrDuplicateExternalOrder from the DB-level unique constraint, never a
-// second row.
-func TestSalesOrderRepo_Integration_ConcurrentCreatesForTheSameExternalOrderIDOnlyOneWins(t *testing.T) {
-	db := newIntegrationDB(t)
-	_, ctx := newTestTenant()
-	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
-	salesOrderRepo := repositories.NewSalesOrderRepo(db)
-
-	const externalOrderID = "woo-order-race-1"
-	attempt := func() error {
-		return tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-			now := time.Now()
-			order := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
-				ExternalOrderID: externalOrderID, WarehouseID: warehouseID, CurrencyCode: "USD",
-				OccurredAt: now, CreatedAt: now,
-			}
-			return salesOrderRepo.Create(ctx, &order)
-		})
-	}
-
-	var wg sync.WaitGroup
-	errs := make([]error, 2)
-	for i := range errs {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			errs[i] = attempt()
-		}(i)
-	}
-	wg.Wait()
-
-	successes, duplicates := 0, 0
-	for _, err := range errs {
-		switch {
-		case err == nil:
-			successes++
-		case errors.Is(err, omsDomain.ErrDuplicateExternalOrder):
-			duplicates++
-		default:
-			require.NoError(t, err, "unexpected error type -- must be nil or ErrDuplicateExternalOrder")
-		}
-	}
-	require.Equal(t, 1, successes, "exactly one concurrent create must win")
-	require.Equal(t, 1, duplicates, "the loser must see the typed duplicate error, not silently succeed")
-
-	var total int64
-	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		var listErr error
-		_, total, listErr = salesOrderRepo.List(ctx, omsDomain.ListSalesOrdersFilter{Limit: 50})
-		return listErr
-	})
-	require.NoError(t, err)
-	require.Equal(t, int64(1), total, "the database must hold exactly one order for this external id, never two")
-}
 
 // TestSalesOrderRepo_Integration_TrySetStockDecrementedOnlyOneOfTwoConcurrentCallersWins
 // is the direct integration-level proof for the fix to the reported bug
@@ -943,21 +811,14 @@ func TestSalesOrderRepo_Integration_TrySetStockDecrementedOnlyOneOfTwoConcurrent
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
-			ExternalOrderID: "woo-order-decrement-race-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID, CurrencyCode: "USD",
 			StockDecremented: false, OccurredAt: now, CreatedAt: now,
 		}
-		return salesOrderRepo.Create(ctx, &order)
-	})
-	require.NoError(t, err)
-	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
-		var findErr error
-		var so *omsDomain.SalesOrder
-		so, findErr = salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourceWooCommerce, "woo-order-decrement-race-1")
-		if findErr != nil {
-			return findErr
+		if err := salesOrderRepo.Create(ctx, &order); err != nil {
+			return err
 		}
-		orderID = so.ID
+		orderID = order.ID
 		return nil
 	})
 	require.NoError(t, err)
@@ -1019,8 +880,8 @@ func TestSalesOrderLineItemRepo_Integration_StockStatusRoundTripsAndUpdate(t *te
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
-			ExternalOrderID: "woo-order-stock-status-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID, CurrencyCode: "USD",
 			OccurredAt: now, CreatedAt: now,
 		}
 		if err := salesOrderRepo.Create(ctx, &order); err != nil {
@@ -1095,8 +956,8 @@ func TestSalesOrderRepo_Integration_ListFiltersByNeedsStockReviewAndNeedsSKURevi
 		}
 		for _, s := range specs {
 			order := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
-				ExternalOrderID: s.extID, WarehouseID: warehouseID, CurrencyCode: "USD",
+				TenantID: tenant.IDFromContext(ctx), 
+				WarehouseID: warehouseID, CurrencyCode: "USD",
 				OccurredAt: now, CreatedAt: now,
 			}
 			if err := salesOrderRepo.Create(ctx, &order); err != nil {
@@ -1142,8 +1003,8 @@ func TestSalesOrderRepo_Integration_FulfilledRoundTripsAndFilters(t *testing.T) 
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
 		fulfilled := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
-			ExternalOrderID: "fulfilled-int-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID, CurrencyCode: "USD",
 			Status: omsDomain.SalesOrderStatusCompleted, Fulfilled: true, OccurredAt: now, CreatedAt: now,
 		}
 		if err := salesOrderRepo.Create(ctx, &fulfilled); err != nil {
@@ -1152,8 +1013,8 @@ func TestSalesOrderRepo_Integration_FulfilledRoundTripsAndFilters(t *testing.T) 
 		fulfilledID = fulfilled.ID
 
 		unfulfilled := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
-			ExternalOrderID: "unfulfilled-int-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID, CurrencyCode: "USD",
 			Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: false, OccurredAt: now, CreatedAt: now,
 		}
 		if err := salesOrderRepo.Create(ctx, &unfulfilled); err != nil {
@@ -1223,8 +1084,8 @@ func TestSalesOrderRepo_Integration_ListFiltersByStatus(t *testing.T) {
 		}
 		for _, s := range specs {
 			order := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce,
-				ExternalOrderID: s.extID, WarehouseID: warehouseID, CurrencyCode: "USD",
+				TenantID: tenant.IDFromContext(ctx), 
+				WarehouseID: warehouseID, CurrencyCode: "USD",
 				Status: s.status, OccurredAt: now, CreatedAt: now,
 			}
 			if err := salesOrderRepo.Create(ctx, &order); err != nil {
@@ -1293,13 +1154,14 @@ func TestSalesOrderRepo_Integration_ListFiltersByAwaitingPacking(t *testing.T) {
 				source = omsDomain.SalesOrderSourcePOS
 			}
 			order := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: source,
-				ExternalOrderID: s.extID, WarehouseID: warehouseID, CurrencyCode: "USD",
+				TenantID:    tenant.IDFromContext(ctx),
+				WarehouseID: warehouseID, CurrencyCode: "USD",
 				Status: s.status, Fulfilled: s.fulfilled, Packed: s.packed, OccurredAt: now, CreatedAt: now,
 			}
 			if err := salesOrderRepo.Create(ctx, &order); err != nil {
 				return err
 			}
+			setOrigin(t, ctx, order.ID, integrationsDomain.Origin(source), nil, s.extID)
 			if s.id != nil {
 				*s.id = order.ID
 			}
@@ -1352,13 +1214,13 @@ func TestSalesOrderRepo_Integration_ListFiltersBySource(t *testing.T) {
 		}
 		for _, s := range specs {
 			order := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: s.source,
-				ExternalOrderID: s.extID, WarehouseID: warehouseID, CurrencyCode: "USD",
+				TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID, CurrencyCode: "USD",
 				Status: omsDomain.SalesOrderStatusProcessing, OccurredAt: now, CreatedAt: now,
 			}
 			if err := salesOrderRepo.Create(ctx, &order); err != nil {
 				return err
 			}
+			setOrigin(t, ctx, order.ID, integrationsDomain.Origin(s.source), nil, s.extID)
 			*s.id = order.ID
 		}
 		return nil
@@ -1411,8 +1273,8 @@ func TestSalesOrderRepo_Integration_ListFiltersByCustomerID(t *testing.T) {
 			{"customer-filter-guest-1", nil},
 		} {
 			order := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-				ExternalOrderID: spec.extID, WarehouseID: warehouseID, CustomerID: spec.customerID, CurrencyCode: "USD",
+				TenantID: tenant.IDFromContext(ctx), 
+				WarehouseID: warehouseID, CustomerID: spec.customerID, CurrencyCode: "USD",
 				Status: omsDomain.SalesOrderStatusProcessing, OccurredAt: now, CreatedAt: now,
 			}
 			if err := salesOrderRepo.Create(ctx, &order); err != nil {
@@ -1455,7 +1317,7 @@ func seedDashboardOrder(
 	var orderID string
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: source, ExternalOrderID: externalID,
+			TenantID: tenant.IDFromContext(ctx), 
 			WarehouseID: warehouseID, Status: status, CurrencyCode: currency,
 			TotalMinorUnits: totalMinorUnits, OccurredAt: occurredAt, CreatedAt: occurredAt,
 		}
@@ -1463,6 +1325,7 @@ func seedDashboardOrder(
 			return err
 		}
 		orderID = order.ID
+		setOrigin(t, ctx, orderID, integrationsDomain.Origin(source), nil, externalID)
 		if qty <= 0 {
 			return nil
 		}
@@ -1764,7 +1627,7 @@ func TestSalesOrderRepo_Integration_CustomerPerformanceBetween_AggregatesPerCust
 		}
 		for _, o := range orders {
 			order := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: o.extID,
+				TenantID: tenant.IDFromContext(ctx), 
 				WarehouseID: warehouseID, CustomerID: o.custID, Status: o.status, CurrencyCode: o.currency,
 				TotalMinorUnits: o.total, OccurredAt: o.occurred, CreatedAt: o.occurred,
 			}
@@ -1814,14 +1677,14 @@ func TestSalesOrderRepo_Integration_CustomerPerformanceBetween_OrdersByRevenueDe
 		highID = high.ID
 
 		if err := salesOrderRepo.Create(ctx, &omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "rank-cust-1",
+			TenantID: tenant.IDFromContext(ctx), 
 			WarehouseID: warehouseID, CustomerID: &lowID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR",
 			TotalMinorUnits: 500, OccurredAt: now, CreatedAt: now,
 		}); err != nil {
 			return err
 		}
 		return salesOrderRepo.Create(ctx, &omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "rank-cust-2",
+			TenantID: tenant.IDFromContext(ctx), 
 			WarehouseID: warehouseID, CustomerID: &highID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR",
 			TotalMinorUnits: 5000, OccurredAt: now, CreatedAt: now,
 		})
@@ -1877,7 +1740,7 @@ func TestSalesOrderRepo_Integration_CategoryPerformanceBetween_GroupsByCategoryA
 
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		order1 := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "cat-perf-1", WarehouseID: warehouseID,
+			TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID,
 			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 1000, OccurredAt: now, CreatedAt: now,
 		}
 		if err := salesOrderRepo.Create(ctx, &order1); err != nil {
@@ -1892,7 +1755,7 @@ func TestSalesOrderRepo_Integration_CategoryPerformanceBetween_GroupsByCategoryA
 
 		// Adhoc line item (no linked SKU) -- must roll into "Uncategorized".
 		order2 := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "cat-perf-2", WarehouseID: warehouseID,
+			TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID,
 			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 500, OccurredAt: now, CreatedAt: now,
 		}
 		if err := salesOrderRepo.Create(ctx, &order2); err != nil {
@@ -1970,7 +1833,7 @@ func TestSalesOrderRepo_Integration_ProfitabilityBetween_ComputesProfitOnlyOverK
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		// Known-cost line: revenue 1000, qty 2, cost 300*2=600 -> profit 400.
 		order1 := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "profit-1", WarehouseID: warehouseID,
+			TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID,
 			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 1000, OccurredAt: now, CreatedAt: now,
 		}
 		if err := salesOrderRepo.Create(ctx, &order1); err != nil {
@@ -1986,7 +1849,7 @@ func TestSalesOrderRepo_Integration_ProfitabilityBetween_ComputesProfitOnlyOverK
 		// Unknown-cost line (adhoc, no SKU): revenue 500, must count toward
 		// RevenueMinorUnits but NOT toward CostKnownRevenueMinorUnits/profit.
 		order2 := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "profit-2", WarehouseID: warehouseID,
+			TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID,
 			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 500, OccurredAt: now, CreatedAt: now,
 		}
 		if err := salesOrderRepo.Create(ctx, &order2); err != nil {
@@ -2066,7 +1929,7 @@ func TestSalesOrderRepo_Integration_ProfitabilityTrendBetween_BucketsByDayComput
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		// Newer day, known cost: revenue 1000, qty 2, cost 300*2=600 -> profit 400.
 		orderNew := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "profit-trend-new", WarehouseID: warehouseID,
+			TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID,
 			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 1000, OccurredAt: newer, CreatedAt: newer,
 		}
 		if err := salesOrderRepo.Create(ctx, &orderNew); err != nil {
@@ -2082,7 +1945,7 @@ func TestSalesOrderRepo_Integration_ProfitabilityTrendBetween_BucketsByDayComput
 		// Older day, unknown cost (adhoc): revenue 500, must count toward
 		// revenue but not toward cost-known revenue/profit for that bucket.
 		orderOld := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "profit-trend-old", WarehouseID: warehouseID,
+			TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID,
 			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 500, OccurredAt: older, CreatedAt: older,
 		}
 		if err := salesOrderRepo.Create(ctx, &orderOld); err != nil {
@@ -2127,7 +1990,7 @@ func TestSalesOrderRepo_Integration_SalesTrendBetween_BucketsByDay(t *testing.T)
 	older := newer.AddDate(0, 0, -3) // far enough apart to land in different UTC day buckets regardless of local timezone
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		orderNew := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "trend-new", WarehouseID: warehouseID,
+			TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID,
 			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 1000, OccurredAt: newer, CreatedAt: newer,
 		}
 		if err := salesOrderRepo.Create(ctx, &orderNew); err != nil {
@@ -2140,7 +2003,7 @@ func TestSalesOrderRepo_Integration_SalesTrendBetween_BucketsByDay(t *testing.T)
 		}
 
 		orderOld := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "trend-old", WarehouseID: warehouseID,
+			TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID,
 			Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 500, OccurredAt: older, CreatedAt: older,
 		}
 		if err := salesOrderRepo.Create(ctx, &orderOld); err != nil {
@@ -2199,9 +2062,9 @@ func TestSalesOrderRepo_Integration_SalesByWeekdayBetween_SumsAcrossOccurrencesO
 	otherWeekday := week1.AddDate(0, 0, 1)
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		for i, order := range []omsDomain.SalesOrder{
-			{TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "wd-1", WarehouseID: warehouseID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 700, OccurredAt: week1, CreatedAt: week1},
-			{TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "wd-2", WarehouseID: warehouseID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 300, OccurredAt: week2, CreatedAt: week2},
-			{TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "wd-3", WarehouseID: warehouseID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 200, OccurredAt: otherWeekday, CreatedAt: otherWeekday},
+			{TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 700, OccurredAt: week1, CreatedAt: week1},
+			{TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 300, OccurredAt: week2, CreatedAt: week2},
+			{TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR", TotalMinorUnits: 200, OccurredAt: otherWeekday, CreatedAt: otherWeekday},
 		} {
 			order := order
 			if err := salesOrderRepo.Create(ctx, &order); err != nil {
@@ -2280,7 +2143,7 @@ func TestSalesOrderRepo_Integration_CohortSizesBetween_CountsCustomersByFirstOrd
 		} {
 			custID := o.custID
 			if err := salesOrderRepo.Create(ctx, &omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: o.extID,
+				TenantID: tenant.IDFromContext(ctx), 
 				WarehouseID: warehouseID, CustomerID: &custID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR",
 				TotalMinorUnits: 100, OccurredAt: o.occurred, CreatedAt: o.occurred,
 			}); err != nil {
@@ -2323,14 +2186,14 @@ func TestSalesOrderRepo_Integration_CohortRetentionBetween_TracksRepeatOrdersAcr
 		custID = customer.ID
 
 		if err := salesOrderRepo.Create(ctx, &omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "retain-1",
+			TenantID: tenant.IDFromContext(ctx), 
 			WarehouseID: warehouseID, CustomerID: &custID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR",
 			TotalMinorUnits: 1000, OccurredAt: firstOrderAt, CreatedAt: firstOrderAt,
 		}); err != nil {
 			return err
 		}
 		return salesOrderRepo.Create(ctx, &omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: "retain-2",
+			TenantID: tenant.IDFromContext(ctx), 
 			WarehouseID: warehouseID, CustomerID: &custID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR",
 			TotalMinorUnits: 400, OccurredAt: repeatOrderAt, CreatedAt: repeatOrderAt,
 		})
@@ -2400,7 +2263,7 @@ func TestSalesOrderRepo_Integration_SKUSetSalesBetween_SumsOnlyGivenSKUsWithinWi
 			{"set-4", skuA, 9, 999, outsideWindow}, // excluded: outside the window
 		} {
 			order := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: o.extID,
+				TenantID: tenant.IDFromContext(ctx), 
 				WarehouseID: warehouseID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR",
 				TotalMinorUnits: o.total, OccurredAt: o.occurred, CreatedAt: o.occurred,
 			}
@@ -2479,7 +2342,7 @@ func TestSalesOrderRepo_Integration_ListOrderSKUsBetween_ReturnsDistinctSKUsPerQ
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		createOrderWithLines := func(extID string, occurred time.Time, skuIDs ...string) (string, error) {
 			order := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS, ExternalOrderID: extID,
+				TenantID: tenant.IDFromContext(ctx), 
 				WarehouseID: warehouseID, Status: omsDomain.SalesOrderStatusCompleted, CurrencyCode: "EUR",
 				TotalMinorUnits: 100, OccurredAt: occurred, CreatedAt: occurred,
 			}
@@ -2566,12 +2429,13 @@ func TestSalesOrderRepo_Integration_ListFiltersByAwaitingPicking(t *testing.T) {
 		}
 		for _, s := range specs {
 			order := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: s.source, ExternalOrderID: s.extID, WarehouseID: warehouseID,
+				TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID,
 				CurrencyCode: "USD", Status: s.status, Fulfilled: s.fulfilled, OccurredAt: now, CreatedAt: now,
 			}
 			if err := salesOrderRepo.Create(ctx, &order); err != nil {
 				return err
 			}
+			setOrigin(t, ctx, order.ID, integrationsDomain.Origin(s.source), nil, s.extID)
 			if s.extID == "awp-unpicked" {
 				wantID = order.ID
 			}
@@ -2601,6 +2465,7 @@ func TestSalesOrderRepo_Integration_ListMissingPaymentInfo(t *testing.T) {
 	connID := seedMyParcelConnection(t, db, ctx)
 	otherConnID := seedConnectionOf(t, db, ctx, integrationsDomain.ProviderBol)
 	ids := map[string]string{}
+	byOrder := map[string]string{}
 	base := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		paid := base
@@ -2624,14 +2489,16 @@ func TestSalesOrderRepo_Integration_ListMissingPaymentInfo(t *testing.T) {
 		for _, s := range specs {
 			at := base.Add(time.Duration(s.minutes) * time.Minute)
 			order := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: s.extID,
-				ConnectionID: s.conn, WarehouseID: warehouseID, CurrencyCode: "EUR", Status: s.status,
+				TenantID: tenant.IDFromContext(ctx), 
+				WarehouseID: warehouseID, CurrencyCode: "EUR", Status: s.status,
 				TransactionID: s.txnID, DatePaid: s.datePaid, OccurredAt: at, CreatedAt: at,
 			}
 			if err := salesOrderRepo.Create(ctx, &order); err != nil {
 				return err
 			}
+			setOrigin(t, ctx, order.ID, integrationsDomain.OriginWooCommerce, s.conn, s.extID)
 			ids[s.extID] = order.ID
+			byOrder[order.ID] = s.extID
 		}
 		return nil
 	})
@@ -2646,7 +2513,7 @@ func TestSalesOrderRepo_Integration_ListMissingPaymentInfo(t *testing.T) {
 		}))
 		out := make([]string, len(found))
 		for i, o := range found {
-			out[i] = o.ExternalOrderID
+			out[i] = byOrder[o.ID]
 		}
 		return out
 	}
@@ -2688,9 +2555,9 @@ func TestSalesOrderRepo_Integration_QuoteLinkAndFilter(t *testing.T) {
 		q := newQuote(t, tenantID, "Sabor")
 		require.NoError(t, quoteRepo.Create(ctx, q))
 		now := time.Now()
-		fromQuote := omsDomain.SalesOrder{TenantID: tenantID, Source: omsDomain.SalesOrderSourceManual, ExternalOrderID: "from-quote",
+		fromQuote := omsDomain.SalesOrder{TenantID: tenantID, 
 			WarehouseID: warehouseID, QuoteID: &q.ID, CurrencyCode: "EUR", Status: omsDomain.SalesOrderStatusProcessing, OccurredAt: now, CreatedAt: now}
-		other := omsDomain.SalesOrder{TenantID: tenantID, Source: omsDomain.SalesOrderSourceManual, ExternalOrderID: "no-quote",
+		other := omsDomain.SalesOrder{TenantID: tenantID, 
 			WarehouseID: warehouseID, CurrencyCode: "EUR", Status: omsDomain.SalesOrderStatusProcessing, OccurredAt: now, CreatedAt: now}
 		require.NoError(t, salesOrderRepo.Create(ctx, &fromQuote))
 		require.NoError(t, salesOrderRepo.Create(ctx, &other))
@@ -2720,7 +2587,7 @@ func TestSalesOrderRepo_Integration_FeeRoundTrips(t *testing.T) {
 
 	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
-		o := omsDomain.SalesOrder{TenantID: tenantID, Source: omsDomain.SalesOrderSourceManual, ExternalOrderID: "fee-1",
+		o := omsDomain.SalesOrder{TenantID: tenantID, 
 			WarehouseID: warehouseID, CurrencyCode: "EUR", Status: omsDomain.SalesOrderStatusPending, OccurredAt: now, CreatedAt: now,
 			ShippingTotalMinorUnits: 695, FeeLabel: "Pallet", FeeTotalMinorUnits: 2500}
 		require.NoError(t, repo.Create(ctx, &o))

@@ -4,6 +4,7 @@ package repositories_test
 
 import (
 	"context"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"testing"
 	"time"
 
@@ -32,12 +33,13 @@ func TestMigration232_Integration_marksTaxInclusiveLinesAndTaxesAddedItems(t *te
 	var wooOrderID, wooLineID, addedLineID string
 	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		now := time.Now()
-		order := omsDomain.SalesOrder{TenantID: tenantID, Source: omsDomain.SalesOrderSourceWooCommerce, ExternalOrderID: "woo-26217",
+		order := omsDomain.SalesOrder{TenantID: tenantID,
 			WarehouseID: warehouseID, CurrencyCode: "EUR", Status: omsDomain.SalesOrderStatusProcessing,
 			TaxTotalMinorUnits: 124, TotalMinorUnits: 1895, OccurredAt: now, CreatedAt: now, UpdatedAt: now}
 		if err := repositories.NewSalesOrderRepo(db).Create(ctx, &order); err != nil {
 			return err
 		}
+		setOrigin(t, ctx, order.ID, integrationsDomain.OriginWooCommerce, nil, "woo-26217")
 		wooOrderID = order.ID
 		lines := []*omsDomain.SalesOrderLineItem{
 			{TenantID: tenantID, SalesOrderID: order.ID, SKUID: &skuID, Name: "Caldo de Cana", Quantity: 3,

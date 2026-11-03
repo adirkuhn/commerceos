@@ -4,6 +4,7 @@ package repositories_test
 
 import (
 	"context"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"testing"
 	"time"
 
@@ -44,13 +45,14 @@ func TestSalesOrderRepo_Integration_Count_matchesListTotalPerQueue(t *testing.T)
 			now := time.Now()
 			for _, s := range specs {
 				o := omsDomain.SalesOrder{
-					TenantID: tenant.IDFromContext(ctx), Source: s.source, ExternalOrderID: s.extID, WarehouseID: warehouseID,
+					TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID,
 					CurrencyCode: "USD", Status: s.status, Fulfilled: s.fulfilled, Packed: s.packed,
 					NeedsStockReview: s.needsStock, NeedsSKUReview: s.needsSKUCheck, OccurredAt: now, CreatedAt: now,
 				}
 				if err := repo.Create(ctx, &o); err != nil {
 					return err
 				}
+				setOrigin(t, ctx, o.ID, integrationsDomain.Origin(s.source), nil, s.extID)
 			}
 			return nil
 		})

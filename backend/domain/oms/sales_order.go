@@ -120,26 +120,12 @@ type Address struct {
 // (today: a POS desktop, see application/pos and
 // application/oms.ReceivePOSSalesOrderUseCase) or eventually synced from a
 // channel like WooCommerce -- field set mirrors WooCommerce's order object
-// so either source round-trips cleanly. Idempotent on
-// (TenantID, Source, ExternalOrderID) -- the source's own retry of an
-// already-received sale is a no-op, not a duplicate.
+// so either source round-trips cleanly. Where it came from, and which
+// external order it is, is its origin (domain/integrations.SalesOrderOrigin,
+// COM-15) -- the order holds order data only.
 type SalesOrder struct {
 	ID       string
 	TenantID string
-	Source   SalesOrderSource
-	// ExternalOrderID is the source system's own reference for this sale --
-	// what makes retries idempotent. For a Woo-sourced order this is the
-	// numeric Woo order ID as a string (see application/channels' Woo
-	// import) -- there's no separate typed WooOrderID column; nothing
-	// ever needed the numeric type, and keeping one fact in one place
-	// avoids the two silently drifting.
-	ExternalOrderID string
-	// ConnectionID is set on import for an order sourced from a specific
-	// integration connection -- nil for POS/manual orders, and for a
-	// Woo-sourced order imported before this field existed (see migration
-	// 063's backfill). Lets "delete all imported products" for a
-	// connection find and remove that connection's own orders first.
-	ConnectionID *string
 	// SalesChannelID is set only for SalesOrderSourceInternal orders --
 	// which specific channels.SalesChannel the checkout happened on. Unlike
 	// ConnectionID (an integration's own connection, shared across however
@@ -151,16 +137,15 @@ type SalesOrder struct {
 	SalesChannelID *string
 	// Number is the human-facing order number (Woo distinguishes this from
 	// ID -- number can be customized, ID can't).
-	Number   string
-	OrderKey string
-	Status   SalesOrderStatus
+	Number string
+	Status SalesOrderStatus
 
 	WarehouseID string
 	// CustomerID is nil for a guest/walk-in sale -- most POS sales have no
 	// linked customer record.
-	CustomerID   *string
+	CustomerID *string
 	// QuoteID is the quote this order was created from; nil otherwise.
-	QuoteID *string
+	QuoteID      *string
 	Billing      Address
 	Shipping     Address
 	CustomerNote string
@@ -172,8 +157,8 @@ type SalesOrder struct {
 	// added on the admin's order form; 0 when none. Part of TotalMinorUnits.
 	FeeLabel           string
 	FeeTotalMinorUnits int64
-	TaxTotalMinorUnits      int64
-	TotalMinorUnits         int64
+	TaxTotalMinorUnits int64
+	TotalMinorUnits    int64
 
 	PaymentMethod      string
 	PaymentMethodTitle string
@@ -372,11 +357,5 @@ type SalesOrderLineItem struct {
 	ProductID *string
 }
 
-// DisplayNumber is the human-facing order reference: Number when the
-// source set one, otherwise the source's own ExternalOrderID.
-func (o SalesOrder) DisplayNumber() string {
-	if o.Number != "" {
-		return o.Number
-	}
-	return o.ExternalOrderID
-}
+// DisplayNumber is the human-facing order reference.
+func (o SalesOrder) DisplayNumber() string { return o.Number }

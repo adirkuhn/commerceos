@@ -41,6 +41,10 @@ func (h *Handler) EditSalesOrder(c *gin.Context, id genoms.Id) {
 	for i, li := range result.LineItems {
 		lineItems[i] = toGenSalesOrderLineItem(li)
 	}
-	resp := genoms.SalesOrderDetail{SalesOrder: toGenSalesOrder(result.SalesOrder), LineItems: lineItems, Payments: toGenSalesOrderPayments(result.SalesOrder.Payments)}
+	order, ok := h.genSalesOrder(c, result.SalesOrder)
+	if !ok {
+		return
+	}
+	resp := genoms.SalesOrderDetail{SalesOrder: order, LineItems: lineItems, Payments: toGenSalesOrderPayments(result.SalesOrder.Payments)}
 	c.JSON(http.StatusOK, genoms.SalesOrderDetailResponse{Data: &resp})
 }

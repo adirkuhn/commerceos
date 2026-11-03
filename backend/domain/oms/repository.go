@@ -96,10 +96,6 @@ type ListSalesOrdersFilter struct {
 type SalesOrderRepository interface {
 	Create(ctx context.Context, o *SalesOrder) error
 	FindByID(ctx context.Context, id string) (*SalesOrder, error)
-	// FindByExternalID looks up an already-received sale by its source's
-	// own reference -- the idempotency check ReceivePOSSalesOrderUseCase
-	// runs before creating anything. Nil (not an error) when none exists.
-	FindByExternalID(ctx context.Context, source SalesOrderSource, externalOrderID string) (*SalesOrder, error)
 	// FindByNumber looks up a sale by its human-facing Number -- a payment
 	// webhook's own reference back to the order it paid for (Stripe's
 	// client_reference_id, Revolut's merchant_order_ext_ref) is always this
@@ -114,8 +110,8 @@ type SalesOrderRepository interface {
 	// pms.ProductRepository.List's Search filter. Ranked best match first.
 	// Powers global search (Cmd+K). Empty query returns nil, not an error.
 	Search(ctx context.Context, query string, limit int) ([]SalesOrder, error)
-	// ListByConnection returns every order stamped with this connection's
-	// ID (see SalesOrder.ConnectionID) -- used by "delete all imported
+	// ListByConnection returns every order imported through this connection
+	// (its origin, COM-15) -- used by "delete all imported
 	// products" to find that connection's own orders. Unpaginated, same
 	// convention as channels.ProductChannelListingRepository.ListByConnection.
 	ListByConnection(ctx context.Context, connectionID string) ([]SalesOrder, error)

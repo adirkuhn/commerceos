@@ -41,6 +41,21 @@ func (f *fakeOriginRepo) FindBySalesOrderID(_ context.Context, id string) (*inte
 	return f.find(func(o integrationsDomain.SalesOrderOrigin) bool { return o.SalesOrderID == id })
 }
 
+func (f *fakeOriginRepo) ListBySalesOrderIDs(_ context.Context, ids []string) ([]integrationsDomain.SalesOrderOrigin, error) {
+	if f.findErr != nil {
+		return nil, f.findErr
+	}
+	var out []integrationsDomain.SalesOrderOrigin
+	for _, r := range f.rows {
+		for _, id := range ids {
+			if r.SalesOrderID == id {
+				out = append(out, r)
+			}
+		}
+	}
+	return out, nil
+}
+
 func (f *fakeOriginRepo) FindByConnectionExternalID(_ context.Context, conn, ext string) (*integrationsDomain.SalesOrderOrigin, error) {
 	return f.find(func(o integrationsDomain.SalesOrderOrigin) bool {
 		return o.ConnectionID != nil && *o.ConnectionID == conn && o.ExternalOrderID == ext
@@ -117,4 +132,19 @@ func TestSalesOrderOrigins_FindImported_aLookupFailureIsReturned(t *testing.T) {
 	boom := errors.New("db down")
 	_, err := appintegrations.NewSalesOrderOrigins(&fakeOriginRepo{findErr: boom}).FindImported(context.Background(), integrationsDomain.OriginWooCommerce, "c", "1")
 	assert.ErrorIs(t, err, boom)
+}
+
+func TestSalesOrderOrigins_SetExternalKey_changesOnlyTheKey(t *testing.T) {
+	repo := &fakeOriginRepo{rows: []integrationsDomain.SalesOrderOrigin{
+		{SalesOrderID: "so-1", Origin: integrationsDomain.OriginManual},
+	}}
+
+	require.NoError(t, appintegrations.NewSalesOrderOrigins(repo).SetExternalKey(context.Background(), "so-1", "key-2"))
+
+	require.Len(t, repo.saved, 1)
+	assert.Equal(t, "key-2", repo.saved[0].ExternalKey)
+	assert.Equal(t, integrationsDomain.OriginManual, repo.saved[0].Origin)
+
+	err := appintegrations.NewSalesOrderOrigins(repo).SetExternalKey(context.Background(), "nope", "k")
+	assert.ErrorIs(t, err, integrationsDomain.ErrSalesOrderOriginNotFound)
 }

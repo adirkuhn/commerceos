@@ -68,7 +68,7 @@ func TestBackfillShipmentWebhookDispatch_fulfilledOrder_movesOrderToShipped(t *t
 	client := &fakeCarrierClient{getTrackTraceFn: func(context.Context, string) (integrationsDomain.TrackTraceResult, error) {
 		return integrationsDomain.TrackTraceResult{StatusCode: 3, StatusMain: "handed_to_carrier"}, nil
 	}}
-	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourceManual, Status: omsDomain.SalesOrderStatusPending, Fulfilled: true}
+	order := &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusPending, Fulfilled: true}
 	salesOrderRepo := &fakeSalesOrderRepo{
 		updateFn:   func(context.Context, string, map[string]any) error { return nil },
 		findByIDFn: func(context.Context, string) (*omsDomain.SalesOrder, error) { return order, nil },

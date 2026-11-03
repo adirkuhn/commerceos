@@ -57,9 +57,17 @@ func (h *Handler) respondWithQueue(c *gin.Context, uc listPackingQueueUC, pagePa
 	if err := mapError(c, err); err != nil {
 		return
 	}
+	queued := make([]omsDomain.SalesOrder, len(result.Entries))
+	for i, e := range result.Entries {
+		queued[i] = e.Order
+	}
+	orders, ok := h.genSalesOrders(c, queued...)
+	if !ok {
+		return
+	}
 	entries := make([]genoms.QueueEntry, len(result.Entries))
 	for i, e := range result.Entries {
-		entries[i] = genoms.QueueEntry{SalesOrder: toGenSalesOrder(e.Order), Lock: toGenQueueLock(e.Lock), InPacking: e.InPacking}
+		entries[i] = genoms.QueueEntry{SalesOrder: orders[i], Lock: toGenQueueLock(e.Lock), InPacking: e.InPacking}
 	}
 	resp := genoms.OrderQueue{Entries: entries, Total: result.Total}
 	c.JSON(http.StatusOK, genoms.OrderQueueResponse{Data: &resp})

@@ -29,8 +29,9 @@ func TestStoreVars(t *testing.T) {
 
 func sampleLoadedOrder() *loadedOrder {
 	return &loadedOrder{
+		source: "woocommerce",
 		order: &omsDomain.SalesOrder{
-			Number: "1001", Status: omsDomain.SalesOrderStatusShipped, Source: omsDomain.SalesOrderSourceWooCommerce, CurrencyCode: "EUR",
+			Number: "1001", Status: omsDomain.SalesOrderStatusShipped, CurrencyCode: "EUR",
 			OccurredAt:              time.Date(2026, 10, 9, 15, 0, 0, 0, time.UTC),
 			ShippingTotalMinorUnits: 495, DiscountTotalMinorUnits: 100, TaxTotalMinorUnits: 173, TotalMinorUnits: 1393,
 			Billing:             omsDomain.Address{FirstName: "Bia", LastName: "Lima", Email: "bia@x.nl"},

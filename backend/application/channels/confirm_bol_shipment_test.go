@@ -64,10 +64,14 @@ func (f *fakeBolClientSource) ClientFor(_ context.Context, connectionID string) 
 var confirmNow = time.Date(2026, 10, 7, 14, 11, 0, 0, time.UTC)
 
 func shippedBolOrder() *omsDomain.SalesOrder {
+	return &omsDomain.SalesOrder{ID: "so-1", TenantID: "tenant-1", Status: omsDomain.SalesOrderStatusShipped}
+}
+
+// bolOrigin: so-1 was imported from Bol connection bol-conn-1 as C000HLRF87.
+func bolOrigin() *integrationsDomain.SalesOrderOrigin {
 	connID := "bol-conn-1"
-	return &omsDomain.SalesOrder{
-		ID: "so-1", TenantID: "tenant-1", Source: omsDomain.SalesOrderSourceBol, ExternalOrderID: "C000HLRF87",
-		ConnectionID: &connID, Status: omsDomain.SalesOrderStatusShipped,
+	return &integrationsDomain.SalesOrderOrigin{
+		SalesOrderID: "so-1", Origin: integrationsDomain.OriginBol, ConnectionID: &connID, ExternalOrderID: "C000HLRF87",
 	}
 }
 
@@ -90,7 +94,7 @@ type confirmFixture struct {
 	confirmations *fakeBolConfirmationRepo
 	bol           *fakeBolClient
 	source        *fakeBolClientSource
-	channels      *stubSalesChannelRepo
+	origin        *integrationsDomain.SalesOrderOrigin
 	outbox        *eventrecordtest.Outbox
 }
 
@@ -102,7 +106,7 @@ func newConfirmFixture() *confirmFixture {
 		confirmations: &fakeBolConfirmationRepo{},
 		bol:           bol,
 		source:        &fakeBolClientSource{client: bol},
-		channels:      &stubSalesChannelRepo{},
+		origin:        bolOrigin(),
 		outbox:        &eventrecordtest.Outbox{},
 	}
 }
@@ -113,9 +117,17 @@ func (f *confirmFixture) run(t *testing.T) error {
 		newMockGormDB(t, 3),
 		&stubOrdersSalesOrderRepo{findByIDResult: f.order},
 		&stubShipmentRepo{bySalesOrder: map[string][]shippingDomain.Shipment{"so-1": f.shipments}},
-		f.confirmations, f.source, appchannels.NewOrderConnectionResolver(f.channels), f.outbox, func() time.Time { return confirmNow },
+		f.confirmations, f.source, f.origins(), f.outbox, func() time.Time { return confirmNow },
 	)
 	return uc.Execute(context.Background(), "so-1")
+}
+
+func (f *confirmFixture) origins() *stubOriginReader {
+	r := &stubOriginReader{byOrder: map[string]integrationsDomain.SalesOrderOrigin{}}
+	if f.origin != nil {
+		r.byOrder[f.origin.SalesOrderID] = *f.origin
+	}
+	return r
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────
@@ -164,23 +176,23 @@ func TestConfirmBolShipment_shippedOrder_sendsShipmentToBolAndTracksIt(t *testin
 	assert.Equal(t, "create_shipment", data["action"])
 }
 
-// COM-15: the order's sales channel decides which Bol connection is used.
-func TestConfirmBolShipment_goesThroughTheSalesChannelsCurrentConnection(t *testing.T) {
+// COM-15: the order's origin decides which Bol connection and order are used.
+func TestConfirmBolShipment_goesThroughTheConnectionTheOrderCameFrom(t *testing.T) {
 	f := newConfirmFixture()
-	f.order.SalesChannelID = strp("ch-bol")
-	f.channels.findResult = &channelsDomain.SalesChannel{ID: "ch-bol", ConnectionID: strp("bol-conn-now")}
+	f.origin.ConnectionID = strp("bol-conn-2")
 
 	require.NoError(t, f.run(t))
 
-	assert.Equal(t, []string{"bol-conn-now"}, f.source.connectionID)
+	assert.Equal(t, []string{"bol-conn-2"}, f.source.connectionID)
 	require.Len(t, f.confirmations.created, 1)
-	assert.Equal(t, "bol-conn-now", f.confirmations.created[0].ConnectionID)
+	assert.Equal(t, "bol-conn-2", f.confirmations.created[0].ConnectionID)
+	assert.Equal(t, "C000HLRF87", f.confirmations.created[0].ExternalOrderID)
 }
 
 // Used to return nil silently -- Bol was never told and nothing retried.
-func TestConfirmBolShipment_noChannelOrConnection_failsSoItIsRetried(t *testing.T) {
+func TestConfirmBolShipment_noConnection_failsSoItIsRetried(t *testing.T) {
 	f := newConfirmFixture()
-	f.order.ConnectionID = nil
+	f.origin.ConnectionID = nil
 
 	require.ErrorIs(t, f.run(t), channelsDomain.ErrOrderChannelUnresolved)
 	assert.Empty(t, f.source.connectionID)
@@ -268,7 +280,7 @@ func TestConfirmBolShipment_orderClosed_doesNothing(t *testing.T) {
 
 func TestConfirmBolShipment_notABolOrder_doesNothing(t *testing.T) {
 	f := newConfirmFixture()
-	f.order.Source = omsDomain.SalesOrderSourceWooCommerce
+	f.origin.Origin = integrationsDomain.OriginWooCommerce
 
 	require.NoError(t, f.run(t))
 

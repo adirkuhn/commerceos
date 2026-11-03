@@ -9,7 +9,6 @@ import (
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -32,9 +31,7 @@ type CreateSalesOrderLineItemInput struct {
 // CreateSalesOrderInput is what staff fill in from the admin UI for a
 // manually-entered sale (e.g. a walk-in the POS wasn't used for). Unlike
 // ReceivePOSSalesOrderInput there's no ExternalOrderID from an outside
-// system -- one is generated so the row still satisfies the
-// (tenant_id, source, external_order_id) uniqueness constraint every
-// SalesOrder shares regardless of source.
+// system: its origin (Source) carries no external reference.
 type CreateSalesOrderInput struct {
 	// Source defaults to SalesOrderSourceManual when empty -- the original
 	// (and still most common) caller of this use case, the admin UI's
@@ -146,8 +143,7 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 			}
 		}
 		newOrder := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: source,
-			ExternalOrderID: uuid.NewString(), Number: number, OrderKey: in.OrderKey, Status: status,
+			TenantID: tenant.IDFromContext(ctx), Number: number, Status: status,
 			WarehouseID: in.WarehouseID, CustomerID: in.CustomerID, QuoteID: in.QuoteID, SalesChannelID: in.SalesChannelID, Billing: in.Billing, Shipping: in.Shipping,
 			CustomerNote: in.CustomerNote, CurrencyCode: in.CurrencyCode,
 			DiscountTotalMinorUnits: in.DiscountTotalMinorUnits, ShippingTotalMinorUnits: in.ShippingTotalMinorUnits,
@@ -167,9 +163,11 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 		if err := uc.salesOrderRepo.Create(ctx, &newOrder); err != nil {
 			return err
 		}
-		// Made here: the origin carries no external reference.
+		// Made here: no external order id; the order key (WhatsApp/storefront
+		// send one) is kept on the origin.
 		if err := uc.origins.Record(ctx, integrationsDomain.SalesOrderOriginInput{
-			TenantID: newOrder.TenantID, SalesOrderID: newOrder.ID, Origin: integrationsDomain.Origin(source), CreatedAt: now,
+			TenantID: newOrder.TenantID, SalesOrderID: newOrder.ID, Origin: integrationsDomain.Origin(source),
+			ExternalKey: in.OrderKey, CreatedAt: now,
 		}); err != nil {
 			return err
 		}
@@ -181,7 +179,7 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 			createdLineItems = append(createdLineItems, lineItem)
 		}
 		order = &newOrder
-		return recordSalesOrderCreated(ctx, uc.outbox, newOrder, len(createdLineItems))
+		return recordSalesOrderCreated(ctx, uc.outbox, newOrder, source, len(createdLineItems))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("createSalesOrder: %w", err)

@@ -40,6 +40,19 @@ func (s *SalesOrderOrigins) Of(ctx context.Context, salesOrderID string) (*integ
 	return s.repo.FindBySalesOrderID(ctx, salesOrderID)
 }
 
+// SetExternalKey changes the order key kept on the order's origin.
+func (s *SalesOrderOrigins) SetExternalKey(ctx context.Context, salesOrderID, key string) error {
+	o, err := s.repo.FindBySalesOrderID(ctx, salesOrderID)
+	if err != nil {
+		return fmt.Errorf("salesOrderOrigins.SetExternalKey: %w", err)
+	}
+	o.ExternalKey = key
+	if err := s.repo.Save(ctx, o); err != nil {
+		return fmt.Errorf("salesOrderOrigins.SetExternalKey: %w", err)
+	}
+	return nil
+}
+
 // FindByExternalID finds an order from a system without a connection row
 // (POS) by that system's own id, or ErrSalesOrderOriginNotFound.
 func (s *SalesOrderOrigins) FindByExternalID(ctx context.Context, origin integrationsDomain.Origin, externalOrderID string) (*integrationsDomain.SalesOrderOrigin, error) {

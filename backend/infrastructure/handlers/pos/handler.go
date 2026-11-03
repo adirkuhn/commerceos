@@ -235,15 +235,17 @@ func (h *Handler) CreatePOSSalesOrder(c *gin.Context) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	c.JSON(http.StatusOK, genpos.POSSalesOrderResponse{Data: toGenPOSSalesOrder(order)})
+	// The POS's own references are the origin's (COM-15); a replay sends
+	// the same ones it was received under.
+	c.JSON(http.StatusOK, genpos.POSSalesOrderResponse{Data: toGenPOSSalesOrder(order, req.ExternalOrderId, strOrEmpty(req.OrderKey))})
 }
 
-func toGenPOSSalesOrder(order *omsDomain.SalesOrder) *genpos.POSSalesOrder {
+func toGenPOSSalesOrder(order *omsDomain.SalesOrder, externalOrderID, orderKey string) *genpos.POSSalesOrder {
 	billing := toGenPOSAddress(order.Billing)
 	shipping := toGenPOSAddress(order.Shipping)
 	status := genpos.POSSalesOrderStatus(order.Status)
 	return &genpos.POSSalesOrder{
-		Id: order.ID, ExternalOrderId: order.ExternalOrderID, Number: &order.Number, OrderKey: &order.OrderKey,
+		Id: order.ID, ExternalOrderId: externalOrderID, Number: &order.Number, OrderKey: &orderKey,
 		Status: status, WarehouseId: order.WarehouseID, CustomerId: order.CustomerID,
 		Billing: &billing, Shipping: &shipping, CustomerNote: &order.CustomerNote,
 		CurrencyCode: order.CurrencyCode, DiscountTotalMinorUnits: &order.DiscountTotalMinorUnits,

@@ -29,9 +29,9 @@ const (
 	LineLinkSourcePickScan = "pick_scan"
 )
 
-func recordSalesOrderCreated(ctx context.Context, outbox eventrecord.Enqueuer, o omsDomain.SalesOrder, lineCount int) error {
+func recordSalesOrderCreated(ctx context.Context, outbox eventrecord.Enqueuer, o omsDomain.SalesOrder, source omsDomain.SalesOrderSource, lineCount int) error {
 	return eventrecord.Record(ctx, outbox, events.SalesOrderCreated, o.ID, eventrecord.Data{
-		"source": string(o.Source), "status": string(o.Status), "number": o.Number, "currency_code": o.CurrencyCode,
+		"source": string(source), "status": string(o.Status), "number": o.Number, "currency_code": o.CurrencyCode,
 		"total_minor_units": o.TotalMinorUnits, "customer_id": o.CustomerID, "sales_channel_id": o.SalesChannelID,
 		"warehouse_id": o.WarehouseID, "line_count": lineCount,
 	})

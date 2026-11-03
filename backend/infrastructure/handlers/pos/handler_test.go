@@ -299,7 +299,7 @@ func TestListPOSWarehouses_propagatesRepoError(t *testing.T) {
 
 func TestCreatePOSSalesOrder_success(t *testing.T) {
 	s := &stubs{receiveOrder: stubReceivePOSSalesOrder{out: &omsDomain.SalesOrder{
-		ID: "so-1", ExternalOrderID: "pos-1", WarehouseID: "wh-1", CurrencyCode: "USD",
+		ID: "so-1", WarehouseID: "wh-1", CurrencyCode: "USD",
 		TotalMinorUnits: 1000, OccurredAt: time.Now(), CreatedAt: time.Now(),
 	}}}
 	body := genpos.CreatePOSSalesOrderRequest{
@@ -343,7 +343,7 @@ func TestCreatePOSSalesOrder_mapsInsufficientStockToValidationError(t *testing.T
 // binds fine and the use case receives a nil SKUID, not an empty string.
 func TestCreatePOSSalesOrder_acceptsALineItemWithNoSkuId(t *testing.T) {
 	s := &stubs{receiveOrder: stubReceivePOSSalesOrder{out: &omsDomain.SalesOrder{
-		ID: "so-1", ExternalOrderID: "pos-1", WarehouseID: "wh-1", CurrencyCode: "USD",
+		ID: "so-1", WarehouseID: "wh-1", CurrencyCode: "USD",
 		TotalMinorUnits: 500, OccurredAt: time.Now(), CreatedAt: time.Now(),
 	}}}
 	body := genpos.CreatePOSSalesOrderRequest{

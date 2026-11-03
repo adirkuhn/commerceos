@@ -4,6 +4,7 @@ package repositories_test
 
 import (
 	"context"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"testing"
 	"time"
 
@@ -49,13 +50,14 @@ func TestSalesOrderRepo_Integration_ShipDueOnOrBefore(t *testing.T) {
 			now := time.Now()
 			for _, s := range specs {
 				o := omsDomain.SalesOrder{
-					TenantID: tenant.IDFromContext(ctx), Source: s.source, ExternalOrderID: s.extID, WarehouseID: warehouseID,
+					TenantID: tenant.IDFromContext(ctx), WarehouseID: warehouseID,
 					CurrencyCode: "EUR", Status: s.status, Packed: s.packed, Fulfilled: s.packed,
 					ShipByDate: s.shipBy, OccurredAt: now, CreatedAt: now,
 				}
 				if err := repo.Create(ctx, &o); err != nil {
 					return err
 				}
+				setOrigin(t, ctx, o.ID, integrationsDomain.Origin(s.source), nil, s.extID)
 				ids[s.extID] = o.ID
 			}
 			return nil
@@ -97,9 +99,13 @@ func TestSalesOrderRepo_Integration_ShipDueOnOrBefore(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), count)
 	assert.Equal(t, listTotal, count, "Count must match List's total for the same filter")
+	extOf := map[string]string{}
+	for ext, id := range ids {
+		extOf[id] = ext
+	}
 	got := map[string]bool{}
 	for _, o := range listed {
-		got[o.ExternalOrderID] = true
+		got[extOf[o.ID]] = true
 	}
 	assert.Equal(t, map[string]bool{"sd-today": true, "sd-overdue": true, "sd-packed": true}, got)
 	require.NotNil(t, stored.ShipByDate, "ship_by_date must round-trip")

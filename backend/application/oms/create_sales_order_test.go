@@ -38,8 +38,6 @@ func TestCreateSalesOrder_completedOrderDecrementsStockPerLine(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "sales-order-1", order.SalesOrder.ID)
-	assert.Equal(t, omsDomain.SalesOrderSourceManual, order.SalesOrder.Source)
-	assert.NotEmpty(t, order.SalesOrder.ExternalOrderID, "manual orders still need a unique external_order_id for the DB constraint")
 	assert.Equal(t, "flat_rate", order.SalesOrder.ShippingMethod)
 	assert.Equal(t, "Flat rate", order.SalesOrder.ShippingMethodTitle)
 	assert.True(t, order.SalesOrder.Fulfilled, "created with an explicit Completed status -- starts fulfilled")

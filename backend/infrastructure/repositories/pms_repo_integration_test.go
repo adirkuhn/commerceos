@@ -814,8 +814,8 @@ func TestProductRepo_Integration_DeleteBlockedBySalesOrderHistory(t *testing.T) 
 
 		now := time.Now()
 		order := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourcePOS,
-			ExternalOrderID: "pos-delete-history-1", WarehouseID: warehouseID, CurrencyCode: "USD",
+			TenantID: tenant.IDFromContext(ctx), 
+			WarehouseID: warehouseID, CurrencyCode: "USD",
 			OccurredAt: now, CreatedAt: now,
 		}
 		if err := salesOrderRepo.Create(ctx, &order); err != nil {

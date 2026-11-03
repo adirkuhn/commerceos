@@ -4,6 +4,7 @@ package repositories_test
 
 import (
 	"context"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"testing"
 	"time"
 
@@ -63,13 +64,14 @@ func (f revenueFixture) seedOrder(t *testing.T, extID string, status omsDomain.S
 	var lineID string
 	err := tenant.WithTenant(f.ctx, f.db, func(ctx context.Context) error {
 		o := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceManual, ExternalOrderID: extID,
+			TenantID:    tenant.IDFromContext(ctx),
 			WarehouseID: f.warehouseID, Status: status, CurrencyCode: "EUR", CustomerID: &f.customerID,
 			TotalMinorUnits: totalMinorUnits, OccurredAt: f.now, CreatedAt: f.now,
 		}
 		if err := f.repo.Create(ctx, &o); err != nil {
 			return err
 		}
+		setOrigin(t, ctx, o.ID, integrationsDomain.OriginManual, nil, extID)
 		li := omsDomain.SalesOrderLineItem{
 			TenantID: tenant.IDFromContext(ctx), SalesOrderID: o.ID, SKUID: &f.skuID, SKUCode: "SKU-REV", Name: "Rev",
 			Quantity: qty, PriceMinorUnits: totalMinorUnits / qty, TotalMinorUnits: totalMinorUnits, CreatedAt: f.now,

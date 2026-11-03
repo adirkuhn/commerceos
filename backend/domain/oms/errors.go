@@ -20,13 +20,6 @@ var (
 	// a weighed line is one package, so a weight with any other quantity is
 	// ambiguous (per unit or total?) and is rejected rather than guessed.
 	ErrWeighedLineItemQuantityMustBeOne = errs.New("WEIGHED_LINE_ITEM_QUANTITY_MUST_BE_ONE", "a line item with weight_grams must have quantity 1")
-	// ErrDuplicateExternalOrder guards SalesOrder's (TenantID, Source,
-	// ExternalOrderID) unique constraint -- returned instead of a raw DB
-	// error so a caller (ImportWooOrdersUseCase.createOne) can tell "lost
-	// a create race against another concurrent import of the same order"
-	// apart from a genuine failure, and fall back to treating it as an
-	// update of the now-existing order instead of a hard error.
-	ErrDuplicateExternalOrder = errs.New("SALES_ORDER_DUPLICATE_EXTERNAL", "sales order with this external id already exists")
 	// ErrSalesOrderLineItemNotFound guards LinkLineItemSKUUseCase.
 	ErrSalesOrderLineItemNotFound = errs.New("SALES_ORDER_LINE_ITEM_NOT_FOUND", "sales order line item not found")
 	// ErrLineItemNotOnOrder guards LinkLineItemSKUUseCase/

@@ -2,6 +2,7 @@ package oms
 
 import (
 	"encoding/json"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"log"
 	"net/http"
 	"time"
@@ -54,9 +55,9 @@ func (h *Handler) ListSalesOrders(c *gin.Context, params genoms.ListSalesOrdersP
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	orders := make([]genoms.SalesOrder, len(result.SalesOrders))
-	for i, o := range result.SalesOrders {
-		orders[i] = toGenSalesOrder(o)
+	orders, ok := h.genSalesOrders(c, result.SalesOrders...)
+	if !ok {
+		return
 	}
 	resp := genoms.SalesOrderList{SalesOrders: orders, Total: result.Total}
 	c.JSON(http.StatusOK, genoms.SalesOrderListResponse{Data: &resp})
@@ -71,7 +72,11 @@ func (h *Handler) GetSalesOrder(c *gin.Context, id genoms.Id) {
 	for i, li := range result.LineItems {
 		lineItems[i] = toGenSalesOrderLineItem(li)
 	}
-	resp := genoms.SalesOrderDetail{SalesOrder: toGenSalesOrder(result.SalesOrder), LineItems: lineItems, Payments: toGenSalesOrderPayments(result.SalesOrder.Payments)}
+	order, ok := h.genSalesOrder(c, result.SalesOrder)
+	if !ok {
+		return
+	}
+	resp := genoms.SalesOrderDetail{SalesOrder: order, LineItems: lineItems, Payments: toGenSalesOrderPayments(result.SalesOrder.Payments)}
 	c.JSON(http.StatusOK, genoms.SalesOrderDetailResponse{Data: &resp})
 }
 
@@ -115,7 +120,11 @@ func (h *Handler) CreateSalesOrder(c *gin.Context) {
 	for i, li := range result.LineItems {
 		lineItemsResp[i] = toGenSalesOrderLineItem(li)
 	}
-	resp := genoms.SalesOrderDetail{SalesOrder: toGenSalesOrder(result.SalesOrder), LineItems: lineItemsResp, Payments: toGenSalesOrderPayments(result.SalesOrder.Payments)}
+	order, ok := h.genSalesOrder(c, result.SalesOrder)
+	if !ok {
+		return
+	}
+	resp := genoms.SalesOrderDetail{SalesOrder: order, LineItems: lineItemsResp, Payments: toGenSalesOrderPayments(result.SalesOrder.Payments)}
 	c.JSON(http.StatusCreated, genoms.SalesOrderDetailResponse{Data: &resp})
 }
 
@@ -153,7 +162,10 @@ func (h *Handler) UpdateSalesOrder(c *gin.Context, id genoms.Id) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	resp := toGenSalesOrder(*order)
+	resp, ok := h.genSalesOrder(c, *order)
+	if !ok {
+		return
+	}
 	c.JSON(http.StatusOK, genoms.SalesOrderResponse{Data: &resp})
 }
 
@@ -204,7 +216,10 @@ func (h *Handler) LinkLineItemSKU(c *gin.Context, id genoms.Id, lineItemId strin
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	resp := toGenSalesOrder(*order)
+	resp, ok := h.genSalesOrder(c, *order)
+	if !ok {
+		return
+	}
 	c.JSON(http.StatusOK, genoms.SalesOrderResponse{Data: &resp})
 }
 
@@ -213,7 +228,10 @@ func (h *Handler) RetryStockDecrement(c *gin.Context, id genoms.Id) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	order := toGenSalesOrder(result.Order)
+	order, ok := h.genSalesOrder(c, result.Order)
+	if !ok {
+		return
+	}
 	resp := genoms.RetryStockDecrementResult{SalesOrder: order, Resolved: result.Resolved, StillPending: result.StillPending}
 	c.JSON(http.StatusOK, genoms.RetryStockDecrementResponse{Data: &resp})
 }
@@ -223,7 +241,10 @@ func (h *Handler) ForceAcceptStock(c *gin.Context, id genoms.Id) {
 	if err := mapError(c, err); err != nil {
 		return
 	}
-	order := toGenSalesOrder(result.Order)
+	order, ok := h.genSalesOrder(c, result.Order)
+	if !ok {
+		return
+	}
 	resp := genoms.ForceAcceptStockResult{SalesOrder: order, Resolved: result.Resolved}
 	c.JSON(http.StatusOK, genoms.ForceAcceptStockResponse{Data: &resp})
 }
@@ -291,12 +312,12 @@ func toGenAddress(a omsDomain.Address) genoms.Address {
 	}
 }
 
-func toGenSalesOrder(o omsDomain.SalesOrder) genoms.SalesOrder {
+func toGenSalesOrder(o omsDomain.SalesOrder, origin integrationsDomain.SalesOrderOrigin) genoms.SalesOrder {
 	billing := toGenAddress(o.Billing)
 	shipping := toGenAddress(o.Shipping)
 	paymentReference := o.PaymentReference()
 	return genoms.SalesOrder{
-		Id: o.ID, Source: genoms.SalesOrderSource(o.Source), ExternalOrderId: o.ExternalOrderID, Number: &o.Number, OrderKey: &o.OrderKey,
+		Id: o.ID, Source: genoms.SalesOrderSource(origin.Origin), ExternalOrderId: origin.ExternalOrderID, Number: &o.Number, OrderKey: &origin.ExternalKey,
 		Status: genoms.SalesOrderStatus(o.Status), WarehouseId: o.WarehouseID, CustomerId: o.CustomerID, QuoteId: o.QuoteID,
 		Billing: &billing, Shipping: &shipping, CustomerNote: &o.CustomerNote, CurrencyCode: o.CurrencyCode,
 		DiscountTotalMinorUnits: &o.DiscountTotalMinorUnits, ShippingTotalMinorUnits: &o.ShippingTotalMinorUnits,

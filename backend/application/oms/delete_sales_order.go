@@ -26,13 +26,14 @@ type DeleteSalesOrderUseCase struct {
 	outbox          eventrecord.Enqueuer
 	db              *gorm.DB
 	salesOrderRepo  omsDomain.SalesOrderRepository
+	origins         originFinder
 	lineItemRepo    omsDomain.SalesOrderLineItemRepository
 	linkRepo        omsDomain.SalesOrderLineItemStockMovementRepository
 	reverseMovement movementReverser
 }
 
-func NewDeleteSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, reverseMovement movementReverser, outbox eventrecord.Enqueuer) *DeleteSalesOrderUseCase {
-	return &DeleteSalesOrderUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, reverseMovement: reverseMovement}
+func NewDeleteSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, origins originFinder, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, reverseMovement movementReverser, outbox eventrecord.Enqueuer) *DeleteSalesOrderUseCase {
+	return &DeleteSalesOrderUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, origins: origins, lineItemRepo: lineItemRepo, linkRepo: linkRepo, reverseMovement: reverseMovement}
 }
 
 func (uc *DeleteSalesOrderUseCase) Execute(ctx context.Context, id string) error {
@@ -79,6 +80,11 @@ func (uc *DeleteSalesOrderUseCase) Execute(ctx context.Context, id string) error
 	}
 
 	err = tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
+		// Read before the delete: the origin row goes with the order.
+		source, err := sourceOf(ctx, uc.origins, id)
+		if err != nil {
+			return err
+		}
 		if err := uc.lineItemRepo.DeleteBySalesOrder(ctx, id); err != nil {
 			return err
 		}
@@ -86,7 +92,7 @@ func (uc *DeleteSalesOrderUseCase) Execute(ctx context.Context, id string) error
 			return err
 		}
 		return eventrecord.Record(ctx, uc.outbox, events.SalesOrderDeleted, id, eventrecord.Data{
-			"source": string(order.Source), "number": order.Number, "status": string(order.Status),
+			"source": string(source), "number": order.Number, "status": string(order.Status),
 			"stock_restored": order.StockDecremented,
 		})
 	})

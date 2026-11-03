@@ -39,7 +39,7 @@ func TestReviewRepo_Integration_HasVerifiedPurchase(t *testing.T) {
 		now := time.Now()
 		require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 			o := omsDomain.SalesOrder{
-				TenantID: tenant.IDFromContext(ctx), Source: omsDomain.SalesOrderSourceInternal, ExternalOrderID: extID,
+				TenantID: tenant.IDFromContext(ctx), 
 				WarehouseID: warehouseID, Status: status, CurrencyCode: "EUR", SalesChannelID: &channel,
 				Billing: omsDomain.Address{Email: email}, TotalMinorUnits: 1000, OccurredAt: now, CreatedAt: now,
 			}

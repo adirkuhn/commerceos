@@ -8,9 +8,10 @@ import "github.com/adirkuhn/commerceos/domain/errs"
 var ErrSalesOrderNotEditable = errs.New("SALES_ORDER_NOT_EDITABLE", "this sales order can no longer be edited")
 
 // Editable reports whether staff may still change the order's lines,
-// addresses and totals (see ErrSalesOrderNotEditable).
-func (o SalesOrder) Editable() error {
-	if o.Source != SalesOrderSourceManual || o.Fulfilled {
+// addresses and totals (see ErrSalesOrderNotEditable). source is the
+// order's origin (COM-15).
+func (o SalesOrder) Editable(source SalesOrderSource) error {
+	if source != SalesOrderSourceManual || o.Fulfilled {
 		return ErrSalesOrderNotEditable
 	}
 	switch o.Status {

@@ -3,6 +3,7 @@ package messagecenter
 import (
 	"context"
 	"errors"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
@@ -32,6 +33,12 @@ type carrierOverrideFinder interface {
 	FindByConnectionAndCarrier(ctx context.Context, connectionID string, carrier shippingDomain.Carrier) (*shippingDomain.ShippingCarrierOverride, error)
 }
 
+// originFinder is application/integrations.SalesOrderOrigins narrowed to
+// reading an order's origin.
+type originFinder interface {
+	Of(ctx context.Context, salesOrderID string) (*integrationsDomain.SalesOrderOrigin, error)
+}
+
 type companyProfileReader interface {
 	Get(ctx context.Context) (*settingsDomain.CompanyProfile, error)
 }
@@ -44,6 +51,7 @@ type tenantSettingsReader interface {
 // loadedOrder). Reads only, inside the engine's tenant transaction.
 type OrderSources struct {
 	SalesOrders      salesOrderFinder
+	Origins          originFinder
 	LineItems        lineItemLister
 	Customers        customerFinder
 	Shipments        shipmentLister
@@ -65,7 +73,11 @@ func (s OrderSources) load(ctx context.Context, orderID string) (*loadedOrder, e
 	if err != nil {
 		return nil, err
 	}
-	lo := &loadedOrder{order: order}
+	origin, err := s.Origins.Of(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+	lo := &loadedOrder{order: order, source: string(origin.Origin)}
 	if order.CustomerID != nil {
 		if lo.customer, err = s.Customers.FindByID(ctx, *order.CustomerID); err != nil {
 			return nil, err

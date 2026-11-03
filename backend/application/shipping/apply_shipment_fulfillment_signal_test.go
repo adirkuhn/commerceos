@@ -20,7 +20,7 @@ func TestApplyShipmentFulfillmentSignal_carrierConfirmed_flipsFulfilledAndMovesT
 	// used to just no-op on it, leaving the order stuck on Processing no
 	// matter how many carrier webhooks arrived. "handed_to_carrier" is real
 	// evidence the carrier has the parcel -- that must be enough on its own.
-	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourceBol, Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: false}
+	order := &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: false}
 	salesOrderRepo := &fakeSalesOrderRepo{findByIDFn: func(context.Context, string) (*omsDomain.SalesOrder, error) { return order, nil }}
 	updater := &fakeSalesOrderStatusUpdater{executeFn: func(_ context.Context, id string, in appoms.UpdateSalesOrderInput) (*omsDomain.SalesOrder, error) {
 		// Mirrors what the real UpdateSalesOrderUseCase would persist --
@@ -46,7 +46,7 @@ func TestApplyShipmentFulfillmentSignal_carrierConfirmed_flipsFulfilledAndMovesT
 func TestApplyShipmentFulfillmentSignal_registeredOnly_doesNotFlipFulfilledOrMoveOrder(t *testing.T) {
 	// "registered" alone is just a label existing -- not proof the carrier
 	// has the parcel -- so it must not flip Fulfilled or move Status.
-	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourceBol, Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: false}
+	order := &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: false}
 	salesOrderRepo := &fakeSalesOrderRepo{findByIDFn: func(context.Context, string) (*omsDomain.SalesOrder, error) { return order, nil }}
 	updater := &fakeSalesOrderStatusUpdater{}
 
@@ -59,7 +59,7 @@ func TestApplyShipmentFulfillmentSignal_registeredOnly_doesNotFlipFulfilledOrMov
 }
 
 func TestApplyShipmentFulfillmentSignal_alreadyFulfilled_doesNotReMarkFulfilled(t *testing.T) {
-	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: true}
+	order := &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusProcessing, Fulfilled: true}
 	salesOrderRepo := &fakeSalesOrderRepo{findByIDFn: func(context.Context, string) (*omsDomain.SalesOrder, error) { return order, nil }}
 	updater := &fakeSalesOrderStatusUpdater{}
 
@@ -73,7 +73,7 @@ func TestApplyShipmentFulfillmentSignal_alreadyFulfilled_doesNotReMarkFulfilled(
 }
 
 func TestApplyShipmentFulfillmentSignal_alreadyPastProcessing_doesNotReapply(t *testing.T) {
-	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusOnHold, Fulfilled: true}
+	order := &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusOnHold, Fulfilled: true}
 	salesOrderRepo := &fakeSalesOrderRepo{findByIDFn: func(context.Context, string) (*omsDomain.SalesOrder, error) { return order, nil }}
 	updater := &fakeSalesOrderStatusUpdater{}
 
@@ -86,7 +86,7 @@ func TestApplyShipmentFulfillmentSignal_alreadyPastProcessing_doesNotReapply(t *
 }
 
 func TestApplyShipmentFulfillmentSignal_delivered_completesOrder(t *testing.T) {
-	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourcePOS, Status: omsDomain.SalesOrderStatusShipped, Fulfilled: true}
+	order := &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusShipped, Fulfilled: true}
 	salesOrderRepo := &fakeSalesOrderRepo{findByIDFn: func(context.Context, string) (*omsDomain.SalesOrder, error) { return order, nil }}
 	updater := &fakeSalesOrderStatusUpdater{}
 
@@ -102,7 +102,7 @@ func TestApplyShipmentFulfillmentSignal_delivered_completesOrder(t *testing.T) {
 func TestApplyShipmentFulfillmentSignal_orderProcessed_movesToShippedRegardlessOfLocalFulfilled(t *testing.T) {
 	// MyParcel's own Orders/Fulfilment API "processed" event is its own
 	// unambiguous fulfilled signal -- must not be gated on local Fulfilled.
-	order := &omsDomain.SalesOrder{ID: "order-1", Source: omsDomain.SalesOrderSourceWooCommerce, Status: omsDomain.SalesOrderStatusPending, Fulfilled: false}
+	order := &omsDomain.SalesOrder{ID: "order-1", Status: omsDomain.SalesOrderStatusPending, Fulfilled: false}
 	salesOrderRepo := &fakeSalesOrderRepo{findByIDFn: func(context.Context, string) (*omsDomain.SalesOrder, error) { return order, nil }}
 	updater := &fakeSalesOrderStatusUpdater{}
 

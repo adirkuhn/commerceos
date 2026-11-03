@@ -35,7 +35,7 @@ func TestImportWooOrders_recordsTheOrdersOriginWithIt(t *testing.T) {
 // shop is not this one.
 func TestImportWooOrders_looksAnExistingOrderUpThroughTheImportingConnection(t *testing.T) {
 	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}})
-	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{ID: "sales-order-501", ExternalOrderID: "501", Status: omsDomain.SalesOrderStatusProcessing}
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{ID: "sales-order-501", Status: omsDomain.SalesOrderStatusProcessing}
 	uc := h.newImportUseCase(t, 2)
 
 	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1"})
@@ -68,7 +68,9 @@ func TestImportBolOrders_recordsTheOrdersOriginWithIt(t *testing.T) {
 		}
 		return nil, nil
 	}
-	h.bolClient.getOrderFn = func(_ context.Context, _ string) (*integrationsDomain.BolOrder, error) { return simpleBolOrderDetail(), nil }
+	h.bolClient.getOrderFn = func(_ context.Context, _ string) (*integrationsDomain.BolOrder, error) {
+		return simpleBolOrderDetail(), nil
+	}
 	uc := h.newImportUseCase(t, 6)
 
 	_, err := uc.Execute(context.Background(), appchannels.ImportBolOrdersInput{ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1"})
@@ -93,9 +95,11 @@ func TestImportBolOrders_aLostRaceOnTheOriginGoesToTheWinnersOrder(t *testing.T)
 		}
 		return nil, nil
 	}
-	h.bolClient.getOrderFn = func(_ context.Context, _ string) (*integrationsDomain.BolOrder, error) { return simpleBolOrderDetail(), nil }
+	h.bolClient.getOrderFn = func(_ context.Context, _ string) (*integrationsDomain.BolOrder, error) {
+		return simpleBolOrderDetail(), nil
+	}
 	h.salesOrderRepo.winnerAfterCreateFail = map[string]omsDomain.SalesOrder{
-		"A2K8290LP8": {ID: "winner", ExternalOrderID: "A2K8290LP8", Status: omsDomain.SalesOrderStatusProcessing},
+		"A2K8290LP8": {ID: "winner", Status: omsDomain.SalesOrderStatusProcessing},
 	}
 	uc := h.newImportUseCase(t, 4)
 	h.origins.recordErr = integrationsDomain.ErrExternalOrderAlreadyImported

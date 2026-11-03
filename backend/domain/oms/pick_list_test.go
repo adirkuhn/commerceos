@@ -76,16 +76,6 @@ func TestBuildPickList_sortsBySKUCodeThenNameWithUncodedLast(t *testing.T) {
 	assert.Equal(t, []string{"Apple", "Banana", "Avocado (unlinked)", "Zucchini (unlinked)"}, names)
 }
 
-func TestBuildPickList_fallsBackToExternalOrderIDForNumber(t *testing.T) {
-	orders := []omsDomain.SalesOrder{{ID: "o1", ExternalOrderID: "ext-9"}}
-	lineItems := []omsDomain.SalesOrderLineItem{{ID: "li-1", SalesOrderID: "o1", SKUID: strPtr("sku-a"), Name: "Apple", Quantity: 1}}
-
-	list := omsDomain.BuildPickList(orders, lineItems)
-
-	require.Len(t, list.Items, 1)
-	assert.Equal(t, "ext-9", list.Items[0].Orders[0].OrderNumber)
-}
-
 func TestBuildPickList_emptyInput(t *testing.T) {
 	list := omsDomain.BuildPickList(nil, nil)
 	assert.Empty(t, list.Items)

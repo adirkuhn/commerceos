@@ -4,6 +4,7 @@ package repositories_test
 
 import (
 	"context"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"testing"
 	"time"
 
@@ -43,13 +44,14 @@ func (f shipmentVolumeFixture) order(extID string, source omsDomain.SalesOrderSo
 	require.NoError(f.t, tenant.WithTenant(f.ctx, f.db, func(ctx context.Context) error {
 		now := time.Now()
 		o := omsDomain.SalesOrder{
-			TenantID: tenant.IDFromContext(ctx), Source: source, ExternalOrderID: extID, WarehouseID: f.warehouseID,
+			TenantID: tenant.IDFromContext(ctx), WarehouseID: f.warehouseID,
 			CurrencyCode: "EUR", Status: omsDomain.SalesOrderStatusProcessing, TotalMinorUnits: 1000,
 			OccurredAt: now, CreatedAt: now, UpdatedAt: now,
 		}
 		if err := repositories.NewSalesOrderRepo(f.db).Create(ctx, &o); err != nil {
 			return err
 		}
+		setOrigin(f.t, ctx, o.ID, integrationsDomain.Origin(source), nil, extID)
 		id = o.ID
 		return nil
 	}))

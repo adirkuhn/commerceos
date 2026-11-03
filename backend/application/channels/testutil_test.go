@@ -98,8 +98,8 @@ type stubConnectionRepo struct {
 	conn          *integrationsDomain.Connection
 	findErr       error
 	findByIDCalls []string
-	allByTenant []integrationsDomain.Connection
-	listErr     error
+	allByTenant   []integrationsDomain.Connection
+	listErr       error
 }
 
 func (s *stubConnectionRepo) Create(_ context.Context, _ *integrationsDomain.Connection) error {
@@ -1229,7 +1229,7 @@ type stubOrdersSalesOrderRepo struct {
 	updateErr error
 	// createAttempts/winnerAfterCreateFail simulate the create-race: a
 	// caller who lost the DB unique-constraint race sees Create fail with
-	// createErr (typically ErrDuplicateExternalOrder), then re-queries
+	// createErr (typically ErrExternalOrderAlreadyImported), then re-queries
 	// FindByExternalID and must find the winner's order now -- even though
 	// the *first* FindByExternalID call (importOne's initial existence
 	// check, before Create was ever attempted) correctly saw nothing.
@@ -1246,10 +1246,6 @@ func (s *stubOrdersSalesOrderRepo) Create(_ context.Context, o *omsDomain.SalesO
 	}
 	o.ID = fmt.Sprintf("sales-order-%d", len(s.created)+1)
 	s.created = append(s.created, *o)
-	if s.byExternalID == nil {
-		s.byExternalID = map[string]omsDomain.SalesOrder{}
-	}
-	s.byExternalID[o.ExternalOrderID] = *o
 	return nil
 }
 func (s *stubOrdersSalesOrderRepo) FindByID(_ context.Context, id string) (*omsDomain.SalesOrder, error) {
@@ -1313,11 +1309,21 @@ type stubImportedOrigins struct {
 	gotConnections []string
 }
 
+// Record also makes the order findable by its shop order id, as the real
+// origin row does.
 func (s *stubImportedOrigins) Record(_ context.Context, in integrationsDomain.SalesOrderOriginInput) error {
 	if s.recordErr != nil {
 		return s.recordErr
 	}
 	s.recorded = append(s.recorded, in)
+	for _, o := range s.orders.created {
+		if o.ID == in.SalesOrderID {
+			if s.orders.byExternalID == nil {
+				s.orders.byExternalID = map[string]omsDomain.SalesOrder{}
+			}
+			s.orders.byExternalID[in.ExternalOrderID] = o
+		}
+	}
 	return nil
 }
 
@@ -1601,3 +1607,41 @@ func (s *stubProductPusher) Execute(_ context.Context, in appchannels.PushProduc
 	}
 	return []channelsDomain.ProductChannelListing{{ID: "listing-" + in.ProductID, ProductID: in.ProductID, ConnectionID: in.ConnectionID}}, nil
 }
+
+// stubOriginReader answers Of from a fixed map; an order not in it has no
+// origin (ErrSalesOrderOriginNotFound).
+type stubOriginReader struct {
+	byOrder map[string]integrationsDomain.SalesOrderOrigin
+	err     error
+	asked   []string
+}
+
+func (s *stubOriginReader) Of(_ context.Context, salesOrderID string) (*integrationsDomain.SalesOrderOrigin, error) {
+	s.asked = append(s.asked, salesOrderID)
+	if s.err != nil {
+		return nil, s.err
+	}
+	o, ok := s.byOrder[salesOrderID]
+	if !ok {
+		return nil, integrationsDomain.ErrSalesOrderOriginNotFound
+	}
+	return &o, nil
+}
+
+// shopOrigins: each order imported through connectionID from origin, under
+// the shop order id it maps to.
+func shopOrigins(origin integrationsDomain.Origin, connectionID string, externalIDs map[string]string) *stubOriginReader {
+	r := &stubOriginReader{byOrder: map[string]integrationsDomain.SalesOrderOrigin{}}
+	for so, ext := range externalIDs {
+		conn := connectionID
+		r.byOrder[so] = integrationsDomain.SalesOrderOrigin{SalesOrderID: so, Origin: origin, ConnectionID: &conn, ExternalOrderID: ext}
+	}
+	return r
+}
+
+// wooOrigins: Woo orders of connection conn-1.
+func wooOrigins(externalIDs map[string]string) *stubOriginReader {
+	return shopOrigins(integrationsDomain.OriginWooCommerce, "conn-1", externalIDs)
+}
+
+func strp(s string) *string { return &s }

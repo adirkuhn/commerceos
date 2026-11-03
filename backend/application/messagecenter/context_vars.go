@@ -15,7 +15,9 @@ import (
 // the order, its customer (nil for a guest), its lines, and its current
 // shipment (nil before one exists) with the link to track it.
 type loadedOrder struct {
-	order       *omsDomain.SalesOrder
+	order *omsDomain.SalesOrder
+	// source is where the order came from (its origin, COM-15).
+	source      string
 	customer    *customersDomain.Customer
 	lines       []omsDomain.SalesOrderLineItem
 	shipment    *shippingDomain.Shipment
@@ -73,7 +75,7 @@ func orderVars(lo *loadedOrder, lang locale.Locale, dateFormat settingsDomain.Da
 	return map[string]any{
 		"customer_name": first, "customer_first_name": first, "customer_last_name": last, "customer_email": email,
 		"order_number": o.Number, "order_date": dateFormat.Format(o.OccurredAt),
-		"order_status": string(o.Status), "order_source": string(o.Source), "order_status_label": mcDomain.OrderStatusLabel(string(o.Status), lang),
+		"order_status": string(o.Status), "order_source": lo.source, "order_status_label": mcDomain.OrderStatusLabel(string(o.Status), lang),
 		"items": items, "item_count": len(lo.lines),
 		"subtotal": money(subtotal), "shipping_total": money(o.ShippingTotalMinorUnits),
 		"discount_total": money(o.DiscountTotalMinorUnits), "tax_total": money(o.TaxTotalMinorUnits),
