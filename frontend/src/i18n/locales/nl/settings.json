@@ -336,5 +336,68 @@
     "subtitle": "De verzendprovider die bij inpakken vooraf is gekozen, en de adressen op de labels.",
     "noConnection": "Er is nog geen verzendprovider gekoppeld.",
     "connect": "Verzendprovider koppelen"
+  },
+  "deadLetters": {
+    "title": "Dead letters",
+    "intro": "Events die een consumer na de laatste poging heeft opgegeven. Verwerk er een opnieuw voor de consumer die faalde, of verwijder hem.",
+    "streams": {
+      "events": "Events",
+      "webhooks": "Webhooks"
+    },
+    "filters": {
+      "subject": "Onderwerp",
+      "consumer": "Consumer",
+      "tenant": "Tenant-ID",
+      "apply": "Filteren",
+      "clear": "Filters wissen"
+    },
+    "columns": {
+      "seq": "#",
+      "subject": "Onderwerp",
+      "consumer": "Consumer",
+      "tenant": "Tenant",
+      "error": "Fout",
+      "deliveries": "Afleveringen",
+      "waitingSince": "Wacht sinds"
+    },
+    "unknownConsumer": "onbekend",
+    "unknownConsumerHint": "Dead-lettered voordat foutdetails werden vastgelegd. Een nieuwe poging bereikt elke consumer op dit onderwerp; elke consumer slaat het event over als hij het al verwerkte.",
+    "empty": "Geen dead letters. Er wacht niets.",
+    "emptyFiltered": "Geen dead letters voor deze filters.",
+    "nextPage": "Volgende pagina",
+    "firstPage": "Eerste pagina",
+    "loadFailed": "Dead letters laden mislukt",
+    "back": "Terug naar dead letters",
+    "detailTitle": "Dead letter #{{seq}}",
+    "fields": {
+      "stream": "Stream",
+      "subject": "Oorspronkelijk onderwerp",
+      "consumer": "Consumer",
+      "eventId": "Event-ID",
+      "tenant": "Tenant",
+      "error": "Fout",
+      "deliveries": "Afleveringen",
+      "deadLetteredAt": "Dead-lettered op",
+      "storedAt": "Opgeslagen op"
+    },
+    "data": "Eventgegevens",
+    "retry": "Opnieuw verwerken",
+    "retrying": "Opnieuw verwerken…",
+    "discard": "Verwijderen",
+    "discarding": "Verwijderen…",
+    "retryWarning": "Sommige consumers lezen de huidige stand opnieuw in plaats van de momentopname van het event (bijvoorbeeld de statusupdate naar Woo), dus een nieuwe poging werkt met hoe het nu is.",
+    "confirmRetry": {
+      "title": "Dit event opnieuw verwerken?",
+      "messageFor": "Het wordt alleen voor {{consumer}} opnieuw gepubliceerd en daarna uit de dead letters gehaald. {{warning}}",
+      "messageAll": "Het wordt opnieuw gepubliceerd voor elke consumer op {{subject}}; elke consumer slaat het over als hij het al verwerkte. Daarna wordt het uit de dead letters gehaald. {{warning}}",
+      "confirm": "Event opnieuw verwerken"
+    },
+    "confirmDiscard": {
+      "title": "Dit event verwijderen?",
+      "message": "Het wordt verwijderd zonder te worden verwerkt. Dit kan niet ongedaan worden gemaakt.",
+      "confirm": "Event verwijderen"
+    },
+    "retryFailed": "Event opnieuw verwerken mislukt",
+    "discardFailed": "Event verwijderen mislukt"
   }
 }

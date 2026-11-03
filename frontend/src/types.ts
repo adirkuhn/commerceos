@@ -43,6 +43,7 @@ export type NavItem =
   | 'users'
   | 'settings'
   | 'scheduled-jobs'
+  | 'dead-letters'
 
 export interface Product {
   id: string

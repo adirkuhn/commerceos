@@ -31,6 +31,7 @@ import UnmatchedSkus from './pages/UnmatchedSkus'
 import Shipping from './pages/Shipping'
 import Settings from './pages/Settings'
 import ScheduledJobs from './pages/ScheduledJobs'
+import DeadLetters from './pages/DeadLetters'
 import OverviewPage from './pages/reports/OverviewPage'
 import ProductPerformancePage from './pages/reports/ProductPerformancePage'
 import ProductPerformanceMatrixPage from './pages/reports/ProductPerformanceMatrixPage'
@@ -111,6 +112,7 @@ export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'users', path: '/users', Component: Users },
   { nav: 'settings', path: '/settings', Component: Settings },
   { nav: 'scheduled-jobs', path: '/scheduled-jobs', Component: ScheduledJobs },
+  { nav: 'dead-letters', path: '/dead-letters', Component: DeadLetters },
 ]
 
 const NAV_TO_PATH = Object.fromEntries(

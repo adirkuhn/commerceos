@@ -336,5 +336,68 @@
     "subtitle": "The shipping provider packing preselects, and the addresses printed on labels.",
     "noConnection": "No shipping provider is connected yet.",
     "connect": "Connect a shipping provider"
+  },
+  "deadLetters": {
+    "title": "Dead letters",
+    "intro": "Events a consumer gave up on after its last retry. Retry one for the consumer that failed it, or discard it.",
+    "streams": {
+      "events": "Events",
+      "webhooks": "Webhooks"
+    },
+    "filters": {
+      "subject": "Subject",
+      "consumer": "Consumer",
+      "tenant": "Tenant ID",
+      "apply": "Filter",
+      "clear": "Clear filters"
+    },
+    "columns": {
+      "seq": "#",
+      "subject": "Subject",
+      "consumer": "Consumer",
+      "tenant": "Tenant",
+      "error": "Error",
+      "deliveries": "Deliveries",
+      "waitingSince": "Waiting since"
+    },
+    "unknownConsumer": "unknown",
+    "unknownConsumerHint": "Dead-lettered before failure details were recorded. A retry reaches every consumer on this subject; each skips the event if it already processed it.",
+    "empty": "No dead letters. Nothing is waiting.",
+    "emptyFiltered": "No dead letters match these filters.",
+    "nextPage": "Next page",
+    "firstPage": "First page",
+    "loadFailed": "Failed to load dead letters",
+    "back": "Back to dead letters",
+    "detailTitle": "Dead letter #{{seq}}",
+    "fields": {
+      "stream": "Stream",
+      "subject": "Original subject",
+      "consumer": "Consumer",
+      "eventId": "Event ID",
+      "tenant": "Tenant",
+      "error": "Error",
+      "deliveries": "Deliveries",
+      "deadLetteredAt": "Dead-lettered at",
+      "storedAt": "Stored at"
+    },
+    "data": "Event data",
+    "retry": "Retry",
+    "retrying": "Retrying…",
+    "discard": "Discard",
+    "discarding": "Discarding…",
+    "retryWarning": "Some consumers re-read the current state instead of the event's snapshot (for example the Woo status push), so a retry acts on how things are now.",
+    "confirmRetry": {
+      "title": "Retry this event?",
+      "messageFor": "It is published again for {{consumer}} only, then removed from the dead letters. {{warning}}",
+      "messageAll": "It is published again for every consumer on {{subject}}; each skips it if it already processed it. Then it is removed from the dead letters. {{warning}}",
+      "confirm": "Retry event"
+    },
+    "confirmDiscard": {
+      "title": "Discard this event?",
+      "message": "It is deleted without being processed. This cannot be undone.",
+      "confirm": "Discard event"
+    },
+    "retryFailed": "Failed to retry the event",
+    "discardFailed": "Failed to discard the event"
   }
 }

@@ -19,14 +19,14 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
-// Defines values for Stream.
+// Defines values for DeadLetterStream.
 const (
-	Events   Stream = "events"
-	Webhooks Stream = "webhooks"
+	Events   DeadLetterStream = "events"
+	Webhooks DeadLetterStream = "webhooks"
 )
 
-// Valid indicates whether the value is a known member of the Stream enum.
-func (e Stream) Valid() bool {
+// Valid indicates whether the value is a known member of the DeadLetterStream enum.
+func (e DeadLetterStream) Valid() bool {
 	switch e {
 	case Events:
 		return true
@@ -43,16 +43,16 @@ type DeadLetter struct {
 	ConsumerKnown bool   `json:"consumer_known"`
 
 	// Data The event exactly as it was published (usually JSON).
-	Data           string     `json:"data"`
-	DeadLetteredAt *time.Time `json:"dead_lettered_at"`
-	Error          string     `json:"error"`
-	EventId        string     `json:"event_id"`
-	NumDelivered   int        `json:"num_delivered"`
-	Sequence       int64      `json:"sequence"`
-	StoredAt       time.Time  `json:"stored_at"`
-	Stream         Stream     `json:"stream"`
-	Subject        string     `json:"subject"`
-	TenantId       string     `json:"tenant_id"`
+	Data           string           `json:"data"`
+	DeadLetteredAt *time.Time       `json:"dead_lettered_at"`
+	Error          string           `json:"error"`
+	EventId        string           `json:"event_id"`
+	NumDelivered   int              `json:"num_delivered"`
+	Sequence       int64            `json:"sequence"`
+	StoredAt       time.Time        `json:"stored_at"`
+	Stream         DeadLetterStream `json:"stream"`
+	Subject        string           `json:"subject"`
+	TenantId       string           `json:"tenant_id"`
 }
 
 // DeadLetterListResponse defines model for DeadLetterListResponse.
@@ -78,20 +78,23 @@ type DeadLetterResponse struct {
 	Error *map[string]interface{} `json:"error"`
 }
 
+// DeadLetterStream defines model for DeadLetterStream.
+type DeadLetterStream string
+
 // DeadLetterSummary defines model for DeadLetterSummary.
 type DeadLetterSummary struct {
 	// Consumer JetStream durable that gave up; empty when unknown (dead-lettered before failure details were recorded).
 	Consumer string `json:"consumer"`
 
 	// ConsumerKnown false -- a retry reaches every consumer on the subject.
-	ConsumerKnown  bool       `json:"consumer_known"`
-	DeadLetteredAt *time.Time `json:"dead_lettered_at"`
-	Error          string     `json:"error"`
-	EventId        string     `json:"event_id"`
-	NumDelivered   int        `json:"num_delivered"`
-	Sequence       int64      `json:"sequence"`
-	StoredAt       time.Time  `json:"stored_at"`
-	Stream         Stream     `json:"stream"`
+	ConsumerKnown  bool             `json:"consumer_known"`
+	DeadLetteredAt *time.Time       `json:"dead_lettered_at"`
+	Error          string           `json:"error"`
+	EventId        string           `json:"event_id"`
+	NumDelivered   int              `json:"num_delivered"`
+	Sequence       int64            `json:"sequence"`
+	StoredAt       time.Time        `json:"stored_at"`
+	Stream         DeadLetterStream `json:"stream"`
 
 	// Subject The event's original subject; a retry publishes here.
 	Subject  string `json:"subject"`
@@ -114,18 +117,18 @@ type ErrorResponse struct {
 	} `json:"error"`
 }
 
-// Stream defines model for Stream.
-type Stream string
-
 // Seq defines model for seq.
 type Seq = int64
+
+// Stream defines model for stream.
+type Stream = DeadLetterStream
 
 // Error defines model for Error.
 type Error = ErrorResponse
 
 // ListDeadLettersParams defines parameters for ListDeadLetters.
 type ListDeadLettersParams struct {
-	Stream Stream `form:"stream" json:"stream"`
+	Stream DeadLetterStream `form:"stream" json:"stream"`
 
 	// Subject Only dead letters of this original event subject.
 	Subject *string `form:"subject,omitempty" json:"subject,omitempty"`
@@ -371,36 +374,36 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"BvsB/hbNqsr3wqRszAY8l4PVS6oe/w4AAP//",
+	"7Fndb9s4Ev9XBrwDmgDyR910H5ynXmPcdS9b55Ji96ENDFocW9xIpEJSTo3A//thSEmWbCVxdpteD3dP",
+	"dcWP+frN/GaYexbrLNcKlbNsfM9ybniGDo3/n8Vb+kegjY3MndSKjdmnBEEgF5Cic2heWbB4W6CKEbQC",
+	"6SxYZ5BnfRYxSQdy7hIWMcUzZGN/Z8QM3hbSoGBjZwqMmI0TzDgJW2iTccfGTCr30wmLWCaVzIqMjV9H",
+	"zK1zDEu4RMM2m4gFYXSyS1hYfEzeXw0u2Jj9ZbB1xCCs2sEZcnHurbwKF21IokGba2XRu2hijDb0I9bK",
+	"oXL0k+d5KmNO/hr8bslp9wcK9LddlvcHaW3noxfn7Q5H6Matml66EJJ28/TC6ByNk6TpgqcWI5Y3Pnmd",
+	"bZGFY6VrrTNSLdkmqhdnN0rfqcaWudYpckV7BHe8GyG4QuUAv/LYpWvgFqSDO24hL+aptAkKOCpswdN0",
+	"DT9fTT8eE1r2VCCYzQLMUMy4a+FDcIc9JzOkcBdpyucpVuHduwmrMO2vkKIzKToXVZHNBKZyhR4793sA",
+	"jFgF/k7sdmx3+glb9pTYIvx5WI2YLea/Y+w6TXOo+EOGb5oJ83mbRbWt26u3OGF7kGk4tymvisauezvi",
+	"3fRXibbr2kM6aLCJGglwLq2r8+d5yVBh+TAnX/AltoD1AAQrJXdc6oVVpx83yUt6ninSYdb+cSByiizj",
+	"Zu3hERTixnD/f4Vf3SwujA3WthP+gltLOR7WYaENuASBzkDOl3gK5B2iB/qcchs+U87vpcwDfmykkNOO",
+	"p/tKTFZo1k1mquQF+EYgl0oTvmEhU2K4TvEdDNOMW3Bo2x2VRo+H8bug8vsg8qouSKiImD+HPCe/3OE8",
+	"0frGNm7Ylpx9oP1xumrH/md0QSkQhSGbwSXcwZKvEIr8FDDL3RruElRQKF+c4IiQ0quKDcxxoQ3Cgsu0",
+	"MNTgOC5TC3doEAzG2ggU3SS1z5Nt3bwp0OsBB4POrMEgjxO0RJFmDdXxGq2hsDZENfn2/4T4rQjxgZbl",
+	"lQVt5FIqnlahOK0jVzUvFhI02ImG/zpa7Ur1CaXLnyxYT1Sfl6tT7R76pZV/VvkS2JlUodh0LmVobcn/",
+	"j4PJX77df/0n3UjbpVroTppVzgLfFq6yylIB4wviXZoBPckbLGG4jiDn5gaF3wSN0luy8xi+lCTyhcGR",
+	"0BmXKiSkjeD99JdfJpfvJ9Or2eTXycdPV7Oz838dgzbwpSYcOibVXBdKQPWtdfK3yd/+MZ3+M5ztwzuw",
+	"RY6mx0UmFaTSkk1KUHEWlgpxFvmkl2hBK6x7mtpqTzBEFyhAuoi0EdLG3AiadfpwiVxQs6GozIPBTK+Q",
+	"RKxdItWyD6FdMbpwCNIGbWZBG63S9WlJDz5AMNdiTbu4gha8yQ6KKloXFJob5Dekv7SkqjM8dnBUcV7V",
+	"Cc25qIf2CFKZSQe6cKAXYLha4jHJOhmN4Nd35x/O3n36MP04m1xeTi99yZOOEoO911mGJsbpFVCphVBr",
+	"Lby7+MAitkJjA2Be94eEZJ2j4rlkY/amP+y/YZEf1X1iDLzZgwYq/Ocl+kJNKeRn6Q+CjRk1+NvKbv01",
+	"2yeLz+UrwG2BZv2SzwDRblpMVdpqPi0504ehppMwEjf4vVPVmgC2umX86zmqpUvYeDQcRvuV4GllKkAE",
+	"7B7t9UvHjSx+SLUGIz1Lt667mrTVedlPJwfY2ejCYWF05jM0N7iSurD1iNFpS9W6H/LwNOwaC7rt8rnU",
+	"ulbgghepY+O3w4gMDFd6Xz36snW989A0Gg6/2TPTA/Nyx3uTvqHcPRm+fujKWsfwdhV2v3nO7tHoGbvf",
+	"Bi8ctNv3e+Wc4euGL+ShFryyrfyIQKeCiuhCGhvIsqMoDe7D4c3g3uLtJkQ3RYf7ZeosUEFjMnvBcLbb",
+	"tY4olsSE4sWDOTz58UJ/5mNUv0X6Uth8JriTLiH2y42O0Voi7UDgYeoDHraXIOg3uul+7ViQ4ek71LU+",
+	"6dtJX39H930w0fHw8J9J7x8REdSb+WLQgEG0N/tTO+jb5M1ek9ElcrtlYKuB8+mdeMs21weVm4GfQXf/",
+	"SPPtlYlYrm0HdC9J/A9S0EJn/j9Tzmj36I9B/SI8WfjOKDSgfMn9jOHr1e5bx1NzDhw9+mrVfmLr9QB5",
+	"nIC9kbmfXYIC0gFPac5aVyUXxXFE16hyTvJXNnKzD+9LeTboY7BHF0BcGOObascdwhH2l31/9jet/Tfq",
+	"AgubHAONQaSqFnz9yob9ESjtto5pvfwonttEH8gCJRp3OADeDkfjht9jXaTCi5zj9s9gp7u2+mHQyTSl",
+	"BYP9AH+LZlXle2FSNmYDnsvB6jVVj38HAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

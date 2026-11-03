@@ -338,5 +338,68 @@
     "subtitle": "O provedor de envio pré-selecionado na embalagem e os endereços impressos nas etiquetas.",
     "noConnection": "Ainda não há provedor de envio conectado.",
     "connect": "Conectar um provedor de envio"
+  },
+  "deadLetters": {
+    "title": "Dead letters",
+    "intro": "Eventos que um consumidor abandonou após a última tentativa. Reprocesse um para o consumidor que falhou, ou descarte-o.",
+    "streams": {
+      "events": "Eventos",
+      "webhooks": "Webhooks"
+    },
+    "filters": {
+      "subject": "Assunto",
+      "consumer": "Consumidor",
+      "tenant": "ID do tenant",
+      "apply": "Filtrar",
+      "clear": "Limpar filtros"
+    },
+    "columns": {
+      "seq": "#",
+      "subject": "Assunto",
+      "consumer": "Consumidor",
+      "tenant": "Tenant",
+      "error": "Erro",
+      "deliveries": "Entregas",
+      "waitingSince": "Aguardando desde"
+    },
+    "unknownConsumer": "desconhecido",
+    "unknownConsumerHint": "Enviado para dead letter antes de os detalhes da falha serem registrados. Uma nova tentativa chega a todos os consumidores deste assunto; cada um ignora o evento se já o processou.",
+    "empty": "Nenhuma dead letter. Nada aguardando.",
+    "emptyFiltered": "Nenhuma dead letter corresponde a estes filtros.",
+    "nextPage": "Próxima página",
+    "firstPage": "Primeira página",
+    "loadFailed": "Falha ao carregar as dead letters",
+    "back": "Voltar para dead letters",
+    "detailTitle": "Dead letter #{{seq}}",
+    "fields": {
+      "stream": "Stream",
+      "subject": "Assunto original",
+      "consumer": "Consumidor",
+      "eventId": "ID do evento",
+      "tenant": "Tenant",
+      "error": "Erro",
+      "deliveries": "Entregas",
+      "deadLetteredAt": "Enviado para dead letter em",
+      "storedAt": "Armazenado em"
+    },
+    "data": "Dados do evento",
+    "retry": "Reprocessar",
+    "retrying": "Reprocessando…",
+    "discard": "Descartar",
+    "discarding": "Descartando…",
+    "retryWarning": "Alguns consumidores releem o estado atual em vez do instantâneo do evento (por exemplo, o envio de status ao Woo), então uma nova tentativa age sobre a situação de agora.",
+    "confirmRetry": {
+      "title": "Reprocessar este evento?",
+      "messageFor": "Ele é publicado novamente apenas para {{consumer}} e depois removido das dead letters. {{warning}}",
+      "messageAll": "Ele é publicado novamente para todos os consumidores de {{subject}}; cada um o ignora se já o processou. Depois é removido das dead letters. {{warning}}",
+      "confirm": "Reprocessar evento"
+    },
+    "confirmDiscard": {
+      "title": "Descartar este evento?",
+      "message": "Ele é excluído sem ser processado. Isso não pode ser desfeito.",
+      "confirm": "Descartar evento"
+    },
+    "retryFailed": "Falha ao reprocessar o evento",
+    "discardFailed": "Falha ao descartar o evento"
   }
 }

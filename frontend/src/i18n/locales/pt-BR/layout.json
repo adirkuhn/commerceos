@@ -64,7 +64,8 @@
     "users": "Usuários e funções",
     "warehouses": "Depósitos",
     "webhooks": "Webhooks",
-    "today": "Hoje"
+    "today": "Hoje",
+    "deadLetters": "Dead letters"
   },
   "role": {
     "customer_admin": "Administrador",

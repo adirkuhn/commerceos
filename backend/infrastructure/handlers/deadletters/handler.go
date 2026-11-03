@@ -120,7 +120,7 @@ func (h *Handler) ListDeadLetters(c *gin.Context, params gendeadletters.ListDead
 	c.JSON(http.StatusOK, gendeadletters.DeadLetterListResponse{Data: out})
 }
 
-func (h *Handler) GetDeadLetter(c *gin.Context, stream gendeadletters.Stream, seq gendeadletters.Seq) {
+func (h *Handler) GetDeadLetter(c *gin.Context, stream gendeadletters.DeadLetterStream, seq gendeadletters.Seq) {
 	d, err := h.get.Execute(c.Request.Context(), deadletter.Stream(stream), uint64(seq))
 	if err != nil {
 		fail(c, err)
@@ -134,7 +134,7 @@ func (h *Handler) GetDeadLetter(c *gin.Context, stream gendeadletters.Stream, se
 	}})
 }
 
-func (h *Handler) RetryDeadLetter(c *gin.Context, stream gendeadletters.Stream, seq gendeadletters.Seq) {
+func (h *Handler) RetryDeadLetter(c *gin.Context, stream gendeadletters.DeadLetterStream, seq gendeadletters.Seq) {
 	if err := h.retry.Execute(c.Request.Context(), deadletter.Stream(stream), uint64(seq)); err != nil {
 		fail(c, err)
 		return
@@ -142,7 +142,7 @@ func (h *Handler) RetryDeadLetter(c *gin.Context, stream gendeadletters.Stream, 
 	c.JSON(http.StatusOK, gendeadletters.EmptyResponse{})
 }
 
-func (h *Handler) DiscardDeadLetter(c *gin.Context, stream gendeadletters.Stream, seq gendeadletters.Seq) {
+func (h *Handler) DiscardDeadLetter(c *gin.Context, stream gendeadletters.DeadLetterStream, seq gendeadletters.Seq) {
 	if err := h.discard.Execute(c.Request.Context(), deadletter.Stream(stream), uint64(seq)); err != nil {
 		fail(c, err)
 		return
@@ -152,7 +152,7 @@ func (h *Handler) DiscardDeadLetter(c *gin.Context, stream gendeadletters.Stream
 
 func toSummary(d deadletter.DeadLetter) gendeadletters.DeadLetterSummary {
 	return gendeadletters.DeadLetterSummary{
-		Stream: gendeadletters.Stream(d.Stream), Sequence: int64(d.Sequence), Subject: d.Subject,
+		Stream: gendeadletters.DeadLetterStream(d.Stream), Sequence: int64(d.Sequence), Subject: d.Subject,
 		Consumer: d.Consumer, ConsumerKnown: d.ConsumerKnown(), EventId: d.EventID, TenantId: d.TenantID,
 		Error: d.Error, NumDelivered: d.NumDelivered, DeadLetteredAt: d.DeadLetteredAt, StoredAt: d.StoredAt,
 	}

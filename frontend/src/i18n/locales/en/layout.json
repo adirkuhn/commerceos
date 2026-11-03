@@ -64,7 +64,8 @@
     "users": "Users & Roles",
     "warehouses": "Warehouses",
     "webhooks": "Webhooks",
-    "today": "Today"
+    "today": "Today",
+    "deadLetters": "Dead letters"
   },
   "role": {
     "customer_admin": "Admin",

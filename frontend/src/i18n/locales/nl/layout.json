@@ -64,7 +64,8 @@
     "users": "Gebruikers en rollen",
     "warehouses": "Magazijnen",
     "webhooks": "Webhooks",
-    "today": "Vandaag"
+    "today": "Vandaag",
+    "deadLetters": "Dead letters"
   },
   "role": {
     "customer_admin": "Beheerder",

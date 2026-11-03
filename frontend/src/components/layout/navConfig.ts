@@ -3,7 +3,7 @@ import i18next from 'i18next'
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
   ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag, BarChart3, Ticket, Star,
-  Webhook, MessageSquare, PackageCheck, UserCog, Layers, Mail, CalendarClock, Calculator, FileText,
+  Webhook, MessageSquare, PackageCheck, UserCog, Layers, Mail, CalendarClock, Calculator, FileText, Inbox,
 } from 'lucide-react'
 import type { NavItem } from '../../types'
 import type { Design } from '../../theme/designPreference'
@@ -131,6 +131,7 @@ export const REPORT_SECTIONS: NavGroup[] = [
 // platform operations match the backend's RequireRole(RoleSuperAdmin).
 const USERS_LINK: NavLink = { id: 'users', get label() { return i18next.t('layout:nav.users') }, icon: UserCog }
 const SCHEDULED_JOBS_LINK: NavLink = { id: 'scheduled-jobs', get label() { return i18next.t('layout:nav.scheduledJobs') }, icon: Clock }
+const DEAD_LETTERS_LINK: NavLink = { id: 'dead-letters', get label() { return i18next.t('layout:nav.deadLetters') }, icon: Inbox }
 const SETTINGS_LINK: NavLink = { id: 'settings', get label() { return i18next.t('layout:nav.settings') }, icon: Settings }
 
 // Pages reachable by URL but not listed in the sidebar (demo screens).
@@ -142,7 +143,7 @@ const UNLISTED_TITLES: Partial<Record<NavItem, () => string>> = {
 export function navGroupsForRole(role?: string, design: Design = 'classic'): NavGroup[] {
   const admin: NavLink[] = [
     ...(role === 'customer_owner' || role === 'super_admin' ? [USERS_LINK] : []),
-    ...(role === 'super_admin' ? [SCHEDULED_JOBS_LINK] : []),
+    ...(role === 'super_admin' ? [SCHEDULED_JOBS_LINK, DEAD_LETTERS_LINK] : []),
     SETTINGS_LINK,
   ]
   if (design === 'depot') {
