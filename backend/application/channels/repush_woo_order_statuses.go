@@ -2,11 +2,13 @@ package channels
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
 	"gorm.io/gorm"
 
+	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -37,36 +39,40 @@ type salesOrderStatusPusher interface {
 //
 //events:delegated PushSalesOrderStatusToChannelsUseCase -- records channel.order_status_pushed per successful push
 type RepushWooOrderStatusesUseCase struct {
-	db      *gorm.DB
-	orders  salesOrderLister
-	clients wooClientResolver
-	pusher  salesOrderStatusPusher
+	db          *gorm.DB
+	orders      salesOrderLister
+	connections orderConnectionResolver
+	clients     wooClientResolver
+	pusher      salesOrderStatusPusher
 }
 
-func NewRepushWooOrderStatusesUseCase(db *gorm.DB, orders salesOrderLister, clients wooClientResolver, pusher salesOrderStatusPusher) *RepushWooOrderStatusesUseCase {
-	return &RepushWooOrderStatusesUseCase{db: db, orders: orders, clients: clients, pusher: pusher}
+func NewRepushWooOrderStatusesUseCase(db *gorm.DB, orders salesOrderLister, connections orderConnectionResolver, clients wooClientResolver, pusher salesOrderStatusPusher) *RepushWooOrderStatusesUseCase {
+	return &RepushWooOrderStatusesUseCase{db: db, orders: orders, connections: connections, clients: clients, pusher: pusher}
 }
 
 func (uc *RepushWooOrderStatusesUseCase) Run(ctx context.Context) error {
 	adminCtx := tenant.WithSuperAdmin(ctx)
 
-	var candidates []omsDomain.SalesOrder
+	var byConnection map[string][]omsDomain.SalesOrder
 	err := tenant.WithTenant(adminCtx, uc.db, func(ctx context.Context) error {
-		var err error
-		candidates, _, err = uc.orders.List(ctx, omsDomain.ListSalesOrdersFilter{
+		candidates, _, err := uc.orders.List(ctx, omsDomain.ListSalesOrdersFilter{
 			Source: []omsDomain.SalesOrderSource{omsDomain.SalesOrderSourceWooCommerce},
 			// The statuses a channel can fall behind on and we can push
 			// (PartiallyRefunded has no Woo equivalent to push).
 			Status: []omsDomain.SalesOrderStatus{omsDomain.SalesOrderStatusShipped, omsDomain.SalesOrderStatusCompleted},
 			Limit:  repushWooOrderStatusesLimit,
 		})
+		if err != nil {
+			return err
+		}
+		byConnection, err = uc.groupByConnection(ctx, candidates)
 		return err
 	})
 	if err != nil {
 		return fmt.Errorf("repushWooOrderStatuses: %w", err)
 	}
 
-	for connectionID, orders := range groupByConnection(candidates) {
+	for connectionID, orders := range byConnection {
 		uc.repushConnection(tenant.WithTenantID(adminCtx, orders[0].TenantID), connectionID, orders)
 	}
 	return nil
@@ -109,13 +115,21 @@ func wooStatusNeedsRepush(local omsDomain.SalesOrderStatus, wooStatus string) bo
 	return !local.AcceptsChannelStatus(omsDomain.SalesOrderStatus(wooStatus))
 }
 
-func groupByConnection(orders []omsDomain.SalesOrder) map[string][]omsDomain.SalesOrder {
+// groupByConnection groups orders by the connection their sales channel
+// uses now (COM-15). An order that resolves nowhere is logged and left out:
+// its own status push already fails (and dead-letters) for the same reason.
+func (uc *RepushWooOrderStatusesUseCase) groupByConnection(ctx context.Context, orders []omsDomain.SalesOrder) (map[string][]omsDomain.SalesOrder, error) {
 	out := map[string][]omsDomain.SalesOrder{}
 	for _, o := range orders {
-		if o.ConnectionID == nil {
+		connectionID, err := uc.connections.ConnectionIDFor(ctx, o)
+		if errors.Is(err, channelsDomain.ErrOrderChannelUnresolved) {
+			log.Printf("repushWooOrderStatuses: %v", err)
 			continue
 		}
-		out[*o.ConnectionID] = append(out[*o.ConnectionID], o)
+		if err != nil {
+			return nil, err
+		}
+		out[connectionID] = append(out[connectionID], o)
 	}
-	return out
+	return out, nil
 }

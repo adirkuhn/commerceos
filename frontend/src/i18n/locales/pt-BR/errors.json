@@ -471,5 +471,6 @@
   "DEAD_LETTER_INVALID_STREAM": "O stream de dead letters deve ser events ou webhooks.",
   "DEAD_LETTER_RETRY_FAILED": "Não foi possível publicar o evento novamente. A dead letter continua lá.",
   "DEAD_LETTER_FORBIDDEN": "Somente um super-admin pode gerenciar dead letters.",
-  "WOO_PRODUCT_NOT_FOUND": "O produto não existe mais no WooCommerce (excluído na loja)."
+  "WOO_PRODUCT_NOT_FOUND": "O produto não existe mais no WooCommerce (excluído na loja).",
+  "ORDER_CHANNEL_UNRESOLVED": "O canal de vendas do pedido não tem integração para enviar. Conecte a integração ou vincule o canal de vendas a ela."
 }

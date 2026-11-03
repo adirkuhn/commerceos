@@ -48,10 +48,15 @@ var (
 	// ErrSyncLogHasNoListing guards Retry: a log entry whose listing was
 	// since deleted (see SyncLogEntry.ListingID's doc) has nothing left to
 	// retry against.
-	ErrSyncLogHasNoListing   = errs.New("SYNC_LOG_HAS_NO_LISTING", "sync log entry's listing no longer exists")
-	ErrSalesChannelNotFound  = errs.New("SALES_CHANNEL_NOT_FOUND", "sales channel not found")
-	ErrInvalidChannelType    = errs.New("SALES_CHANNEL_TYPE_INVALID", "invalid sales channel type")
-	ErrInvalidEnrollmentMode = errs.New("SALES_CHANNEL_ENROLLMENT_MODE_INVALID", "invalid enrollment mode")
+	ErrSyncLogHasNoListing  = errs.New("SYNC_LOG_HAS_NO_LISTING", "sync log entry's listing no longer exists")
+	ErrSalesChannelNotFound = errs.New("SALES_CHANNEL_NOT_FOUND", "sales channel not found")
+	// ErrOrderChannelUnresolved: an order from a channel (Woo, Bol) whose
+	// sales channel and recorded connection lead nowhere -- returned so
+	// the push is retried and dead-lettered, never silently skipped
+	// (COM-15).
+	ErrOrderChannelUnresolved = errs.New("ORDER_CHANNEL_UNRESOLVED", "the order's sales channel has no integration to send to")
+	ErrInvalidChannelType     = errs.New("SALES_CHANNEL_TYPE_INVALID", "invalid sales channel type")
+	ErrInvalidEnrollmentMode  = errs.New("SALES_CHANNEL_ENROLLMENT_MODE_INVALID", "invalid enrollment mode")
 	// ErrInvalidPriceAdjustment guards SalesChannel.PriceAdjustmentBasisPoints
 	// against an out-of-range value -- 0-10000 (0%-100% discount) is the
 	// only valid range.

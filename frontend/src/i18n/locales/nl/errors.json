@@ -471,5 +471,6 @@
   "DEAD_LETTER_INVALID_STREAM": "Dead-letterstream moet events of webhooks zijn.",
   "DEAD_LETTER_RETRY_FAILED": "Het event kon niet opnieuw worden gepubliceerd. De dead letter staat er nog.",
   "DEAD_LETTER_FORBIDDEN": "Alleen een super-admin kan dead letters beheren.",
-  "WOO_PRODUCT_NOT_FOUND": "Het product bestaat niet meer in WooCommerce (verwijderd in de winkel)."
+  "WOO_PRODUCT_NOT_FOUND": "Het product bestaat niet meer in WooCommerce (verwijderd in de winkel).",
+  "ORDER_CHANNEL_UNRESOLVED": "Het verkoopkanaal van de bestelling heeft geen integratie om naar te sturen. Koppel de integratie of verbind het verkoopkanaal ermee."
 }

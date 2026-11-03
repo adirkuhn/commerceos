@@ -44,10 +44,13 @@ type fakeWooClients struct {
 	client integrationsDomain.WooClient
 	err    error
 	gotID  string
+	// gotConnections: every connection asked for, in order
+	gotConnections []string
 }
 
 func (f *fakeWooClients) ClientFor(_ context.Context, connectionID string) (integrationsDomain.WooClient, error) {
 	f.gotID = connectionID
+	f.gotConnections = append(f.gotConnections, connectionID)
 	return f.client, f.err
 }
 

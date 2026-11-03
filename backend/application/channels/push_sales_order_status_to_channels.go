@@ -55,6 +55,7 @@ type PushSalesOrderStatusToChannelsUseCase struct {
 	shipmentRepo        shippingDomain.ShipmentRepository
 	carrierOverrideRepo shippingDomain.ShippingCarrierOverrideRepository
 	connRepo            integrationsDomain.ConnectionRepository
+	orderConnections    orderConnectionResolver
 	wooFactory          integrationsDomain.WooClientFactory
 	encryptionSecret    string
 	outbox              eventrecord.Enqueuer
@@ -68,6 +69,7 @@ func NewPushSalesOrderStatusToChannelsUseCase(
 	shipmentRepo shippingDomain.ShipmentRepository,
 	carrierOverrideRepo shippingDomain.ShippingCarrierOverrideRepository,
 	connRepo integrationsDomain.ConnectionRepository,
+	orderConnections orderConnectionResolver,
 	wooFactory integrationsDomain.WooClientFactory,
 	encryptionSecret string,
 	outbox eventrecord.Enqueuer,
@@ -75,7 +77,7 @@ func NewPushSalesOrderStatusToChannelsUseCase(
 ) *PushSalesOrderStatusToChannelsUseCase {
 	return &PushSalesOrderStatusToChannelsUseCase{
 		db: db, salesOrderRepo: salesOrderRepo, shipmentRepo: shipmentRepo, carrierOverrideRepo: carrierOverrideRepo,
-		connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret, settings: settings,
+		connRepo: connRepo, orderConnections: orderConnections, wooFactory: wooFactory, encryptionSecret: encryptionSecret, settings: settings,
 		outbox: outbox,
 	}
 }
@@ -114,16 +116,17 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) pushToWoo(ctx context.Context, 
 		// to push, not an error.
 		return nil
 	}
-	if order.ConnectionID == nil {
-		// Shouldn't happen for a Woo-sourced order (ImportWooOrdersUseCase
-		// always sets it), but nothing to push to without one.
-		return nil
-	}
-
 	var conn integrationsDomain.Connection
 	var secret string
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		c, err := uc.connRepo.FindByID(ctx, *order.ConnectionID)
+		// Resolved at send time through the sales channel (COM-15);
+		// nothing to send to is an error, so the event is retried and
+		// dead-lettered instead of acked.
+		connectionID, err := uc.orderConnections.ConnectionIDFor(ctx, order)
+		if err != nil {
+			return err
+		}
+		c, err := uc.connRepo.FindByID(ctx, connectionID)
 		if err != nil {
 			return err
 		}
@@ -144,7 +147,7 @@ func (uc *PushSalesOrderStatusToChannelsUseCase) pushToWoo(ctx context.Context, 
 	}
 	if err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		return eventrecord.Record(ctx, uc.outbox, events.ChannelOrderStatusPushed, order.ID, eventrecord.Data{
-			"provider": string(integrationsDomain.ProviderWooCommerce), "connection_id": order.ConnectionID,
+			"provider": string(integrationsDomain.ProviderWooCommerce), "connection_id": conn.ID,
 			"external_order_id": order.ExternalOrderID, "status": string(order.Status), "channel_status": wooStatus,
 		})
 	}); err != nil {

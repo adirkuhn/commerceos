@@ -364,7 +364,8 @@ func main() {
 		}
 	}()
 
-	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewShipmentRepo(db), repositories.NewShippingCarrierOverrideRepo(db), connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, repositories.NewOutboxRepository(db), settingsRepo)
+	orderConnections := channelsapp.NewOrderConnectionResolver(salesChannelRepo)
+	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewShipmentRepo(db), repositories.NewShippingCarrierOverrideRepo(db), connRepo, orderConnections, wooFactory, cfg.IntegrationsEncryptionSecret, repositories.NewOutboxRepository(db), settingsRepo)
 	salesOrderStatusChangedConsumer := consumers.NewSalesOrderStatusChangedConsumer(processedEventRepo, pushSalesOrderStatusUC, js)
 	if sub := subscribeConsumer(js, events.SalesOrderStatusChanged{}.EventName(), "sales-order-status-changed-scheduler",
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, salesOrderStatusChangedConsumer.Handle); sub != nil {
@@ -387,7 +388,7 @@ func main() {
 		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo,
 	)
 	jobRunners[schedulerDomain.JobReconcileFulfilledOrders] = schedulerapp.NewReconcileFulfilledOrdersUseCase(db, salesOrderRepo, updateSalesOrderUC)
-	jobRunners[schedulerDomain.JobRepushWooOrderStatuses] = channelsapp.NewRepushWooOrderStatusesUseCase(db, salesOrderRepo,
+	jobRunners[schedulerDomain.JobRepushWooOrderStatuses] = channelsapp.NewRepushWooOrderStatusesUseCase(db, salesOrderRepo, orderConnections,
 		channelsapp.NewWooConnectionClients(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret), pushSalesOrderStatusUC)
 	// Daily dead-letter alert (COM-14): reads both DLQ streams by sequence,
 	// never through a consumer, and notifies each affected tenant.
@@ -402,7 +403,7 @@ func main() {
 	// closes there too, and poll Bol for the outcome.
 	bolClients := channelsapp.NewBolConnectionClients(db, connRepo, bolinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret)
 	bolConfirmationRepo := repositories.NewBolShipmentConfirmationRepo(db)
-	confirmBolShipmentUC := channelsapp.NewConfirmBolShipmentUseCase(db, salesOrderRepo, repositories.NewShipmentRepo(db), bolConfirmationRepo, bolClients, outboxRepo, time.Now)
+	confirmBolShipmentUC := channelsapp.NewConfirmBolShipmentUseCase(db, salesOrderRepo, repositories.NewShipmentRepo(db), bolConfirmationRepo, bolClients, orderConnections, outboxRepo, time.Now)
 	bolShipmentConfirmationConsumer := consumers.NewBolShipmentConfirmationConsumer(processedEventRepo, confirmBolShipmentUC, js)
 	if sub := subscribeConsumer(js, events.ShipmentFulfillmentSignal{}.EventName(), "bol-shipment-confirmation-on-carrier-scan",
 		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, bolShipmentConfirmationConsumer.Handle); sub != nil {

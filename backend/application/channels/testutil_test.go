@@ -95,8 +95,9 @@ func newMockGormDB(t *testing.T, n int) *gorm.DB {
 // ── integrations stubs ────────────────────────────────────────────────────────
 
 type stubConnectionRepo struct {
-	conn        *integrationsDomain.Connection
-	findErr     error
+	conn          *integrationsDomain.Connection
+	findErr       error
+	findByIDCalls []string
 	allByTenant []integrationsDomain.Connection
 	listErr     error
 }
@@ -104,7 +105,8 @@ type stubConnectionRepo struct {
 func (s *stubConnectionRepo) Create(_ context.Context, _ *integrationsDomain.Connection) error {
 	return nil
 }
-func (s *stubConnectionRepo) FindByID(_ context.Context, _ string) (*integrationsDomain.Connection, error) {
+func (s *stubConnectionRepo) FindByID(_ context.Context, id string) (*integrationsDomain.Connection, error) {
+	s.findByIDCalls = append(s.findByIDCalls, id)
 	return s.conn, s.findErr
 }
 func (s *stubConnectionRepo) ListByTenant(_ context.Context) ([]integrationsDomain.Connection, error) {

@@ -90,6 +90,7 @@ type confirmFixture struct {
 	confirmations *fakeBolConfirmationRepo
 	bol           *fakeBolClient
 	source        *fakeBolClientSource
+	channels      *stubSalesChannelRepo
 	outbox        *eventrecordtest.Outbox
 }
 
@@ -101,6 +102,7 @@ func newConfirmFixture() *confirmFixture {
 		confirmations: &fakeBolConfirmationRepo{},
 		bol:           bol,
 		source:        &fakeBolClientSource{client: bol},
+		channels:      &stubSalesChannelRepo{},
 		outbox:        &eventrecordtest.Outbox{},
 	}
 }
@@ -111,7 +113,7 @@ func (f *confirmFixture) run(t *testing.T) error {
 		newMockGormDB(t, 3),
 		&stubOrdersSalesOrderRepo{findByIDResult: f.order},
 		&stubShipmentRepo{bySalesOrder: map[string][]shippingDomain.Shipment{"so-1": f.shipments}},
-		f.confirmations, f.source, f.outbox, func() time.Time { return confirmNow },
+		f.confirmations, f.source, appchannels.NewOrderConnectionResolver(f.channels), f.outbox, func() time.Time { return confirmNow },
 	)
 	return uc.Execute(context.Background(), "so-1")
 }
@@ -160,6 +162,28 @@ func TestConfirmBolShipment_shippedOrder_sendsShipmentToBolAndTracksIt(t *testin
 	assert.Equal(t, "ps-77", data["process_status_id"])
 	assert.Equal(t, "TNT", data["transporter_code"])
 	assert.Equal(t, "create_shipment", data["action"])
+}
+
+// COM-15: the order's sales channel decides which Bol connection is used.
+func TestConfirmBolShipment_goesThroughTheSalesChannelsCurrentConnection(t *testing.T) {
+	f := newConfirmFixture()
+	f.order.SalesChannelID = strp("ch-bol")
+	f.channels.findResult = &channelsDomain.SalesChannel{ID: "ch-bol", ConnectionID: strp("bol-conn-now")}
+
+	require.NoError(t, f.run(t))
+
+	assert.Equal(t, []string{"bol-conn-now"}, f.source.connectionID)
+	require.Len(t, f.confirmations.created, 1)
+	assert.Equal(t, "bol-conn-now", f.confirmations.created[0].ConnectionID)
+}
+
+// Used to return nil silently -- Bol was never told and nothing retried.
+func TestConfirmBolShipment_noChannelOrConnection_failsSoItIsRetried(t *testing.T) {
+	f := newConfirmFixture()
+	f.order.ConnectionID = nil
+
+	require.ErrorIs(t, f.run(t), channelsDomain.ErrOrderChannelUnresolved)
+	assert.Empty(t, f.source.connectionID)
 }
 
 func TestConfirmBolShipment_bolAnswersSynchronously_storesFinalResult(t *testing.T) {
