@@ -20,7 +20,9 @@ import (
 
 // receiptCostAdapter wires inventory's receipt hook to pms, as the
 // composition root does.
-type receiptCostAdapter struct{ uc *apppms.ApplyReceiptCostUseCase }
+type receiptCostAdapter struct {
+	uc *apppms.ApplyReceiptCostUseCase
+}
 
 func (a receiptCostAdapter) Execute(ctx context.Context, in appinventory.SKUCostReceiptInput) error {
 	return a.uc.Execute(ctx, apppms.ApplyReceiptCostInput{

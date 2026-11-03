@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-242 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+243 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -304,6 +304,7 @@ Payload (`events.EntityAction`):
 | `procurement.receiving_record.completed` | action | Review of an uploaded invoice was finished. data: purchase_order_id. | envelope |
 | `procurement.receiving_record.created` | action | A supplier invoice was uploaded against a purchase order to check what was delivered. data: purchase_order_id, file_name, content_type, parsing_job_id, potential_duplicate. | envelope |
 | `procurement.receiving_record.parsed` | action | An uploaded invoice was compared with its purchase order (each difference also raises receiving_discrepancy.detected). data: purchase_order_id, parsing_job_id, discrepancy_count. | envelope |
+| `procurement.supplier_cost.recorded` | action | A SKU's cost history by supplier gained rows (append-only, COM-11). entity_id is the SKU. data: kind (receipt -- stock booked in against a PO line; reversal -- received stock taken back off a line; correction -- a line repriced after the fact), purchase_order_id, purchase_order_line_item_id, supplier_id, quantity, landed_unit_cost_minor_units, currency_code. | envelope |
 | `procurement.supplier_issue.updated` | action | The claim status of a purchase order's missing, damaged or lost item changed (changes: status -- open, claimed, resolved; note). entity_id is the issue's source_id. data: purchase_order_id, source (booking_shortfall, booking_scan, receiving_discrepancy), kind (missing, damaged, lost). | envelope |
 | `procurement.supplier_issue_report.emailed` | action | A purchase order's list of missing/damaged/lost items was emailed to the supplier; the open ones became claimed (one supplier_issue.updated each). entity_id is the purchase order. data: to, issue_count, claimed_count. | envelope |
 

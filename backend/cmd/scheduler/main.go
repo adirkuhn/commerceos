@@ -268,6 +268,15 @@ func main() {
 		}
 	}
 
+	// Each goods receipt joins the SKU's cost history by supplier (COM-11).
+	recordSupplierCostUC := procurementapp.NewRecordGoodsReceivedCostUseCase(db, lineItemRepo, poRepo,
+		repositories.NewSupplierCostRepo(db), outboxRepo)
+	supplierCostConsumer := consumers.NewSupplierCostOnGoodsReceivedConsumer(processedEventRepo, recordSupplierCostUC, js)
+	if sub := subscribeConsumer(js, events.GoodsReceived{}.EventName(), supplierCostConsumer.Name(),
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, supplierCostConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
+	}
+
 	// Moneybird auto sync: a no-op per tenant unless they turned it on.
 	moneybirdAutoSync := moneybirdhandler.NewAutoSync(db, outboxRepo, cfg.IntegrationsEncryptionSecret)
 	for _, c := range []struct {
