@@ -2,6 +2,7 @@ package oms
 
 import (
 	"context"
+	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -229,7 +230,7 @@ func NewUpdateSalesOrderUseCase(db *gorm.DB) *appoms.UpdateSalesOrderUseCase {
 // NewCreateSalesOrderUseCase is the production CreateSalesOrderUseCase --
 // also used by the quotes module to turn a quote into an order.
 func NewCreateSalesOrderUseCase(db *gorm.DB, outboxRepo outbox.Repository) *appoms.CreateSalesOrderUseCase {
-	return appoms.NewCreateSalesOrderUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewSalesOrderLineItemRepo(db),
+	return appoms.NewCreateSalesOrderUseCase(db, repositories.NewSalesOrderRepo(db), appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), repositories.NewSalesOrderLineItemRepo(db),
 		repositories.NewSalesOrderLineItemStockMovementRepo(db), repositories.NewSKURepo(db),
 		appinventory.NewAllocateSaleStockUseCase(db, repositories.NewStockMovementRepo(db), repositories.NewBatchRepo(db), outboxRepo), outboxRepo).
 		WithNumbers(repositories.NewSalesOrderNumberRepo(db))

@@ -80,7 +80,7 @@ type updateSalesOrderUC interface {
 
 // ImportWooOrdersUseCase pulls orders from a WooCommerce store into
 // domain/oms.SalesOrder. Idempotent per Woo order via
-// SalesOrderRepository.FindByExternalID(SourceWooCommerce, wooOrderID) --
+// the order's origin (connection + Woo order id, see findImportedOrder) --
 // an order not seen before is created (with its own stock decrement, same
 // two-phase composition as CreateSalesOrderUseCase/
 // ReceivePOSSalesOrderUseCase: header+lines in one transaction, stock
@@ -105,6 +105,7 @@ type ImportWooOrdersUseCase struct {
 	wooFactory       integrationsDomain.WooClientFactory
 	encryptionSecret string
 	salesOrderRepo   omsDomain.SalesOrderRepository
+	origins          orderOrigins
 	lineItemRepo     omsDomain.SalesOrderLineItemRepository
 	linkRepo         omsDomain.SalesOrderLineItemStockMovementRepository
 	skuRepo          pmsDomain.SKURepository
@@ -120,6 +121,7 @@ func NewImportWooOrdersUseCase(
 	wooFactory integrationsDomain.WooClientFactory,
 	encryptionSecret string,
 	salesOrderRepo omsDomain.SalesOrderRepository,
+	origins orderOrigins,
 	lineItemRepo omsDomain.SalesOrderLineItemRepository,
 	linkRepo omsDomain.SalesOrderLineItemStockMovementRepository,
 	skuRepo pmsDomain.SKURepository,
@@ -130,7 +132,7 @@ func NewImportWooOrdersUseCase(
 ) *ImportWooOrdersUseCase {
 	return &ImportWooOrdersUseCase{
 		db: db, connRepo: connRepo, wooFactory: wooFactory, encryptionSecret: encryptionSecret,
-		salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo,
+		salesOrderRepo: salesOrderRepo, origins: origins, lineItemRepo: lineItemRepo, linkRepo: linkRepo,
 		skuRepo: skuRepo, customerRepo: customerRepo, allocateStock: allocateStock, updateOrder: updateOrder,
 		outbox: outbox,
 	}
@@ -262,7 +264,7 @@ func (uc *ImportWooOrdersUseCase) ExecuteOne(ctx context.Context, in FetchWooOrd
 	}
 	if len(result.Errors) == 0 {
 		err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-			so, err := uc.salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourceWooCommerce, in.ExternalOrderID)
+			so, err := findImportedOrder(ctx, uc.origins, uc.salesOrderRepo, integrationsDomain.OriginWooCommerce, in.ConnectionID, in.ExternalOrderID)
 			if err != nil {
 				return err
 			}
@@ -286,7 +288,7 @@ func (uc *ImportWooOrdersUseCase) importOne(ctx context.Context, in ImportWooOrd
 	var customerID *string
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
-		existing, err = uc.salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourceWooCommerce, externalOrderID)
+		existing, err = findImportedOrder(ctx, uc.origins, uc.salesOrderRepo, integrationsDomain.OriginWooCommerce, in.ConnectionID, externalOrderID)
 		if err != nil {
 			return err
 		}
@@ -363,14 +365,14 @@ func (uc *ImportWooOrdersUseCase) routeToExisting(ctx context.Context, existing 
 	result.Updated++
 }
 
-// findExisting is FindByExternalID wrapped in its own tenant.WithTenant call
-// -- used by createOne's create-race fallback, outside the (already failed
-// and rolled back) transaction that attempted the original Create.
-func (uc *ImportWooOrdersUseCase) findExisting(ctx context.Context, externalOrderID string) (*omsDomain.SalesOrder, error) {
+// findExisting is findImportedOrder wrapped in its own tenant.WithTenant
+// call -- used by createOne's create-race fallback, outside the (already
+// failed and rolled back) transaction that attempted the original Create.
+func (uc *ImportWooOrdersUseCase) findExisting(ctx context.Context, connectionID, externalOrderID string) (*omsDomain.SalesOrder, error) {
 	var existing *omsDomain.SalesOrder
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
-		existing, err = uc.salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourceWooCommerce, externalOrderID)
+		existing, err = findImportedOrder(ctx, uc.origins, uc.salesOrderRepo, integrationsDomain.OriginWooCommerce, connectionID, externalOrderID)
 		return err
 	})
 	return existing, err

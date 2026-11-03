@@ -3,6 +3,7 @@ package pos
 import (
 	"context"
 	"errors"
+	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 	"log"
 	"net/http"
 
@@ -76,7 +77,7 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 	h := NewHandler(
 		apppms.NewListPOSProductCatalogUseCase(db, listProducts, variantRepo, skuRepo, mediaRepo, barcodeAliasRepo, scaleCodeAliasRepo),
 		appinventory.NewListStockLevelsUseCase(db, movementRepo, batchRepo, settingsRepo),
-		appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, lineItemRepo, linkRepo, paymentRepo, skuRepo, allocateStock, outboxRepo),
+		appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), lineItemRepo, linkRepo, paymentRepo, skuRepo, allocateStock, outboxRepo),
 		appinventory.NewListWarehousesUseCase(db, warehouseRepo),
 	)
 	genpos.RegisterHandlers(rg, h)

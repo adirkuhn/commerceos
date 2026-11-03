@@ -782,3 +782,34 @@ func (s *stubPaymentRefundClientResolver) Resolve(_ context.Context, provider st
 }
 
 func strPtrLI(s string) *string { return &s }
+
+// stubOrigins records every origin written, like the order it came with.
+type stubOrigins struct {
+	recorded []integrations.SalesOrderOriginInput
+	// existing answers FindByExternalID; nil = not found.
+	existing *integrations.SalesOrderOrigin
+	err      error
+}
+
+func (s *stubOrigins) Record(_ context.Context, in integrations.SalesOrderOriginInput) error {
+	if s.err != nil {
+		return s.err
+	}
+	s.recorded = append(s.recorded, in)
+	return nil
+}
+
+func (s *stubOrigins) FindByExternalID(_ context.Context, origin integrations.Origin, externalOrderID string) (*integrations.SalesOrderOrigin, error) {
+	if s.existing != nil && s.existing.Origin == origin && s.existing.ExternalOrderID == externalOrderID {
+		c := *s.existing
+		return &c, nil
+	}
+	return nil, integrations.ErrSalesOrderOriginNotFound
+}
+
+// receivedPOSSale: the POS already sent externalOrderID, stored as salesOrderID.
+func receivedPOSSale(salesOrderID, externalOrderID string) *stubOrigins {
+	return &stubOrigins{existing: &integrations.SalesOrderOrigin{
+		SalesOrderID: salesOrderID, Origin: integrations.OriginPOS, ExternalOrderID: externalOrderID,
+	}}
+}

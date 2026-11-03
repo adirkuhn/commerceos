@@ -100,6 +100,28 @@ func TestSalesOrderOriginRepo_Integration_savesAndFindsAnOrdersOrigin(t *testing
 	})
 }
 
+// A second order claiming the same shop order is a lost import race.
+func TestSalesOrderOriginRepo_Integration_theSameShopOrderTwiceIsAlreadyImported(t *testing.T) {
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	_, warehouseID := seedProductSKUWarehouse(t, db, ctx)
+	shop := seedWooConnection(t, db, ctx, "https://shop.example")
+	first := insertLegacyOrder(t, db, ctx, warehouseID, "manual", "x-1", nil, "")
+	second := insertLegacyOrder(t, db, ctx, warehouseID, "manual", "x-2", nil, "")
+	save := func(ctx context.Context, order string) error {
+		o, err := integrationsDomain.NewSalesOrderOrigin(integrationsDomain.SalesOrderOriginInput{
+			TenantID: tenantID, SalesOrderID: order, Origin: integrationsDomain.OriginWooCommerce, ConnectionID: &shop, ExternalOrderID: "1001",
+		})
+		require.NoError(t, err)
+		return repositories.NewSalesOrderOriginRepo(db).Save(ctx, &o)
+	}
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error { return save(ctx, first) }))
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error { return save(ctx, second) })
+
+	assert.ErrorIs(t, err, integrationsDomain.ErrExternalOrderAlreadyImported)
+}
+
 func TestSalesOrderOriginRepo_Integration_savingAgainReplacesTheOrdersOneRow(t *testing.T) {
 	db := newIntegrationDB(t)
 	tenantID, ctx := newTestTenant()

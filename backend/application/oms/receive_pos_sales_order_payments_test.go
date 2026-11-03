@@ -23,7 +23,11 @@ type paymentsFixture struct {
 func newPaymentsFixture(t *testing.T, salesOrderRepo *stubSalesOrderRepo, paymentRepo *stubSalesOrderPaymentRepo) paymentsFixture {
 	t.Helper()
 	db := newMockGormDBN(t, 1) // order create; the adhoc line moves no stock
-	uc := appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, paymentRepo, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
+	origins := &stubOrigins{}
+	if salesOrderRepo.findByIDResult != nil {
+		origins = receivedPOSSale(salesOrderRepo.findByIDResult.ID, "pos-order-1")
+	}
+	uc := appoms.NewReceivePOSSalesOrderUseCase(db, salesOrderRepo, origins, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, paymentRepo, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{})
 	return paymentsFixture{salesOrderRepo: salesOrderRepo, paymentRepo: paymentRepo, uc: uc}
 }
 
@@ -148,7 +152,7 @@ func TestReceivePOSSalesOrder_withoutPaymentsStoresNoPaymentParts(t *testing.T) 
 
 func TestReceivePOSSalesOrder_replayDoesNotStoreThePaymentsAgain(t *testing.T) {
 	existing := &omsDomain.SalesOrder{ID: "sales-order-existing", ExternalOrderID: "pos-order-1"}
-	f := newPaymentsFixture(t, &stubSalesOrderRepo{findByExternalIDResult: existing}, &stubSalesOrderPaymentRepo{byOrder: cashPlusCard()})
+	f := newPaymentsFixture(t, &stubSalesOrderRepo{findByIDResult: existing}, &stubSalesOrderPaymentRepo{byOrder: cashPlusCard()})
 
 	_, err := f.uc.Execute(context.Background(), paidOrderInput(cashPlusCard()))
 
@@ -158,7 +162,7 @@ func TestReceivePOSSalesOrder_replayDoesNotStoreThePaymentsAgain(t *testing.T) {
 
 func TestReceivePOSSalesOrder_replayReturnsTheStoredPayments(t *testing.T) {
 	existing := &omsDomain.SalesOrder{ID: "sales-order-existing", ExternalOrderID: "pos-order-1"}
-	f := newPaymentsFixture(t, &stubSalesOrderRepo{findByExternalIDResult: existing}, &stubSalesOrderPaymentRepo{byOrder: cashPlusCard()})
+	f := newPaymentsFixture(t, &stubSalesOrderRepo{findByIDResult: existing}, &stubSalesOrderPaymentRepo{byOrder: cashPlusCard()})
 
 	order, err := f.uc.Execute(context.Background(), paidOrderInput(cashPlusCard()))
 

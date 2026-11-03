@@ -10,6 +10,9 @@ var (
 	// shop order without its connection, an order made here with an
 	// external id, an unknown origin).
 	ErrSalesOrderOriginInvalid = errs.New("SALES_ORDER_ORIGIN_INVALID", "the order's origin is invalid")
+	// ErrExternalOrderAlreadyImported: an origin with that connection (or
+	// origin) and external id already exists -- a concurrent import won.
+	ErrExternalOrderAlreadyImported = errs.New("EXTERNAL_ORDER_ALREADY_IMPORTED", "this external order was already imported")
 	// ErrSalesOrderOriginNotFound: no origin row for that order or external id.
 	ErrSalesOrderOriginNotFound = errs.New("SALES_ORDER_ORIGIN_NOT_FOUND", "the order's origin was not found")
 	ErrStoreURLInvalid          = errs.New("STORE_URL_INVALID", "store URL must be a valid http(s) URL")

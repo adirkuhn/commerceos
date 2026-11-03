@@ -65,6 +65,12 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 		if err := uc.salesOrderRepo.Create(ctx, &order); err != nil {
 			return err
 		}
+		if err := uc.origins.Record(ctx, integrationsDomain.SalesOrderOriginInput{
+			TenantID: order.TenantID, SalesOrderID: order.ID, Origin: integrationsDomain.OriginWooCommerce,
+			ConnectionID: &in.ConnectionID, ExternalOrderID: externalOrderID, ExternalKey: wo.OrderKey, CreatedAt: now,
+		}); err != nil {
+			return err
+		}
 		for _, li := range wo.LineItems {
 			// A refund/adjustment on the Woo side can surface as a
 			// negative (or zero) quantity directly on an order's
@@ -127,7 +133,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 		return recordOrderImported(ctx, uc.outbox, order, len(createdLineItems), unlinkedLines)
 	})
 	if err != nil {
-		if errors.Is(err, omsDomain.ErrDuplicateExternalOrder) {
+		if isDuplicateImport(err) {
 			// Lost a create race: another concurrent import of this same
 			// order (a second scheduler replica, or the manual fetch-order
 			// endpoint firing at the same moment) won it first. Route
@@ -135,7 +141,7 @@ func (uc *ImportWooOrdersUseCase) createOne(ctx context.Context, in ImportWooOrd
 			// of surfacing this as a failure -- the winner already created
 			// (and, via UpdateSalesOrderUseCase's own conditional-write
 			// guard, will safely decrement) the order.
-			existing, findErr := uc.findExisting(ctx, externalOrderID)
+			existing, findErr := uc.findExisting(ctx, in.ConnectionID, externalOrderID)
 			if findErr != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("woo order %s: %v", externalOrderID, findErr))
 				return

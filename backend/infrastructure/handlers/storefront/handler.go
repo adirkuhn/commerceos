@@ -9,6 +9,7 @@ package storefront
 
 import (
 	"context"
+	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 	appmc "github.com/adirkuhn/commerceos/application/messagecenter"
 	mcDomain "github.com/adirkuhn/commerceos/domain/messagecenter"
 	"time"
@@ -248,7 +249,7 @@ func Register(rg gin.IRouter, db *gorm.DB, encryptionSecret, publicBaseURL, stor
 
 	stockLevel := appinventory.NewGetSKUStockLevelUseCase(db, stockMovementRepo, batchRepo, settingsRepo)
 	recordMovement := appinventory.NewAllocateSaleStockUseCase(db, stockMovementRepo, batchRepo, outboxRepo)
-	createSalesOrder := appoms.NewCreateSalesOrderUseCase(db, salesRepo, lineItemRepo, stockMovementLinkRepo, skuRepo, recordMovement, outboxRepo).
+	createSalesOrder := appoms.NewCreateSalesOrderUseCase(db, salesRepo, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), lineItemRepo, stockMovementLinkRepo, skuRepo, recordMovement, outboxRepo).
 		WithNumbers(repositories.NewSalesOrderNumberRepo(db))
 	createCustomer := appcustomers.NewCreateCustomerUseCase(db, customerRepo, outboxRepo)
 	generatePaymentLink := appstorefront.NewGeneratePaymentLinkUseCase(

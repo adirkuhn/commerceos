@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/adirkuhn/commerceos/application/eventrecord"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 	"github.com/google/uuid"
@@ -100,6 +101,7 @@ type CreateSalesOrderUseCase struct {
 	outbox         eventrecord.Enqueuer
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
+	origins        originRecorder
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	linkRepo       omsDomain.SalesOrderLineItemStockMovementRepository
 	skuRepo        skuLookupRepo
@@ -114,8 +116,8 @@ func (uc *CreateSalesOrderUseCase) WithNumbers(numbers omsDomain.OrderNumbers) *
 	return uc
 }
 
-func NewCreateSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, outbox eventrecord.Enqueuer) *CreateSalesOrderUseCase {
-	return &CreateSalesOrderUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo, recordMovement: recordMovement}
+func NewCreateSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, origins originRecorder, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, outbox eventrecord.Enqueuer) *CreateSalesOrderUseCase {
+	return &CreateSalesOrderUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, origins: origins, lineItemRepo: lineItemRepo, linkRepo: linkRepo, skuRepo: skuRepo, recordMovement: recordMovement}
 }
 
 func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOrderInput) (*CreateSalesOrderResult, error) {
@@ -163,6 +165,12 @@ func (uc *CreateSalesOrderUseCase) Execute(ctx context.Context, in CreateSalesOr
 			Fulfilled: status == omsDomain.SalesOrderStatusCompleted,
 		}
 		if err := uc.salesOrderRepo.Create(ctx, &newOrder); err != nil {
+			return err
+		}
+		// Made here: the origin carries no external reference.
+		if err := uc.origins.Record(ctx, integrationsDomain.SalesOrderOriginInput{
+			TenantID: newOrder.TenantID, SalesOrderID: newOrder.ID, Origin: integrationsDomain.Origin(source), CreatedAt: now,
+		}); err != nil {
 			return err
 		}
 		for _, li := range in.LineItems {

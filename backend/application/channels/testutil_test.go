@@ -1252,11 +1252,18 @@ func (s *stubOrdersSalesOrderRepo) Create(_ context.Context, o *omsDomain.SalesO
 	s.byExternalID[o.ExternalOrderID] = *o
 	return nil
 }
-func (s *stubOrdersSalesOrderRepo) FindByID(_ context.Context, _ string) (*omsDomain.SalesOrder, error) {
-	if s.findByIDResult == nil && s.findByIDErr == nil {
-		return nil, omsDomain.ErrSalesOrderNotFound
+func (s *stubOrdersSalesOrderRepo) FindByID(_ context.Context, id string) (*omsDomain.SalesOrder, error) {
+	if s.findByIDResult != nil || s.findByIDErr != nil {
+		return s.findByIDResult, s.findByIDErr
 	}
-	return s.findByIDResult, s.findByIDErr
+	for _, m := range []map[string]omsDomain.SalesOrder{s.byExternalID, s.winnerAfterCreateFail} {
+		for _, o := range m {
+			if o.ID == id {
+				return &o, nil
+			}
+		}
+	}
+	return nil, omsDomain.ErrSalesOrderNotFound
 }
 func (s *stubOrdersSalesOrderRepo) FindByNumber(_ context.Context, _ string) (*omsDomain.SalesOrder, error) {
 	return nil, nil
@@ -1295,6 +1302,38 @@ func (s *stubOrdersSalesOrderRepo) TrySetStockDecremented(_ context.Context, _ s
 	return true, nil
 }
 func (s *stubOrdersSalesOrderRepo) Delete(_ context.Context, _ string) error { return nil }
+
+// stubImportedOrigins answers origin lookups from the same order maps the
+// importer tests already seed (byExternalID, winnerAfterCreateFail), so an
+// order "already imported" there has an origin here.
+type stubImportedOrigins struct {
+	orders         *stubOrdersSalesOrderRepo
+	recorded       []integrationsDomain.SalesOrderOriginInput
+	recordErr      error
+	gotConnections []string
+}
+
+func (s *stubImportedOrigins) Record(_ context.Context, in integrationsDomain.SalesOrderOriginInput) error {
+	if s.recordErr != nil {
+		return s.recordErr
+	}
+	s.recorded = append(s.recorded, in)
+	return nil
+}
+
+func (s *stubImportedOrigins) FindImported(ctx context.Context, origin integrationsDomain.Origin, connectionID, externalOrderID string) (*integrationsDomain.SalesOrderOrigin, error) {
+	s.gotConnections = append(s.gotConnections, connectionID)
+	o, err := s.orders.FindByExternalID(ctx, "", externalOrderID)
+	if err != nil {
+		return nil, err
+	}
+	if o == nil {
+		return nil, integrationsDomain.ErrSalesOrderOriginNotFound
+	}
+	return &integrationsDomain.SalesOrderOrigin{
+		SalesOrderID: o.ID, Origin: origin, ConnectionID: &connectionID, ExternalOrderID: externalOrderID,
+	}, nil
+}
 
 // stubDeleteSalesOrderUC stands in for application/oms's
 // DeleteSalesOrderUseCase (delete_all_imported_products_test.go) --

@@ -1,6 +1,7 @@
 package oms
 
 import (
+	"errors"
 	"context"
 	"fmt"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/adirkuhn/commerceos/application/eventrecord"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
 	"github.com/adirkuhn/commerceos/internal/tenant"
@@ -122,6 +124,7 @@ type ReceivePOSSalesOrderUseCase struct {
 	outbox         eventrecord.Enqueuer
 	db             *gorm.DB
 	salesOrderRepo omsDomain.SalesOrderRepository
+	origins        posOrigins
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	linkRepo       omsDomain.SalesOrderLineItemStockMovementRepository
 	paymentRepo    omsDomain.SalesOrderPaymentRepository
@@ -129,8 +132,8 @@ type ReceivePOSSalesOrderUseCase struct {
 	recordMovement recordSaleMovementUC
 }
 
-func NewReceivePOSSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, paymentRepo omsDomain.SalesOrderPaymentRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, outbox eventrecord.Enqueuer) *ReceivePOSSalesOrderUseCase {
-	return &ReceivePOSSalesOrderUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo, paymentRepo: paymentRepo, skuRepo: skuRepo, recordMovement: recordMovement}
+func NewReceivePOSSalesOrderUseCase(db *gorm.DB, salesOrderRepo omsDomain.SalesOrderRepository, origins posOrigins, lineItemRepo omsDomain.SalesOrderLineItemRepository, linkRepo omsDomain.SalesOrderLineItemStockMovementRepository, paymentRepo omsDomain.SalesOrderPaymentRepository, skuRepo skuLookupRepo, recordMovement recordSaleMovementUC, outbox eventrecord.Enqueuer) *ReceivePOSSalesOrderUseCase {
+	return &ReceivePOSSalesOrderUseCase{outbox: outbox, db: db, salesOrderRepo: salesOrderRepo, origins: origins, lineItemRepo: lineItemRepo, linkRepo: linkRepo, paymentRepo: paymentRepo, skuRepo: skuRepo, recordMovement: recordMovement}
 }
 
 func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePOSSalesOrderInput) (*omsDomain.SalesOrder, error) {
@@ -152,7 +155,7 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 	var alreadyReceived bool
 	var soldLines []soldLine
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		existing, err := uc.salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourcePOS, in.ExternalOrderID)
+		existing, err := uc.findReceived(ctx, in.ExternalOrderID)
 		if err != nil {
 			return err
 		}
@@ -186,6 +189,12 @@ func (uc *ReceivePOSSalesOrderUseCase) Execute(ctx context.Context, in ReceivePO
 			Fulfilled: status == omsDomain.SalesOrderStatusCompleted,
 		}
 		if err := uc.salesOrderRepo.Create(ctx, &newOrder); err != nil {
+			return err
+		}
+		if err := uc.origins.Record(ctx, integrationsDomain.SalesOrderOriginInput{
+			TenantID: newOrder.TenantID, SalesOrderID: newOrder.ID, Origin: integrationsDomain.OriginPOS,
+			ExternalOrderID: in.ExternalOrderID, ExternalKey: in.OrderKey, CreatedAt: now,
+		}); err != nil {
 			return err
 		}
 		if len(newOrder.Payments) > 0 {
@@ -300,4 +309,17 @@ func orDefault(value, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+// findReceived is the POS retry check: the sale already received under the
+// POS's own id, or nil.
+func (uc *ReceivePOSSalesOrderUseCase) findReceived(ctx context.Context, externalOrderID string) (*omsDomain.SalesOrder, error) {
+	origin, err := uc.origins.FindByExternalID(ctx, integrationsDomain.OriginPOS, externalOrderID)
+	if errors.Is(err, integrationsDomain.ErrSalesOrderOriginNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return uc.salesOrderRepo.FindByID(ctx, origin.SalesOrderID)
 }

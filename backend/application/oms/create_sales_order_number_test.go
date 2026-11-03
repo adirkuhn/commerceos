@@ -33,7 +33,7 @@ func numberedOrderInput(number string) appoms.CreateSalesOrderInput {
 func TestCreateSalesOrder_numbersAnOrderSentWithoutOne(t *testing.T) {
 	salesOrderRepo := &stubSalesOrderRepo{}
 	numbers := &stubOrderNumbers{next: "CO-1001"}
-	uc := appoms.NewCreateSalesOrderUseCase(newMockGormDBN(t, 1), salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{}).
+	uc := appoms.NewCreateSalesOrderUseCase(newMockGormDBN(t, 1), salesOrderRepo, &stubOrigins{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{}).
 		WithNumbers(numbers)
 
 	order, err := uc.Execute(context.Background(), numberedOrderInput(""))
@@ -47,7 +47,7 @@ func TestCreateSalesOrder_numbersAnOrderSentWithoutOne(t *testing.T) {
 func TestCreateSalesOrder_keepsATypedNumber(t *testing.T) {
 	salesOrderRepo := &stubSalesOrderRepo{}
 	numbers := &stubOrderNumbers{next: "CO-1001"}
-	uc := appoms.NewCreateSalesOrderUseCase(newMockGormDBN(t, 1), salesOrderRepo, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{}).
+	uc := appoms.NewCreateSalesOrderUseCase(newMockGormDBN(t, 1), salesOrderRepo, &stubOrigins{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{}).
 		WithNumbers(numbers)
 
 	order, err := uc.Execute(context.Background(), numberedOrderInput("2026-17"))
@@ -58,7 +58,7 @@ func TestCreateSalesOrder_keepsATypedNumber(t *testing.T) {
 }
 
 func TestCreateSalesOrder_failsWhenNoNumberCanBeHandedOut(t *testing.T) {
-	uc := appoms.NewCreateSalesOrderUseCase(newMockGormDBN(t, 1), &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{}).
+	uc := appoms.NewCreateSalesOrderUseCase(newMockGormDBN(t, 1), &stubSalesOrderRepo{}, &stubOrigins{}, &stubSalesOrderLineItemRepo{}, &stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, &eventrecordtest.Outbox{}).
 		WithNumbers(&stubOrderNumbers{err: errors.New("counter down")})
 
 	_, err := uc.Execute(context.Background(), numberedOrderInput(""))

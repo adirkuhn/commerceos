@@ -99,7 +99,7 @@ func TestImportWooOrders_RecordsOrderAndItsNewCustomer(t *testing.T) {
 	h.skuRepo.byCode["WID-A"] = pmsDomain.SKU{ID: "sku-1", SKUCode: "WID-A"}
 	outbox := &eventrecordtest.Outbox{}
 	uc := appchannels.NewImportWooOrdersUseCase(newMockGormDB(t, 4), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.salesOrderRepo, h.lineItemRepo, h.linkRepo, h.skuRepo, h.customerRepo, h.stock, h.updateOrder, outbox)
+		h.salesOrderRepo, &stubImportedOrigins{orders: h.salesOrderRepo}, h.lineItemRepo, h.linkRepo, h.skuRepo, h.customerRepo, h.stock, h.updateOrder, outbox)
 
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1"})
 
@@ -131,7 +131,7 @@ func TestImportBolOrders_RecordsOrderImported(t *testing.T) {
 	h.skuRepo.byBarcode["0630509892495"] = pmsDomain.SKU{ID: "sku-1", Barcode: "0630509892495"}
 	outbox := &eventrecordtest.Outbox{}
 	uc := appchannels.NewImportBolOrdersUseCase(newMockGormDB(t, 6), h.connRepo, &fakeBolClientFactory{client: h.bolClient}, testEncryptionSecret,
-		h.salesOrderRepo, h.lineItemRepo, h.linkRepo, h.skuRepo, h.stock, h.updateOrder, outbox)
+		h.salesOrderRepo, &stubImportedOrigins{orders: h.salesOrderRepo}, h.lineItemRepo, h.linkRepo, h.skuRepo, h.stock, h.updateOrder, outbox)
 
 	_, err := uc.Execute(context.Background(), appchannels.ImportBolOrdersInput{ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1"})
 
@@ -149,7 +149,7 @@ func TestImportWooOrders_RecordsStockShortage(t *testing.T) {
 	h.stock.err = invDomain.ErrInsufficientStock
 	outbox := &eventrecordtest.Outbox{}
 	uc := appchannels.NewImportWooOrdersUseCase(newMockGormDB(t, 6), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.salesOrderRepo, h.lineItemRepo, h.linkRepo, h.skuRepo, h.customerRepo, h.stock, h.updateOrder, outbox)
+		h.salesOrderRepo, &stubImportedOrigins{orders: h.salesOrderRepo}, h.lineItemRepo, h.linkRepo, h.skuRepo, h.customerRepo, h.stock, h.updateOrder, outbox)
 
 	_, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1"})
 

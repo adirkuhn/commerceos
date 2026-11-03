@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 	"log"
 	"os/signal"
 	"syscall"
@@ -128,7 +129,7 @@ func main() {
 		repositories.NewTenantSettingsRepo(db),
 	)
 	createSalesOrderUC := appoms.NewCreateSalesOrderUseCase(
-		db, salesOrderRepo, lineItemRepo, linkRepo, repositories.NewSKURepo(db), allocateStock, outboxRepo,
+		db, salesOrderRepo, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), lineItemRepo, linkRepo, repositories.NewSKURepo(db), allocateStock, outboxRepo,
 	).WithNumbers(repositories.NewSalesOrderNumberRepo(db))
 	createCustomerUC := appcustomers.NewCreateCustomerUseCase(db, repositories.NewCustomerRepo(db), outboxRepo)
 	generatePaymentLinkUC := appwhatsapp.NewGeneratePaymentLinkUseCase(

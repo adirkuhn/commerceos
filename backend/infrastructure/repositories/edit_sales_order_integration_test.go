@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
+	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	invDomain "github.com/adirkuhn/commerceos/domain/inventory"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
@@ -34,7 +35,7 @@ func TestEditSalesOrder_Integration_replacesLinesAndRetakesStock(t *testing.T) {
 	outbox := repositories.NewOutboxRepository(db)
 	movements := repositories.NewStockMovementRepo(db)
 	allocate := appinventory.NewAllocateSaleStockUseCase(db, movements, repositories.NewBatchRepo(db), outbox)
-	created, err := appoms.NewCreateSalesOrderUseCase(db, orders, lines, links, repositories.NewSKURepo(db), allocate, outbox).
+	created, err := appoms.NewCreateSalesOrderUseCase(db, orders, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), lines, links, repositories.NewSKURepo(db), allocate, outbox).
 		WithNumbers(repositories.NewSalesOrderNumberRepo(db)).
 		Execute(ctx, appoms.CreateSalesOrderInput{Status: omsDomain.SalesOrderStatusProcessing, WarehouseID: warehouseID, CurrencyCode: "EUR", OccurredAt: time.Now(),
 			LineItems: []appoms.CreateSalesOrderLineItemInput{{SKUID: skuID, Name: "Mate", Quantity: 10, PriceMinorUnits: 299, TotalMinorUnits: 2990}}})

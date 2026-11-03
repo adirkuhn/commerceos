@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -52,6 +53,10 @@ func (r *SalesOrderOriginRepo) Save(ctx context.Context, o *integrationsDomain.S
 		Columns:   []clause.Column{{Name: "sales_order_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"origin", "connection_id", "external_order_id", "external_key"}),
 	}).Create(&m).Error
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return fmt.Errorf("salesOrderOrigins.Save: %s: %w", pgErr.ConstraintName, integrationsDomain.ErrExternalOrderAlreadyImported)
+	}
 	if err != nil {
 		return fmt.Errorf("salesOrderOrigins.Save: %w", err)
 	}

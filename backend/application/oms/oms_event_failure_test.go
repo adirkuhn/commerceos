@@ -51,7 +51,7 @@ func TestSalesOrderUseCases_FailWhenTheEventCantBeRecorded(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("create sales order", func(t *testing.T) {
-		uc := appoms.NewCreateSalesOrderUseCase(newMockGormDBN(t, 3), &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{},
+		uc := appoms.NewCreateSalesOrderUseCase(newMockGormDBN(t, 3), &stubSalesOrderRepo{}, &stubOrigins{}, &stubSalesOrderLineItemRepo{},
 			&stubSalesOrderLineItemStockMovementRepo{}, &stubSKURepo{}, &stubRecordMovement{}, failingOutbox())
 		_, err := uc.Execute(ctx, appoms.CreateSalesOrderInput{
 			WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(), Status: omsDomain.SalesOrderStatusPending,
@@ -61,7 +61,7 @@ func TestSalesOrderUseCases_FailWhenTheEventCantBeRecorded(t *testing.T) {
 	})
 
 	t.Run("receive POS sales order", func(t *testing.T) {
-		uc := appoms.NewReceivePOSSalesOrderUseCase(newMockGormDBN(t, 3), &stubSalesOrderRepo{}, &stubSalesOrderLineItemRepo{},
+		uc := appoms.NewReceivePOSSalesOrderUseCase(newMockGormDBN(t, 3), &stubSalesOrderRepo{}, &stubOrigins{}, &stubSalesOrderLineItemRepo{},
 			&stubSalesOrderLineItemStockMovementRepo{}, &stubSalesOrderPaymentRepo{}, &stubSKURepo{}, &stubRecordMovement{}, failingOutbox())
 		_, err := uc.Execute(ctx, appoms.ReceivePOSSalesOrderInput{
 			ExternalOrderID: "pos-1", WarehouseID: "warehouse-1", CurrencyCode: "USD", OccurredAt: time.Now(), TotalMinorUnits: 500,

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 	"log"
 	"os/signal"
 	"strings"
@@ -365,6 +366,7 @@ func main() {
 	}()
 
 	orderConnections := channelsapp.NewOrderConnectionResolver(salesChannelRepo)
+	orderOrigins := appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db))
 	pushSalesOrderStatusUC := channelsapp.NewPushSalesOrderStatusToChannelsUseCase(db, repositories.NewSalesOrderRepo(db), repositories.NewShipmentRepo(db), repositories.NewShippingCarrierOverrideRepo(db), connRepo, orderConnections, wooFactory, cfg.IntegrationsEncryptionSecret, repositories.NewOutboxRepository(db), settingsRepo)
 	salesOrderStatusChangedConsumer := consumers.NewSalesOrderStatusChangedConsumer(processedEventRepo, pushSalesOrderStatusUC, js)
 	if sub := subscribeConsumer(js, events.SalesOrderStatusChanged{}.EventName(), "sales-order-status-changed-scheduler",
@@ -422,7 +424,7 @@ func main() {
 
 	ordersImportUC := channelsapp.NewImportWooOrdersUseCase(
 		db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
-		salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
+		salesOrderRepo, orderOrigins, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
 		allocateStockUC, updateSalesOrderUC, repositories.NewOutboxRepository(db),
 	)
 	customersImportUC := channelsapp.NewImportWooCustomersUseCase(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret, customerRepo, repositories.NewOutboxRepository(db))
@@ -507,7 +509,7 @@ func main() {
 		ShipmentReconcile: shipmentReconcileUC,
 		BolOrdersImport: channelsapp.NewImportBolOrdersUseCase(
 			db, connRepo, bolinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
-			salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo,
+			salesOrderRepo, orderOrigins, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo,
 			allocateStockUC, updateSalesOrderUC, repositories.NewOutboxRepository(db),
 		),
 		BolExport: channelsapp.NewRunScheduledBolExportUseCase(db, productRepo, salesChannelRepo, salesChannelOverrideRepo, pushBolUC),

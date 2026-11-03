@@ -474,5 +474,6 @@
   "WOO_PRODUCT_NOT_FOUND": "Het product bestaat niet meer in WooCommerce (verwijderd in de winkel).",
   "ORDER_CHANNEL_UNRESOLVED": "Het verkoopkanaal van de bestelling heeft geen integratie om naar te sturen. Koppel de integratie of verbind het verkoopkanaal ermee.",
   "SALES_ORDER_ORIGIN_INVALID": "De herkomst van de bestelling is ongeldig.",
-  "SALES_ORDER_ORIGIN_NOT_FOUND": "Waar deze bestelling vandaan komt is niet bekend."
+  "SALES_ORDER_ORIGIN_NOT_FOUND": "Waar deze bestelling vandaan komt is niet bekend.",
+  "EXTERNAL_ORDER_ALREADY_IMPORTED": "Deze externe bestelling is al geïmporteerd."
 }

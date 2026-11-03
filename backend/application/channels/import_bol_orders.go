@@ -54,6 +54,7 @@ type ImportBolOrdersUseCase struct {
 	bolFactory     integrationsDomain.BolClientFactory
 	encSecret      string
 	salesOrderRepo omsDomain.SalesOrderRepository
+	origins        orderOrigins
 	lineItemRepo   omsDomain.SalesOrderLineItemRepository
 	linkRepo       omsDomain.SalesOrderLineItemStockMovementRepository
 	skuRepo        pmsDomain.SKURepository
@@ -68,6 +69,7 @@ func NewImportBolOrdersUseCase(
 	bolFactory integrationsDomain.BolClientFactory,
 	encryptionSecret string,
 	salesOrderRepo omsDomain.SalesOrderRepository,
+	origins orderOrigins,
 	lineItemRepo omsDomain.SalesOrderLineItemRepository,
 	linkRepo omsDomain.SalesOrderLineItemStockMovementRepository,
 	skuRepo pmsDomain.SKURepository,
@@ -77,7 +79,7 @@ func NewImportBolOrdersUseCase(
 ) *ImportBolOrdersUseCase {
 	return &ImportBolOrdersUseCase{
 		db: db, connRepo: connRepo, bolFactory: bolFactory, encSecret: encryptionSecret,
-		salesOrderRepo: salesOrderRepo, lineItemRepo: lineItemRepo, linkRepo: linkRepo,
+		salesOrderRepo: salesOrderRepo, origins: origins, lineItemRepo: lineItemRepo, linkRepo: linkRepo,
 		skuRepo: skuRepo, allocateStock: allocateStock, updateOrder: updateOrder,
 		outbox: outbox,
 	}
@@ -165,7 +167,7 @@ func (uc *ImportBolOrdersUseCase) importOne(ctx context.Context, client integrat
 	var existing *omsDomain.SalesOrder
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
-		existing, err = uc.salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourceBol, bo.OrderID)
+		existing, err = findImportedOrder(ctx, uc.origins, uc.salesOrderRepo, integrationsDomain.OriginBol, in.ConnectionID, bo.OrderID)
 		return err
 	})
 	if err != nil {
@@ -250,6 +252,12 @@ func (uc *ImportBolOrdersUseCase) createOne(ctx context.Context, in ImportBolOrd
 		if err := uc.salesOrderRepo.Create(ctx, &order); err != nil {
 			return err
 		}
+		if err := uc.origins.Record(ctx, integrationsDomain.SalesOrderOriginInput{
+			TenantID: order.TenantID, SalesOrderID: order.ID, Origin: integrationsDomain.OriginBol,
+			ConnectionID: &in.ConnectionID, ExternalOrderID: externalOrderID, CreatedAt: now,
+		}); err != nil {
+			return err
+		}
 		for _, li := range bo.OrderItems {
 			if li.Quantity <= 0 {
 				skippedLines++
@@ -298,8 +306,8 @@ func (uc *ImportBolOrdersUseCase) createOne(ctx context.Context, in ImportBolOrd
 		return recordOrderImported(ctx, uc.outbox, order, len(createdLineItems), unlinkedLines)
 	})
 	if err != nil {
-		if errors.Is(err, omsDomain.ErrDuplicateExternalOrder) {
-			existing, findErr := uc.findExisting(ctx, externalOrderID)
+		if isDuplicateImport(err) {
+			existing, findErr := uc.findExisting(ctx, in.ConnectionID, externalOrderID)
 			if findErr != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("bol order %s: %v", externalOrderID, findErr))
 				return
@@ -354,11 +362,11 @@ func (uc *ImportBolOrdersUseCase) createOne(ctx context.Context, in ImportBolOrd
 	}
 }
 
-func (uc *ImportBolOrdersUseCase) findExisting(ctx context.Context, externalOrderID string) (*omsDomain.SalesOrder, error) {
+func (uc *ImportBolOrdersUseCase) findExisting(ctx context.Context, connectionID, externalOrderID string) (*omsDomain.SalesOrder, error) {
 	var existing *omsDomain.SalesOrder
 	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
 		var err error
-		existing, err = uc.salesOrderRepo.FindByExternalID(ctx, omsDomain.SalesOrderSourceBol, externalOrderID)
+		existing, err = findImportedOrder(ctx, uc.origins, uc.salesOrderRepo, integrationsDomain.OriginBol, connectionID, externalOrderID)
 		return err
 	})
 	return existing, err

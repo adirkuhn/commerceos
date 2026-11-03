@@ -342,7 +342,7 @@ func Register(
 	customerRepo := repositories.NewCustomerRepo(db)
 	fetchWooOrderUC := appchannels.NewImportWooOrdersUseCase(
 		db, connRepo, wooFactory, encryptionSecret,
-		salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
+		salesOrderRepo, appintegrations.NewSalesOrderOrigins(repositories.NewSalesOrderOriginRepo(db)), salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, customerRepo,
 		allocateStockUC, appoms.NewUpdateSalesOrderUseCase(db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo), repositories.NewOutboxRepository(db),
 	)
 

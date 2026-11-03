@@ -20,6 +20,7 @@ import (
 )
 
 type ordersHarness struct {
+	origins        *stubImportedOrigins
 	connRepo       *stubConnectionRepo
 	wooFactory     *stubWooClientFactory
 	wooClient      *stubWooClient
@@ -57,9 +58,10 @@ func newOrdersHarness(orders map[int][]integrationsDomain.WooOrder) *ordersHarne
 
 func (h *ordersHarness) newImportUseCase(t *testing.T, n int) *appchannels.ImportWooOrdersUseCase {
 	t.Helper()
+	h.origins = &stubImportedOrigins{orders: h.salesOrderRepo}
 	return appchannels.NewImportWooOrdersUseCase(
 		newMockGormDB(t, n), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.salesOrderRepo, h.lineItemRepo, h.linkRepo, h.skuRepo, h.customerRepo, h.stock, h.updateOrder, &eventrecordtest.Outbox{},
+		h.salesOrderRepo, h.origins, h.lineItemRepo, h.linkRepo, h.skuRepo, h.customerRepo, h.stock, h.updateOrder, &eventrecordtest.Outbox{},
 	)
 }
 

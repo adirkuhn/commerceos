@@ -16,6 +16,7 @@ import (
 )
 
 type bolOrdersHarness struct {
+	origins        *stubImportedOrigins
 	connRepo       *stubConnectionRepo
 	bolClient      *fakeBolClient
 	salesOrderRepo *stubOrdersSalesOrderRepo
@@ -42,9 +43,10 @@ func newBolOrdersHarness() *bolOrdersHarness {
 
 func (h *bolOrdersHarness) newImportUseCase(t *testing.T, n int) *appchannels.ImportBolOrdersUseCase {
 	t.Helper()
+	h.origins = &stubImportedOrigins{orders: h.salesOrderRepo}
 	return appchannels.NewImportBolOrdersUseCase(
 		newMockGormDB(t, n), h.connRepo, &fakeBolClientFactory{client: h.bolClient}, testEncryptionSecret,
-		h.salesOrderRepo, h.lineItemRepo, h.linkRepo, h.skuRepo, h.stock, h.updateOrder, &eventrecordtest.Outbox{},
+		h.salesOrderRepo, h.origins, h.lineItemRepo, h.linkRepo, h.skuRepo, h.stock, h.updateOrder, &eventrecordtest.Outbox{},
 	)
 }
 
