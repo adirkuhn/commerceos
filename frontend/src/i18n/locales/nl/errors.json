@@ -467,5 +467,9 @@
   "MONEYBIRD_TOTALS_DONT_ADD_UP": "De regels van de bestelling tellen niet op tot het totaal, dus hij kan niet worden geboekt.",
   "MONEYBIRD_UNKNOWN_ID": "Moneybird kent deze administratie, grootboekrekening, dit btw-tarief of deze betaalmethode niet.",
   "MONEYBIRD_DUPLICATE_MAPPING": "Elk btw-tarief en elke betaalmethode kan maar één keer worden gekoppeld.",
-  "MONEYBIRD_DOCUMENT_NOT_FOUND": "Dit is nooit naar Moneybird verstuurd."
+  "MONEYBIRD_DOCUMENT_NOT_FOUND": "Dit is nooit naar Moneybird verstuurd.",
+  "DEAD_LETTER_NOT_FOUND": "Dead letter niet gevonden. Mogelijk is die al opnieuw verwerkt of verwijderd.",
+  "DEAD_LETTER_INVALID_STREAM": "Dead-letterstream moet events of webhooks zijn.",
+  "DEAD_LETTER_RETRY_FAILED": "Het event kon niet opnieuw worden gepubliceerd. De dead letter staat er nog.",
+  "DEAD_LETTER_FORBIDDEN": "Alleen een super-admin kan dead letters beheren."
 }

@@ -467,5 +467,9 @@
   "MONEYBIRD_TOTALS_DONT_ADD_UP": "The order's lines don't add up to its total, so it can't be booked.",
   "MONEYBIRD_UNKNOWN_ID": "Moneybird doesn't have this administration, ledger account, tax rate or payment method.",
   "MONEYBIRD_DUPLICATE_MAPPING": "Each VAT rate and payment method can be mapped only once.",
-  "MONEYBIRD_DOCUMENT_NOT_FOUND": "This was never sent to Moneybird."
+  "MONEYBIRD_DOCUMENT_NOT_FOUND": "This was never sent to Moneybird.",
+  "DEAD_LETTER_NOT_FOUND": "Dead letter not found. It may have been retried or discarded already.",
+  "DEAD_LETTER_INVALID_STREAM": "Dead letter stream must be events or webhooks.",
+  "DEAD_LETTER_RETRY_FAILED": "The event could not be published again. The dead letter is still there.",
+  "DEAD_LETTER_FORBIDDEN": "Only a super-admin can manage dead letters."
 }

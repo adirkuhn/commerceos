@@ -18,7 +18,7 @@ import (
 // Domains are the subject prefixes events may use -- each one is also a
 // JetStream subject (infrastructure/publishers).
 var Domains = []string{
-	"apikeys", "channels", "collections", "coupons", "customers", "fx", "iam", "integrations", "inventory",
+	"apikeys", "channels", "collections", "coupons", "customers", "deadletters", "fx", "iam", "integrations", "inventory",
 	"messagecenter", "newsletter", "notifications", "oms", "payments", "pms", "procurement", "promotions", "quotes",
 	"reviews", "scheduler", "settings", "shipping", "storefront", "suppliers", "tax", "theme", "webhook_forwarding", "whatsapp",
 }

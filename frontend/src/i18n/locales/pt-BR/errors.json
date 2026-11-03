@@ -467,5 +467,9 @@
   "MONEYBIRD_TOTALS_DONT_ADD_UP": "As linhas do pedido não somam o total dele, então ele não pode ser lançado.",
   "MONEYBIRD_UNKNOWN_ID": "O Moneybird não tem esta administração, conta contábil, alíquota ou forma de pagamento.",
   "MONEYBIRD_DUPLICATE_MAPPING": "Cada alíquota de IVA e forma de pagamento só pode ser associada uma vez.",
-  "MONEYBIRD_DOCUMENT_NOT_FOUND": "Isto nunca foi enviado ao Moneybird."
+  "MONEYBIRD_DOCUMENT_NOT_FOUND": "Isto nunca foi enviado ao Moneybird.",
+  "DEAD_LETTER_NOT_FOUND": "Dead letter não encontrada. Talvez já tenha sido reprocessada ou descartada.",
+  "DEAD_LETTER_INVALID_STREAM": "O stream de dead letters deve ser events ou webhooks.",
+  "DEAD_LETTER_RETRY_FAILED": "Não foi possível publicar o evento novamente. A dead letter continua lá.",
+  "DEAD_LETTER_FORBIDDEN": "Somente um super-admin pode gerenciar dead letters."
 }

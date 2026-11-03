@@ -16,7 +16,7 @@ the same transaction as the change, published to NATS JetStream by the relay
   `created`, `updated`, `deleted`, `status_changed`, `item_scanned` -- not `create`, `update_status`.
 - All lowercase, exactly three dot-separated parts. Enforced by `domain/events/naming_test.go`.
 
-Domains: `apikeys`, `channels`, `collections`, `coupons`, `customers`, `fx`, `iam`, `integrations`, `inventory`, `messagecenter`, `newsletter`, `notifications`, `oms`, `payments`, `pms`, `procurement`, `promotions`, `quotes`, `reviews`, `scheduler`, `settings`, `shipping`, `storefront`, `suppliers`, `tax`, `theme`, `webhook_forwarding`, `whatsapp`.
+Domains: `apikeys`, `channels`, `collections`, `coupons`, `customers`, `deadletters`, `fx`, `iam`, `integrations`, `inventory`, `messagecenter`, `newsletter`, `notifications`, `oms`, `payments`, `pms`, `procurement`, `promotions`, `quotes`, `reviews`, `scheduler`, `settings`, `shipping`, `storefront`, `suppliers`, `tax`, `theme`, `webhook_forwarding`, `whatsapp`.
 
 ## Standard action event
 
@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-239 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+241 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -121,6 +121,13 @@ Payload (`events.EntityAction`):
 | `customers.customer.created` | action | A customer was created. data: woo_customer_id, role, is_paying_customer, customer_type, client_number. | envelope |
 | `customers.customer.deleted` | action | A customer was deleted. data: woo_customer_id. | envelope |
 | `customers.customer.updated` | action | A customer changed (changes: woo_customer_id, role, is_paying_customer, customer_type, company_name, client_number, kvk_number, vat_number). data.changed_fields: personal fields that changed (email, first_name, last_name, username, billing, shipping, avatar_url, customer_note), names only. | envelope |
+
+### deadletters
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `deadletters.dead_letter.discarded` | action | A super-admin deleted a dead-lettered event without processing it. entity_id is the event ID. data: stream, sequence, subject, consumer, error. | envelope |
+| `deadletters.dead_letter.retried` | action | A super-admin published a dead-lettered event again for the consumer that failed it, and removed it from the dead-letter queue. entity_id is the event ID. data: stream, sequence, subject, consumer (empty: every consumer on the subject). | envelope |
 
 ### fx
 
