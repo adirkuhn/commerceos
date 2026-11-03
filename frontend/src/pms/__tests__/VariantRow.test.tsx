@@ -20,6 +20,10 @@ vi.mock('../../auth/AuthContext', () => ({
 vi.mock('../api', () => ({
   listProducts: vi.fn(() => Promise.resolve({ products: [], total: 0 })),
   getProduct: vi.fn(),
+  listSKUSupplierCosts: vi.fn(() => Promise.resolve({
+    currency_code: 'EUR', last: null, average_cost_minor_units: null, by_supplier: [],
+    excluded_other_currency: 0, items: [], next_cursor: null, total: 0,
+  })),
   getSKUMarginInsight: vi.fn(() => Promise.resolve({
     cost_price_available: false, cost_price_minor_units: 0, cost_price_source: 'computed', effective_target_markup_basis_points: 0,
     recommended_price_minor_units: 0, profit_at_price_minor_units: 0, margin_at_price_basis_points: 0, markup_at_price_basis_points: 0,

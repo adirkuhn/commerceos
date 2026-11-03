@@ -13,7 +13,8 @@ import { profitExclIncl } from './profit'
 
 // ── Shared form layout primitives ────────────────────────────────────────────
 
-// MarginInsightCard shows the cost price the daily cron computed, the
+// MarginInsightCard shows the cost price (the last receipt's landed cost, or
+// a manual one -- see SupplierCostsCard for where it comes from), the
 // recommended price from the effective target margin, and profit/margin at
 // whatever price is currently set -- see application/pms's
 // GetSKUMarginInsightUseCase. Fetched fresh whenever skuId changes (e.g.
@@ -254,11 +255,10 @@ export function ProductHistoryCard({ productId }: { productId: string }) {
 }
 
 // ManualCostPriceEditor lets staff set a SKU's cost price by hand -- for a
-// SKU the daily cron has no basis to compute at all (e.g. a purchase order
-// marked received without ever creating a batch), or to correct a value
-// staff know is wrong. Setting one sticks until "Revert to automatic" is
-// pressed -- the cron skips any SKU with a manual override entirely (see
-// application/pms's RecalculateCostPricesUseCase).
+// SKU with no receipt to take it from, or to correct a value staff know is
+// wrong. Setting one sticks until "Revert to automatic" is pressed, which
+// goes back to the last receipt's cost (receipts never overwrite a manual
+// cost price).
 function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId: string; insight: SKUMarginInsight; currency: string; onChanged: () => void }) {
   const { token } = useAuth()
   const { t } = useTranslation(['pms', 'common'])

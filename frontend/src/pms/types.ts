@@ -133,15 +133,18 @@ export interface SKU {
   woo_tax_class_slug?: string | null
   woo_tax_status?: string | null
   status: SKUStatus
-  // Read-only. Weighted average of on-hand batches' landed cost, recomputed
-  // daily by the cost-price cron. Null until the cron has run at least once
-  // with a cost basis to average.
+  // Read-only. Replacement cost for pricing and margins: the landed cost
+  // (fees included) of the last goods receipt against a purchase order, or
+  // a manual value. Null until a receipt gives this SKU a cost.
   cost_price_minor_units?: number | null
-  // Read-only. Whether cost_price_minor_units came from the daily cron
+  // Read-only. Whether cost_price_minor_units came from the last receipt
   // ('computed', the default), a human's manual override ('manual', see
   // pmsApi.setManualCostPrice/clearCostPriceOverride), or 'unknown' -- stock
   // on hand with no cost basis yet.
   cost_price_source?: SKUCostPriceSource
+  // Read-only. What the stock on hand actually cost per unit: the moving
+  // average of every receipt's landed cost (COGS and stock value).
+  inventory_cost_minor_units?: number | null
   created_at: string
   updated_at: string
 }
@@ -173,6 +176,53 @@ export interface SKUCostPriceHistoryEntry {
   cost_price_minor_units: number
   recommended_price_minor_units: number
   occurred_on: string
+}
+
+// ── Cost history by supplier (GET /pms/skus/{id}/supplier-costs) ────────────
+
+export type SupplierCostKind = 'receipt' | 'reversal' | 'correction'
+
+export interface SupplierCostEntry {
+  kind: SupplierCostKind
+  quantity: number
+  unit_cost_minor_units: number
+  landed_unit_cost_minor_units: number
+  currency_code: string
+  received_at: string
+  purchase_order_id: string
+  purchase_order_line_item_id: string
+  supplier_id: string | null
+  supplier_name: string | null
+}
+
+export interface SupplierCostLast {
+  landed_unit_cost_minor_units: number
+  received_at: string
+  purchase_order_id: string
+  purchase_order_line_item_id: string
+  supplier_id: string | null
+  supplier_name: string | null
+}
+
+export interface SupplierCostBySupplier {
+  supplier_id: string | null
+  supplier_name: string | null
+  last_landed_unit_cost_minor_units: number | null
+  last_received_at: string
+  average_cost_minor_units: number
+  quantity: number
+  receipts: number
+}
+
+export interface SKUSupplierCosts {
+  currency_code: string
+  last: SupplierCostLast | null
+  average_cost_minor_units: number | null
+  by_supplier: SupplierCostBySupplier[]
+  excluded_other_currency: number
+  items: SupplierCostEntry[]
+  next_cursor: number | null
+  total: number
 }
 
 export type SKUPriceHistoryReason = 'created' | 'manual_update' | 'sale_expired'

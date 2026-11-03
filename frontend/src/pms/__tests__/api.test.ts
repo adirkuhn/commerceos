@@ -385,3 +385,22 @@ describe('packWeightPortions', () => {
       .rejects.toThrow('insufficient stock')
   })
 })
+
+describe('listSKUSupplierCosts', () => {
+  const empty = {
+    currency_code: 'EUR', last: null, average_cost_minor_units: null, by_supplier: [],
+    excluded_other_currency: 0, items: [], next_cursor: null, total: 0,
+  }
+
+  it('GETs the SKU\'s supplier cost history', async () => {
+    mockFetch(empty)
+    await expect(api.listSKUSupplierCosts(TOKEN, 's1')).resolves.toEqual(empty)
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(`${BASE}/skus/s1/supplier-costs`, expect.objectContaining({ method: 'GET' }))
+  })
+
+  it('passes the supplier filter and paging', async () => {
+    mockFetch(empty)
+    await api.listSKUSupplierCosts(TOKEN, 's1', { supplierId: 'acme', cursor: 20, limit: 20 })
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe(`${BASE}/skus/s1/supplier-costs?supplier_id=acme&cursor=20&limit=20`)
+  })
+})

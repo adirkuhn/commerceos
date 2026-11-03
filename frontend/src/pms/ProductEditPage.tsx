@@ -10,6 +10,7 @@ import { ProductWooCommerceTab } from './ProductWooCommerceTab'
 import { MediaSection } from './MediaSection'
 import { FormCard } from './FormCard'
 import { MarginInsightCard, PriceHistoryCard, ProductHistoryCard } from './ProductPricingCards'
+import { SupplierCostsCard } from './SupplierCostsCard'
 import { useChannelConnections } from './hooks/useChannelConnections'
 import { useSkuTaxContext } from './hooks/useSkuTaxContext'
 import { useProductEditForm } from './hooks/useProductEditForm'
@@ -172,6 +173,10 @@ export function ProductEditPage({ productId, categories, onCreateCategory, onUpd
                     taxRateBasisPoints={taxRateForPreview?.rate_basis_points ?? null}
                     pricesIncludeTax={tenantSettings?.prices_include_tax ?? false}
                   />
+                )}
+
+                {showFlatSKU && currentSku && (
+                  <SupplierCostsCard skuId={currentSku.id} inventoryCostMinorUnits={currentSku.inventory_cost_minor_units} />
                 )}
 
                 {showFlatSKU && currentSku && (

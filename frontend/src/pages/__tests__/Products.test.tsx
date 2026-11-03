@@ -40,6 +40,10 @@ vi.mock('../../pms/api', () => ({
   setManualCostPrice: vi.fn(),
   clearCostPriceOverride: vi.fn(),
   listSKUCostPriceHistory: vi.fn(),
+  listSKUSupplierCosts: vi.fn(() => Promise.resolve({
+    currency_code: 'EUR', last: null, average_cost_minor_units: null, by_supplier: [],
+    excluded_other_currency: 0, items: [], next_cursor: null, total: 0,
+  })),
   listSKUPriceHistory: vi.fn(() => Promise.resolve([])),
   listProductHistory: vi.fn(() => Promise.resolve([])),
   listVariantHistory: vi.fn(() => Promise.resolve([])),

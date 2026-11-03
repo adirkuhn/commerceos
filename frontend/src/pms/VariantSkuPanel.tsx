@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { BarcodeAliasesEditor, ScaleCodeAliasesEditor } from './SkuAliasEditors'
 import { MarginInsightCard } from './ProductPricingCards'
+import { SupplierCostsCard } from './SupplierCostsCard'
 import { VariantSkuWeightPoolControls } from './VariantSkuWeightPoolControls'
 import type { SkuBarcodeEdit } from './hooks/useSkuBarcodeEdit'
 import type { SKU, UpdateSKUPayload } from './types'
@@ -66,11 +67,14 @@ export function VariantSkuPanel({ token, sku, barcode, updateSKU, onPortionsCrea
         {t('variant.marginInsight')}
       </button>
       {showMargin && (
-        <MarginInsightCard
-          skuId={sku.id} currency={sku.currency_code}
-          taxRateBasisPoints={taxRateBasisPoints}
-          pricesIncludeTax={pricesIncludeTax}
-        />
+        <>
+          <MarginInsightCard
+            skuId={sku.id} currency={sku.currency_code}
+            taxRateBasisPoints={taxRateBasisPoints}
+            pricesIncludeTax={pricesIncludeTax}
+          />
+          <SupplierCostsCard skuId={sku.id} inventoryCostMinorUnits={sku.inventory_cost_minor_units} />
+        </>
       )}
     </div>
   )

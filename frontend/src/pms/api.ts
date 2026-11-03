@@ -5,7 +5,7 @@ import type {
   CreateProductPayload, UpdateProductPayload,
   CreateVariantPayload, UpdateVariantPayload,
   CreateSKUPayload, UpdateSKUPayload,
-  SKUMarginInsight, SKUCostPriceHistoryEntry, SKUPriceHistoryEntry, MarginReportRow,
+  SKUMarginInsight, SKUCostPriceHistoryEntry, SKUPriceHistoryEntry, MarginReportRow, SKUSupplierCosts,
   ProductHistoryEntry,
   SKUCurrencyPrice, UpsertSKUCurrencyPriceInput,
   BarcodeAlias, CreateBarcodeAliasPayload,
@@ -199,6 +199,17 @@ export function deleteScaleCodeAlias(token: string, aliasId: string): Promise<nu
 export function listSKUCostPriceHistory(token: string, id: string, limit?: number): Promise<SKUCostPriceHistoryEntry[]> {
   const qs = limit ? `?limit=${limit}` : ''
   return request<SKUCostPriceHistoryEntry[]>(`${base()}/skus/${id}/cost-price-history${qs}`, { method: 'GET' }, token)
+}
+
+export function listSKUSupplierCosts(
+  token: string, id: string, opts: { supplierId?: string; cursor?: number; limit?: number } = {},
+): Promise<SKUSupplierCosts> {
+  const params = new URLSearchParams()
+  if (opts.supplierId) params.set('supplier_id', opts.supplierId)
+  if (opts.cursor) params.set('cursor', String(opts.cursor))
+  if (opts.limit) params.set('limit', String(opts.limit))
+  const qs = params.toString() ? `?${params}` : ''
+  return request<SKUSupplierCosts>(`${base()}/skus/${id}/supplier-costs${qs}`, { method: 'GET' }, token)
 }
 
 export function listSKUPriceHistory(token: string, id: string, limit?: number): Promise<SKUPriceHistoryEntry[]> {
