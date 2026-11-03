@@ -24,7 +24,14 @@ func TestAcceptsChannelStatus(t *testing.T) {
 		{"completed ignores on-hold", SalesOrderStatusCompleted, SalesOrderStatusOnHold, false},
 		{"completed ignores pending", SalesOrderStatusCompleted, SalesOrderStatusPending, false},
 
-		{"shipped moves on to completed", SalesOrderStatusShipped, SalesOrderStatusCompleted, true},
+		// Woo has no partially-refunded status: the order stays "processing"
+		// there, so reading that back must not undo our partial refund.
+		{"partially refunded ignores processing", SalesOrderStatusPartiallyRefunded, SalesOrderStatusProcessing, false},
+		{"partially refunded ignores on-hold", SalesOrderStatusPartiallyRefunded, SalesOrderStatusOnHold, false},
+		{"partially refunded accepts completed", SalesOrderStatusPartiallyRefunded, SalesOrderStatusCompleted, true},
+		{"partially refunded accepts full refund", SalesOrderStatusPartiallyRefunded, SalesOrderStatusRefunded, true},
+
+		{"shipped moves on to completed",SalesOrderStatusShipped, SalesOrderStatusCompleted, true},
 
 		// Terminal outcomes decided on the channel always win.
 		{"shipped accepts cancelled", SalesOrderStatusShipped, SalesOrderStatusCancelled, true},

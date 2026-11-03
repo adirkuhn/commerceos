@@ -6,10 +6,12 @@ package oms
 // The channel is not always ahead of us: during an outage our status pushes
 // fail, and Shipped is pushed to Woo as "on-hold" (Woo has no shipped
 // status), so a re-import would read either a stale pre-shipment status or
-// the echo of our own push. Once an order has left the warehouse
-// (Shipped/Completed) it never moves back to pending/processing/on-hold
-// from a channel. A terminal outcome decided on the channel (cancelled,
-// refunded, failed) always wins.
+// the echo of our own push. Woo also has no partially-refunded status, so
+// such an order stays "processing" there. Once an order has moved past the
+// pre-shipment stage locally (Shipped, Completed, PartiallyRefunded) it
+// never moves back to pending/processing/on-hold from a channel. A
+// terminal outcome decided on the channel (cancelled, refunded, failed)
+// always wins.
 func (current SalesOrderStatus) AcceptsChannelStatus(incoming SalesOrderStatus) bool {
 	if incoming == current {
 		return false
@@ -17,11 +19,18 @@ func (current SalesOrderStatus) AcceptsChannelStatus(incoming SalesOrderStatus) 
 	if incoming.isChannelTerminalOutcome() {
 		return true
 	}
-	return !(current.hasLeftWarehouse() && incoming.isPreShipment())
+	return !(current.isBeyondChannelPreShipment() && incoming.isPreShipment())
 }
 
-func (s SalesOrderStatus) hasLeftWarehouse() bool {
-	return s == SalesOrderStatusShipped || s == SalesOrderStatusCompleted
+// isBeyondChannelPreShipment lists the local statuses a channel can't
+// express or lags behind on.
+func (s SalesOrderStatus) isBeyondChannelPreShipment() bool {
+	switch s {
+	case SalesOrderStatusShipped, SalesOrderStatusCompleted, SalesOrderStatusPartiallyRefunded:
+		return true
+	default:
+		return false
+	}
 }
 
 func (s SalesOrderStatus) isPreShipment() bool {
