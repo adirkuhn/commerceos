@@ -162,7 +162,7 @@ func main() {
 	// (see infrastructure/webhookproviders for the registry cmd/api's hot
 	// path verifies against); the consumer itself doesn't branch on
 	// provider name.
-	sub, err := js.QueueSubscribe("webhooks.received.*", webhookQueueGroup, webhookConsumer.Handle,
+	sub, err := js.QueueSubscribe("webhooks.received.*", webhookQueueGroup, consumers.OnlyRetriesFor(webhookConsumerDurable, webhookConsumer.Handle),
 		nats.Durable(webhookConsumerDurable), nats.ManualAck(),
 		nats.MaxDeliver(consumers.MaxDeliverBeforeDeadLetter), nats.BackOff(consumers.BackoffSchedule))
 	if err != nil {

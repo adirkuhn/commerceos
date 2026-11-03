@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+
+	"github.com/adirkuhn/commerceos/infrastructure/consumers"
 )
 
 // jetStreamSubscriber is the narrow slice of nats.JetStreamContext that
@@ -34,8 +36,11 @@ type jetStreamSubscriber interface {
 // until the next process restart (which retries registration
 // automatically) -- it no longer takes the rest of the process down with
 // it.
+//
+// The handler is wrapped with consumers.OnlyRetriesFor(durable, ...) so a
+// dead letter retried for another consumer on this subject is skipped.
 func subscribeConsumer(js jetStreamSubscriber, subject, durable string, maxDeliver int, backoff []time.Duration, handler nats.MsgHandler) *nats.Subscription {
-	sub, err := js.Subscribe(subject, handler,
+	sub, err := js.Subscribe(subject, consumers.OnlyRetriesFor(durable, handler),
 		nats.Durable(durable), nats.ManualAck(),
 		nats.MaxDeliver(maxDeliver), nats.BackOff(backoff))
 	if err != nil {

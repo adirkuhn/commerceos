@@ -7,6 +7,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/adirkuhn/commerceos/infrastructure/dlq"
 )
 
 func TestShouldDeadLetter(t *testing.T) {
@@ -51,9 +53,65 @@ func TestBackoffFor(t *testing.T) {
 	}
 }
 
-func TestDeadLetterSubject(t *testing.T) {
-	assert.Equal(t, "dlq.pms.product.changed", deadLetterSubject("pms.product.changed"))
-	assert.Equal(t, "dlq.inventory.stock.changed", deadLetterSubject("inventory.stock.changed"))
+// TestDeadLetterMsg pins what COM-14 needs to triage a dead letter without
+// the logs: the data stays byte-identical, and the headers say which
+// consumer gave up, why, after how many deliveries and when.
+func TestDeadLetterMsg(t *testing.T) {
+	data := []byte(`{"event_id":"e-1","tenant_id":"t-1"}`)
+	orig := &nats.Msg{Subject: "oms.sales_order.status_changed", Data: data}
+	meta := &nats.MsgMetadata{Consumer: "sales-order-status-changed-scheduler", NumDelivered: 5}
+	at := time.Date(2026, 11, 3, 10, 0, 0, 0, time.UTC)
+
+	got := deadLetterMsg(orig, meta, errors.New("woo: 403"), at)
+
+	assert.Equal(t, "dlq.oms.sales_order.status_changed", got.Subject)
+	assert.Equal(t, data, got.Data)
+	assert.Equal(t, "sales-order-status-changed-scheduler", got.Header.Get(dlq.HeaderConsumer))
+	assert.Equal(t, "oms.sales_order.status_changed", got.Header.Get(dlq.HeaderOriginalSubject))
+	assert.Equal(t, "woo: 403", got.Header.Get(dlq.HeaderError))
+	assert.Equal(t, "5", got.Header.Get(dlq.HeaderNumDelivered))
+	assert.Equal(t, "2026-11-03T10:00:00Z", got.Header.Get(dlq.HeaderDeadLetteredAt))
+}
+
+// TestDeadLetterMsg_dropsRetryTarget: a retried event that fails again is
+// dead-lettered as a fresh failure of the consumer that just failed it.
+func TestDeadLetterMsg_dropsRetryTarget(t *testing.T) {
+	orig := &nats.Msg{Subject: "s", Data: []byte(`{}`), Header: nats.Header{}}
+	orig.Header.Set(dlq.HeaderRetryConsumer, "c")
+
+	got := deadLetterMsg(orig, &nats.MsgMetadata{Consumer: "c", NumDelivered: 5}, errors.New("boom"), time.Now())
+
+	assert.Equal(t, "", got.Header.Get(dlq.HeaderRetryConsumer))
+}
+
+// TestOnlyRetriesFor is the single place a targeted retry is kept away
+// from consumers that already handled the event (COM-14): every
+// subscription wraps its handler with it.
+func TestOnlyRetriesFor(t *testing.T) {
+	retryFor := func(consumer string) *nats.Msg {
+		m := &nats.Msg{Subject: "oms.sales_order.status_changed", Data: []byte(`{}`), Header: nats.Header{}}
+		m.Header.Set(dlq.HeaderRetryConsumer, consumer)
+		return m
+	}
+	cases := []struct {
+		name       string
+		msg        *nats.Msg
+		wantCalled bool
+	}{
+		{"normal delivery", &nats.Msg{Subject: "s", Data: []byte(`{}`)}, true},
+		{"retry for this consumer", retryFor("whatsapp-order-status-scheduler"), true},
+		{"retry for another consumer -- acked and skipped", retryFor("sales-order-status-changed-scheduler"), false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			called := false
+			h := OnlyRetriesFor("whatsapp-order-status-scheduler", func(*nats.Msg) { called = true })
+
+			h(tc.msg)
+
+			assert.Equal(t, tc.wantCalled, called)
+		})
+	}
 }
 
 // TestNakOrDeadLetter_fallsBackToNakWhenNotARealJetStreamMessage documents
@@ -78,7 +136,7 @@ type stubDLQPublisher struct {
 	calls []string
 }
 
-func (s *stubDLQPublisher) Publish(subj string, _ []byte, _ ...nats.PubOpt) (*nats.PubAck, error) {
-	s.calls = append(s.calls, subj)
+func (s *stubDLQPublisher) PublishMsg(m *nats.Msg, _ ...nats.PubOpt) (*nats.PubAck, error) {
+	s.calls = append(s.calls, m.Subject)
 	return &nats.PubAck{}, nil
 }

@@ -7,15 +7,40 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/adirkuhn/commerceos/infrastructure/dlq"
 )
 
 type stubJetStreamSubscriber struct {
-	sub *nats.Subscription
-	err error
+	sub     *nats.Subscription
+	err     error
+	handler nats.MsgHandler
 }
 
-func (s *stubJetStreamSubscriber) Subscribe(_ string, _ nats.MsgHandler, _ ...nats.SubOpt) (*nats.Subscription, error) {
+func (s *stubJetStreamSubscriber) Subscribe(_ string, cb nats.MsgHandler, _ ...nats.SubOpt) (*nats.Subscription, error) {
+	s.handler = cb
 	return s.sub, s.err
+}
+
+// TestSubscribeConsumer_skipsRetriesForOtherConsumers: every scheduler
+// subscription goes through subscribeConsumer, so a dead letter retried for
+// one consumer (COM-14) never reaches the others on the same subject.
+func TestSubscribeConsumer_skipsRetriesForOtherConsumers(t *testing.T) {
+	retryFor := func(durable string) *nats.Msg {
+		m := &nats.Msg{Subject: "oms.sales_order.status_changed", Data: []byte(`{}`), Header: nats.Header{}}
+		m.Header.Set(dlq.HeaderRetryConsumer, durable)
+		return m
+	}
+	js := &stubJetStreamSubscriber{sub: &nats.Subscription{}}
+	calls := 0
+
+	subscribeConsumer(js, "oms.sales_order.status_changed", "whatsapp-order-status-scheduler", 5, []time.Duration{time.Second},
+		func(*nats.Msg) { calls++ })
+	js.handler(retryFor("sales-order-status-changed-scheduler"))
+	js.handler(retryFor("whatsapp-order-status-scheduler"))
+	js.handler(&nats.Msg{Subject: "oms.sales_order.status_changed", Data: []byte(`{}`)})
+
+	assert.Equal(t, 2, calls, "only the retry for this durable and the normal delivery reach the handler")
 }
 
 func TestSubscribeConsumer_Success(t *testing.T) {

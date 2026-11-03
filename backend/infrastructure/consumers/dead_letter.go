@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+
+	"github.com/adirkuhn/commerceos/infrastructure/dlq"
 )
 
 // MaxDeliverBeforeDeadLetter caps how many times JetStream redelivers a
@@ -33,15 +35,39 @@ var BackoffSchedule = []time.Duration{
 // dlqPublisher is nats.JetStreamContext narrowed to point of use (ISP) --
 // lets nakOrDeadLetter be unit tested without a real NATS connection.
 type dlqPublisher interface {
-	Publish(subj string, data []byte, opts ...nats.PubOpt) (*nats.PubAck, error)
+	PublishMsg(m *nats.Msg, opts ...nats.PubOpt) (*nats.PubAck, error)
 }
 
-// deadLetterSubject is where a message goes once it has exhausted its
-// redelivery attempts, republished on the same COMMERCEOS_EVENTS stream
-// under a filterable prefix (see infrastructure/publishers.EnsureDLQStream
-// for the dedicated stream that actually stores these).
-func deadLetterSubject(originalSubject string) string {
-	return "dlq." + originalSubject
+// deadLetterMsg is what a message that exhausted its redelivery attempts
+// is republished as: the original data, byte-identical, under the
+// dead-letter subject (stored on the dedicated DLQ stream, see
+// infrastructure/publishers.EnsureDLQStream), with headers saying which
+// consumer gave up, why, after how many deliveries and when -- so a dead
+// letter can be triaged from the admin without searching the logs. Any
+// retry target the message carried is not copied: a retry that fails again
+// is a fresh failure of the consumer named in the new headers.
+func deadLetterMsg(msg *nats.Msg, meta *nats.MsgMetadata, cause error, now time.Time) *nats.Msg {
+	return &nats.Msg{
+		Subject: dlq.Subject(msg.Subject),
+		Data:    msg.Data,
+		Header:  dlq.FailureHeader(meta.Consumer, msg.Subject, cause, meta.NumDelivered, now),
+	}
+}
+
+// OnlyRetriesFor wraps a subscription's handler so a retried dead letter
+// (see dlq.HeaderRetryConsumer) only reaches the consumer that failed it:
+// every other consumer on the subject acks and skips it, so nothing that
+// already handled the event runs again. consumer is the subscription's
+// JetStream durable name -- the same name nakOrDeadLetter records. Every
+// subscription wraps its handler with this, so no consumer repeats the check.
+func OnlyRetriesFor(consumer string, handler nats.MsgHandler) nats.MsgHandler {
+	return func(msg *nats.Msg) {
+		if dlq.SkipsRetry(msg.Header, consumer) {
+			ackOrLog(msg, consumer+": skipping retry for "+msg.Header.Get(dlq.HeaderRetryConsumer))
+			return
+		}
+		handler(msg)
+	}
 }
 
 // shouldDeadLetter decides, from a message's own JetStream delivery count,
@@ -86,7 +112,7 @@ func backoffFor(numDelivered uint64) time.Duration {
 // BackoffSchedule (see backoffFor) rather than a bare Nak, which would
 // otherwise redeliver immediately. logPrefix identifies the calling
 // consumer in the log line, matching each consumer's existing log style.
-func nakOrDeadLetter(dlq dlqPublisher, msg *nats.Msg, logPrefix string, cause error) {
+func nakOrDeadLetter(publisher dlqPublisher, msg *nats.Msg, logPrefix string, cause error) {
 	meta, metaErr := msg.Metadata()
 	if metaErr != nil {
 		// Not a real JetStream message (only happens in tests) -- no
@@ -97,7 +123,7 @@ func nakOrDeadLetter(dlq dlqPublisher, msg *nats.Msg, logPrefix string, cause er
 	}
 	if shouldDeadLetter(meta, metaErr) {
 		log.Printf("%s: giving up after %d deliveries, dead-lettering: %v", logPrefix, meta.NumDelivered, cause)
-		if _, err := dlq.Publish(deadLetterSubject(msg.Subject), msg.Data); err != nil {
+		if _, err := publisher.PublishMsg(deadLetterMsg(msg, meta, cause, time.Now())); err != nil {
 			log.Printf("%s: dead-letter publish failed, retrying instead: %v", logPrefix, err)
 			nakOrLog(msg, logPrefix)
 			return

@@ -10,7 +10,7 @@ type stubDLQPublisher struct {
 	calls []string
 }
 
-func (s *stubDLQPublisher) Publish(subj string, _ []byte, _ ...nats.PubOpt) (*nats.PubAck, error) {
-	s.calls = append(s.calls, subj)
+func (s *stubDLQPublisher) PublishMsg(m *nats.Msg, _ ...nats.PubOpt) (*nats.PubAck, error) {
+	s.calls = append(s.calls, m.Subject)
 	return &nats.PubAck{}, nil
 }
