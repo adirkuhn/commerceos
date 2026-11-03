@@ -109,7 +109,8 @@
     "orders": "Pedidos",
     "ordersReconciliation": "Conciliação de pedidos",
     "products": "Produtos",
-    "stock": "Níveis de estoque"
+    "stock": "Níveis de estoque",
+    "stockReconciliation": "Conciliação de estoque"
   },
   "fallback": {
     "abandon": "Descartar",
@@ -308,7 +309,8 @@
     "backfillPaymentsDone": "Concluído: {{checked}} pedidos verificados, {{updated}} atualizados.",
     "backfillPaymentsNothing": "Todos os pedidos pagos já têm as informações de pagamento.",
     "backfillPaymentsFailed": "Falha ao buscar informações de pagamento",
-    "backfillPaymentsErrors": "Alguns pedidos não puderam ser verificados:"
+    "backfillPaymentsErrors": "Alguns pedidos não puderam ser verificados:",
+    "stockReconciliationHint": "Compara o estoque e o lote (lote, validade) de cada produto vinculado no WooCommerce com o CommerceOS segundo as regras de estoque e envia só o que difere — as mudanças de estoque já chegam ao Woo na hora. Um produto excluído no Woo é criado de novo se o canal de vendas ainda o incluir. Seguro para rodar diariamente."
   },
   "wooCategories": {
     "addFailed": "Não foi possível adicionar o vínculo de categoria",

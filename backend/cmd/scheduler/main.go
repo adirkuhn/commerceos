@@ -510,6 +510,10 @@ func main() {
 			allocateStockUC, updateSalesOrderUC, repositories.NewOutboxRepository(db),
 		),
 		BolExport: channelsapp.NewRunScheduledBolExportUseCase(db, productRepo, salesChannelRepo, salesChannelOverrideRepo, pushBolUC),
+		StockReconcile: channelsapp.NewReconcileWooStockUseCase(
+			db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
+			variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, repositories.NewOutboxRepository(db),
+		),
 	})
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

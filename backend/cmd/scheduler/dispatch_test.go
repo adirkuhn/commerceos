@@ -317,3 +317,46 @@ func TestDispatch_reportsAnErrorWhenBolOrdersImportHasPerItemFailures(t *testing
 	require.Error(t, err)
 	require.ErrorContains(t, err, "fetch detail failed")
 }
+
+type stubStockReconciler struct {
+	calls []string
+	errs  []string
+}
+
+func (s *stubStockReconciler) Execute(_ context.Context, connectionID string) (*channelsapp.StockReconcileResult, error) {
+	s.calls = append(s.calls, connectionID)
+	return &channelsapp.StockReconcileResult{Errors: s.errs}, nil
+}
+
+func TestDispatch_routesStockReconciliationExport(t *testing.T) {
+	sr := &stubStockReconciler{}
+	rs := buildRunners(runnerDeps{StockReconcile: sr})
+
+	cursor, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityStockReconciliation, Direction: channelsDomain.SyncDirectionExport,
+	})
+
+	require.NoError(t, err)
+	require.Nil(t, cursor)
+	require.Equal(t, []string{"conn-1"}, sr.calls)
+}
+
+func TestDispatch_stockReconciliationReportsPerListingFailures(t *testing.T) {
+	rs := buildRunners(runnerDeps{StockReconcile: &stubStockReconciler{errs: []string{"listing l1: woo down"}}})
+
+	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityStockReconciliation, Direction: channelsDomain.SyncDirectionExport,
+	})
+
+	require.ErrorContains(t, err, "woo down")
+}
+
+func TestDispatch_stockReconciliationHasNoImport(t *testing.T) {
+	rs := buildRunners(runnerDeps{StockReconcile: &stubStockReconciler{}})
+
+	_, err := rs.dispatch(context.Background(), channelsDomain.SyncSchedule{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityStockReconciliation, Direction: channelsDomain.SyncDirectionImport,
+	})
+
+	require.Error(t, err)
+}

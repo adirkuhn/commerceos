@@ -68,6 +68,18 @@ type WooProduct struct {
 }
 
 // WooMetaData is a single WooCommerce custom-field key/value pair.
+// WooStockSnapshot is a product's or variation's stock as the store reports
+// it: whether Woo manages its stock, the quantity, the product type
+// (simple/variable/... -- empty for a variation) and its meta data as
+// strings (the commerceos lot_number/expiry_date among them).
+type WooStockSnapshot struct {
+	ID            string
+	Type          string
+	ManageStock   bool
+	StockQuantity *int
+	Meta          map[string]string
+}
+
 type WooMetaData struct {
 	Key   string
 	Value string
@@ -249,6 +261,12 @@ type WooTaxRate struct {
 type WooClient interface {
 	TestConnection(ctx context.Context) error
 	ListProducts(ctx context.Context, page, perPage int) ([]WooProduct, error)
+	// ListProductStock / ListVariationStock read what the store currently
+	// reports for stock -- one page of products (any status but trash), or
+	// of one variable product's variations -- for stock reconciliation
+	// (COM-18). An empty page means the end.
+	ListProductStock(ctx context.Context, page, perPage int) ([]WooStockSnapshot, error)
+	ListVariationStock(ctx context.Context, parentExternalID string, page, perPage int) ([]WooStockSnapshot, error)
 	// CreateProduct pushes a new product to the store. p.ID is ignored (Woo
 	// assigns it); the returned WooProduct's ID is the new external id.
 	CreateProduct(ctx context.Context, p WooProduct) (*WooProduct, error)

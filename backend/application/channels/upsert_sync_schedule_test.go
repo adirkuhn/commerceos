@@ -317,3 +317,21 @@ func TestUpsertSyncSchedule_rejectsTheRemovedWooProductsAndStockSchedules(t *tes
 		require.ErrorIs(t, err, channelsDomain.ErrInvalidSyncEntityType, string(entity))
 	}
 }
+
+// Stock reconciliation (COM-18) pushes CommerceOS's stock to Woo: export
+// only, no warehouse or currency needed.
+func TestUpsertSyncSchedule_stockReconciliationIsExportOnly(t *testing.T) {
+	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 1), &stubSyncScheduleRepo{}, &eventrecordtest.Outbox{})
+	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityStockReconciliation,
+		Direction: channelsDomain.SyncDirectionExport, Enabled: true, IntervalMinutes: 1440,
+	})
+	require.NoError(t, err)
+
+	uc = channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), &stubSyncScheduleRepo{}, &eventrecordtest.Outbox{})
+	_, err = uc.Execute(context.Background(), channelsapp.UpsertSyncScheduleInput{
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityStockReconciliation,
+		Direction: channelsDomain.SyncDirectionImport, Enabled: true, IntervalMinutes: 1440,
+	})
+	require.ErrorIs(t, err, channelsDomain.ErrCannotEnableUnrunnableEntity)
+}

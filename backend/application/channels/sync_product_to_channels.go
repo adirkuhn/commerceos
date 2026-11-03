@@ -291,7 +291,7 @@ func (uc *SyncProductToChannelsUseCase) recordSyncResult(ctx context.Context, li
 			return err
 		}
 		if newlyMissing {
-			return recordListingMissing(ctx, uc.outbox, listing)
+			return recordListingOrphaned(ctx, uc.outbox, listing)
 		}
 		return nil
 	}); uErr != nil {

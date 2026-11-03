@@ -106,7 +106,8 @@
     "orders": "Orders",
     "ordersReconciliation": "Order reconciliation",
     "products": "Products",
-    "stock": "Stock levels"
+    "stock": "Stock levels",
+    "stockReconciliation": "Stock reconciliation"
   },
   "fallback": {
     "abandon": "Abandon",
@@ -300,7 +301,8 @@
     "backfillPaymentsDone": "Done: {{checked}} orders checked, {{updated}} updated.",
     "backfillPaymentsNothing": "Every paid order already has its payment info.",
     "backfillPaymentsFailed": "Fetching payment info failed",
-    "backfillPaymentsErrors": "Some orders could not be checked:"
+    "backfillPaymentsErrors": "Some orders could not be checked:",
+    "stockReconciliationHint": "Compares every linked product’s stock and batch (lot, expiry) in WooCommerce with CommerceOS under the stock rules and pushes only what differs — stock changes already reach Woo the moment they happen. A product deleted in Woo is created again if its sales channel still includes it. Safe to run daily."
   },
   "wooCategories": {
     "addFailed": "Failed to add category link",

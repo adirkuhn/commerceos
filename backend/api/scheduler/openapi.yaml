@@ -170,7 +170,7 @@ components:
         tenant_id: { type: string }
         connection_id: { type: string }
         connection_store_url: { type: string }
-        entity_type: { type: string, enum: [orders, categories, orders_reconciliation, shipment_reconciliation, bol_orders, bol_products, bol_stock] }
+        entity_type: { type: string, enum: [orders, categories, orders_reconciliation, shipment_reconciliation, bol_orders, bol_products, bol_stock, stock_reconciliation] }
         direction: { type: string, enum: [import, export] }
         enabled: { type: boolean }
         interval_minutes: { type: integer }

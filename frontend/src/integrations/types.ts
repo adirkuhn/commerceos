@@ -208,7 +208,7 @@ export interface FetchWooOrderResult {
 
 export type SyncEntityType =
   | 'orders' | 'categories' | 'orders_reconciliation' | 'shipment_reconciliation'
-  | 'bol_orders' | 'bol_products' | 'bol_stock'
+  | 'bol_orders' | 'bol_products' | 'bol_stock' | 'stock_reconciliation'
 export type SyncDirection = 'import' | 'export'
 
 export interface SyncSchedule {

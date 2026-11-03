@@ -31,6 +31,12 @@ func (f *fakeFullWooClient) TestConnection(ctx context.Context) error { panic("n
 func (f *fakeFullWooClient) ListProducts(ctx context.Context, page, perPage int) ([]integrationsDomain.WooProduct, error) {
 	panic("not used")
 }
+func (f *fakeFullWooClient) ListProductStock(context.Context, int, int) ([]integrationsDomain.WooStockSnapshot, error) {
+	panic("not used")
+}
+func (f *fakeFullWooClient) ListVariationStock(context.Context, string, int, int) ([]integrationsDomain.WooStockSnapshot, error) {
+	panic("not used")
+}
 func (f *fakeFullWooClient) CreateProduct(ctx context.Context, p integrationsDomain.WooProduct) (*integrationsDomain.WooProduct, error) {
 	panic("not used")
 }

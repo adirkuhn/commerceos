@@ -15,6 +15,7 @@ import (
 var runnableSyncEntityTypes = map[channelsDomain.SyncEntityType]bool{
 	channelsDomain.SyncEntityOrders:               true,
 	channelsDomain.SyncEntityOrdersReconciliation: true,
+	channelsDomain.SyncEntityStockReconciliation:  true,
 	channelsDomain.SyncEntityBolOrders:            true,
 	channelsDomain.SyncEntityBolProducts:          true,
 	channelsDomain.SyncEntityBolStock:             true,
@@ -49,7 +50,7 @@ func NewUpsertSyncScheduleUseCase(db *gorm.DB, repo channelsDomain.SyncScheduleR
 func validateUpsertSyncScheduleInput(in UpsertSyncScheduleInput) error {
 	switch in.EntityType {
 	case channelsDomain.SyncEntityOrders, channelsDomain.SyncEntityCategories,
-		channelsDomain.SyncEntityOrdersReconciliation,
+		channelsDomain.SyncEntityOrdersReconciliation, channelsDomain.SyncEntityStockReconciliation,
 		channelsDomain.SyncEntityBolOrders, channelsDomain.SyncEntityBolProducts, channelsDomain.SyncEntityBolStock:
 	default:
 		return channelsDomain.ErrInvalidSyncEntityType
@@ -72,9 +73,11 @@ func validateUpsertSyncScheduleInput(in UpsertSyncScheduleInput) error {
 		return channelsDomain.ErrCannotEnableUnrunnableEntity
 	}
 	// bol_products/bol_stock are export-only -- Bol never hands work back
-	// to CommerceOS for these (no product/stock import from Bol).
+	// to CommerceOS for these (no product/stock import from Bol). Stock
+	// reconciliation only ever pushes CommerceOS's stock to the store.
 	if in.Enabled && in.Direction == channelsDomain.SyncDirectionImport &&
-		(in.EntityType == channelsDomain.SyncEntityBolProducts || in.EntityType == channelsDomain.SyncEntityBolStock) {
+		(in.EntityType == channelsDomain.SyncEntityBolProducts || in.EntityType == channelsDomain.SyncEntityBolStock ||
+			in.EntityType == channelsDomain.SyncEntityStockReconciliation) {
 		return channelsDomain.ErrCannotEnableUnrunnableEntity
 	}
 	if in.IntervalMinutes <= 0 {

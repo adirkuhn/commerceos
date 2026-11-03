@@ -154,7 +154,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
               // interval -- daily is the sensible default, no reason to
               // start it at the generic 60-minute default like every
               // other row.
-              ...(row.entity === 'orders_reconciliation' ? { intervalMinutes: 1440 } : {}),
+              ...(row.entity === 'orders_reconciliation' || row.entity === 'stock_reconciliation' ? { intervalMinutes: 1440 } : {}),
             }
       }
     }
@@ -369,6 +369,11 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                 {row.entity === 'orders_reconciliation' && (
                   <p className="text-2xs text-ink-4 mb-2">
                     {t('woo.reconciliationHint')}
+                  </p>
+                )}
+                {row.entity === 'stock_reconciliation' && (
+                  <p className="text-2xs text-ink-4 mb-2">
+                    {t('woo.stockReconciliationHint')}
                   </p>
                 )}
                 <div className="grid grid-cols-2 gap-4">

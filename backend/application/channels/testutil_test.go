@@ -119,11 +119,17 @@ func (s *stubConnectionRepo) Update(_ context.Context, _ *integrationsDomain.Con
 func (s *stubConnectionRepo) Delete(_ context.Context, _ string) error { return nil }
 
 type stubWooClient struct {
-	products      []integrationsDomain.WooProduct
-	err           error
-	createCalled  []integrationsDomain.WooProduct
-	createErr     error
-	createdWithID string // external ID assigned to the pushed product
+	products []integrationsDomain.WooProduct
+	// stockPages / variationStock back ListProductStock / ListVariationStock:
+	// page n (1-based) of the store's products, and each variable
+	// product's variations (one page).
+	stockPages     [][]integrationsDomain.WooStockSnapshot
+	stockErr       error
+	variationStock map[string][]integrationsDomain.WooStockSnapshot
+	err            error
+	createCalled   []integrationsDomain.WooProduct
+	createErr      error
+	createdWithID  string // external ID assigned to the pushed product
 	// createErrUntilCall, when nonzero, limits createErr to the first N
 	// calls (by call index, 1-based) -- every call after that succeeds.
 	// Zero (the default) means createErr applies to every call, same as
@@ -276,6 +282,23 @@ func (s *stubWooClient) FindTrashedProductBySKU(_ context.Context, sku string) (
 		return nil, s.findTrashedBySKUErr
 	}
 	return s.findTrashedBySKUResult, nil
+}
+
+func (s *stubWooClient) ListProductStock(_ context.Context, page, _ int) ([]integrationsDomain.WooStockSnapshot, error) {
+	if s.stockErr != nil {
+		return nil, s.stockErr
+	}
+	if page < 1 || page > len(s.stockPages) {
+		return nil, nil
+	}
+	return s.stockPages[page-1], nil
+}
+
+func (s *stubWooClient) ListVariationStock(_ context.Context, parentExternalID string, page, _ int) ([]integrationsDomain.WooStockSnapshot, error) {
+	if page > 1 {
+		return nil, nil
+	}
+	return s.variationStock[parentExternalID], nil
 }
 
 func (s *stubWooClient) UpdateProductStock(_ context.Context, parentExternalID, externalID string, quantity int, metadata []integrationsDomain.WooMetaData) error {

@@ -612,6 +612,29 @@ describe('WooCommerce sync settings page', () => {
     expect(screen.getAllByText('Coming soon — not supported yet.')).toHaveLength(1)
   })
 
+  // COM-18: stock drift is caught by a daily reconciliation that pushes
+  // only what differs -- export only, daily by default.
+  it('offers Stock reconciliation as export only, daily by default, and saves it', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
+    vi.mocked(integrationsApi.upsertSyncSchedules).mockResolvedValue([])
+
+    renderAt(<Settings />, '/settings')
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
+    await screen.findByText('Sync schedule')
+
+    expect(screen.getByRole('switch', { name: 'Stock reconciliation import' })).toBeDisabled()
+    expect(screen.getByRole('combobox', { name: 'Stock reconciliation export interval' })).toHaveValue('1440')
+    await userEvent.click(screen.getByRole('switch', { name: 'Stock reconciliation export' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(integrationsApi.upsertSyncSchedules).toHaveBeenCalledWith(
+      'test-token', 'conn-1', expect.arrayContaining([
+        expect.objectContaining({ entity_type: 'stock_reconciliation', direction: 'export', enabled: true, interval_minutes: 1440 }),
+      ]),
+    ))
+  })
+
   it('prefills fields from existing schedules', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
     const existing: SyncSchedule = {

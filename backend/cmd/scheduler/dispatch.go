@@ -66,6 +66,9 @@ type runners map[scheduleKey]runner
 // (application/channels, application/shipping) -- narrowed to just Execute
 // so dispatch logic can be unit tested with stubs instead of the real use
 // cases and their own DB/WooClient dependencies.
+type stockReconciler interface {
+	Execute(ctx context.Context, connectionID string) (*channelsapp.StockReconcileResult, error)
+}
 type ordersImporter interface {
 	Execute(ctx context.Context, in channelsapp.ImportWooOrdersInput) (*channelsapp.ImportOrdersResult, error)
 }
@@ -85,6 +88,7 @@ type runnerDeps struct {
 	ShipmentReconcile shipmentReconciler
 	BolOrdersImport   bolOrdersImporter
 	BolExport         bolExporter
+	StockReconcile    stockReconciler
 }
 
 // buildRunners maps each runnable (entity, direction) pair to the use case
@@ -98,6 +102,15 @@ type runnerDeps struct {
 func buildRunners(d runnerDeps) runners {
 	ordersImport, shipmentReconcile, bolOrdersImport, bolExport := d.OrdersImport, d.ShipmentReconcile, d.BolOrdersImport, d.BolExport
 	return runners{
+		// Re-checks every Woo listing each run, regardless of LastRunAt, so
+		// LastRunAt is plain "did I run" bookkeeping (nil cursor).
+		{channelsDomain.SyncEntityStockReconciliation, channelsDomain.SyncDirectionExport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
+			result, err := d.StockReconcile.Execute(ctx, s.ConnectionID)
+			if result == nil {
+				return nil, err
+			}
+			return nil, resultErr(err, result.Errors)
+		},
 		// LastRunAt nil (this schedule has never successfully run before)
 		// means a full import -- no cursor exists yet to be incremental
 		// from. Every subsequent run is incremental off that cursor, with

@@ -29,6 +29,12 @@ const (
 	// rather than a parallel scheduling mechanism, even though shipping
 	// isn't itself a "channel."
 	SyncEntityShipmentReconciliation SyncEntityType = "shipment_reconciliation"
+	// SyncEntityStockReconciliation (export only) compares every Woo
+	// listing's stock and batch meta with what CommerceOS would push and
+	// pushes only the ones that drifted -- the safety net for missed
+	// events and stock edited in Woo (see
+	// application/channels.ReconcileWooStockUseCase, COM-18).
+	SyncEntityStockReconciliation SyncEntityType = "stock_reconciliation"
 	// SyncEntityBolOrders/BolProducts/BolStock are Bol's own entity types,
 	// distinct from products/stock/orders above -- cmd/scheduler/dispatch.go's
 	// runner map has exactly one runner per (entity_type, direction) key, so

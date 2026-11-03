@@ -106,7 +106,8 @@
     "orders": "Bestellingen",
     "ordersReconciliation": "Bestellingen afstemmen",
     "products": "Producten",
-    "stock": "Voorraadniveaus"
+    "stock": "Voorraadniveaus",
+    "stockReconciliation": "Voorraadafstemming"
   },
   "fallback": {
     "abandon": "Verwerpen",
@@ -300,7 +301,8 @@
     "backfillPaymentsDone": "Klaar: {{checked}} bestellingen gecontroleerd, {{updated}} bijgewerkt.",
     "backfillPaymentsNothing": "Alle betaalde bestellingen hebben hun betaalgegevens al.",
     "backfillPaymentsFailed": "Betaalgegevens ophalen mislukt",
-    "backfillPaymentsErrors": "Sommige bestellingen konden niet worden gecontroleerd:"
+    "backfillPaymentsErrors": "Sommige bestellingen konden niet worden gecontroleerd:",
+    "stockReconciliationHint": "Vergelijkt de voorraad en partij (lot, houdbaarheid) van elk gekoppeld product in WooCommerce met CommerceOS volgens de voorraadregels en stuurt alleen wat afwijkt — voorraadwijzigingen gaan al direct naar Woo. Een in Woo verwijderd product wordt opnieuw aangemaakt als het verkoopkanaal het nog bevat. Veilig om dagelijks te draaien."
   },
   "wooCategories": {
     "addFailed": "Categoriekoppeling toevoegen mislukt",

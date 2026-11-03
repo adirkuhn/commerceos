@@ -73,6 +73,6 @@ func syncLogChanges(diff map[string]channelsDomain.FieldChange) eventrecord.Chan
 	return c
 }
 
-func recordListingMissing(ctx context.Context, outbox eventrecord.Enqueuer, l channelsDomain.ProductChannelListing) error {
+func recordListingOrphaned(ctx context.Context, outbox eventrecord.Enqueuer, l channelsDomain.ProductChannelListing) error {
 	return eventrecord.Record(ctx, outbox, events.ProductListingOrphaned, l.ID, listingData(l))
 }

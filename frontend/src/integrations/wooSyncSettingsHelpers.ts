@@ -32,6 +32,7 @@ export const INTERVAL_OPTIONS: { label: string; minutes: number }[] = [
 export const ROWS: { entity: SyncEntityType; label: string; runnableDirections: SyncDirection[] }[] = [
   { entity: 'orders', get label() { return i18next.t('integrations:entity.orders') }, runnableDirections: ['import'] },
   { entity: 'orders_reconciliation', get label() { return i18next.t('integrations:entity.ordersReconciliation') }, runnableDirections: ['import'] },
+  { entity: 'stock_reconciliation', get label() { return i18next.t('integrations:entity.stockReconciliation') }, runnableDirections: ['export'] },
   { entity: 'categories', get label() { return i18next.t('integrations:entity.categories') }, runnableDirections: [] },
 ]
 
