@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	ginmiddleware "github.com/oapi-codegen/gin-middleware"
 
 	"github.com/minio/minio-go/v7"
@@ -57,6 +58,7 @@ import (
 	couponshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/coupons"
 	customershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/customers"
 	dashboardhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/dashboard"
+	deadlettershandler "github.com/adirkuhn/commerceos/infrastructure/handlers/deadletters"
 	emailintegrationhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/emailintegration"
 	fxhandler "github.com/adirkuhn/commerceos/infrastructure/handlers/fx"
 	"github.com/adirkuhn/commerceos/infrastructure/handlers/iam"
@@ -469,6 +471,17 @@ func main() {
 		SilenceServersWarning: true,
 	}))
 	schedulerhandler.Register(schedulerGroup, db)
+
+	// Dead-letter admin (COM-14): super_admin only, spec-validated -- both
+	// applied inside Register. Reads the DLQ streams by sequence, never
+	// through a consumer, so the API process consumes nothing.
+	jsAPI, err := jetstream.New(nc)
+	if err != nil {
+		log.Fatalf("deadletters: jetstream: %v", err)
+	}
+	if err := deadlettershandler.Register(v1, db, jsAPI, outboxRepo); err != nil {
+		log.Fatalf("deadletters: %v", err)
+	}
 
 	suppliersSpec, err := gensuppliers.GetSpec()
 	if err != nil {

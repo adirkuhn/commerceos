@@ -1,0 +1,266 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS Dead Letters API
+  description: >-
+    Events a consumer gave up on after its last redelivery, parked on a
+    dead-letter stream: "events" (domain events, COMMERCEOS_EVENTS_DLQ) or
+    "webhooks" (inbound webhooks, COMMERCEOS_WEBHOOKS_DLQ). A super-admin
+    lists and reads them, retries one for the consumer that failed it, or
+    discards it. Reading never removes anything. Every route is super_admin
+    only; every error body is an ErrorResponse. A request that breaks this
+    contract (unknown stream, bad sequence, limit out of range) is 422
+    VALIDATION_ERROR.
+  version: "1.0"
+servers:
+  - url: /api/v1
+paths:
+  /admin/dead-letters:
+    get:
+      operationId: listDeadLetters
+      summary: List one stream's dead letters, oldest first
+      parameters:
+        - name: stream
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/Stream' }
+        - name: subject
+          in: query
+          description: Only dead letters of this original event subject.
+          schema: { type: string, maxLength: 200 }
+        - name: consumer
+          in: query
+          description: Only dead letters this consumer (JetStream durable) gave up on.
+          schema: { type: string, maxLength: 200 }
+        - name: tenant_id
+          in: query
+          schema: { type: string, maxLength: 64 }
+        - name: cursor
+          in: query
+          description: next_cursor from the previous page.
+          schema: { type: integer, format: int64, minimum: 0 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeadLetterListResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /admin/dead-letters/{stream}/{seq}:
+    parameters:
+      - $ref: '#/components/parameters/stream'
+      - $ref: '#/components/parameters/seq'
+    get:
+      operationId: getDeadLetter
+      summary: Read one dead letter, failure details and data
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeadLetterResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: discardDeadLetter
+      summary: >-
+        Delete exactly this dead letter without processing it. Recorded as
+        deadletters.dead_letter.discarded in its tenant.
+      responses:
+        '200':
+          description: discarded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /admin/dead-letters/{stream}/{seq}/retry:
+    parameters:
+      - $ref: '#/components/parameters/stream'
+      - $ref: '#/components/parameters/seq'
+    post:
+      operationId: retryDeadLetter
+      summary: >-
+        Publish the event again on its original subject for the consumer
+        that failed it (every consumer on the subject when unknown -- each
+        skips an event it already processed), then remove the dead letter.
+        Consumers that re-read current state (e.g. the Woo status push) act
+        on today's state, not the event's original snapshot. Recorded as
+        deadletters.dead_letter.retried in its tenant. 502: the event could
+        not be published; the dead letter is still there.
+      responses:
+        '200':
+          description: retried
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+        '502':
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    stream:
+      name: stream
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Stream' }
+    seq:
+      name: seq
+      in: path
+      required: true
+      description: The dead letter's sequence on its stream.
+      schema: { type: integer, format: int64, minimum: 1 }
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    Stream:
+      type: string
+      enum: [events, webhooks]
+
+    DeadLetterSummary:
+      type: object
+      additionalProperties: false
+      required: [stream, sequence, subject, consumer, consumer_known, event_id, tenant_id, error, num_delivered, dead_lettered_at, stored_at]
+      properties:
+        stream: { $ref: '#/components/schemas/Stream' }
+        sequence: { type: integer, format: int64 }
+        subject:
+          type: string
+          description: The event's original subject; a retry publishes here.
+        consumer:
+          type: string
+          description: JetStream durable that gave up; empty when unknown (dead-lettered before failure details were recorded).
+        consumer_known:
+          type: boolean
+          description: false -- a retry reaches every consumer on the subject.
+        event_id: { type: string }
+        tenant_id: { type: string }
+        error: { type: string }
+        num_delivered: { type: integer }
+        dead_lettered_at: { type: string, format: date-time, nullable: true }
+        stored_at: { type: string, format: date-time }
+
+    DeadLetter:
+      type: object
+      additionalProperties: false
+      required: [stream, sequence, subject, consumer, consumer_known, event_id, tenant_id, error, num_delivered, dead_lettered_at, stored_at, data]
+      properties:
+        stream: { $ref: '#/components/schemas/Stream' }
+        sequence: { type: integer, format: int64 }
+        subject: { type: string }
+        consumer: { type: string }
+        consumer_known: { type: boolean }
+        event_id: { type: string }
+        tenant_id: { type: string }
+        error: { type: string }
+        num_delivered: { type: integer }
+        dead_lettered_at: { type: string, format: date-time, nullable: true }
+        stored_at: { type: string, format: date-time }
+        data:
+          type: string
+          description: The event exactly as it was published (usually JSON).
+
+    DeadLetterPage:
+      type: object
+      additionalProperties: false
+      required: [items, next_cursor, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/DeadLetterSummary' }
+        next_cursor:
+          type: integer
+          format: int64
+          nullable: true
+          description: Pass as cursor for the next page; null on the last page.
+        total:
+          type: integer
+          format: int64
+          description: Every dead letter on the stream, ignoring filters.
+
+    DeadLetterListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, error]
+      properties:
+        data: { $ref: '#/components/schemas/DeadLetterPage' }
+        error: { nullable: true, type: object }
+
+    DeadLetterResponse:
+      type: object
+      additionalProperties: false
+      required: [data, error]
+      properties:
+        data: { $ref: '#/components/schemas/DeadLetter' }
+        error: { nullable: true, type: object }
+
+    EmptyResponse:
+      type: object
+      additionalProperties: false
+      required: [data, error]
+      properties:
+        data: { nullable: true, type: object }
+        error: { nullable: true, type: object }
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [data, error]
+      properties:
+        data: { nullable: true, type: object }
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            detail: { type: string }
