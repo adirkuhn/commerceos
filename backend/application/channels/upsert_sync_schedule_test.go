@@ -196,11 +196,6 @@ func TestUpsertSyncSchedule_rejectsNonPositiveInterval(t *testing.T) {
 	require.True(t, errors.Is(err, channelsDomain.ErrInvalidSyncInterval))
 }
 
-
-
-
-
-
 func TestUpsertSyncSchedule_rejectsEnablingBolOrdersImportWithoutWarehouse(t *testing.T) {
 	repo := &stubSyncScheduleRepo{}
 	uc := channelsapp.NewUpsertSyncScheduleUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})

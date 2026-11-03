@@ -59,11 +59,6 @@ func (s *stubBolExporter) Execute(_ context.Context, in channelsapp.RunScheduled
 	return &channelsapp.BolExportResult{Errors: s.errs}, s.err
 }
 
-
-
-
-
-
 func TestDispatch_returnsErrorForUnrunnableEntity(t *testing.T) {
 	rs := buildRunners(runnerDeps{OrdersImport: &stubOrdersImporter{}, ShipmentReconcile: &stubShipmentReconciler{}, BolOrdersImport: &stubBolOrdersImporter{}, BolExport: &stubBolExporter{}})
 
@@ -256,10 +251,6 @@ func TestDispatch_reportsAnErrorWhenOrdersImportHasPerOrderFailuresEvenWithNoTop
 	require.ErrorContains(t, err, "2")
 	require.ErrorContains(t, err, "customer lookup failed")
 }
-
-
-
-
 
 func TestDispatch_routesBolOrdersImportWithWarehouse(t *testing.T) {
 	boi := &stubBolOrdersImporter{}
