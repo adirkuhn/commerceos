@@ -341,6 +341,8 @@ func main() {
 		db, salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo, allocateStockUC, stockRecorderUC, outboxRepo,
 	)
 	jobRunners[schedulerDomain.JobReconcileFulfilledOrders] = schedulerapp.NewReconcileFulfilledOrdersUseCase(db, salesOrderRepo, updateSalesOrderUC)
+	jobRunners[schedulerDomain.JobRepushWooOrderStatuses] = channelsapp.NewRepushWooOrderStatusesUseCase(db, salesOrderRepo,
+		channelsapp.NewWooConnectionClients(db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret), pushSalesOrderStatusUC)
 
 	// Bol orders: once the carrier has the parcel, tell Bol (transporter +
 	// track & trace, or a correction after a replaced label) so the order

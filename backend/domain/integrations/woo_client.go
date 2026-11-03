@@ -343,6 +343,11 @@ type WooClient interface {
 	// "fetch this specific known order" admin action, for backfilling one
 	// order without waiting for (or in place of) a scheduled sync pass.
 	GetOrder(ctx context.Context, externalOrderID string) (*WooOrder, error)
+	// ListOrderStatuses reads the current Woo status of each given order
+	// (external ID -> status) in as few calls as Woo allows -- the status
+	// re-push sweep's cheap way to see where Woo fell behind. An order
+	// missing from Woo is simply absent from the map.
+	ListOrderStatuses(ctx context.Context, externalOrderIDs []string) (map[string]string, error)
 	// UpdateOrderStatus pushes this codebase's current order status back to
 	// an already-imported Woo order, identified by its external (Woo) order
 	// id -- the event-driven push side of the sync (see

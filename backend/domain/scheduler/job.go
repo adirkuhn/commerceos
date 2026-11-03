@@ -31,6 +31,9 @@ const (
 	// JobStockExpiryReport is the daily stock-close-to-expiry report for
 	// every tenant that turned it on (see application/scheduler.RunStockExpiryReportUseCase).
 	JobStockExpiryReport = "stock_expiry_report"
+	// JobRepushWooOrderStatuses re-pushes order statuses Woo missed, e.g.
+	// during a store outage (see application/channels.RepushWooOrderStatusesUseCase).
+	JobRepushWooOrderStatuses = "repush_woo_order_statuses"
 )
 
 type Job struct {

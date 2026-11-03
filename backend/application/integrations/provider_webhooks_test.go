@@ -70,6 +70,9 @@ func (f *fakeFullWooClient) GetProductUnits(ctx context.Context) (string, string
 func (f *fakeFullWooClient) DownloadImage(ctx context.Context, url string) (io.ReadCloser, string, error) {
 	panic("not used")
 }
+func (f *fakeFullWooClient) ListOrderStatuses(context.Context, []string) (map[string]string, error) {
+	return nil, nil
+}
 func (f *fakeFullWooClient) ListOrders(ctx context.Context, page, perPage int, modifiedAfter *time.Time) ([]integrationsDomain.WooOrder, error) {
 	panic("not used")
 }

@@ -370,6 +370,10 @@ func (s *stubWooClient) ListOrders(_ context.Context, page, _ int, modifiedAfter
 	return s.ordersByPage[page], nil
 }
 
+func (s *stubWooClient) ListOrderStatuses(_ context.Context, _ []string) (map[string]string, error) {
+	return nil, nil
+}
+
 func (s *stubWooClient) GetOrder(_ context.Context, externalOrderID string) (*integrationsDomain.WooOrder, error) {
 	s.getOrderCalled = append(s.getOrderCalled, externalOrderID)
 	if s.getOrderErr != nil {

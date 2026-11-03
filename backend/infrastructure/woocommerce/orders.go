@@ -157,3 +157,29 @@ func toWooOrder(o wc.Order) integrationsDomain.WooOrder {
 		DatePaid: o.DatePaidGmt, DateCompleted: o.DateCompletedGmt, LineItems: lineItems, FeeLines: feeLines,
 	}
 }
+
+// orderStatusBatch is Woo's per_page ceiling -- one call per 100 orders.
+const orderStatusBatch = 100
+
+func (c *wooClient) ListOrderStatuses(ctx context.Context, externalOrderIDs []string) (map[string]string, error) {
+	out := make(map[string]string, len(externalOrderIDs))
+	for start := 0; start < len(externalOrderIDs); start += orderStatusBatch {
+		end := min(start+orderStatusBatch, len(externalOrderIDs))
+		include := make([]int, 0, end-start)
+		for _, id := range externalOrderIDs[start:end] {
+			n, err := strconv.Atoi(id)
+			if err != nil {
+				return nil, fmt.Errorf("list order statuses: order id %q: %w", id, err)
+			}
+			include = append(include, n)
+		}
+		orders, _, err := c.client.Orders.List(ctx, &wc.ListOrdersParams{Include: include, PerPage: orderStatusBatch})
+		if err != nil {
+			return nil, err
+		}
+		for _, o := range orders {
+			out[strconv.Itoa(o.ID)] = o.Status
+		}
+	}
+	return out, nil
+}
