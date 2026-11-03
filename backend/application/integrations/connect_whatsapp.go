@@ -97,7 +97,7 @@ func (uc *ConnectWhatsAppUseCase) Execute(ctx context.Context, in ConnectWhatsAp
 			Status:                 integrationsDomain.StatusConnected,
 			CreatedAt:              now, UpdatedAt: now,
 		}
-		if err := uc.connRepo.Create(ctx, &conn); err != nil {
+		if _, err := integrationsDomain.SaveConnection(ctx, uc.connRepo, &conn); err != nil {
 			return err
 		}
 

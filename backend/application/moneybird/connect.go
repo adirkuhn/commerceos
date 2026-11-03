@@ -22,6 +22,7 @@ type connectionStore interface {
 	connectionLister
 	Create(ctx context.Context, c *integrationsDomain.Connection) error
 	Update(ctx context.Context, c *integrationsDomain.Connection) error
+	FindDisconnected(ctx context.Context, provider integrationsDomain.Provider, storeURL integrationsDomain.StoreURL) (*integrationsDomain.Connection, error)
 }
 
 type ConnectInput struct {
@@ -86,8 +87,13 @@ func (uc *ConnectUseCase) Execute(ctx context.Context, in ConnectInput) (*integr
 			TenantID: tenantID, Provider: integrationsDomain.ProviderMoneybird, ConsumerSecretEncrypted: encrypted,
 			Status: integrationsDomain.StatusConnected, CreatedAt: now, UpdatedAt: now,
 		}
-		if err := uc.conns.Create(ctx, &conn); err != nil {
+		reconnected, err := integrationsDomain.SaveConnection(ctx, uc.conns, &conn)
+		if err != nil {
 			return err
+		}
+		if reconnected {
+			// the disconnected row kept its settings (COM-15)
+			return uc.recordConnected(ctx, tenantID, conn.ID, now)
 		}
 		settings := mb.Settings{ConnectionID: conn.ID, TenantID: tenantID, CreatedAt: now, UpdatedAt: now}
 		if len(admins) == 1 {
@@ -96,18 +102,22 @@ func (uc *ConnectUseCase) Execute(ctx context.Context, in ConnectInput) (*integr
 		if err := uc.settings.Upsert(ctx, &settings); err != nil {
 			return err
 		}
-		event := events.IntegrationConnected{
-			Base:     events.Base{EventID: idgen.NewV4(), OccurredAt: now},
-			TenantID: tenantID, Provider: string(integrationsDomain.ProviderMoneybird), ConnectionID: conn.ID,
-		}
-		payload, err := json.Marshal(event)
-		if err != nil {
-			return err
-		}
-		return uc.outbox.Enqueue(ctx, event.EventName(), event.EventID, payload, now)
+		return uc.recordConnected(ctx, tenantID, conn.ID, now)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("connectMoneybird: %w", err)
 	}
 	return &conn, nil
+}
+
+func (uc *ConnectUseCase) recordConnected(ctx context.Context, tenantID, connectionID string, now time.Time) error {
+	event := events.IntegrationConnected{
+		Base:     events.Base{EventID: idgen.NewV4(), OccurredAt: now},
+		TenantID: tenantID, Provider: string(integrationsDomain.ProviderMoneybird), ConnectionID: connectionID,
+	}
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+	return uc.outbox.Enqueue(ctx, event.EventName(), event.EventID, payload, now)
 }

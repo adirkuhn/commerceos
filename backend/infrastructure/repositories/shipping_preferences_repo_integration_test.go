@@ -16,6 +16,7 @@ import (
 	shippingDomain "github.com/adirkuhn/commerceos/domain/shipping"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 	"github.com/adirkuhn/commerceos/internal/tenant"
+	"github.com/adirkuhn/commerceos/internal/txctx"
 )
 
 func TestShippingPreferencesRepo_Integration_GetBeforeAnySaveIsNil(t *testing.T) {
@@ -96,12 +97,16 @@ func TestShippingPreferencesRepo_Integration_DeletingTheConnectionClearsTheChoic
 	_, ctx := newTestTenant()
 	conn := seedMyParcelConnection(t, db, ctx)
 	repo := repositories.NewShippingPreferencesRepo(db)
-	connRepo := repositories.NewConnectionRepo(db)
 	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		return repo.Upsert(ctx, &shippingDomain.ShippingPreferences{TenantID: tenant.IDFromContext(ctx), DefaultConnectionID: &conn, UpdatedAt: time.Now()})
 	}))
 
-	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error { return connRepo.Delete(ctx, conn) }))
+	// The app never deletes a connection any more (COM-15: disconnect is a
+	// soft delete); the FK still clears the choice if a row is removed.
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		tx, _ := txctx.FromContext(ctx)
+		return tx.Exec(`DELETE FROM integration_connections WHERE id = ?`, conn).Error
+	}))
 
 	var found *shippingDomain.ShippingPreferences
 	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {

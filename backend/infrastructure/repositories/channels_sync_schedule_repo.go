@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/txctx"
 )
 
@@ -153,7 +154,8 @@ func (r *SyncScheduleRepo) ListDue(ctx context.Context, now time.Time) ([]channe
 		return nil, err
 	}
 	var rows []syncScheduleModel
-	if err := tx.Where("enabled = true AND next_run_at IS NOT NULL AND next_run_at <= ?", now).Find(&rows).Error; err != nil {
+	if err := tx.Where("enabled = true AND next_run_at IS NOT NULL AND next_run_at <= ?", now).
+		Where("connection_id NOT IN (SELECT id FROM integration_connections WHERE status = ?)", integrationsDomain.StatusDisconnected).Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("syncScheduleRepo.ListDue: %w", err)
 	}
 	out := make([]channelsDomain.SyncSchedule, len(rows))

@@ -41,7 +41,7 @@ func createWooConnection(
 			CreatedAt:               now,
 			UpdatedAt:               now,
 		}
-		if err := connRepo.Create(ctx, &conn); err != nil {
+		if _, err := integrationsDomain.SaveConnection(ctx, connRepo, &conn); err != nil {
 			return err
 		}
 

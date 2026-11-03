@@ -100,7 +100,9 @@ func (f *fakeConnectionRepo) ListByTenant(context.Context) ([]integrationsDomain
 func (f *fakeConnectionRepo) Update(context.Context, *integrationsDomain.Connection) error {
 	return nil
 }
-func (f *fakeConnectionRepo) Delete(context.Context, string) error { return nil }
+func (f *fakeConnectionRepo) FindDisconnected(context.Context, integrationsDomain.Provider, integrationsDomain.StoreURL) (*integrationsDomain.Connection, error) {
+	return nil, integrationsDomain.ErrConnectionNotFound
+}
 
 type fakeShippingSettingsRepo struct {
 	out *shippingDomain.ShippingConnectionSettings

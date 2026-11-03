@@ -20,7 +20,6 @@ func connRepoWith(conn *integrationsDomain.Connection) *mocks.ConnectionRepo {
 	return &mocks.ConnectionRepo{
 		FindByIDFn: func(context.Context, string) (*integrationsDomain.Connection, error) { return conn, nil },
 		UpdateFn:   func(context.Context, *integrationsDomain.Connection) error { return nil },
-		DeleteFn:   func(context.Context, string) error { return nil },
 	}
 }
 
@@ -50,6 +49,23 @@ func TestDisconnectConnection_RecordsDisconnected(t *testing.T) {
 	assert.Equal(t, "integrations.connection.disconnected", e.Subject)
 	assert.Equal(t, "conn-1", e.Payload["entity_id"])
 	assert.Equal(t, map[string]any{"provider": "woocommerce"}, e.Data())
+}
+
+// COM-15: disconnect keeps the row (deleting it cascaded into sales
+// channels, listings and schedules) and only wipes the credentials.
+func TestDisconnectConnection_KeepsTheRowAndWipesCredentials(t *testing.T) {
+	var saved *integrationsDomain.Connection
+	repo := connRepoWith(&integrationsDomain.Connection{ID: "conn-1", Provider: integrationsDomain.ProviderWooCommerce,
+		StoreURL: "https://shop.example", ConsumerKey: "ck", ConsumerSecretEncrypted: "enc", Status: integrationsDomain.StatusConnected})
+	repo.UpdateFn = func(_ context.Context, c *integrationsDomain.Connection) error { saved = c; return nil }
+
+	require.NoError(t, appintegrations.NewDisconnectConnectionUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{}).Execute(context.Background(), "conn-1"))
+
+	require.NotNil(t, saved)
+	assert.Equal(t, "conn-1", saved.ID)
+	assert.Equal(t, integrationsDomain.StatusDisconnected, saved.Status)
+	assert.Empty(t, saved.ConsumerSecretEncrypted)
+	assert.Equal(t, integrationsDomain.StoreURL("https://shop.example"), saved.StoreURL)
 }
 
 func TestUpdateConnectionSettings_RecordsChangedFields(t *testing.T) {

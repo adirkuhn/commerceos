@@ -107,7 +107,7 @@ func (uc *ConnectPostNLUseCase) Execute(ctx context.Context, in ConnectPostNLInp
 			PostNLCustomerCode: code, PostNLCustomerNumber: number, PostNLSandbox: in.Sandbox,
 			Status: integrationsDomain.StatusConnected, CreatedAt: now, UpdatedAt: now,
 		}
-		if err := uc.connRepo.Create(ctx, &conn); err != nil {
+		if _, err := integrationsDomain.SaveConnection(ctx, uc.connRepo, &conn); err != nil {
 			return err
 		}
 		if err := uc.settingsRepo.Upsert(ctx, &shippingDomain.ShippingConnectionSettings{

@@ -7,7 +7,11 @@ type ConnectionRepository interface {
 	FindByID(ctx context.Context, id string) (*Connection, error)
 	ListByTenant(ctx context.Context) ([]Connection, error)
 	Update(ctx context.Context, c *Connection) error
-	Delete(ctx context.Context, id string) error
+	// FindDisconnected returns the tenant's most recently disconnected
+	// connection to provider at storeURL (compared without case or a
+	// trailing slash), or ErrConnectionNotFound. FindByID and ListByTenant
+	// never return a disconnected connection.
+	FindDisconnected(ctx context.Context, provider Provider, storeURL StoreURL) (*Connection, error)
 }
 
 // AIConnectionRepository mirrors settings.Repository's shape (Get/Upsert,

@@ -3,6 +3,7 @@ package integrations
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"github.com/adirkuhn/commerceos/domain/events"
@@ -27,7 +28,10 @@ func (uc *DisconnectConnectionUseCase) Execute(ctx context.Context, id string) e
 		if err != nil {
 			return err
 		}
-		if err := uc.connRepo.Delete(ctx, id); err != nil {
+		// Never delete the row: its FKs cascade into sales channels,
+		// listings, schedules and category links (COM-15).
+		conn.Disconnect(time.Now())
+		if err := uc.connRepo.Update(ctx, conn); err != nil {
 			return err
 		}
 		return eventrecord.Record(ctx, uc.outbox, events.ConnectionDisconnected, id, eventrecord.Data{"provider": string(conn.Provider)})

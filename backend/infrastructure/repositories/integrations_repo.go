@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -101,7 +102,7 @@ func (r *ConnectionRepo) FindByID(ctx context.Context, id string) (*integrations
 		return nil, err
 	}
 	var m integrationConnectionModel
-	if err := tx.Where("id = ?", id).First(&m).Error; err != nil {
+	if err := tx.Where("id = ? AND status <> ?", id, integrationsDomain.StatusDisconnected).First(&m).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, integrationsDomain.ErrConnectionNotFound
 		}
@@ -116,7 +117,7 @@ func (r *ConnectionRepo) ListByTenant(ctx context.Context) ([]integrationsDomain
 		return nil, err
 	}
 	var rows []integrationConnectionModel
-	if err := tx.Order("created_at asc").Find(&rows).Error; err != nil {
+	if err := tx.Where("status <> ?", integrationsDomain.StatusDisconnected).Order("created_at asc").Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("connectionRepo.ListByTenant: %w", err)
 	}
 	conns := make([]integrationsDomain.Connection, len(rows))
@@ -149,6 +150,8 @@ func (r *ConnectionRepo) Update(ctx context.Context, c *integrationsDomain.Conne
 			"postnl_customer_code":          c.PostNLCustomerCode,
 			"postnl_customer_number":        c.PostNLCustomerNumber,
 			"postnl_sandbox":                c.PostNLSandbox,
+			"smtp_port":                     c.SMTPPort,
+			"email_from":                    c.EmailFrom,
 			"updated_at":                    c.UpdatedAt,
 		}).Error; err != nil {
 		return fmt.Errorf("connectionRepo.Update: %w", err)
@@ -156,15 +159,22 @@ func (r *ConnectionRepo) Update(ctx context.Context, c *integrationsDomain.Conne
 	return nil
 }
 
-func (r *ConnectionRepo) Delete(ctx context.Context, id string) error {
+func (r *ConnectionRepo) FindDisconnected(ctx context.Context, provider integrationsDomain.Provider, storeURL integrationsDomain.StoreURL) (*integrationsDomain.Connection, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err := tx.Where("id = ?", id).Delete(&integrationConnectionModel{}).Error; err != nil {
-		return fmt.Errorf("connectionRepo.Delete: %w", err)
+	var m integrationConnectionModel
+	err = tx.Where("status = ? AND provider = ? AND lower(rtrim(store_url, '/')) = lower(rtrim(?, '/'))",
+		integrationsDomain.StatusDisconnected, string(provider), strings.TrimSpace(storeURL.String())).
+		Order("updated_at desc").First(&m).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, integrationsDomain.ErrConnectionNotFound
 	}
-	return nil
+	if err != nil {
+		return nil, fmt.Errorf("connectionRepo.FindDisconnected: %w", err)
+	}
+	return toConnectionDomain(m), nil
 }
 
 func toConnectionDomain(m integrationConnectionModel) *integrationsDomain.Connection {

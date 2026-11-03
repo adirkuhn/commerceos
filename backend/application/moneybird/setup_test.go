@@ -38,6 +38,28 @@ func TestConnect_checksTheTokenThenStoresItEncrypted(t *testing.T) {
 	assert.Equal(t, []string{"integrations.connection.connected"}, outbox.Subjects())
 }
 
+// COM-15: reconnecting after a disconnect takes the old row back, so the
+// administration, mappings and auto-sync choice survive.
+func TestConnect_afterADisconnectReusesTheConnectionAndKeepsItsSettings(t *testing.T) {
+	conns := &fakeConnections{disconnected: &integrationsDomain.Connection{ID: "conn-old", Provider: integrationsDomain.ProviderMoneybird,
+		Status: integrationsDomain.StatusDisconnected}}
+	settings := newFakeSettings(mb.Settings{ConnectionID: "conn-old", AdministrationID: "adm-1", AutoSync: true})
+	factory := &fakeFactory{client: &fakeClient{administrations: []mb.Administration{{ID: "adm-2", Name: "Other"}}}}
+	outbox := &eventrecordtest.Outbox{}
+	uc := appmb.NewConnectUseCase(mockDB(t, 1), conns, settings, factory, outbox, testSecret)
+
+	conn, err := uc.Execute(tenantCtx(), appmb.ConnectInput{APIToken: "tok-2"})
+
+	require.NoError(t, err)
+	assert.Equal(t, "conn-old", conn.ID)
+	assert.Empty(t, conns.created)
+	require.Len(t, conns.updated, 1)
+	assert.Equal(t, integrationsDomain.StatusConnected, conns.updated[0].Status)
+	assert.Equal(t, "adm-1", settings.byConn["conn-old"].AdministrationID, "settings kept")
+	assert.True(t, settings.byConn["conn-old"].AutoSync)
+	assert.Equal(t, []string{"integrations.connection.connected"}, outbox.Subjects())
+}
+
 func TestConnect_severalAdministrationsLeavesTheChoiceToTheUser(t *testing.T) {
 	settings := newFakeSettings()
 	factory := &fakeFactory{client: &fakeClient{administrations: []mb.Administration{{ID: "a"}, {ID: "b"}}}}

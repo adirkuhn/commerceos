@@ -72,6 +72,12 @@ type Status string
 const (
 	StatusConnected Status = "connected"
 	StatusError     Status = "error"
+	// StatusDisconnected is a connection the merchant disconnected. The row
+	// is kept (credentials wiped) so nothing referencing it -- sales
+	// channels, listings, schedules, orders -- is cascaded away, and a
+	// reconnect to the same store takes the row back (SaveConnection).
+	// Repositories hide it from every lookup except FindDisconnected.
+	StatusDisconnected Status = "disconnected"
 )
 
 // StoreURL is the merchant's own WooCommerce store base URL, e.g. https://mystore.com.

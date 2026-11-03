@@ -39,9 +39,18 @@ func mockDB(t *testing.T, n int) *gorm.DB {
 // ── connections ──────────────────────────────────────────────────────────────
 
 type fakeConnections struct {
-	conns   []integrationsDomain.Connection
-	created []integrationsDomain.Connection
-	updated []integrationsDomain.Connection
+	conns        []integrationsDomain.Connection
+	created      []integrationsDomain.Connection
+	updated      []integrationsDomain.Connection
+	disconnected *integrationsDomain.Connection
+}
+
+func (f *fakeConnections) FindDisconnected(context.Context, integrationsDomain.Provider, integrationsDomain.StoreURL) (*integrationsDomain.Connection, error) {
+	if f.disconnected == nil {
+		return nil, integrationsDomain.ErrConnectionNotFound
+	}
+	c := *f.disconnected
+	return &c, nil
 }
 
 func (f *fakeConnections) Create(_ context.Context, c *integrationsDomain.Connection) error {
