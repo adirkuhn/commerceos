@@ -262,3 +262,32 @@ func roundDiv(a, b int64) int64 {
 	}
 	return (a + b/2) / b
 }
+
+// SupplierCostPage is one page of a SKU's history rows, newest first.
+type SupplierCostPage struct {
+	Items      []SupplierCostEntry
+	NextCursor *int
+	Total      int
+}
+
+// PageSupplierCosts filters rows to one supplier (all when supplierID is
+// "") and returns the page starting at offset cursor, newest first.
+func PageSupplierCosts(entries []SupplierCostEntry, supplierID string, cursor, limit int) SupplierCostPage {
+	var kept []SupplierCostEntry
+	for i := len(entries) - 1; i >= 0; i-- {
+		if supplierID == "" || supplierKey(entries[i].SupplierID) == supplierID {
+			kept = append(kept, entries[i])
+		}
+	}
+	sort.SliceStable(kept, func(i, j int) bool { return kept[i].ReceivedAt.After(kept[j].ReceivedAt) })
+	page := SupplierCostPage{Total: len(kept)}
+	if cursor >= len(kept) {
+		return page
+	}
+	end := min(cursor+limit, len(kept))
+	page.Items = kept[cursor:end]
+	if end < len(kept) {
+		page.NextCursor = &end
+	}
+	return page
+}

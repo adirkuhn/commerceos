@@ -13,6 +13,7 @@ import (
 	appprocurement "github.com/adirkuhn/commerceos/application/procurement"
 	procurementDomain "github.com/adirkuhn/commerceos/domain/procurement"
 	settingsDomain "github.com/adirkuhn/commerceos/domain/settings"
+	suppliersDomain "github.com/adirkuhn/commerceos/domain/suppliers"
 )
 
 // stubSupplierCosts is an in-memory SupplierCostRepository.
@@ -269,4 +270,35 @@ func TestReverseGoodsReceivedCost_nothingStandingIsANoOp(t *testing.T) {
 
 	assert.Empty(t, costs.appended)
 	assert.Empty(t, outbox.Events)
+}
+
+type stubSupplierNames map[string]string
+
+func (s stubSupplierNames) FindByID(_ context.Context, id string) (*suppliersDomain.Supplier, error) {
+	name, ok := s[id]
+	if !ok {
+		return nil, suppliersDomain.ErrSupplierNotFound
+	}
+	return &suppliersDomain.Supplier{ID: id, Name: name}, nil
+}
+
+func TestListSKUSupplierCosts_summaryPageAndSupplierNames(t *testing.T) {
+	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	row := func(line, supplier string, d int, landed int64) procurementDomain.SupplierCostEntry {
+		return procurementDomain.SupplierCostEntry{SKUID: "sku-1", SupplierID: strp(supplier), PurchaseOrderLineItemID: line,
+			Kind: procurementDomain.SupplierCostKindReceipt, Quantity: 10, LandedUnitCostMinorUnits: landed, CurrencyCode: "EUR", ReceivedAt: at.AddDate(0, 0, d)}
+	}
+	costs := &stubSupplierCosts{entries: []procurementDomain.SupplierCostEntry{row("l1", "acme", 0, 500), row("l2", "gone", 1, 700)}}
+	uc := appprocurement.NewListSKUSupplierCostsUseCase(newMockGormDB(t), costs,
+		stubTenantCurrency{settings: &settingsDomain.TenantSettings{DefaultCurrency: "EUR"}}, stubSupplierNames{"acme": "Acme Foods"})
+
+	out, err := uc.Execute(context.Background(), appprocurement.ListSKUSupplierCostsInput{SKUID: "sku-1", Limit: 1})
+
+	require.NoError(t, err)
+	assert.Equal(t, "EUR", out.Currency)
+	assert.Equal(t, int64(700), out.Summary.Last.LandedUnitCostMinorUnits)
+	assert.Equal(t, 2, out.Page.Total)
+	require.Len(t, out.Page.Items, 1)
+	assert.Equal(t, "l2", out.Page.Items[0].PurchaseOrderLineItemID)
+	assert.Equal(t, map[string]string{"acme": "Acme Foods"}, out.SupplierNames, "a deleted supplier just has no name")
 }

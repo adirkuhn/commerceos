@@ -9,6 +9,7 @@ import (
 	genpms "github.com/adirkuhn/commerceos/api/pms"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
+	procurementapp "github.com/adirkuhn/commerceos/application/procurement"
 	apptax "github.com/adirkuhn/commerceos/application/tax"
 	"github.com/adirkuhn/commerceos/domain/outbox"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -182,6 +183,7 @@ type Handler struct {
 	setLowStockThreshold   setProductLowStockThresholdUC
 	listPriceList          listPriceListUC
 	setAutomaticCostPrice  setManualCostPriceUC
+	listSKUSupplierCosts   listSKUSupplierCostsUC
 }
 
 // NewHandler constructs a Handler with injected use cases (useful for testing).
@@ -229,6 +231,7 @@ func NewHandler(
 	setLowStockThreshold setProductLowStockThresholdUC,
 	listPriceList listPriceListUC,
 	setAutomaticCostPrice setManualCostPriceUC,
+	listSKUSupplierCosts listSKUSupplierCostsUC,
 ) *Handler {
 	return &Handler{
 		listBarcodeAliases:     listBarcodeAliases,
@@ -274,6 +277,7 @@ func NewHandler(
 		setLowStockThreshold:   setLowStockThreshold,
 		listPriceList:          listPriceList,
 		setAutomaticCostPrice:  setAutomaticCostPrice,
+		listSKUSupplierCosts:   listSKUSupplierCosts,
 	}
 }
 
@@ -378,6 +382,7 @@ func Register(rg gin.IRouter, db *gorm.DB, fileStorage pmsDomain.FileStorage, ou
 		apppms.NewSetProductLowStockThresholdUseCase(db, productRepo, outboxRepo),
 		NewListPriceListUseCase(db),
 		apppms.NewSetAutomaticCostPriceUseCase(db, skuRepo, outboxRepo),
+		procurementapp.NewListSKUSupplierCostsUseCase(db, repositories.NewSupplierCostRepo(db), settingsRepo, repositories.NewSupplierRepo(db)),
 	)
 	genpms.RegisterHandlers(rg, h)
 }

@@ -222,3 +222,30 @@ func TestReversalEntry_neverTakesBackMoreThanStands(t *testing.T) {
 	_, ok = procurement.ReversalEntry(line, 0, on(2))
 	assert.False(t, ok)
 }
+
+func TestPageSupplierCosts_newestFirstFilteredAndPaged(t *testing.T) {
+	entries := []procurement.SupplierCostEntry{
+		receipt("l1", "acme", on(0), 1, 100),
+		receipt("l2", "bolt", on(1), 1, 200),
+		receipt("l3", "acme", on(2), 1, 300),
+		receipt("l4", "acme", on(3), 1, 400),
+	}
+
+	page := procurement.PageSupplierCosts(entries, "acme", 0, 2)
+
+	assert.Equal(t, 3, page.Total)
+	require.Len(t, page.Items, 2)
+	assert.Equal(t, "l4", page.Items[0].PurchaseOrderLineItemID)
+	assert.Equal(t, "l3", page.Items[1].PurchaseOrderLineItemID)
+	require.NotNil(t, page.NextCursor)
+	assert.Equal(t, 2, *page.NextCursor)
+
+	last := procurement.PageSupplierCosts(entries, "acme", 2, 2)
+	require.Len(t, last.Items, 1)
+	assert.Equal(t, "l1", last.Items[0].PurchaseOrderLineItemID)
+	assert.Nil(t, last.NextCursor)
+
+	all := procurement.PageSupplierCosts(entries, "", 0, 10)
+	assert.Equal(t, 4, all.Total)
+	assert.Empty(t, procurement.PageSupplierCosts(entries, "", 9, 10).Items, "past the end")
+}

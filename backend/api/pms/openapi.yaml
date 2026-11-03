@@ -690,6 +690,42 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /pms/skus/{id}/supplier-costs:
+    get:
+      operationId: listSKUSupplierCosts
+      summary: A SKU's cost history by supplier (COM-11) -- last landed cost, averages, and the history rows
+      description: >-
+        The summary (last, averages, by_supplier) covers the whole history in
+        the tenant currency; rows in another currency are left out of it and
+        counted in excluded_other_currency. items is one page of the history
+        rows, newest first, optionally one supplier's. Rows are append-only:
+        a reversal (stock taken back off a line) or correction (a line
+        repriced) adds rows, nothing is ever edited.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: supplier_id
+          in: query
+          description: Only this supplier's rows in items (the summary is unaffected).
+          schema: { type: string }
+        - name: cursor
+          in: query
+          description: next_cursor of the previous page.
+          schema: { type: integer, minimum: 0 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SKUSupplierCostsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+
   /pms/skus/{id}/price-history:
     get:
       operationId: listSKUPriceHistory
@@ -1351,6 +1387,86 @@ components:
         data:
           type: array
           items: { $ref: '#/components/schemas/SKUCostPriceHistoryEntry' }
+        error: { nullable: true }
+
+    SupplierCostKind:
+      type: string
+      enum: [receipt, reversal, correction]
+      description: >-
+        receipt: stock booked in against a purchase order line. reversal:
+        received stock taken back off a line (negative quantity).
+        correction: a line repriced after the fact -- a pair, the line's
+        quantity out at the old cost and back in at the new one.
+
+    SupplierCostEntry:
+      type: object
+      required: [kind, quantity, unit_cost_minor_units, landed_unit_cost_minor_units, currency_code, received_at, purchase_order_id, purchase_order_line_item_id, supplier_id, supplier_name]
+      properties:
+        kind: { $ref: '#/components/schemas/SupplierCostKind' }
+        quantity: { type: integer, format: int64, description: Signed. }
+        unit_cost_minor_units: { type: integer, format: int64, description: The purchase order line's own price per unit. }
+        landed_unit_cost_minor_units: { type: integer, format: int64, description: The price plus the line's share of the order's shipping and fees. }
+        currency_code: { type: string }
+        received_at: { type: string, format: date-time }
+        purchase_order_id: { type: string }
+        purchase_order_line_item_id: { type: string }
+        supplier_id: { type: string, nullable: true }
+        supplier_name: { type: string, nullable: true, description: Null when the order has no supplier or it was deleted. }
+
+    SupplierCostLast:
+      type: object
+      description: The last paid receipt still standing -- what the cost price follows. A zero-cost receipt is never it.
+      required: [landed_unit_cost_minor_units, received_at, purchase_order_id, purchase_order_line_item_id, supplier_id, supplier_name]
+      properties:
+        landed_unit_cost_minor_units: { type: integer, format: int64 }
+        received_at: { type: string, format: date-time }
+        purchase_order_id: { type: string }
+        purchase_order_line_item_id: { type: string }
+        supplier_id: { type: string, nullable: true }
+        supplier_name: { type: string, nullable: true }
+
+    SupplierCostBySupplier:
+      type: object
+      required: [supplier_id, supplier_name, last_landed_unit_cost_minor_units, last_received_at, average_cost_minor_units, quantity, receipts]
+      properties:
+        supplier_id: { type: string, nullable: true, description: Null groups the receipts of orders without a supplier. }
+        supplier_name: { type: string, nullable: true }
+        last_landed_unit_cost_minor_units: { type: integer, format: int64, nullable: true, description: Null when everything this supplier sent was free. }
+        last_received_at: { type: string, format: date-time }
+        average_cost_minor_units: { type: integer, format: int64, description: Landed cost averaged over everything received from this supplier, weighted by quantity. }
+        quantity: { type: integer, format: int64 }
+        receipts: { type: integer, description: Purchase order lines received from this supplier. }
+
+    SKUSupplierCosts:
+      type: object
+      required: [currency_code, last, average_cost_minor_units, by_supplier, excluded_other_currency, items, next_cursor, total]
+      properties:
+        currency_code: { type: string, description: The tenant currency the summary is in. }
+        last:
+          allOf:
+            - $ref: '#/components/schemas/SupplierCostLast'
+          nullable: true
+        average_cost_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: Landed cost averaged over everything ever received from every supplier, weighted by quantity. Null when nothing was received.
+        by_supplier:
+          type: array
+          description: Most recently received from first.
+          items: { $ref: '#/components/schemas/SupplierCostBySupplier' }
+        excluded_other_currency: { type: integer, description: History rows left out of the summary for being in another currency. }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/SupplierCostEntry' }
+        next_cursor: { type: integer, nullable: true }
+        total: { type: integer, description: Rows matching the supplier filter. }
+
+    SKUSupplierCostsResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/SKUSupplierCosts' }
         error: { nullable: true }
 
     SKUPriceHistoryEntry:
