@@ -31,7 +31,7 @@ func TestAcceptsChannelStatus(t *testing.T) {
 		{"partially refunded accepts completed", SalesOrderStatusPartiallyRefunded, SalesOrderStatusCompleted, true},
 		{"partially refunded accepts full refund", SalesOrderStatusPartiallyRefunded, SalesOrderStatusRefunded, true},
 
-		{"shipped moves on to completed",SalesOrderStatusShipped, SalesOrderStatusCompleted, true},
+		{"shipped moves on to completed", SalesOrderStatusShipped, SalesOrderStatusCompleted, true},
 
 		// Terminal outcomes decided on the channel always win.
 		{"shipped accepts cancelled", SalesOrderStatusShipped, SalesOrderStatusCancelled, true},
