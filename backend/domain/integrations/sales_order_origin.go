@@ -87,3 +87,14 @@ func NewSalesOrderOrigin(in SalesOrderOriginInput) (SalesOrderOrigin, error) {
 
 // IsExternal reports whether the order was imported from another system.
 func (o SalesOrderOrigin) IsExternal() bool { return o.ExternalOrderID != "" }
+
+// ClaimConnection gives a shop order whose connection was lost (migration
+// 246 could not tell which of several connections it came from) the
+// connection it was just re-imported through.
+func (o *SalesOrderOrigin) ClaimConnection(connectionID string) error {
+	if !originRules[o.Origin].connection || o.ConnectionID != nil || connectionID == "" {
+		return fmt.Errorf("%s order %s: cannot claim connection %s: %w", o.Origin, o.SalesOrderID, connectionID, ErrSalesOrderOriginInvalid)
+	}
+	o.ConnectionID = &connectionID
+	return nil
+}

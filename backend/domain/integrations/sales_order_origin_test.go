@@ -56,3 +56,14 @@ func TestNewSalesOrderOrigin_rejectsAnUnknownOriginOrMissingOrder(t *testing.T) 
 	_, err = integrations.NewSalesOrderOrigin(integrations.SalesOrderOriginInput{Origin: integrations.OriginManual})
 	assert.ErrorIs(t, err, integrations.ErrSalesOrderOriginInvalid)
 }
+
+func TestSalesOrderOrigin_ClaimConnection_givesAnUnmappedShopOrderItsConnection(t *testing.T) {
+	unmapped := integrations.SalesOrderOrigin{SalesOrderID: "so-1", Origin: integrations.OriginWooCommerce, ExternalOrderID: "26217"}
+
+	require.NoError(t, unmapped.ClaimConnection("conn-1"))
+	assert.Equal(t, "conn-1", *unmapped.ConnectionID)
+
+	assert.ErrorIs(t, unmapped.ClaimConnection("conn-2"), integrations.ErrSalesOrderOriginInvalid, "already has one")
+	pos := integrations.SalesOrderOrigin{SalesOrderID: "so-2", Origin: integrations.OriginPOS, ExternalOrderID: "pos-1"}
+	assert.ErrorIs(t, pos.ClaimConnection("conn-1"), integrations.ErrSalesOrderOriginInvalid, "a POS sale has no connection")
+}
