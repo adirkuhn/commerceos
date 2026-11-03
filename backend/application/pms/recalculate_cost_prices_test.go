@@ -45,6 +45,34 @@ func TestRecalculateCostPrices_agreesWithLedgerAndSnapshotsHistoryFromTheActualC
 	assert.Equal(t, int64(910), historyRepo.upserted[0].RecommendedPriceMinorUnits)
 }
 
+// The safety net checks the moving average (inventory cost) -- the cost
+// price is the last receipt's and legitimately differs; the margin-trend
+// snapshot and recommended price use the cost price.
+func TestRecalculateCostPrices_reconcilesTheInventoryCostAndSnapshotsTheCostPrice(t *testing.T) {
+	batchLister := &stubBatchListerForCostPrice{batches: []invDomain.Batch{
+		{ID: "batch-1", Quantity: 10, LandedCostMinorUnits: int64Ptr2(800)},
+		{ID: "batch-2", Quantity: 5, LandedCostMinorUnits: int64Ptr2(500)},
+	}}
+	average, lastReceipt := int64(700), int64(500)
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{ID: "sku-1", VariantID: "variant-1",
+		CostPriceMinorUnits: &lastReceipt, InventoryCostMinorUnits: &average}}
+	historyRepo := &stubSKUCostPriceHistoryRepo{}
+	settingsRepo := &stubSettingsRepoForPMS{settings: &settingsDomain.TenantSettings{DefaultTargetMarkupBasisPoints: 3000}}
+	uc := apppms.NewRecalculateCostPricesUseCase(
+		newMockGormDB(t), skuRepo, &stubVariantRepo{}, &stubProductRepo{}, &stubCategoryRepo{}, settingsRepo, historyRepo, batchLister, &stubPurchaseCostLineListerForCostPrice{},
+	)
+
+	result, err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	assert.True(t, result.Reconciled)
+	assert.Equal(t, int64(700), result.InventoryCostMinorUnits)
+	assert.Equal(t, int64(500), result.CostPriceMinorUnits)
+	assert.Equal(t, int64(650), result.RecommendedPriceMinorUnits, "30% on the last receipt's cost")
+	require.Len(t, historyRepo.upserted, 1)
+	assert.Equal(t, int64(500), historyRepo.upserted[0].CostPriceMinorUnits)
+}
+
 func TestRecalculateCostPrices_flagsDriftWhenLedgerDisagreesWithTheActualCurrentCost(t *testing.T) {
 	batchLister := &stubBatchListerForCostPrice{batches: []invDomain.Batch{
 		{ID: "batch-1", Quantity: 10, LandedCostMinorUnits: int64Ptr2(800)},

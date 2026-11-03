@@ -242,10 +242,13 @@ func TestSplitCaseIntoUnits_propagatesUnitBatchCreateError(t *testing.T) {
 	require.ErrorIs(t, err, createErr)
 }
 
-// costedCaseSKURepo is a 20-unit case costing 13.99.
+// costedCaseSKURepo is a 20-unit case whose stock cost 13.99 (inventory
+// cost); its last receipt was dearer (cost price 16.00), which a split
+// must not use -- units carry what the case stock actually cost.
 func costedCaseSKURepo() *stubSKURepo {
 	return &stubSKURepo{findByIDResult: &pmsDomain.SKU{
-		ID: "sku-case-1", CaseOfSKUID: strPtr("sku-unit-1"), UnitsPerCase: int64Ptr(20), CostPriceMinorUnits: int64Ptr(1399),
+		ID: "sku-case-1", CaseOfSKUID: strPtr("sku-unit-1"), UnitsPerCase: int64Ptr(20),
+		CostPriceMinorUnits: int64Ptr(1600), InventoryCostMinorUnits: int64Ptr(1399),
 	}}
 }
 

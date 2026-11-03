@@ -1245,15 +1245,26 @@ components:
           format: int64
           nullable: true
           description: >-
-            Read-only. Moving Weighted Average Cost, updated incrementally
-            at every goods receipt -- unless cost_price_source is "manual",
-            in which case this is whatever a human last set via
-            PUT /pms/skus/{id}/cost-price. Null when cost_price_source is
-            "unknown" (no receipt has given this SKU a cost yet).
+            Read-only. Replacement cost used for pricing and margins: the
+            landed unit cost (fees included) of the last goods receipt
+            against a purchase order -- unless cost_price_source is
+            "manual", in which case this is whatever a human last set via
+            PUT /pms/skus/{id}/cost-price. A zero-cost receipt never becomes
+            the cost price. Null when cost_price_source is "unknown" (no
+            receipt has given this SKU a cost yet).
         cost_price_source:
           allOf:
             - $ref: '#/components/schemas/SKUCostPriceSource'
-          description: Read-only. Whether cost_price_minor_units came from a receipt, a manual override, or is not yet known.
+          description: Read-only. Whether cost_price_minor_units came from the last receipt, a manual override, or is not yet known.
+        inventory_cost_minor_units:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            Read-only. What the stock on hand actually cost per unit: the
+            Moving Weighted Average of every receipt's landed cost, used for
+            COGS and stock value. Moves at every receipt, even while the
+            cost price is manual. Null until a costed receipt.
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
@@ -1262,7 +1273,7 @@ components:
       enum: [computed, manual, unknown]
       description: >-
         "computed" means cost_price_minor_units was last set by a goods
-        receipt (the Moving Weighted Average Cost blend -- see
+        receipt (the landed cost of the last purchase order receipt -- see
         ApplyReceiptCostUseCase); "manual" means a human set it directly and
         it sticks until cleared; "unknown" means no receipt has ever given
         this SKU a cost basis, so cost_price_minor_units is null.
@@ -1280,7 +1291,7 @@ components:
         adjustment_value_minor_units:
           type: integer
           format: int64
-          description: Signed -- added to the SKU's current total inventory value before re-dividing across on-hand quantity. Negative lowers the cost.
+          description: Signed -- added to the SKU's current total inventory value before re-dividing across on-hand quantity. Negative lowers the cost. Changes inventory_cost_minor_units (what the stock cost); the cost price follows only through the supplier cost history.
         reference_type: { type: string, nullable: true }
         reference_id: { type: string, nullable: true }
 

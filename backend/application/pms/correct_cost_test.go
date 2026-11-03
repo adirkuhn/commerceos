@@ -43,21 +43,23 @@ func TestApplyValueCorrectionToCost_rejectsNonPositiveExistingQuantity(t *testin
 	require.Error(t, err)
 }
 
-func TestCorrectCost_writesNewCostAndCorrectionLedgerEntryWithoutTouchingQuantity(t *testing.T) {
-	existingAvg := int64(300)
-	skuRepo := &stubSKURepoForReceiptCost{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceMinorUnits: &existingAvg, CostPriceSource: pmsDomain.SKUCostPriceSourceComputed}}
+func TestCorrectCost_writesNewInventoryCostAndCorrectionLedgerEntryWithoutTouchingQuantity(t *testing.T) {
+	existingAvg, lastCost := int64(300), int64(320)
+	skuRepo := &stubSKURepoForReceiptCost{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceMinorUnits: &lastCost, InventoryCostMinorUnits: &existingAvg, CostPriceSource: pmsDomain.SKUCostPriceSourceComputed}}
 	batchLister := &stubBatchListerForReceiptCost{batches: []invDomain.Batch{{Quantity: 100}}}
 	ledgerRepo := &stubCostLedgerRepo{}
 	occurredAt := time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC)
 	uc := apppms.NewCorrectCostUseCase(newMockGormDB(t), skuRepo, ledgerRepo, batchLister, &eventrecordtest.Outbox{})
 
-	_, err := uc.Execute(context.Background(), apppms.CorrectCostInput{
+	sku, err := uc.Execute(context.Background(), apppms.CorrectCostInput{
 		SKUID: "sku-1", AdjustmentValueMinorUnits: 5000, ReferenceType: "purchase_order_line_item", ReferenceID: "line-1", OccurredAt: occurredAt,
 	})
 
 	require.NoError(t, err)
-	require.Len(t, skuRepo.updateCalls, 1)
-	assert.Equal(t, int64(350), skuRepo.updateCalls[0].costPriceMinorUnits)
+	assert.Equal(t, []int64{350}, skuRepo.inventoryCalls, "the moving average absorbs the correction")
+	assert.Empty(t, skuRepo.updateCalls, "the cost price is the last receipt's, not the average")
+	require.NotNil(t, sku.InventoryCostMinorUnits)
+	assert.Equal(t, int64(350), *sku.InventoryCostMinorUnits)
 	require.Len(t, ledgerRepo.created, 1)
 	entry := ledgerRepo.created[0]
 	assert.Equal(t, pmsDomain.SKUCostPriceLedgerSourceCorrection, entry.SourceType)
@@ -77,6 +79,7 @@ func TestCorrectCost_rejectsWhenCostIsUnknown(t *testing.T) {
 
 	require.ErrorIs(t, err, pmsDomain.ErrCostPriceUnknownForCorrection)
 	assert.Empty(t, skuRepo.updateCalls)
+	assert.Empty(t, skuRepo.inventoryCalls)
 }
 
 func TestCorrectCost_rejectsWhenNoStockOnHand(t *testing.T) {

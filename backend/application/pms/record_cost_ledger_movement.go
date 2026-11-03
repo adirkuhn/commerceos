@@ -88,8 +88,8 @@ func (uc *RecordCostLedgerMovementUseCase) Execute(ctx context.Context, in Recor
 			OccurredAt:    in.OccurredAt,
 			CreatedAt:     time.Now(),
 		}
-		if sku.CostPriceMinorUnits != nil {
-			cost := *sku.CostPriceMinorUnits
+		if actual := sku.ActualCostMinorUnits(); actual != nil {
+			cost := *actual
 			value := totalQtyAfter * cost
 			entry.CostPriceMinorUnits = &cost
 			entry.InventoryValueMinorUnits = &value

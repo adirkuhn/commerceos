@@ -60,9 +60,12 @@ type RecalculateCostPricesResult struct {
 	// never writes it; it only checks it against ExpectedCostPriceMinorUnits.
 	CostPriceMinorUnits        int64
 	RecommendedPriceMinorUnits int64
+	// InventoryCostMinorUnits is the SKU's current moving average (see
+	// pmsDomain.SKU.ActualCostMinorUnits) -- what Reconciled checks.
+	InventoryCostMinorUnits int64
 	// Reconciled is false when the independently-derived weighted average
 	// of on-hand batches/open PO lines (ExpectedCostPriceMinorUnits)
-	// disagrees with CostPriceMinorUnits -- logged as a drift warning
+	// disagrees with InventoryCostMinorUnits -- logged as a drift warning
 	// (Execute never auto-corrects; see the type's doc comment).
 	Reconciled                  bool
 	ExpectedCostPriceMinorUnits int64
@@ -140,7 +143,7 @@ func (uc *RecalculateCostPricesUseCase) Execute(ctx context.Context, skuID strin
 			result.Skipped = true
 			return nil
 		}
-		if sku.CostPriceMinorUnits == nil {
+		if sku.CostPriceMinorUnits == nil || sku.ActualCostMinorUnits() == nil {
 			// cost_price_source unknown -- no receipt has given this SKU a
 			// cost yet (see pms.SKUCostPriceSourceUnknown), so there's
 			// nothing current to check the ledger against. Resolved by the
@@ -189,7 +192,8 @@ func (uc *RecalculateCostPricesUseCase) Execute(ctx context.Context, skuID strin
 			return nil
 		}
 		expected := (weightedCost + totalQty/2) / totalQty
-		actual := *sku.CostPriceMinorUnits
+		actual := *sku.ActualCostMinorUnits()
+		costPrice := *sku.CostPriceMinorUnits
 
 		settings, err := uc.settingsRepo.Get(ctx)
 		if err != nil {
@@ -197,23 +201,24 @@ func (uc *RecalculateCostPricesUseCase) Execute(ctx context.Context, skuID strin
 		}
 		category := resolveCategory(ctx, uc.variantRepo, uc.productRepo, uc.categoryRepo, sku.VariantID)
 		markup := EffectiveTargetMarkupBasisPoints(category, settings.DefaultTargetMarkupBasisPoints)
-		recommended := RecommendedPriceMinorUnits(actual, markup)
+		recommended := RecommendedPriceMinorUnits(costPrice, markup)
 
 		result.Reconciled = actual == expected
 		if !result.Reconciled {
-			log.Printf("[WARN] cost price drift for SKU %s: ledger-derived cost %d does not match current cost %d",
+			log.Printf("[WARN] inventory cost drift for SKU %s: ledger-derived cost %d does not match current inventory cost %d",
 				skuID, expected, actual)
 		}
 
 		now := time.Now()
 		if err := uc.historyRepo.Upsert(ctx, &pmsDomain.SKUCostPriceHistory{
 			TenantID: tenant.IDFromContext(ctx), SKUID: skuID,
-			CostPriceMinorUnits: actual, RecommendedPriceMinorUnits: recommended,
+			CostPriceMinorUnits: costPrice, RecommendedPriceMinorUnits: recommended,
 			OccurredOn: now.Truncate(24 * time.Hour), CreatedAt: now,
 		}); err != nil {
 			return err
 		}
-		result.CostPriceMinorUnits = actual
+		result.CostPriceMinorUnits = costPrice
+		result.InventoryCostMinorUnits = actual
 		result.ExpectedCostPriceMinorUnits = expected
 		result.RecommendedPriceMinorUnits = recommended
 		return nil

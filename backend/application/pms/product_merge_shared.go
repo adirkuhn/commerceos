@@ -49,9 +49,9 @@ type mergeStep struct {
 }
 
 // foldMergePairs applies pairs in order (several duplicates may fold into
-// one target): the duplicate's stock joins at its own cost, blending the
-// target's moving average -- unless the target's cost is manual, which
-// stands. Negative on-hand counts as none.
+// one target): the duplicate's stock joins at what it actually cost,
+// blending the target's inventory cost (moving average, see
+// pmsDomain.SKU.ActualCostMinorUnits). Negative on-hand counts as none.
 func foldMergePairs(pairs []pmsDomain.SKUMergePair, bySKUID map[string]pmsDomain.SKU, onHand map[string]int64) []mergeStep {
 	qty := make(map[string]int64)
 	cost := make(map[string]*int64)
@@ -60,18 +60,14 @@ func foldMergePairs(pairs []pmsDomain.SKUMergePair, bySKUID map[string]pmsDomain
 		target := bySKUID[p.TargetSKUID]
 		if _, seen := qty[p.TargetSKUID]; !seen {
 			qty[p.TargetSKUID] = max(onHand[p.TargetSKUID], 0)
-			cost[p.TargetSKUID] = target.CostPriceMinorUnits
+			cost[p.TargetSKUID] = target.ActualCostMinorUnits()
 		}
 		sourceQty := max(onHand[p.SourceSKUID], 0)
 		before := cost[p.TargetSKUID]
-		after := before
-		manual := target.CostPriceSource == pmsDomain.SKUCostPriceSourceManual
-		if !manual {
-			after = pmsDomain.BlendMovingAverageCost(qty[p.TargetSKUID], before, sourceQty, bySKUID[p.SourceSKUID].CostPriceMinorUnits)
-		}
+		after := pmsDomain.BlendMovingAverageCost(qty[p.TargetSKUID], before, sourceQty, bySKUID[p.SourceSKUID].ActualCostMinorUnits())
 		qty[p.TargetSKUID] += sourceQty
 		cost[p.TargetSKUID] = after
-		steps[i] = mergeStep{pair: p, sourceQty: sourceQty, qtyAfter: qty[p.TargetSKUID], costBefore: before, costAfter: after, costChanged: !manual && after != nil}
+		steps[i] = mergeStep{pair: p, sourceQty: sourceQty, qtyAfter: qty[p.TargetSKUID], costBefore: before, costAfter: after, costChanged: after != nil}
 	}
 	return steps
 }

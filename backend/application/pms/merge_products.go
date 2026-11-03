@@ -48,7 +48,7 @@ type mergeSKULister interface {
 
 type mergeSKUStore interface {
 	mergeSKULister
-	UpdateCostPriceFromReceipt(ctx context.Context, skuID string, costPriceMinorUnits int64) error
+	UpdateInventoryCost(ctx context.Context, skuID string, inventoryCostMinorUnits int64) error
 }
 
 // mergeOnHand is inventory's ListBatchesUseCase narrowed to point of use:
@@ -218,12 +218,19 @@ func (uc *MergeProductsUseCase) Execute(ctx context.Context, in MergeProductsInp
 	return &result, nil
 }
 
-// blendCosts writes each pair's folded cost (see foldMergePairs) and logs
-// one merge ledger row per pair.
+// blendCosts writes each pair's folded inventory cost (see foldMergePairs)
+// and logs one merge ledger row per pair. The cost price (last receipt or
+// manual) is not a blend and is left alone.
 func (uc *MergeProductsUseCase) blendCosts(ctx context.Context, pairs []pmsDomain.SKUMergePair, bySKUID map[string]pmsDomain.SKU, onHand map[string]int64) error {
 	for _, step := range foldMergePairs(pairs, bySKUID, onHand) {
 		if step.costChanged {
-			if err := uc.deps.SKUs.UpdateCostPriceFromReceipt(ctx, step.pair.TargetSKUID, *step.costAfter); err != nil {
+			if err := uc.deps.SKUs.UpdateInventoryCost(ctx, step.pair.TargetSKUID, *step.costAfter); err != nil {
+				return err
+			}
+			before := bySKUID[step.pair.TargetSKUID]
+			before.InventoryCostMinorUnits = step.costBefore
+			if err := recordInventoryCostChanged(ctx, uc.deps.Outbox, before, *step.costAfter,
+				CostPriceChangeReasonMerge, "sku", step.pair.SourceSKUID); err != nil {
 				return err
 			}
 		}

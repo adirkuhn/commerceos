@@ -47,6 +47,21 @@ func (r *SKURepo) UpdateCostPriceFromReceipt(ctx context.Context, skuID string, 
 	return nil
 }
 
+// UpdateInventoryCost writes only inventory_cost_minor_units -- the moving
+// weighted average of the stock on hand (see pmsDomain.SKU). Never touches
+// the cost price or its source, so a manual cost price stays in place.
+func (r *SKURepo) UpdateInventoryCost(ctx context.Context, skuID string, inventoryCostMinorUnits int64) error {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := tx.Model(&skuModel{}).Where("id = ?", skuID).
+		Update("inventory_cost_minor_units", inventoryCostMinorUnits).Error; err != nil {
+		return fmt.Errorf("skuRepo.UpdateInventoryCost: %w", err)
+	}
+	return nil
+}
+
 // SetManualCostPrice writes cost_price_minor_units and flips
 // cost_price_source to manual in one update -- see
 // pmsDomain.SKURepository.SetManualCostPrice.

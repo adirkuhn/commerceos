@@ -157,9 +157,12 @@ func TestMergeProducts_Integration(t *testing.T) {
 
 		sku, err := skuRepo.FindByID(ctx, targetSKUID)
 		require.NoError(t, err)
+		require.NotNil(t, sku.InventoryCostMinorUnits)
+		// (6*100 + 6*200) / 12 = 150 -- what the merged stock cost; the
+		// cost price (last receipt) is not a blend and stays 100
+		assert.Equal(t, int64(150), *sku.InventoryCostMinorUnits)
 		require.NotNil(t, sku.CostPriceMinorUnits)
-		// (6*100 + 6*200) / 12 = 150
-		assert.Equal(t, int64(150), *sku.CostPriceMinorUnits)
+		assert.Equal(t, int64(100), *sku.CostPriceMinorUnits)
 
 		alias, err := repositories.NewBarcodeAliasRepo(db).FindByCode(ctx, "8710001000017")
 		require.NoError(t, err)

@@ -21,6 +21,7 @@ type skuStoreForCaseCost interface {
 	FindByID(ctx context.Context, id string) (*pmsDomain.SKU, error)
 	ListByVariant(ctx context.Context, variantID string) ([]pmsDomain.SKU, error)
 	UpdateCostPriceFromReceipt(ctx context.Context, skuID string, costPriceMinorUnits int64) error
+	UpdateInventoryCost(ctx context.Context, skuID string, inventoryCostMinorUnits int64) error
 }
 
 type variantListerForCaseCost interface {
@@ -33,13 +34,20 @@ type variantListerForCaseCost interface {
 // only ever stocked by splitting cases never had a cost at all -- only a
 // goods receipt (ApplyReceiptCostUseCase) ever wrote one.
 //
-// The unit takes the case's cost when it has no cost yet, or when none of
-// it is on hand (nothing to blend with, so the latest case cost wins).
-// While units are on hand their cost is left alone: splitting more cases
-// blends in at receipt time instead (see inventory.SplitCaseIntoUnitsUseCase).
-// A manual cost is never touched. Every change is a cost ledger row
-// (source case_link) and a pms.sku.cost_price_changed event, so the full
-// history is kept. Re-running with nothing new changes nothing.
+// Two costs, two rules (COM-11):
+//   - cost price (replacement cost): always the case's cost price per
+//     unit, so the unit's margins follow the case's last receipt. A manual
+//     cost price is never touched.
+//   - inventory cost (what the stock cost): the case's per unit when the
+//     unit has none yet, or none of it is on hand (nothing to blend with).
+//     While units are on hand it is left alone: splitting more cases
+//     blends in at receipt time instead (see
+//     inventory.SplitCaseIntoUnitsUseCase). Each change is a cost ledger
+//     row (source case_link).
+//
+// Every change raises its event (pms.sku.cost_price_changed or
+// pms.sku.inventory_cost_changed, reason case_link). Re-running with
+// nothing new changes nothing.
 type SyncUnitCostFromCaseUseCase struct {
 	db          *gorm.DB
 	skus        skuStoreForCaseCost
@@ -104,29 +112,54 @@ func (uc *SyncUnitCostFromCaseUseCase) SyncProduct(ctx context.Context, productI
 }
 
 func (uc *SyncUnitCostFromCaseUseCase) sync(ctx context.Context, caseSKU pmsDomain.SKU) error {
-	if caseSKU.CaseOfSKUID == nil || caseSKU.UnitsPerCase == nil || *caseSKU.UnitsPerCase <= 0 || caseSKU.CostPriceMinorUnits == nil {
+	if caseSKU.CaseOfSKUID == nil || caseSKU.UnitsPerCase == nil || *caseSKU.UnitsPerCase <= 0 {
 		return nil
 	}
 	unit, err := uc.skus.FindByID(ctx, *caseSKU.CaseOfSKUID)
 	if err != nil {
 		return err
 	}
-	if unit.CostPriceSource == pmsDomain.SKUCostPriceSourceManual {
-		return nil
-	}
-	onHand, err := uc.onHand(ctx, unit.ID)
-	if err != nil {
+	if err := uc.syncCostPrice(ctx, caseSKU, *unit); err != nil {
 		return err
 	}
-	if unit.CostPriceMinorUnits != nil && onHand > 0 {
+	return uc.syncInventoryCost(ctx, caseSKU, *unit)
+}
+
+// syncCostPrice: the unit's cost price is the case's, per unit.
+func (uc *SyncUnitCostFromCaseUseCase) syncCostPrice(ctx context.Context, caseSKU, unit pmsDomain.SKU) error {
+	if caseSKU.CostPriceMinorUnits == nil || unit.CostPriceSource == pmsDomain.SKUCostPriceSourceManual {
 		return nil
 	}
 	cost := pmsDomain.UnitCostFromCaseMinorUnits(*caseSKU.CostPriceMinorUnits, *caseSKU.UnitsPerCase)
 	if unit.CostPriceMinorUnits != nil && *unit.CostPriceMinorUnits == cost {
 		return nil
 	}
-
 	if err := uc.skus.UpdateCostPriceFromReceipt(ctx, unit.ID, cost); err != nil {
+		return err
+	}
+	return recordCostPriceChanged(ctx, uc.outbox, unit, &cost, pmsDomain.SKUCostPriceSourceComputed,
+		CostPriceChangeReasonCaseLink, caseCostReferenceType, caseSKU.ID)
+}
+
+// syncInventoryCost: the unit's inventory cost takes the case's, per unit,
+// only when there is nothing on hand to blend with.
+func (uc *SyncUnitCostFromCaseUseCase) syncInventoryCost(ctx context.Context, caseSKU, unit pmsDomain.SKU) error {
+	caseCost := caseSKU.ActualCostMinorUnits()
+	if caseCost == nil {
+		return nil
+	}
+	onHand, err := uc.onHand(ctx, unit.ID)
+	if err != nil {
+		return err
+	}
+	if unit.InventoryCostMinorUnits != nil && onHand > 0 {
+		return nil
+	}
+	cost := pmsDomain.UnitCostFromCaseMinorUnits(*caseCost, *caseSKU.UnitsPerCase)
+	if unit.InventoryCostMinorUnits != nil && *unit.InventoryCostMinorUnits == cost {
+		return nil
+	}
+	if err := uc.skus.UpdateInventoryCost(ctx, unit.ID, cost); err != nil {
 		return err
 	}
 	now := time.Now()
@@ -142,8 +175,7 @@ func (uc *SyncUnitCostFromCaseUseCase) sync(ctx context.Context, caseSKU pmsDoma
 	}); err != nil {
 		return err
 	}
-	return recordCostPriceChanged(ctx, uc.outbox, *unit, &cost, pmsDomain.SKUCostPriceSourceComputed,
-		CostPriceChangeReasonCaseLink, refType, refID)
+	return recordInventoryCostChanged(ctx, uc.outbox, unit, cost, CostPriceChangeReasonCaseLink, refType, refID)
 }
 
 func (uc *SyncUnitCostFromCaseUseCase) onHand(ctx context.Context, skuID string) (int64, error) {

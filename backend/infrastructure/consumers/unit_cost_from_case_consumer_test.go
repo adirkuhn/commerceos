@@ -52,6 +52,17 @@ func TestUnitCostFromCaseConsumer_costChangeSyncsTheSKUsUnit(t *testing.T) {
 	assert.Equal(t, []string{"evt-1|" + consumers.UnitCostOnCaseCostChangedConsumerName}, processed.marked)
 }
 
+func TestUnitCostFromCaseConsumer_inventoryCostChangeSyncsTheSKUsUnit(t *testing.T) {
+	processed := &stubProcessedEvents{processed: map[string]bool{}}
+	syncer := &stubUnitCostSyncer{}
+	c := consumers.NewUnitCostOnCaseInventoryCostChangedConsumer(processed, syncer, &stubDLQPublisher{})
+
+	c.Handle(entityActionMsg(t, events.SKUInventoryCostChanged.Subject, "evt-3", "box-1"))
+
+	assert.Equal(t, []string{"box-1"}, syncer.cases)
+	assert.Equal(t, []string{"evt-3|" + consumers.UnitCostOnCaseInventoryCostChangedConsumerName}, processed.marked)
+}
+
 func TestUnitCostFromCaseConsumer_productChangeSyncsTheProductsCases(t *testing.T) {
 	processed := &stubProcessedEvents{processed: map[string]bool{}}
 	syncer := &stubUnitCostSyncer{}
@@ -64,7 +75,12 @@ func TestUnitCostFromCaseConsumer_productChangeSyncsTheProductsCases(t *testing.
 }
 
 func TestUnitCostFromCaseConsumer_namesAreDistinct(t *testing.T) {
-	assert.NotEqual(t, consumers.UnitCostOnCaseCostChangedConsumerName, consumers.UnitCostOnProductChangedConsumerName)
+	names := map[string]bool{
+		consumers.UnitCostOnCaseCostChangedConsumerName:          true,
+		consumers.UnitCostOnCaseInventoryCostChangedConsumerName: true,
+		consumers.UnitCostOnProductChangedConsumerName:           true,
+	}
+	assert.Len(t, names, 3)
 }
 
 func TestUnitCostFromCaseConsumer_skipsAlreadyProcessed(t *testing.T) {

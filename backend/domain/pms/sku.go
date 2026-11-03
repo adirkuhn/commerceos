@@ -82,15 +82,17 @@ type SKU struct {
 	// ErrSaleEndDateRequiresSalePrice).
 	SaleEndDate  *time.Time
 	CurrencyCode string
-	// CostPriceMinorUnits is nil until the daily cost-price cron (see
-	// application/pms.RecalculateCostPricesUseCase) has computed at least
-	// one value for this SKU -- the weighted average of
-	// inventory.Batch.LandedCostMinorUnits across every batch of this SKU
-	// still holding remaining quantity, weight = that batch's remaining
-	// quantity. A SKU whose stock all came in before landed-cost capture
-	// existed, or that has zero on-hand batches, stays nil (there's no
-	// cost basis to average) rather than being reported as zero.
+	// CostPriceMinorUnits is the replacement cost pricing and margins are
+	// judged against: the landed unit cost of the last goods receipt (see
+	// CostPriceAfterReceipt), or a manual value (CostPriceSource manual).
+	// Nil until a receipt or a human gives this SKU a cost.
 	CostPriceMinorUnits *int64
+	// InventoryCostMinorUnits is the actual cost of the stock on hand: the
+	// moving weighted average of every receipt's landed cost, blended at
+	// receipt time (application/pms.ApplyReceiptCostUseCase). COGS fallback,
+	// stock value and the cost ledger use this, never CostPriceMinorUnits
+	// -- see ActualCostMinorUnits. Kept even while the cost price is manual.
+	InventoryCostMinorUnits *int64
 	// CostPriceSource says who last set CostPriceMinorUnits -- see
 	// SKUCostPriceSource. Defaults to SKUCostPriceSourceComputed.
 	CostPriceSource SKUCostPriceSource

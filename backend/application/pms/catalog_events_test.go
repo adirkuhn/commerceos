@@ -136,10 +136,11 @@ func TestClearCostPriceOverride_RecordsCostPriceChanged(t *testing.T) {
 	assert.Equal(t, "override_cleared", e.Data()["reason"])
 }
 
-func TestApplyReceiptCost_RecordsCostPriceChanged(t *testing.T) {
+func TestApplyReceiptCost_RecordsInventoryCostAndCostPriceChanged(t *testing.T) {
 	outbox := &eventrecordtest.Outbox{}
-	existing := int64(440)
-	skuRepo := &stubSKURepoForReceiptCost{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceMinorUnits: &existing}}
+	cost, avg := int64(450), int64(440)
+	skuRepo := &stubSKURepoForReceiptCost{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceMinorUnits: &cost, InventoryCostMinorUnits: &avg,
+		CostPriceSource: pmsDomain.SKUCostPriceSourceComputed}}
 	uc := apppms.NewApplyReceiptCostUseCase(newMockGormDB(t), skuRepo, &stubCostLedgerRepo{},
 		&stubBatchListerForReceiptCost{batches: []invDomain.Batch{{Quantity: 150}}}, outbox)
 
@@ -149,16 +150,21 @@ func TestApplyReceiptCost_RecordsCostPriceChanged(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	e := onlyEvent(t, outbox)
-	assert.Equal(t, "pms.sku.cost_price_changed", e.Subject)
-	assert.Equal(t, map[string][2]any{"cost_price_minor_units": {float64(440), float64(467)}}, e.Changes())
-	assert.Equal(t, map[string]any{"reason": "receipt", "reference_type": "purchase_order_line_item", "reference_id": "line-1"}, e.Data())
+	require.Len(t, outbox.Events, 2)
+	data := map[string]any{"reason": "receipt", "reference_type": "purchase_order_line_item", "reference_id": "line-1"}
+	inv, price := outbox.Events[0], outbox.Events[1]
+	assert.Equal(t, "pms.sku.inventory_cost_changed", inv.Subject)
+	assert.Equal(t, map[string][2]any{"inventory_cost_minor_units": {float64(440), float64(467)}}, inv.Changes())
+	assert.Equal(t, data, inv.Data())
+	assert.Equal(t, "pms.sku.cost_price_changed", price.Subject)
+	assert.Equal(t, map[string][2]any{"cost_price_minor_units": {float64(450), float64(520)}}, price.Changes())
+	assert.Equal(t, data, price.Data())
 }
 
-func TestCorrectCost_RecordsCostPriceChanged(t *testing.T) {
+func TestCorrectCost_RecordsInventoryCostChanged(t *testing.T) {
 	outbox := &eventrecordtest.Outbox{}
-	existing := int64(300)
-	skuRepo := &stubSKURepoForReceiptCost{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceMinorUnits: &existing, CostPriceSource: pmsDomain.SKUCostPriceSourceComputed}}
+	cost, avg := int64(320), int64(300)
+	skuRepo := &stubSKURepoForReceiptCost{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceMinorUnits: &cost, InventoryCostMinorUnits: &avg, CostPriceSource: pmsDomain.SKUCostPriceSourceComputed}}
 	uc := apppms.NewCorrectCostUseCase(newMockGormDB(t), skuRepo, &stubCostLedgerRepo{},
 		&stubBatchListerForReceiptCost{batches: []invDomain.Batch{{Quantity: 100}}}, outbox)
 
@@ -166,7 +172,8 @@ func TestCorrectCost_RecordsCostPriceChanged(t *testing.T) {
 
 	require.NoError(t, err)
 	e := onlyEvent(t, outbox)
-	assert.Equal(t, map[string][2]any{"cost_price_minor_units": {float64(300), float64(350)}}, e.Changes())
+	assert.Equal(t, "pms.sku.inventory_cost_changed", e.Subject)
+	assert.Equal(t, map[string][2]any{"inventory_cost_minor_units": {float64(300), float64(350)}}, e.Changes())
 	assert.Equal(t, "correction", e.Data()["reason"])
 }
 

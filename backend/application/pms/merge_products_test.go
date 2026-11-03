@@ -24,7 +24,7 @@ type fakeMergeCatalog struct {
 	variants map[string][]pmsDomain.Variant // by product
 	skus     map[string][]pmsDomain.SKU     // by variant
 	deleted  []string
-	costs    map[string]int64 // UpdateCostPriceFromReceipt calls
+	costs    map[string]int64 // UpdateInventoryCost calls
 }
 
 func (f *fakeMergeCatalog) FindByID(_ context.Context, id string) (*pmsDomain.Product, error) {
@@ -44,7 +44,7 @@ func (f *fakeMergeCatalog) ListByProduct(_ context.Context, productID string) ([
 func (f *fakeMergeCatalog) ListByVariant(_ context.Context, variantID string) ([]pmsDomain.SKU, error) {
 	return f.skus[variantID], nil
 }
-func (f *fakeMergeCatalog) UpdateCostPriceFromReceipt(_ context.Context, skuID string, cost int64) error {
+func (f *fakeMergeCatalog) UpdateInventoryCost(_ context.Context, skuID string, cost int64) error {
 	if f.costs == nil {
 		f.costs = map[string]int64{}
 	}
@@ -208,16 +208,21 @@ func TestMergeProducts_blendsCostByOnHandQuantityAndLogsIt(t *testing.T) {
 	assert.Equal(t, cost(1400), e.InventoryValueMinorUnits)
 }
 
-func TestMergeProducts_leavesAManualCostAlone(t *testing.T) {
+// A merge only moves the inventory cost (what the stock cost); the cost
+// price -- last receipt or manual -- is never written, so a manual one
+// stands, and the stock still blends at what it actually cost.
+func TestMergeProducts_blendsTheInventoryCostEvenUnderAManualCostPrice(t *testing.T) {
 	h := newMergeHarness(t)
 	h.catalog.skus["vo"][0].CostPriceSource = pmsDomain.SKUCostPriceSourceManual
+	h.catalog.skus["vo"][0].CostPriceMinorUnits = cost(999)
+	h.catalog.skus["vo"][0].InventoryCostMinorUnits = cost(100)
 
 	_, err := h.uc.Execute(mergeCtx(), apppms.MergeProductsInput{SourceProductID: "dup", TargetProductID: "orig"})
 
 	require.NoError(t, err)
-	assert.Empty(t, h.catalog.costs, "a manually set cost is the user's decision, not recomputed")
+	assert.Equal(t, map[string]int64{"o1": 140}, h.catalog.costs)
 	require.Len(t, h.ledger.entries, 1)
-	assert.Equal(t, cost(100), h.ledger.entries[0].CostPriceMinorUnits)
+	assert.Equal(t, cost(140), h.ledger.entries[0].CostPriceMinorUnits)
 }
 
 func TestMergeProducts_keepsTheDuplicatesCodesAsAliases(t *testing.T) {
@@ -258,7 +263,7 @@ func TestMergeProducts_recordsTheMergeAndRaisesEvents(t *testing.T) {
 	assert.Equal(t, "user-1", r.MergedBy)
 	assert.Equal(t, []pmsDomain.MergedSKU{{SourceSKUID: "d1", SourceSKUCode: "GUA-NEW", SourceBarcode: "8710001", TargetSKUID: "o1"}}, r.SKUs)
 
-	assert.ElementsMatch(t, []string{"pms.product.merged", "pms.product.deleted", "pms.product.changed", "inventory.stock.changed"}, h.outbox.calls)
+	assert.ElementsMatch(t, []string{"pms.sku.inventory_cost_changed", "pms.product.merged", "pms.product.deleted", "pms.product.changed", "inventory.stock.changed"}, h.outbox.calls)
 	for i, subject := range h.outbox.calls {
 		if subject == "pms.product.deleted" {
 			var ev events.ProductDeleted

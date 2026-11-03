@@ -14,8 +14,8 @@ import (
 )
 
 func TestRecordCostLedgerMovement_writesEntryAtTheSKUsCurrentCostWithoutChangingIt(t *testing.T) {
-	cost := int64(440)
-	skuRepo := &stubSKURepoForReceiptCost{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceMinorUnits: &cost}}
+	cost, lastReceipt := int64(440), int64(520)
+	skuRepo := &stubSKURepoForReceiptCost{findByIDResult: &pmsDomain.SKU{ID: "sku-1", CostPriceMinorUnits: &lastReceipt, InventoryCostMinorUnits: &cost}}
 	batchLister := &stubBatchListerForReceiptCost{batches: []invDomain.Batch{{Quantity: 95}}} // after a -5 damaged movement
 	ledgerRepo := &stubCostLedgerRepo{}
 	occurredAt := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
@@ -28,6 +28,7 @@ func TestRecordCostLedgerMovement_writesEntryAtTheSKUsCurrentCostWithoutChanging
 
 	require.NoError(t, err)
 	assert.Empty(t, skuRepo.updateCalls, "must never change cost_price_minor_units")
+	assert.Empty(t, skuRepo.inventoryCalls, "nor the inventory cost")
 	require.Len(t, ledgerRepo.created, 1)
 	entry := ledgerRepo.created[0]
 	assert.Equal(t, pmsDomain.SKUCostPriceLedgerSourceDamaged, entry.SourceType)

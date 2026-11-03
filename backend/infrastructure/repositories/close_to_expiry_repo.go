@@ -76,7 +76,7 @@ func (r *CloseToExpiryRepo) ListCloseToExpiryBatches(ctx context.Context, q invD
 			COALESCE(fm.url, pm.url, '') AS image_url,
 			s.price_minor_units, s.sale_price_minor_units, s.sale_end_date, s.currency_code,
 			bs.acknowledged_at, cl.promotion_id, COALESCE(cl.promotion_name, '') AS promotion_name,
-			bs.landed_cost_minor_units AS lot_cost_minor_units, s.cost_price_minor_units AS sku_cost_minor_units,
+			bs.landed_cost_minor_units AS lot_cost_minor_units, COALESCE(s.inventory_cost_minor_units, s.cost_price_minor_units) AS sku_cost_minor_units,
 			s.tax_class_id, s.unit_type
 		FROM batch_stock bs
 		JOIN warehouses w ON w.id = bs.warehouse_id

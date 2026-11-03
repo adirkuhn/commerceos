@@ -87,7 +87,7 @@ func (uc *PreviewProductMergeUseCase) Execute(ctx context.Context, in PreviewPro
 					return MergePreviewProduct{}, nil, err
 				}
 				bySKUID[s.ID], onHand[s.ID] = s, qty
-				out.SKUs[i] = MergePreviewSKU{ID: s.ID, SKUCode: s.SKUCode, Barcode: s.Barcode, OnHand: qty, CostPriceMinorUnits: s.CostPriceMinorUnits}
+				out.SKUs[i] = MergePreviewSKU{ID: s.ID, SKUCode: s.SKUCode, Barcode: s.Barcode, OnHand: qty, CostPriceMinorUnits: s.ActualCostMinorUnits()}
 			}
 			return out, skus, nil
 		}

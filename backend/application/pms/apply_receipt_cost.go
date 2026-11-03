@@ -19,7 +19,13 @@ import (
 type skuCostRepositoryForReceiptCost interface {
 	FindByID(ctx context.Context, skuID string) (*pmsDomain.SKU, error)
 	UpdateCostPriceFromReceipt(ctx context.Context, skuID string, costPriceMinorUnits int64) error
+	UpdateInventoryCost(ctx context.Context, skuID string, inventoryCostMinorUnits int64) error
 }
+
+// ReceiptReferencePurchaseOrderLine is ApplyReceiptCostInput.ReferenceType
+// for a receipt against a purchase order line -- the only kind that moves a
+// known cost price (see pmsDomain.CostPriceAfterReceipt).
+const ReceiptReferencePurchaseOrderLine = "purchase_order_line_item"
 
 // ApplyReceiptCostInput is what a goods receipt hands to
 // ApplyReceiptCostUseCase once it has a landed unit cost to blend in --
@@ -40,13 +46,18 @@ type ApplyReceiptCostInput struct {
 	OccurredAt    time.Time
 }
 
-// ApplyReceiptCostUseCase is the Moving Weighted Average Cost blend point:
-// the ONLY place a SKU's cost_price_minor_units changes going forward (see
-// CLAUDE.md-adjacent design: batches keep their own fixed landed cost from
-// receipt; this is the separate, single blended number). Skips entirely
-// (no error) when the SKU's cost_price_source is manual, same sticky
-// contract as the (now reconciliation-only) daily cron -- a human override
-// is never silently overwritten by a receipt.
+// ApplyReceiptCostUseCase applies one costed goods receipt to its SKU:
+//
+//   - the inventory cost (moving weighted average of the stock on hand,
+//     used for COGS and stock value) blends the receipt in -- always, even
+//     while the cost price is manual, because it is what the stock really
+//     cost;
+//   - the cost price follows pmsDomain.CostPriceAfterReceipt: the landed
+//     cost of the last purchase order receipt, unless it is manual or the
+//     receipt cost nothing.
+//
+// Batches keep their own fixed landed cost; the ledger row records the
+// moving average.
 type ApplyReceiptCostUseCase struct {
 	db          *gorm.DB
 	skuRepo     skuCostRepositoryForReceiptCost
@@ -75,10 +86,6 @@ func (uc *ApplyReceiptCostUseCase) Execute(ctx context.Context, in ApplyReceiptC
 		if err != nil {
 			return err
 		}
-		if sku.CostPriceSource == pmsDomain.SKUCostPriceSourceManual {
-			return nil
-		}
-
 		batches, err := uc.batchLister.Execute(ctx, in.SKUID)
 		if err != nil {
 			return err
@@ -96,13 +103,27 @@ func (uc *ApplyReceiptCostUseCase) Execute(ctx context.Context, in ApplyReceiptC
 			existingQty = 0
 		}
 
-		newAvg, err := ApplyReceiptToMovingAverageCost(existingQty, sku.CostPriceMinorUnits, in.ReceivedQuantity, in.LandedUnitCostMinorUnits)
+		newAvg, err := ApplyReceiptToMovingAverageCost(existingQty, sku.ActualCostMinorUnits(), in.ReceivedQuantity, in.LandedUnitCostMinorUnits)
 		if err != nil {
 			return err
 		}
-
-		if err := uc.skuRepo.UpdateCostPriceFromReceipt(ctx, in.SKUID, newAvg); err != nil {
+		if err := uc.skuRepo.UpdateInventoryCost(ctx, in.SKUID, newAvg); err != nil {
 			return err
+		}
+		if err := recordInventoryCostChanged(ctx, uc.outbox, *sku, newAvg,
+			CostPriceChangeReasonReceipt, in.ReferenceType, in.ReferenceID); err != nil {
+			return err
+		}
+
+		fromPO := in.ReferenceType == ReceiptReferencePurchaseOrderLine
+		if cost, changed := pmsDomain.CostPriceAfterReceipt(*sku, in.LandedUnitCostMinorUnits, fromPO); changed {
+			if err := uc.skuRepo.UpdateCostPriceFromReceipt(ctx, in.SKUID, cost); err != nil {
+				return err
+			}
+			if err := recordCostPriceChanged(ctx, uc.outbox, *sku, &cost, pmsDomain.SKUCostPriceSourceComputed,
+				CostPriceChangeReasonReceipt, in.ReferenceType, in.ReferenceID); err != nil {
+				return err
+			}
 		}
 
 		inventoryValue := totalQtyAfter * newAvg
@@ -122,11 +143,7 @@ func (uc *ApplyReceiptCostUseCase) Execute(ctx context.Context, in ApplyReceiptC
 		if in.ReferenceID != "" {
 			entry.ReferenceID = &in.ReferenceID
 		}
-		if err := uc.ledgerRepo.Create(ctx, entry); err != nil {
-			return err
-		}
-		return recordCostPriceChanged(ctx, uc.outbox, *sku, &newAvg, sku.CostPriceSource,
-			CostPriceChangeReasonReceipt, in.ReferenceType, in.ReferenceID)
+		return uc.ledgerRepo.Create(ctx, entry)
 	})
 	if err != nil {
 		return fmt.Errorf("applyReceiptCost: %w", err)

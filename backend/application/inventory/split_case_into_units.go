@@ -166,10 +166,11 @@ func (uc *SplitCaseIntoUnitsUseCase) Execute(ctx context.Context, in SplitCaseIn
 }
 
 // splitUnitCost is what one split-out unit costs: the case lot's landed
-// cost when known, else the case SKU's current cost, per unit; nil when
+// cost when known, else what the case SKU's stock actually cost (its
+// inventory cost, pmsDomain.SKU.ActualCostMinorUnits), per unit; nil when
 // neither is known.
 func splitUnitCost(caseSKU pmsDomain.SKU, caseBatch *invDomain.Batch) *int64 {
-	caseCost := caseSKU.CostPriceMinorUnits
+	caseCost := caseSKU.ActualCostMinorUnits()
 	if caseBatch != nil && caseBatch.LandedCostMinorUnits != nil {
 		caseCost = caseBatch.LandedCostMinorUnits
 	}

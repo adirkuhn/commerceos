@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-241 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+242 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -269,7 +269,8 @@ Payload (`events.EntityAction`):
 | `pms.product.translated` | typed | ProductTranslated is raised when a product's translated name/description change. | `ProductTranslated`: event_id, occurred_at, tenant_id, product_id |
 | `pms.scale_code_alias.created` | action | An extra scale code (a second weighing scale's PLU) was linked to a SKU. data: sku_id, code. | envelope |
 | `pms.scale_code_alias.deleted` | action | An extra scale code was unlinked from its SKU. | envelope |
-| `pms.sku.cost_price_changed` | action | A SKU's cost price changed (changes: cost_price_minor_units, cost_price_source). data: reason -- receipt (stock received at a landed cost, moving average), correction (a value correction such as a corrected invoice), manual (set by hand, overrides computed cost), set (set by hand but still computed -- the next receipt blends into it), override_cleared (back to the computed cost) or case_link (a unit SKU took its cost from the sealed case it is sold out of: case cost / units per case); reference_type, reference_id. | envelope |
+| `pms.sku.cost_price_changed` | action | A SKU's cost price changed (changes: cost_price_minor_units, cost_price_source). data: reason -- receipt (stock received against a purchase order: the landed cost of the last receipt), correction (a value correction such as a corrected invoice), manual (set by hand, overrides computed cost), set (set by hand but still computed -- the next receipt replaces it), override_cleared (back to the last receipt's cost) or case_link (a unit SKU took its cost from the sealed case it is sold out of: case cost / units per case); reference_type, reference_id. | envelope |
+| `pms.sku.inventory_cost_changed` | action | A SKU's inventory cost -- the moving weighted average of its stock on hand, used for COGS and stock value -- changed (changes: inventory_cost_minor_units). data: reason -- receipt (stock received at a landed cost), correction (a value correction such as a corrected invoice), merge (another product's stock was merged in) or case_link (a unit SKU took its cost from the sealed case it is sold out of); reference_type, reference_id. | envelope |
 | `pms.sku.price_per_kilo_changed` | typed | SKUPricePerKiloChanged is raised when a scale-sold weight pool's price per kilo changes. | `SKUPricePerKiloChanged`: event_id, occurred_at, tenant_id, sku_id, old_price_per_kilo_minor_units, new_price_per_kilo_minor_units |
 | `pms.sku_currency_price.deleted` | action | A SKU's fixed price in another currency was removed -- it falls back to exchange-rate conversion (entity_id is the SKU). data: currency_code. | envelope |
 | `pms.sku_currency_price.saved` | action | A SKU's fixed price in another currency was set or changed (entity_id is the SKU; changes: price_minor_units, sale_price_minor_units, sale_end_date). data: currency_code. | envelope |

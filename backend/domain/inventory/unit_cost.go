@@ -9,7 +9,7 @@ const (
 	UnitCostSourceNone UnitCostSource = ""
 	// UnitCostSourceBatch: the lot's own landed cost (Batch.LandedCostMinorUnits).
 	UnitCostSourceBatch UnitCostSource = "batch"
-	// UnitCostSourceSKU: the SKU's average cost price (pms.SKU.CostPriceMinorUnits).
+	// UnitCostSourceSKU: the SKU's actual cost (pms.SKU.ActualCostMinorUnits).
 	UnitCostSourceSKU UnitCostSource = "sku"
 )
 

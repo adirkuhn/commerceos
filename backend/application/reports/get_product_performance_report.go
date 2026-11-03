@@ -82,9 +82,9 @@ func (uc *GetProductPerformanceReportUseCase) Execute(ctx context.Context, from,
 				if err != nil && !errors.Is(err, pmsDomain.ErrSKUNotFound) {
 					return err
 				}
-				if sku != nil && sku.CostPriceMinorUnits != nil {
-					row.CostPriceMinorUnits = sku.CostPriceMinorUnits
-					profit := p.RevenueMinorUnits - *sku.CostPriceMinorUnits*p.QuantitySold
+				if actual := actualCost(sku); actual != nil {
+					row.CostPriceMinorUnits = actual
+					profit := p.RevenueMinorUnits - *actual*p.QuantitySold
 					row.ProfitMinorUnits = &profit
 					if p.RevenueMinorUnits != 0 {
 						margin := profit * 10000 / p.RevenueMinorUnits
@@ -100,4 +100,13 @@ func (uc *GetProductPerformanceReportUseCase) Execute(ctx context.Context, from,
 		return nil, fmt.Errorf("getProductPerformanceReport: %w", err)
 	}
 	return &report, nil
+}
+
+// actualCost is what a unit of sku actually cost (pms.SKU.ActualCostMinorUnits);
+// nil for a missing SKU.
+func actualCost(sku *pmsDomain.SKU) *int64 {
+	if sku == nil {
+		return nil
+	}
+	return sku.ActualCostMinorUnits()
 }

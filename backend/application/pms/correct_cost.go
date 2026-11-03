@@ -42,8 +42,9 @@ type CorrectCostInput struct {
 
 // CorrectCostUseCase is the locked design decision from the MWAC costing
 // discussion made concrete: a cost correction changes the SKU's current
-// cost_price_minor_units (and writes a "correction" ledger entry) going
-// forward only. It NEVER touches historical data -- no ledger row before
+// inventory cost -- the moving average of the stock on hand -- (and writes
+// a "correction" ledger entry) going forward only. The cost price (last
+// receipt) is the supplier cost history's concern. It NEVER touches historical data -- no ledger row before
 // it is edited, and (deliberately, see this type's test coverage) it has
 // no dependency on any sales-order repository at all, so an already-frozen
 // cost_at_sale/cogs on a past sale (see application/oms's
@@ -74,7 +75,8 @@ func (uc *CorrectCostUseCase) Execute(ctx context.Context, in CorrectCostInput) 
 		if err != nil {
 			return err
 		}
-		if sku.CostPriceMinorUnits == nil {
+		actual := sku.ActualCostMinorUnits()
+		if actual == nil {
 			return pmsDomain.ErrCostPriceUnknownForCorrection
 		}
 
@@ -90,17 +92,16 @@ func (uc *CorrectCostUseCase) Execute(ctx context.Context, in CorrectCostInput) 
 			return pmsDomain.ErrNoStockOnHandForCorrection
 		}
 
-		newCost, err := ApplyValueCorrectionToCost(totalQty, *sku.CostPriceMinorUnits, in.AdjustmentValueMinorUnits)
+		newCost, err := ApplyValueCorrectionToCost(totalQty, *actual, in.AdjustmentValueMinorUnits)
 		if err != nil {
 			return err
 		}
 
-		if err := uc.skuRepo.UpdateCostPriceFromReceipt(ctx, in.SKUID, newCost); err != nil {
+		if err := uc.skuRepo.UpdateInventoryCost(ctx, in.SKUID, newCost); err != nil {
 			return err
 		}
 		before := *sku
-		sku.CostPriceMinorUnits = &newCost
-		sku.CostPriceSource = pmsDomain.SKUCostPriceSourceComputed
+		sku.InventoryCostMinorUnits = &newCost
 
 		inventoryValue := totalQty * newCost
 		entry := &pmsDomain.SKUCostPriceLedgerEntry{
@@ -122,7 +123,7 @@ func (uc *CorrectCostUseCase) Execute(ctx context.Context, in CorrectCostInput) 
 		if err := uc.ledgerRepo.Create(ctx, entry); err != nil {
 			return err
 		}
-		return recordCostPriceChanged(ctx, uc.outbox, before, sku.CostPriceMinorUnits, sku.CostPriceSource,
+		return recordInventoryCostChanged(ctx, uc.outbox, before, newCost,
 			CostPriceChangeReasonCorrection, in.ReferenceType, in.ReferenceID)
 	})
 	if err != nil {

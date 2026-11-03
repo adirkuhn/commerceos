@@ -18,6 +18,7 @@ import (
 type stubSKUStoreForCaseCost struct {
 	skus       map[string]*pmsDomain.SKU
 	updates    map[string]int64
+	inventory  map[string]int64
 	updateErr  error
 	findErr    error
 	listErr    error
@@ -25,7 +26,7 @@ type stubSKUStoreForCaseCost struct {
 }
 
 func newStubSKUStoreForCaseCost(skus ...pmsDomain.SKU) *stubSKUStoreForCaseCost {
-	s := &stubSKUStoreForCaseCost{skus: map[string]*pmsDomain.SKU{}, updates: map[string]int64{}}
+	s := &stubSKUStoreForCaseCost{skus: map[string]*pmsDomain.SKU{}, updates: map[string]int64{}, inventory: map[string]int64{}}
 	for i := range skus {
 		s.skus[skus[i].ID] = &skus[i]
 	}
@@ -66,6 +67,14 @@ func (s *stubSKUStoreForCaseCost) UpdateCostPriceFromReceipt(_ context.Context, 
 	return nil
 }
 
+func (s *stubSKUStoreForCaseCost) UpdateInventoryCost(_ context.Context, id string, cost int64) error {
+	if s.updateErr != nil {
+		return s.updateErr
+	}
+	s.inventory[id] = cost
+	return nil
+}
+
 type stubVariantListerForCaseCost struct {
 	variants []pmsDomain.Variant
 	err      error
@@ -86,14 +95,16 @@ func (s *stubBatchListerBySKU) Execute(_ context.Context, skuID string) ([]invDo
 
 func int64p(v int64) *int64 { return &v }
 
-// box20 is a 20-unit case of "unit", costing 13.99.
+// box20 is a 20-unit case of "unit"; its last receipt and its stock both
+// cost cost.
 func box20(cost *int64) pmsDomain.SKU {
 	return pmsDomain.SKU{ID: "box", VariantID: "v-box", CaseOfSKUID: strp("unit"), UnitsPerCase: int64p(20),
-		CostPriceMinorUnits: cost, CostPriceSource: pmsDomain.SKUCostPriceSourceComputed}
+		CostPriceMinorUnits: cost, InventoryCostMinorUnits: cost, CostPriceSource: pmsDomain.SKUCostPriceSourceComputed}
 }
 
+// unitSKU is the unit, its cost price and inventory cost both cost.
 func unitSKU(cost *int64, source pmsDomain.SKUCostPriceSource) pmsDomain.SKU {
-	return pmsDomain.SKU{ID: "unit", VariantID: "v-unit", CostPriceMinorUnits: cost, CostPriceSource: source}
+	return pmsDomain.SKU{ID: "unit", VariantID: "v-unit", CostPriceMinorUnits: cost, InventoryCostMinorUnits: cost, CostPriceSource: source}
 }
 
 type caseCostFixture struct {
@@ -121,7 +132,8 @@ func TestSyncUnitCostFromCase_setsMissingUnitCostFromCase(t *testing.T) {
 
 	require.NoError(t, f.uc.SyncFromCase(context.Background(), "box"))
 
-	assert.Equal(t, map[string]int64{"unit": 70}, f.skus.updates)
+	assert.Equal(t, map[string]int64{"unit": 70}, f.skus.updates, "cost price: case cost / 20, rounded half up")
+	assert.Equal(t, map[string]int64{"unit": 70}, f.skus.inventory)
 	require.Len(t, f.ledger.created, 1)
 	entry := f.ledger.created[0]
 	assert.Equal(t, "unit", entry.SKUID)
@@ -135,12 +147,13 @@ func TestSyncUnitCostFromCase_setsMissingUnitCostFromCase(t *testing.T) {
 	require.NotNil(t, entry.ReferenceID)
 	assert.Equal(t, "box", *entry.ReferenceID)
 
-	ev, err := f.outbox.Only()
-	require.NoError(t, err)
-	assert.Equal(t, "pms.sku.cost_price_changed", ev.Subject)
-	assert.Equal(t, "unit", ev.Payload["entity_id"])
-	assert.Equal(t, "case_link", ev.Payload["data"].(map[string]any)["reason"])
-	assert.Equal(t, [2]any{nil, float64(70)}, ev.Changes()["cost_price_minor_units"])
+	assert.Equal(t, []string{"pms.sku.cost_price_changed", "pms.sku.inventory_cost_changed"}, f.outbox.Subjects())
+	for _, ev := range f.outbox.Events {
+		assert.Equal(t, "unit", ev.Payload["entity_id"])
+		assert.Equal(t, "case_link", ev.Payload["data"].(map[string]any)["reason"])
+	}
+	assert.Equal(t, [2]any{nil, float64(70)}, f.outbox.Events[0].Changes()["cost_price_minor_units"])
+	assert.Equal(t, [2]any{nil, float64(70)}, f.outbox.Events[1].Changes()["inventory_cost_minor_units"])
 }
 
 func TestSyncUnitCostFromCase_followsLatestCaseCostWhileNoUnitsOnHand(t *testing.T) {
@@ -149,18 +162,23 @@ func TestSyncUnitCostFromCase_followsLatestCaseCostWhileNoUnitsOnHand(t *testing
 	require.NoError(t, f.uc.SyncFromCase(context.Background(), "box"))
 
 	assert.Equal(t, map[string]int64{"unit": 80}, f.skus.updates)
+	assert.Equal(t, map[string]int64{"unit": 80}, f.skus.inventory)
 	require.Len(t, f.ledger.created, 1)
 }
 
-func TestSyncUnitCostFromCase_keepsUnitCostWhileUnitsAreOnHand(t *testing.T) {
+// The cost price is the replacement cost, so it always follows the case's
+// last receipt; the inventory cost of units on hand is what they actually
+// cost, which more split cases blend into at receipt time instead.
+func TestSyncUnitCostFromCase_costPriceFollowsTheCaseButOnHandUnitsKeepTheirInventoryCost(t *testing.T) {
 	f := newCaseCostFixture(t, box20(int64p(1600)), unitSKU(int64p(70), pmsDomain.SKUCostPriceSourceComputed))
 	f.batches.batches["unit"] = []invDomain.Batch{{Quantity: 5}}
 
 	require.NoError(t, f.uc.SyncFromCase(context.Background(), "box"))
 
-	assert.Empty(t, f.skus.updates)
+	assert.Equal(t, map[string]int64{"unit": 80}, f.skus.updates)
+	assert.Empty(t, f.skus.inventory)
 	assert.Empty(t, f.ledger.created)
-	assert.Empty(t, f.outbox.Events)
+	assert.Equal(t, []string{"pms.sku.cost_price_changed"}, f.outbox.Subjects())
 }
 
 func TestSyncUnitCostFromCase_setsMissingCostEvenWithUnitsOnHand(t *testing.T) {
@@ -170,6 +188,7 @@ func TestSyncUnitCostFromCase_setsMissingCostEvenWithUnitsOnHand(t *testing.T) {
 	require.NoError(t, f.uc.SyncFromCase(context.Background(), "box"))
 
 	assert.Equal(t, map[string]int64{"unit": 70}, f.skus.updates)
+	assert.Equal(t, map[string]int64{"unit": 70}, f.skus.inventory)
 	require.Len(t, f.ledger.created, 1)
 	assert.Equal(t, int64(5), f.ledger.created[0].QuantityAfter)
 	require.NotNil(t, f.ledger.created[0].InventoryValueMinorUnits)
@@ -182,17 +201,21 @@ func TestSyncUnitCostFromCase_noChangeWhenUnitCostAlreadyMatches(t *testing.T) {
 	require.NoError(t, f.uc.SyncFromCase(context.Background(), "box"))
 
 	assert.Empty(t, f.skus.updates)
+	assert.Empty(t, f.skus.inventory)
 	assert.Empty(t, f.ledger.created)
 	assert.Empty(t, f.outbox.Events)
 }
 
-func TestSyncUnitCostFromCase_neverTouchesManualUnitCost(t *testing.T) {
-	f := newCaseCostFixture(t, box20(int64p(1399)), unitSKU(int64p(99), pmsDomain.SKUCostPriceSourceManual))
+func TestSyncUnitCostFromCase_neverTouchesManualUnitCostPrice(t *testing.T) {
+	unit := unitSKU(int64p(99), pmsDomain.SKUCostPriceSourceManual)
+	unit.InventoryCostMinorUnits = nil
+	f := newCaseCostFixture(t, box20(int64p(1399)), unit)
 
 	require.NoError(t, f.uc.SyncFromCase(context.Background(), "box"))
 
-	assert.Empty(t, f.skus.updates)
-	assert.Empty(t, f.outbox.Events)
+	assert.Empty(t, f.skus.updates, "a manual cost price wins")
+	assert.Equal(t, map[string]int64{"unit": 70}, f.skus.inventory, "what the stock cost is still tracked")
+	assert.Equal(t, []string{"pms.sku.inventory_cost_changed"}, f.outbox.Subjects())
 }
 
 func TestSyncUnitCostFromCase_noOpWhenCaseHasNoCost(t *testing.T) {

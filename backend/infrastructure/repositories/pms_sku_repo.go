@@ -14,36 +14,37 @@ import (
 )
 
 type skuModel struct {
-	ID                     string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	TenantID               string `gorm:"not null;type:uuid"`
-	VariantID              string `gorm:"not null;type:uuid"`
-	SKUCode                string `gorm:"column:sku_code;not null"`
-	Barcode                string
-	PriceMinorUnits        int64 `gorm:"not null"`
-	SalePriceMinorUnits    *int64
-	SaleEndDate            *time.Time
-	CurrencyCode           string `gorm:"not null"`
-	WeightGrams            *int64
-	LengthMM               *int64
-	WidthMM                *int64
-	HeightMM               *int64
-	IsVirtual              bool    `gorm:"not null"`
-	TracksExpiry           bool    `gorm:"not null"`
-	CaseOfSKUID            *string `gorm:"column:case_of_sku_id"`
-	UnitsPerCase           *int64
-	UnitType               string  `gorm:"column:unit_type;not null;default:unit"`
-	PortionedFromSKUID     *string `gorm:"column:portioned_from_sku_id"`
-	ScaleCode              *string `gorm:"column:scale_code"`
-	PricingMode            string  `gorm:"column:pricing_mode;not null;default:fixed"`
-	PricePerKiloMinorUnits *int64  `gorm:"column:price_per_kilo_minor_units"`
-	TaxClassID             *string `gorm:"column:tax_class_id"`
-	WooTaxClassSlug        *string `gorm:"column:woo_tax_class_slug"`
-	WooTaxStatus           *string `gorm:"column:woo_tax_status"`
-	Status                 string  `gorm:"not null"`
-	CostPriceMinorUnits    *int64  `gorm:"column:cost_price_minor_units"`
-	CostPriceSource        string  `gorm:"column:cost_price_source;not null;default:computed"`
-	CreatedAt              time.Time
-	UpdatedAt              time.Time
+	ID                      string `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	TenantID                string `gorm:"not null;type:uuid"`
+	VariantID               string `gorm:"not null;type:uuid"`
+	SKUCode                 string `gorm:"column:sku_code;not null"`
+	Barcode                 string
+	PriceMinorUnits         int64 `gorm:"not null"`
+	SalePriceMinorUnits     *int64
+	SaleEndDate             *time.Time
+	CurrencyCode            string `gorm:"not null"`
+	WeightGrams             *int64
+	LengthMM                *int64
+	WidthMM                 *int64
+	HeightMM                *int64
+	IsVirtual               bool    `gorm:"not null"`
+	TracksExpiry            bool    `gorm:"not null"`
+	CaseOfSKUID             *string `gorm:"column:case_of_sku_id"`
+	UnitsPerCase            *int64
+	UnitType                string  `gorm:"column:unit_type;not null;default:unit"`
+	PortionedFromSKUID      *string `gorm:"column:portioned_from_sku_id"`
+	ScaleCode               *string `gorm:"column:scale_code"`
+	PricingMode             string  `gorm:"column:pricing_mode;not null;default:fixed"`
+	PricePerKiloMinorUnits  *int64  `gorm:"column:price_per_kilo_minor_units"`
+	TaxClassID              *string `gorm:"column:tax_class_id"`
+	WooTaxClassSlug         *string `gorm:"column:woo_tax_class_slug"`
+	WooTaxStatus            *string `gorm:"column:woo_tax_status"`
+	Status                  string  `gorm:"not null"`
+	CostPriceMinorUnits     *int64  `gorm:"column:cost_price_minor_units"`
+	CostPriceSource         string  `gorm:"column:cost_price_source;not null;default:computed"`
+	InventoryCostMinorUnits *int64  `gorm:"column:inventory_cost_minor_units"`
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 func (skuModel) TableName() string { return "skus" }
@@ -338,35 +339,36 @@ func (r *SKURepo) ExistsWithTaxClass(ctx context.Context, taxClassID string) (bo
 
 func toSKUDomain(m skuModel) *pmsDomain.SKU {
 	return &pmsDomain.SKU{
-		ID:                     m.ID,
-		TenantID:               m.TenantID,
-		VariantID:              m.VariantID,
-		SKUCode:                m.SKUCode,
-		Barcode:                m.Barcode,
-		PriceMinorUnits:        m.PriceMinorUnits,
-		SalePriceMinorUnits:    m.SalePriceMinorUnits,
-		SaleEndDate:            m.SaleEndDate,
-		CurrencyCode:           m.CurrencyCode,
-		WeightGrams:            m.WeightGrams,
-		LengthMM:               m.LengthMM,
-		WidthMM:                m.WidthMM,
-		HeightMM:               m.HeightMM,
-		IsVirtual:              m.IsVirtual,
-		TracksExpiry:           m.TracksExpiry,
-		CaseOfSKUID:            m.CaseOfSKUID,
-		UnitsPerCase:           m.UnitsPerCase,
-		UnitType:               pmsDomain.SKUUnitType(m.UnitType),
-		PortionedFromSKUID:     m.PortionedFromSKUID,
-		ScaleCode:              m.ScaleCode,
-		PricingMode:            pmsDomain.SKUPricingMode(m.PricingMode),
-		PricePerKiloMinorUnits: m.PricePerKiloMinorUnits,
-		TaxClassID:             m.TaxClassID,
-		WooTaxClassSlug:        m.WooTaxClassSlug,
-		WooTaxStatus:           m.WooTaxStatus,
-		Status:                 pmsDomain.SKUStatus(m.Status),
-		CostPriceMinorUnits:    m.CostPriceMinorUnits,
-		CostPriceSource:        pmsDomain.SKUCostPriceSource(m.CostPriceSource),
-		CreatedAt:              m.CreatedAt,
-		UpdatedAt:              m.UpdatedAt,
+		ID:                      m.ID,
+		TenantID:                m.TenantID,
+		VariantID:               m.VariantID,
+		SKUCode:                 m.SKUCode,
+		Barcode:                 m.Barcode,
+		PriceMinorUnits:         m.PriceMinorUnits,
+		SalePriceMinorUnits:     m.SalePriceMinorUnits,
+		SaleEndDate:             m.SaleEndDate,
+		CurrencyCode:            m.CurrencyCode,
+		WeightGrams:             m.WeightGrams,
+		LengthMM:                m.LengthMM,
+		WidthMM:                 m.WidthMM,
+		HeightMM:                m.HeightMM,
+		IsVirtual:               m.IsVirtual,
+		TracksExpiry:            m.TracksExpiry,
+		CaseOfSKUID:             m.CaseOfSKUID,
+		UnitsPerCase:            m.UnitsPerCase,
+		UnitType:                pmsDomain.SKUUnitType(m.UnitType),
+		PortionedFromSKUID:      m.PortionedFromSKUID,
+		ScaleCode:               m.ScaleCode,
+		PricingMode:             pmsDomain.SKUPricingMode(m.PricingMode),
+		PricePerKiloMinorUnits:  m.PricePerKiloMinorUnits,
+		TaxClassID:              m.TaxClassID,
+		WooTaxClassSlug:         m.WooTaxClassSlug,
+		WooTaxStatus:            m.WooTaxStatus,
+		Status:                  pmsDomain.SKUStatus(m.Status),
+		CostPriceMinorUnits:     m.CostPriceMinorUnits,
+		CostPriceSource:         pmsDomain.SKUCostPriceSource(m.CostPriceSource),
+		InventoryCostMinorUnits: m.InventoryCostMinorUnits,
+		CreatedAt:               m.CreatedAt,
+		UpdatedAt:               m.UpdatedAt,
 	}
 }

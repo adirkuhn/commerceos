@@ -97,3 +97,19 @@ func TestReceivePOSSalesOrder_rejectsAWeighedLineWithQuantityOtherThanOne(t *tes
 
 	assert.ErrorIs(t, err, omsDomain.ErrWeighedLineItemQuantityMustBeOne)
 }
+
+// COGS is what the stock actually cost (the moving average), never the
+// cost price -- which is the last receipt's replacement cost (COM-11).
+func TestReceivePOSSalesOrder_freezesCOGSFromTheInventoryCostNotTheCostPrice(t *testing.T) {
+	lineItemRepo := &stubSalesOrderLineItemRepo{}
+	lastReceipt, average := int64(3), int64(2)
+	sku := weightPoolSKU("sku-pool", &lastReceipt)
+	sku.InventoryCostMinorUnits = &average
+	skuRepo := &stubSKURepo{byID: map[string]*pmsDomain.SKU{"sku-pool": sku}}
+
+	err := receiveWeighedOrder(t, skuRepo, lineItemRepo, &stubRecordMovement{}, weighedLine("sku-pool", 1))
+
+	require.NoError(t, err)
+	assert.Equal(t, average, lineItemRepo.gotUpdateFields["cost_at_sale_minor_units"])
+	assert.Equal(t, average*weighedLineGrams, lineItemRepo.gotUpdateFields["cogs_minor_units"])
+}

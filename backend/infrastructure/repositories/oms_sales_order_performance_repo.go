@@ -175,9 +175,15 @@ type profitabilityRow struct {
 	CostMinorUnits             int64
 }
 
+// skuActualCostSQL is what a unit of SKU sk actually cost: its inventory
+// cost (moving average of the stock on hand), else its cost price -- the
+// SQL twin of pms.SKU.ActualCostMinorUnits. Profit is judged on actual
+// cost, never on the last receipt's replacement cost (COM-11).
+const skuActualCostSQL = `COALESCE(sk.inventory_cost_minor_units, sk.cost_price_minor_units)`
+
 // ProfitabilityBetween aggregates revenue/COGS/profit for [from, to) --
 // same status/currency filtering as RevenueSince. Cost is computed only
-// for lines whose SKU has a known cost_price_minor_units (conditional
+// for lines whose SKU has a known actual cost (skuActualCostSQL, conditional
 // aggregation via CASE, single pass) -- see domain/oms.ProfitabilitySummary's
 // doc for why an unknown cost isn't treated as zero.
 func (r *SalesOrderRepo) ProfitabilityBetween(ctx context.Context, from, to time.Time, currencyCode string) (omsDomain.ProfitabilitySummary, error) {
@@ -189,8 +195,8 @@ func (r *SalesOrderRepo) ProfitabilityBetween(ctx context.Context, from, to time
 	err = tx.Raw(`
 		SELECT
 			COALESCE(SUM(`+netLineRevenueSQL+`), 0) AS revenue_minor_units,
-			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN `+netLineRevenueSQL+` ELSE 0 END), 0) AS cost_known_revenue_minor_units,
-			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN `+netLineQuantitySQL+` * sk.cost_price_minor_units ELSE 0 END), 0) AS cost_minor_units
+			COALESCE(SUM(CASE WHEN `+skuActualCostSQL+` IS NOT NULL THEN `+netLineRevenueSQL+` ELSE 0 END), 0) AS cost_known_revenue_minor_units,
+			COALESCE(SUM(CASE WHEN `+skuActualCostSQL+` IS NOT NULL THEN `+netLineQuantitySQL+` * `+skuActualCostSQL+` ELSE 0 END), 0) AS cost_minor_units
 		FROM sales_order_line_items li
 		JOIN sales_orders so ON so.id = li.sales_order_id AND `+lineNotFullyRefundedSQL+`
 		LEFT JOIN skus sk ON sk.id = li.sku_id
@@ -275,8 +281,8 @@ func (r *SalesOrderRepo) ProfitabilityTrendBetween(ctx context.Context, from, to
 		SELECT
 			date_trunc(?, so.occurred_at) AS period_start,
 			COALESCE(SUM(`+netLineRevenueSQL+`), 0) AS revenue_minor_units,
-			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN `+netLineRevenueSQL+` ELSE 0 END), 0) AS cost_known_revenue_minor_units,
-			COALESCE(SUM(CASE WHEN sk.cost_price_minor_units IS NOT NULL THEN `+netLineQuantitySQL+` * sk.cost_price_minor_units ELSE 0 END), 0) AS cost_minor_units
+			COALESCE(SUM(CASE WHEN `+skuActualCostSQL+` IS NOT NULL THEN `+netLineRevenueSQL+` ELSE 0 END), 0) AS cost_known_revenue_minor_units,
+			COALESCE(SUM(CASE WHEN `+skuActualCostSQL+` IS NOT NULL THEN `+netLineQuantitySQL+` * `+skuActualCostSQL+` ELSE 0 END), 0) AS cost_minor_units
 		FROM sales_order_line_items li
 		JOIN sales_orders so ON so.id = li.sales_order_id AND `+lineNotFullyRefundedSQL+`
 		LEFT JOIN skus sk ON sk.id = li.sku_id

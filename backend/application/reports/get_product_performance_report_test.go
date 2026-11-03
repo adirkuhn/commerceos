@@ -60,7 +60,9 @@ func TestGetProductPerformanceReport_computesProfitAndMarginWhenCostPriceKnown(t
 		{SKUID: &skuID, SKUCode: "SKU-A", QuantitySold: 5, RevenueMinorUnits: 2500},
 	}}
 	skuLookup := &stubSKUCostPriceLookup{byID: map[string]*pmsDomain.SKU{
-		"sku-1": {ID: "sku-1", CostPriceMinorUnits: int64Ptr(300)},
+		// profit is judged on what the stock actually cost (inventory
+		// cost), not the last receipt's replacement cost
+		"sku-1": {ID: "sku-1", CostPriceMinorUnits: int64Ptr(450), InventoryCostMinorUnits: int64Ptr(300)},
 	}}
 	uc := appreports.NewGetProductPerformanceReportUseCase(newMockGormDB(t), repo, &stubSettingsRepo{}, skuLookup)
 

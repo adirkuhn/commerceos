@@ -18,8 +18,9 @@ type unitCostSyncer interface {
 }
 
 const (
-	UnitCostOnCaseCostChangedConsumerName = "unit-cost-on-case-cost-changed"
-	UnitCostOnProductChangedConsumerName  = "unit-cost-on-product-changed"
+	UnitCostOnCaseCostChangedConsumerName          = "unit-cost-on-case-cost-changed"
+	UnitCostOnCaseInventoryCostChangedConsumerName = "unit-cost-on-case-inventory-cost-changed"
+	UnitCostOnProductChangedConsumerName           = "unit-cost-on-product-changed"
 )
 
 // UnitCostFromCaseConsumer keeps a unit SKU's cost in line with the sealed
@@ -41,6 +42,16 @@ type UnitCostFromCaseConsumer struct {
 func NewUnitCostOnCaseCostChangedConsumer(processed events.ProcessedEventRepository, syncer unitCostSyncer, dlq dlqPublisher) *UnitCostFromCaseConsumer {
 	return &UnitCostFromCaseConsumer{
 		name: UnitCostOnCaseCostChangedConsumerName, processed: processed, dlq: dlq,
+		decode: decodeEntityAction, sync: syncer.SyncFromCase,
+	}
+}
+
+// NewUnitCostOnCaseInventoryCostChangedConsumer handles
+// pms.sku.inventory_cost_changed: what the case stock cost moved, so a unit
+// with nothing on hand takes it.
+func NewUnitCostOnCaseInventoryCostChangedConsumer(processed events.ProcessedEventRepository, syncer unitCostSyncer, dlq dlqPublisher) *UnitCostFromCaseConsumer {
+	return &UnitCostFromCaseConsumer{
+		name: UnitCostOnCaseInventoryCostChangedConsumerName, processed: processed, dlq: dlq,
 		decode: decodeEntityAction, sync: syncer.SyncFromCase,
 	}
 }

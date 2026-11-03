@@ -259,6 +259,7 @@ func main() {
 		consumer *consumers.UnitCostFromCaseConsumer
 	}{
 		{events.SKUCostPriceChanged.Subject, consumers.NewUnitCostOnCaseCostChangedConsumer(processedEventRepo, syncUnitCostFromCaseUC, js)},
+		{events.SKUInventoryCostChanged.Subject, consumers.NewUnitCostOnCaseInventoryCostChangedConsumer(processedEventRepo, syncUnitCostFromCaseUC, js)},
 		{events.ProductChanged{}.EventName(), consumers.NewUnitCostOnProductChangedConsumer(processedEventRepo, syncUnitCostFromCaseUC, js)},
 	} {
 		if sub := subscribeConsumer(js, c.subject, c.consumer.Name(),
