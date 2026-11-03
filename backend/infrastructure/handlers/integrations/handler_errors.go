@@ -53,7 +53,6 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, channelsDomain.ErrInvalidSyncDirection),
 		errors.Is(err, channelsDomain.ErrInvalidSyncInterval),
 		errors.Is(err, channelsDomain.ErrCannotEnableUnrunnableEntity),
-		errors.Is(err, channelsDomain.ErrDefaultWarehouseAndCurrencyRequired),
 		errors.Is(err, channelsDomain.ErrDefaultWarehouseRequired),
 		errors.Is(err, channelsDomain.ErrInvalidChannelType),
 		errors.Is(err, channelsDomain.ErrInvalidEnrollmentMode),

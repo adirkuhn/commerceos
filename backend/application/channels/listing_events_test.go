@@ -9,7 +9,6 @@ import (
 
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
 	"github.com/adirkuhn/commerceos/application/eventrecord/eventrecordtest"
-	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	channelsDomain "github.com/adirkuhn/commerceos/domain/channels"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
@@ -41,29 +40,6 @@ func TestLinkExistingWooProduct_RecordsListingCreated(t *testing.T) {
 		"product_id": "prod-1", "variant_id": nil, "connection_id": "conn-1", "provider": "woocommerce",
 		"external_id": "23609", "is_variation": false, "source": "link_existing",
 	}, e.Data())
-}
-
-// Each written sync log entry is also a channels.product_listing.synced
-// event, carrying the pushed fields that changed.
-func TestExportWooStockLevels_RecordsListingSynced(t *testing.T) {
-	h, sku := newStockSyncHarness(nil)
-	outbox := &eventrecordtest.Outbox{}
-	uc := appchannels.NewExportWooStockLevelsUseCase(
-		newMockGormDB(t, 3), h.connRepo, h.wooFactory, testEncryptionSecret,
-		h.variantRepo, h.skuRepo, h.listingRepo, h.syncLogRepo,
-		&stubStockLevelGetter{level: &invapp.StockLevel{SKUID: sku.ID, Syncable: 7}}, outbox,
-	)
-
-	_, err := uc.Execute(context.Background(), appchannels.ExportWooStockLevelsInput{ConnectionID: "conn-1"})
-
-	require.NoError(t, err)
-	synced := eventsBySubject(outbox, "channels.product_listing.synced")
-	require.Len(t, synced, 1)
-	data := synced[0].Data()
-	assert.Equal(t, "push", data["direction"])
-	assert.Equal(t, "success", data["status"])
-	assert.Equal(t, "23609", data["external_id"])
-	assert.Equal(t, [2]any{"", "7"}, synced[0].Changes()["stock_quantity"])
 }
 
 func TestSyncProductToChannels_RecordsListingCreatedForNewVariant(t *testing.T) {

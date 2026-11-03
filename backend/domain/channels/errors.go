@@ -33,15 +33,10 @@ var (
 	// orders, never pushes CommerceOS-created ones back) -- a schedule for
 	// either can be saved only disabled.
 	ErrCannotEnableUnrunnableEntity = errs.New("SYNC_ENTITY_NOT_SCHEDULABLE", "this entity type does not support scheduled sync yet")
-	// ErrDefaultWarehouseAndCurrencyRequired guards the products/import
-	// schedule specifically: Woo has no warehouse concept and its product
-	// endpoint doesn't return a currency, so ImportWooProductsUseCase
-	// can't run without both supplied.
-	ErrDefaultWarehouseAndCurrencyRequired = errs.New("SYNC_PRODUCT_IMPORT_NEEDS_DEFAULTS", "default warehouse and currency are required to enable scheduled product import")
-	// ErrDefaultWarehouseRequired guards the stock/import schedule: stock
-	// reconciliation adjustments need a warehouse to attribute the
-	// movement to.
-	ErrDefaultWarehouseRequired = errs.New("SYNC_STOCK_IMPORT_NEEDS_WAREHOUSE", "default warehouse is required to enable scheduled stock import")
+	// ErrDefaultWarehouseRequired guards the order import schedules (Woo
+	// orders, orders reconciliation, Bol orders): imported orders allocate
+	// stock from a warehouse. The code keeps its historical name.
+	ErrDefaultWarehouseRequired = errs.New("SYNC_STOCK_IMPORT_NEEDS_WAREHOUSE", "default warehouse is required to enable a scheduled order import")
 	// ErrImportJobAlreadyActive guards manual import: at most one
 	// pending/running ImportJob per connection — returned both by the
 	// proactive check and as the mapped form of the DB's unique-index

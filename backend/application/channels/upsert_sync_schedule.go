@@ -13,8 +13,6 @@ import (
 )
 
 var runnableSyncEntityTypes = map[channelsDomain.SyncEntityType]bool{
-	channelsDomain.SyncEntityProducts:             true,
-	channelsDomain.SyncEntityStock:                true,
 	channelsDomain.SyncEntityOrders:               true,
 	channelsDomain.SyncEntityOrdersReconciliation: true,
 	channelsDomain.SyncEntityBolOrders:            true,
@@ -29,9 +27,8 @@ type UpsertSyncScheduleInput struct {
 	Enabled         bool
 	IntervalMinutes int
 	// DefaultWarehouseID is required when Enabled=true and Direction=import
-	// for EntityType products/stock/orders — see SyncSchedule's doc
-	// comment. DefaultCurrency is additionally required for products.
-	// Both ignored for every other combination.
+	// for EntityType orders/orders_reconciliation/bol_orders — see
+	// SyncSchedule's doc comment. Ignored for every other combination.
 	DefaultWarehouseID *string
 	DefaultCurrency    *string
 }
@@ -51,8 +48,7 @@ func NewUpsertSyncScheduleUseCase(db *gorm.DB, repo channelsDomain.SyncScheduleR
 // PUT actually calls) -- kept as one function so the two never drift.
 func validateUpsertSyncScheduleInput(in UpsertSyncScheduleInput) error {
 	switch in.EntityType {
-	case channelsDomain.SyncEntityProducts, channelsDomain.SyncEntityStock,
-		channelsDomain.SyncEntityOrders, channelsDomain.SyncEntityCategories,
+	case channelsDomain.SyncEntityOrders, channelsDomain.SyncEntityCategories,
 		channelsDomain.SyncEntityOrdersReconciliation,
 		channelsDomain.SyncEntityBolOrders, channelsDomain.SyncEntityBolProducts, channelsDomain.SyncEntityBolStock:
 	default:
@@ -85,16 +81,10 @@ func validateUpsertSyncScheduleInput(in UpsertSyncScheduleInput) error {
 		return channelsDomain.ErrInvalidSyncInterval
 	}
 	hasWarehouse := in.DefaultWarehouseID != nil && *in.DefaultWarehouseID != ""
-	hasCurrency := in.DefaultCurrency != nil && *in.DefaultCurrency != ""
 	if in.Enabled {
 		switch {
-		case in.EntityType == channelsDomain.SyncEntityProducts && in.Direction == channelsDomain.SyncDirectionImport:
-			if !hasWarehouse || !hasCurrency {
-				return channelsDomain.ErrDefaultWarehouseAndCurrencyRequired
-			}
 		case in.Direction == channelsDomain.SyncDirectionImport &&
-			(in.EntityType == channelsDomain.SyncEntityStock || in.EntityType == channelsDomain.SyncEntityOrders ||
-				in.EntityType == channelsDomain.SyncEntityOrdersReconciliation):
+			(in.EntityType == channelsDomain.SyncEntityOrders || in.EntityType == channelsDomain.SyncEntityOrdersReconciliation):
 			if !hasWarehouse {
 				return channelsDomain.ErrDefaultWarehouseRequired
 			}

@@ -24,9 +24,9 @@ func TestUpsertSyncSchedules_persistsEveryRowInOneTransactionWhenAllValid(t *tes
 
 	schedules, err := uc.Execute(context.Background(), channelsapp.UpsertSyncSchedulesInput{
 		Schedules: []channelsapp.UpsertSyncScheduleInput{
-			validSyncScheduleInput(channelsDomain.SyncEntityProducts, channelsDomain.SyncDirectionImport),
-			validSyncScheduleInput(channelsDomain.SyncEntityProducts, channelsDomain.SyncDirectionExport),
-			validSyncScheduleInput(channelsDomain.SyncEntityStock, channelsDomain.SyncDirectionImport),
+			validSyncScheduleInput(channelsDomain.SyncEntityOrders, channelsDomain.SyncDirectionImport),
+			validSyncScheduleInput(channelsDomain.SyncEntityBolProducts, channelsDomain.SyncDirectionExport),
+			validSyncScheduleInput(channelsDomain.SyncEntityOrdersReconciliation, channelsDomain.SyncDirectionImport),
 		},
 	})
 
@@ -47,20 +47,20 @@ func TestUpsertSyncSchedules_writesNothingWhenAnyRowFailsValidation(t *testing.T
 	uc := channelsapp.NewUpsertSyncSchedulesUseCase(newMockGormDB(t, 0), repo, &eventrecordtest.Outbox{})
 
 	invalid := channelsapp.UpsertSyncScheduleInput{
-		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityProducts, Direction: channelsDomain.SyncDirectionImport,
-		Enabled: true, IntervalMinutes: 60, // enabled products/import with no warehouse/currency
+		ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityOrders, Direction: channelsDomain.SyncDirectionImport,
+		Enabled: true, IntervalMinutes: 60, // enabled orders/import with no warehouse
 	}
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncSchedulesInput{
 		Schedules: []channelsapp.UpsertSyncScheduleInput{
-			validSyncScheduleInput(channelsDomain.SyncEntityStock, channelsDomain.SyncDirectionImport),
+			validSyncScheduleInput(channelsDomain.SyncEntityOrdersReconciliation, channelsDomain.SyncDirectionImport),
 			invalid,
 			validSyncScheduleInput(channelsDomain.SyncEntityOrders, channelsDomain.SyncDirectionImport),
 		},
 	})
 
 	require.Error(t, err)
-	require.True(t, errors.Is(err, channelsDomain.ErrDefaultWarehouseAndCurrencyRequired))
+	require.True(t, errors.Is(err, channelsDomain.ErrDefaultWarehouseRequired))
 	require.Empty(t, repo.upserted, "no row -- including the valid ones before the bad one -- should ever be written")
 }
 
@@ -70,7 +70,7 @@ func TestUpsertSyncSchedules_errorNamesTheFailingRow(t *testing.T) {
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncSchedulesInput{
 		Schedules: []channelsapp.UpsertSyncScheduleInput{
-			validSyncScheduleInput(channelsDomain.SyncEntityProducts, channelsDomain.SyncDirectionImport),
+			validSyncScheduleInput(channelsDomain.SyncEntityOrders, channelsDomain.SyncDirectionImport),
 			{ConnectionID: "conn-1", EntityType: channelsDomain.SyncEntityOrders, Direction: channelsDomain.SyncDirectionImport, Enabled: true, IntervalMinutes: 60},
 		},
 	})
@@ -86,7 +86,7 @@ func TestUpsertSyncSchedules_propagatesRepoErrorAndWritesNothingElseInThatTransa
 
 	_, err := uc.Execute(context.Background(), channelsapp.UpsertSyncSchedulesInput{
 		Schedules: []channelsapp.UpsertSyncScheduleInput{
-			validSyncScheduleInput(channelsDomain.SyncEntityProducts, channelsDomain.SyncDirectionImport),
+			validSyncScheduleInput(channelsDomain.SyncEntityOrders, channelsDomain.SyncDirectionImport),
 		},
 	})
 

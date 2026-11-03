@@ -1424,7 +1424,7 @@ func TestManualConnectWooCommerceHandler_rejectsInvalidStoreURL(t *testing.T) {
 func TestListSyncSchedulesHandler_returnsSchedules(t *testing.T) {
 	warehouseID := "wh-1"
 	h := newSyncScheduleTestHandler(&stubListSyncSchedules{out: []channelsDomain.SyncSchedule{
-		{EntityType: channelsDomain.SyncEntityProducts, Direction: channelsDomain.SyncDirectionImport,
+		{EntityType: channelsDomain.SyncEntityOrders, Direction: channelsDomain.SyncDirectionImport,
 			Enabled: true, IntervalMinutes: 15, DefaultWarehouseID: &warehouseID},
 	}}, &stubUpsertSyncSchedule{})
 	r := gin.New()
@@ -1433,7 +1433,7 @@ func TestListSyncSchedulesHandler_returnsSchedules(t *testing.T) {
 	w := doRequest(r, http.MethodGet, "/api/v1/integrations/connections/conn-1/sync-schedules", nil)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "products")
+	assert.Contains(t, w.Body.String(), "orders")
 	assert.Contains(t, w.Body.String(), "wh-1")
 }
 

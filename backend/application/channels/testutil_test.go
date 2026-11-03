@@ -16,6 +16,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	appchannels "github.com/adirkuhn/commerceos/application/channels"
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
 	appnotifications "github.com/adirkuhn/commerceos/application/notifications"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
@@ -1518,4 +1519,19 @@ func (s *stubTenantSettings) Get(_ context.Context) (*settingsDomain.TenantSetti
 		return nil, s.err
 	}
 	return &settingsDomain.TenantSettings{Language: s.language}, nil
+}
+
+// stubProductPusher records PushProductToWooUseCase calls; errFor fails
+// chosen products.
+type stubProductPusher struct {
+	calls  []appchannels.PushProductToWooInput
+	errFor map[string]error // by ProductID
+}
+
+func (s *stubProductPusher) Execute(_ context.Context, in appchannels.PushProductToWooInput) ([]channelsDomain.ProductChannelListing, error) {
+	s.calls = append(s.calls, in)
+	if err, ok := s.errFor[in.ProductID]; ok {
+		return nil, err
+	}
+	return []channelsDomain.ProductChannelListing{{ID: "listing-" + in.ProductID, ProductID: in.ProductID, ConnectionID: in.ConnectionID}}, nil
 }

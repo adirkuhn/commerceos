@@ -594,7 +594,9 @@ describe('Settings > Integrations > AI', () => {
 })
 
 describe('WooCommerce sync settings page', () => {
-  it('shows Products, Stock levels, and Orders import as configurable, Categories and Orders export as disabled', async () => {
+  // Woo products and stock have no schedule (COM-18): they reach the store
+  // through events.
+  it('shows Orders import as configurable, no Products or Stock rows, Categories and Orders export as disabled', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
 
     renderAt(<Settings />, '/settings')
@@ -602,8 +604,8 @@ describe('WooCommerce sync settings page', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
 
-    expect(screen.getByRole('switch', { name: 'Products import' })).not.toBeDisabled()
-    expect(screen.getByRole('switch', { name: 'Stock levels export' })).not.toBeDisabled()
+    expect(screen.queryByRole('switch', { name: 'Products import' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: 'Stock levels export' })).not.toBeInTheDocument()
     expect(screen.getByRole('switch', { name: 'Orders import' })).not.toBeDisabled()
     expect(screen.getByRole('switch', { name: 'Orders export' })).toBeDisabled()
     expect(screen.getByRole('switch', { name: 'Categories export' })).toBeDisabled()
@@ -613,8 +615,8 @@ describe('WooCommerce sync settings page', () => {
   it('prefills fields from existing schedules', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection()])
     const existing: SyncSchedule = {
-      entity_type: 'stock', direction: 'export', enabled: true, interval_minutes: 360,
-      default_warehouse_id: null, default_currency: null, last_run_at: null, last_run_status: '', last_run_error: '',
+      entity_type: 'orders', direction: 'import', enabled: true, interval_minutes: 360,
+      default_warehouse_id: 'wh-1', default_currency: null, last_run_at: null, last_run_status: '', last_run_error: '',
     }
     vi.mocked(integrationsApi.listSyncSchedules).mockResolvedValue([existing])
 
@@ -623,8 +625,8 @@ describe('WooCommerce sync settings page', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
 
-    await waitFor(() => expect(screen.getByRole('switch', { name: 'Stock levels export' })).toBeChecked())
-    expect(screen.getByRole('combobox', { name: 'Stock levels export interval' })).toHaveValue('360')
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Orders import' })).toBeChecked())
+    expect(screen.getByRole('combobox', { name: 'Orders import interval' })).toHaveValue('360')
   })
 
   it('offers intervals shorter than the old 15-minute minimum', async () => {
@@ -635,7 +637,7 @@ describe('WooCommerce sync settings page', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
 
-    const combobox = screen.getByRole('combobox', { name: 'Products import interval' })
+    const combobox = screen.getByRole('combobox', { name: 'Orders import interval' })
     await userEvent.selectOptions(combobox, '1')
     expect(combobox).toHaveValue('1')
   })
@@ -654,16 +656,15 @@ describe('WooCommerce sync settings page', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
 
-    await userEvent.click(screen.getByRole('switch', { name: 'Products import' }))
+    await userEvent.click(screen.getByRole('switch', { name: 'Orders import' }))
     await screen.findAllByText('Main DC')
     await userEvent.selectOptions(screen.getByLabelText('Default warehouse ID'), 'wh-1')
-    await userEvent.selectOptions(screen.getByLabelText('Default currency (e.g. USD)'), 'USD')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(integrationsApi.upsertSyncSchedules).toHaveBeenCalledWith(
       'test-token', 'conn-1', expect.arrayContaining([
-        expect.objectContaining({ entity_type: 'products', direction: 'import', enabled: true, default_warehouse_id: 'wh-1', default_currency: 'USD' }),
-        expect.objectContaining({ entity_type: 'orders', enabled: false }),
+        expect.objectContaining({ entity_type: 'orders', direction: 'import', enabled: true, default_warehouse_id: 'wh-1' }),
+        expect.objectContaining({ entity_type: 'orders_reconciliation', enabled: false }),
         expect.objectContaining({ entity_type: 'categories', enabled: false }),
       ]),
     ))
@@ -870,17 +871,6 @@ describe('Store defaults currency', () => {
     expect(await screen.findByText('currency save failed')).toBeInTheDocument()
   })
 
-  it('prefills the products/import row currency from the connection default', async () => {
-    vi.mocked(integrationsApi.listConnections).mockResolvedValue([wooConnection({ default_currency: 'GBP' })])
-
-    renderAt(<Settings />, '/settings')
-    await openIntegrationsSection()
-    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
-    await screen.findByText('Sync schedule')
-
-    await userEvent.click(screen.getByRole('switch', { name: 'Products import' }))
-    expect(await screen.findByLabelText('Default currency (e.g. USD)')).toHaveValue('GBP')
-  })
 })
 
 describe('Store defaults location', () => {
@@ -963,7 +953,7 @@ describe('Store defaults location', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
     await screen.findByText('Sync schedule')
 
-    await userEvent.click(screen.getByRole('switch', { name: 'Products import' }))
+    await userEvent.click(screen.getByRole('switch', { name: 'Orders import' }))
     expect(await screen.findByLabelText('Default warehouse ID')).toHaveValue('wh-1')
   })
 
@@ -974,8 +964,8 @@ describe('Store defaults location', () => {
       warehouse({ id: 'wh-2', name: 'Overflow DC' }),
     ])
     vi.mocked(integrationsApi.listSyncSchedules).mockResolvedValue([{
-      entity_type: 'products', direction: 'import', enabled: true, interval_minutes: 60,
-      default_warehouse_id: 'wh-2', default_currency: 'USD', last_run_at: null, last_run_status: '', last_run_error: '',
+      entity_type: 'orders', direction: 'import', enabled: true, interval_minutes: 60,
+      default_warehouse_id: 'wh-2', default_currency: null, last_run_at: null, last_run_status: '', last_run_error: '',
     }])
 
     renderAt(<Settings />, '/settings')

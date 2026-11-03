@@ -491,26 +491,16 @@ func main() {
 		defer sub.Unsubscribe()
 	}
 
-	rs := buildRunners(
-		importUC,
-		channelsapp.NewRunScheduledProductExportUseCase(db, productRepo, listingRepo, pushUC),
-		channelsapp.NewImportWooStockLevelsUseCase(
-			db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
-			variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, stockRecorderUC, repositories.NewOutboxRepository(db),
-		),
-		channelsapp.NewExportWooStockLevelsUseCase(
-			db, connRepo, wooFactory, cfg.IntegrationsEncryptionSecret,
-			variantRepo, skuRepo, listingRepo, syncLogRepo, stockLevelUC, repositories.NewOutboxRepository(db),
-		),
-		ordersImportUC,
-		shipmentReconcileUC,
-		channelsapp.NewImportBolOrdersUseCase(
+	rs := buildRunners(runnerDeps{
+		OrdersImport:      ordersImportUC,
+		ShipmentReconcile: shipmentReconcileUC,
+		BolOrdersImport: channelsapp.NewImportBolOrdersUseCase(
 			db, connRepo, bolinfra.NewClientFactory(), cfg.IntegrationsEncryptionSecret,
 			salesOrderRepo, salesOrderLineItemRepo, salesOrderLinkRepo, skuRepo,
 			allocateStockUC, updateSalesOrderUC, repositories.NewOutboxRepository(db),
 		),
-		channelsapp.NewRunScheduledBolExportUseCase(db, productRepo, salesChannelRepo, salesChannelOverrideRepo, pushBolUC),
-	)
+		BolExport: channelsapp.NewRunScheduledBolExportUseCase(db, productRepo, salesChannelRepo, salesChannelOverrideRepo, pushBolUC),
+	})
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

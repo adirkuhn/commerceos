@@ -163,7 +163,7 @@ describe('manualConnectWooCommerce', () => {
 })
 
 const sampleSchedule: SyncSchedule = {
-  entity_type: 'products', direction: 'import', enabled: true, interval_minutes: 15,
+  entity_type: 'orders', direction: 'import', enabled: true, interval_minutes: 15,
   default_warehouse_id: 'wh-1', default_currency: 'USD',
   last_run_at: null, last_run_status: '', last_run_error: '',
 }

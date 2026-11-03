@@ -62,22 +62,10 @@ type runner func(ctx context.Context, s channelsDomain.SyncSchedule) (cursorAt *
 
 type runners map[scheduleKey]runner
 
-// The four interfaces below are each satisfied by the real use case
-// (application/channels) — narrowed to just Execute so dispatch logic can
-// be unit tested with stubs instead of the real use cases and their own
-// DB/WooClient dependencies.
-type productsImporter interface {
-	Execute(ctx context.Context, in channelsapp.ImportWooProductsInput) (*channelsapp.ImportResult, error)
-}
-type productsExporter interface {
-	Execute(ctx context.Context, in channelsapp.RunScheduledProductExportInput) (*channelsapp.ProductExportResult, error)
-}
-type stockImporter interface {
-	Execute(ctx context.Context, in channelsapp.ImportWooStockLevelsInput) (*channelsapp.StockSyncResult, error)
-}
-type stockExporter interface {
-	Execute(ctx context.Context, in channelsapp.ExportWooStockLevelsInput) (*channelsapp.StockSyncResult, error)
-}
+// The interfaces below are each satisfied by the real use case
+// (application/channels, application/shipping) -- narrowed to just Execute
+// so dispatch logic can be unit tested with stubs instead of the real use
+// cases and their own DB/WooClient dependencies.
 type ordersImporter interface {
 	Execute(ctx context.Context, in channelsapp.ImportWooOrdersInput) (*channelsapp.ImportOrdersResult, error)
 }
@@ -91,59 +79,25 @@ type bolExporter interface {
 	Execute(ctx context.Context, in channelsapp.RunScheduledBolExportInput) (*channelsapp.BolExportResult, error)
 }
 
+// runnerDeps are the use cases behind each runnable schedule.
+type runnerDeps struct {
+	OrdersImport      ordersImporter
+	ShipmentReconcile shipmentReconciler
+	BolOrdersImport   bolOrdersImporter
+	BolExport         bolExporter
+}
+
 // buildRunners maps each runnable (entity, direction) pair to the use case
 // that actually performs it. categories is a schema-legal SyncSchedule
 // value (see domain/channels/sync_schedule.go) but deliberately has no
 // entry here — dispatch returns an error for it, which the caller logs and
 // skips rather than crashing the loop. orders/export has no entry either:
 // this codebase only imports Woo orders, never pushes CommerceOS-created
-// ones back to Woo.
-func buildRunners(
-	productsImport productsImporter,
-	productsExport productsExporter,
-	stockImport stockImporter,
-	stockExport stockExporter,
-	ordersImport ordersImporter,
-	shipmentReconcile shipmentReconciler,
-	bolOrdersImport bolOrdersImporter,
-	bolExport bolExporter,
-) runners {
+// ones back to Woo. Woo products and stock have no schedule at all
+// (COM-18): changes reach the store through events.
+func buildRunners(d runnerDeps) runners {
+	ordersImport, shipmentReconcile, bolOrdersImport, bolExport := d.OrdersImport, d.ShipmentReconcile, d.BolOrdersImport, d.BolExport
 	return runners{
-		{channelsDomain.SyncEntityProducts, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
-			result, err := productsImport.Execute(ctx, channelsapp.ImportWooProductsInput{
-				ConnectionID:       s.ConnectionID,
-				DefaultWarehouseID: strOrEmpty(s.DefaultWarehouseID),
-				DefaultCurrency:    strOrEmpty(s.DefaultCurrency),
-			})
-			if result == nil {
-				return nil, err
-			}
-			return nil, resultErr(err, result.Errors)
-		},
-		{channelsDomain.SyncEntityProducts, channelsDomain.SyncDirectionExport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
-			result, err := productsExport.Execute(ctx, channelsapp.RunScheduledProductExportInput{ConnectionID: s.ConnectionID})
-			if result == nil {
-				return nil, err
-			}
-			return nil, resultErr(err, result.Errors)
-		},
-		{channelsDomain.SyncEntityStock, channelsDomain.SyncDirectionImport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
-			result, err := stockImport.Execute(ctx, channelsapp.ImportWooStockLevelsInput{
-				ConnectionID:       s.ConnectionID,
-				DefaultWarehouseID: strOrEmpty(s.DefaultWarehouseID),
-			})
-			if result == nil {
-				return nil, err
-			}
-			return nil, resultErr(err, result.Errors)
-		},
-		{channelsDomain.SyncEntityStock, channelsDomain.SyncDirectionExport}: func(ctx context.Context, s channelsDomain.SyncSchedule) (*time.Time, error) {
-			result, err := stockExport.Execute(ctx, channelsapp.ExportWooStockLevelsInput{ConnectionID: s.ConnectionID})
-			if result == nil {
-				return nil, err
-			}
-			return nil, resultErr(err, result.Errors)
-		},
 		// LastRunAt nil (this schedule has never successfully run before)
 		// means a full import -- no cursor exists yet to be incremental
 		// from. Every subsequent run is incremental off that cursor, with

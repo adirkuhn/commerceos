@@ -369,3 +369,10 @@ func (uc *PushProductToWooUseCase) createListing(ctx context.Context, in PushPro
 	}
 	return listing, nil
 }
+
+// productPusher is PushProductToWooUseCase as its callers need it (ISP) --
+// defined once here so tests don't need the full real use case (which
+// itself needs a WooClient, stock getter, connection repo, etc).
+type productPusher interface {
+	Execute(ctx context.Context, in PushProductToWooInput) ([]channelsDomain.ProductChannelListing, error)
+}

@@ -30,8 +30,6 @@ export const INTERVAL_OPTIONS: { label: string; minutes: number }[] = [
 // this entity. Orders is import-only -- CommerceOS never pushes an order
 // it created back to Woo.
 export const ROWS: { entity: SyncEntityType; label: string; runnableDirections: SyncDirection[] }[] = [
-  { entity: 'products', get label() { return i18next.t('integrations:entity.products') }, runnableDirections: ['import', 'export'] },
-  { entity: 'stock', get label() { return i18next.t('integrations:entity.stock') }, runnableDirections: ['import', 'export'] },
   { entity: 'orders', get label() { return i18next.t('integrations:entity.orders') }, runnableDirections: ['import'] },
   { entity: 'orders_reconciliation', get label() { return i18next.t('integrations:entity.ordersReconciliation') }, runnableDirections: ['import'] },
   { entity: 'categories', get label() { return i18next.t('integrations:entity.categories') }, runnableDirections: [] },

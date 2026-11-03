@@ -5,8 +5,11 @@ import "time"
 type SyncEntityType string
 
 const (
-	SyncEntityProducts   SyncEntityType = "products"
-	SyncEntityStock      SyncEntityType = "stock"
+	// Woo products and stock have no schedule (COM-18): every change
+	// reaches the store through events (pms.product.changed,
+	// inventory.stock.changed), and stock drift is caught by
+	// SyncEntityStockReconciliation. The old "products"/"stock" rows were
+	// deleted by migration 243.
 	SyncEntityOrders     SyncEntityType = "orders"     // import only -- see cmd/scheduler/dispatch.go's buildRunners doc
 	SyncEntityCategories SyncEntityType = "categories" // schema-legal, no runner yet
 	// SyncEntityOrdersReconciliation is a second, independent schedule

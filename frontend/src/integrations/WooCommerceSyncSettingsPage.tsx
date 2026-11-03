@@ -148,7 +148,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
               lastRunError: existing.last_run_error,
             }
           : {
-              ...defaultCell(row.entity === 'products' ? effectiveDefaultCurrency : ''),
+              ...defaultCell(''),
               defaultWarehouseId: effectiveDefaultWarehouse,
               // Reconciliation re-scans a fixed window regardless of
               // interval -- daily is the sensible default, no reason to
@@ -376,9 +376,8 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                     const key = cellKey(row.entity, direction)
                     const cell = cells[key] ?? defaultCell()
                     const runnable = row.runnableDirections.includes(direction)
-                    const needsWarehouse = row.entity === 'products' || row.entity === 'stock' || row.entity === 'orders' || row.entity === 'orders_reconciliation'
-                    const needsCurrency = row.entity === 'products'
-                    const showExtraFields = runnable && direction === 'import' && cell.enabled && (needsWarehouse || needsCurrency)
+                    const needsWarehouse = row.entity === 'orders' || row.entity === 'orders_reconciliation'
+                    const showExtraFields = runnable && direction === 'import' && cell.enabled && needsWarehouse
                     return (
                       <div key={direction} className="space-y-2">
                         <div className="flex items-center justify-between">
@@ -408,7 +407,7 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                         >
                           {INTERVAL_OPTIONS.map(o => <option key={o.minutes} value={o.minutes}>{o.label}</option>)}
                         </select>
-                        {showExtraFields && needsWarehouse && (
+                        {showExtraFields && (
                           <select
                             aria-label={t('import.warehouse')}
                             value={cell.defaultWarehouseId}
@@ -417,17 +416,6 @@ export default function WooCommerceSyncSettingsPage({ connection, onClose }: { c
                           >
                             <option value="" disabled>{t('import.selectWarehouse')}</option>
                             {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                          </select>
-                        )}
-                        {showExtraFields && needsCurrency && (
-                          <select
-                            aria-label={t('woo.currencyAria')}
-                            value={cell.defaultCurrency}
-                            onChange={e => updateCell(row.entity, direction, { defaultCurrency: e.target.value })}
-                            className={clsx(inputClass, 'w-full')}
-                          >
-                            <option value="" disabled>{t('import.selectCurrency')}</option>
-                            {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                           </select>
                         )}
                         {cell.lastRunAt && (
