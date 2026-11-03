@@ -29,7 +29,7 @@ func (c *wooClient) GetProductUnits(ctx context.Context) (string, string, error)
 	req.Header.Set("Authorization", c.basicAuthHeader())
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return "", "", err
 	}

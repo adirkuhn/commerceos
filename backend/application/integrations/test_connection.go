@@ -2,6 +2,7 @@ package integrations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -89,7 +90,28 @@ func (uc *TestConnectionUseCase) Execute(ctx context.Context, id string) (*integ
 		return nil, fmt.Errorf("testConnection: %w", txErr)
 	}
 	if testErr != nil {
-		return &conn, fmt.Errorf("testConnection: %w: %w", integrationsDomain.ErrConnectionTestFailed, testErr)
+		return &conn, ConnectionTestFailure(testErr)
 	}
 	return &conn, nil
+}
+
+// ConnectionTestFailure wraps a failed probe as ErrConnectionTestFailed.
+// A cause the Woo adapter already classified (wrong key, missing
+// permission, firewall block -- refinements of ErrWooRequestFailed) keeps
+// its own code, so the reader learns which one it was.
+func ConnectionTestFailure(cause error) error {
+	if errors.Is(cause, integrationsDomain.ErrWooRequestFailed) {
+		return &classifiedTestFailure{cause: cause}
+	}
+	return fmt.Errorf("testConnection: %w: %w", integrationsDomain.ErrConnectionTestFailed, cause)
+}
+
+// classifiedTestFailure is both its cause and ErrConnectionTestFailed;
+// the cause comes first so its code is the one clients see.
+type classifiedTestFailure struct{ cause error }
+
+func (e *classifiedTestFailure) Error() string { return "testConnection: " + e.cause.Error() }
+
+func (e *classifiedTestFailure) Unwrap() []error {
+	return []error{e.cause, integrationsDomain.ErrConnectionTestFailed}
 }

@@ -18,6 +18,18 @@ var (
 	// map it to 502, not 500. Used by any use case that calls WooClient
 	// beyond the connection test itself (e.g. product import).
 	ErrWooRequestFailed = errs.NewWithCause("WOO_REQUEST_FAILED", "woocommerce request failed")
+	// The three refinements of ErrWooRequestFailed below tell a store's
+	// 401/403 apart, so staff know whether to fix the key, the key's user,
+	// or the store's firewall (2026-11-03: a CrowdSec ban showed only "403").
+	//
+	// ErrWooAuthRejected: WooCommerce answered 401 -- wrong or revoked key.
+	ErrWooAuthRejected = errs.NewChildWithCause(ErrWooRequestFailed, "WOO_AUTH_REJECTED", "woocommerce rejected the API key")
+	// ErrWooPermissionDenied: WooCommerce answered 403 -- the key works but
+	// its WordPress user (or the key's read/write setting) lacks permission.
+	ErrWooPermissionDenied = errs.NewChildWithCause(ErrWooRequestFailed, "WOO_PERMISSION_DENIED", "woocommerce API key lacks permission")
+	// ErrWooBlocked: a 401/403 that is not WordPress's own JSON error -- a
+	// firewall, WAF or CrowdSec in front of the store refused the request.
+	ErrWooBlocked = errs.NewChildWithCause(ErrWooRequestFailed, "WOO_BLOCKED", "the store's firewall blocked the request")
 	// ErrWooDuplicateSKU distinguishes WooCommerce rejecting a product
 	// create specifically because a product with this SKU already exists
 	// on the store (Woo's own SKU-uniqueness constraint, WC REST error

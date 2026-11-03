@@ -76,11 +76,19 @@ func NewWithCause(code, message string) *Coded {
 	return c
 }
 
+// NewChildWithCause is NewChild for a child whose wrapped detail the
+// reader needs (see NewWithCause).
+func NewChildWithCause(parent *Coded, code, message string) *Coded {
+	c := NewChild(parent, code, message)
+	c.showCause = true
+	return c
+}
+
 // DetailOf returns the detail wrapped after a NewWithCause error in err's
 // chain ("401 unauthorized" above), if there is one.
 func DetailOf(err error) (string, bool) {
-	var c *Coded
-	if !errors.As(err, &c) || !c.showCause {
+	c := mostSpecific(err)
+	if c == nil || !c.showCause {
 		return "", false
 	}
 	full := err.Error()
@@ -94,12 +102,57 @@ func DetailOf(err error) (string, bool) {
 
 // CodeOf finds the coded error in err's chain: its code and its own
 // sentence (without the call-site prefixes wrapping added).
+//
+// When the chain also holds a child of that error (a caller wrapped a
+// generic parent around a cause that already says more, e.g.
+// "%w: %w", ErrUpstreamFailed, adapterErr), the child wins.
 func CodeOf(err error) (code, message string, ok bool) {
-	var c *Coded
-	if !errors.As(err, &c) {
+	c := mostSpecific(err)
+	if c == nil {
 		return "", "", false
 	}
 	return c.code, c.message, true
+}
+
+// mostSpecific is the first coded error in err's chain, refined to a
+// descendant of it found anywhere in the same chain.
+func mostSpecific(err error) *Coded {
+	var first *Coded
+	if !errors.As(err, &first) {
+		return nil
+	}
+	best := first
+	walk(err, func(e error) {
+		if c, ok := e.(*Coded); ok && c.descendsFrom(best) {
+			best = c
+		}
+	})
+	return best
+}
+
+func (e *Coded) descendsFrom(ancestor *Coded) bool {
+	for p := e.parent; p != nil; p = p.parent {
+		if p == ancestor {
+			return true
+		}
+	}
+	return false
+}
+
+// walk visits every error in err's tree, depth-first.
+func walk(err error, visit func(error)) {
+	if err == nil {
+		return
+	}
+	visit(err)
+	switch u := err.(type) {
+	case interface{ Unwrap() []error }:
+		for _, e := range u.Unwrap() {
+			walk(e, visit)
+		}
+	case interface{ Unwrap() error }:
+		walk(u.Unwrap(), visit)
+	}
 }
 
 // Codes lists every registered code, sorted -- e.g. for the translation

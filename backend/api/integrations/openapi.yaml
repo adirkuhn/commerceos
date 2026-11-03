@@ -760,6 +760,13 @@ paths:
     post:
       operationId: testConnection
       summary: Probe a connection's stored credentials against the real provider
+      description: |
+        A 502 carries one of these `error.code` values, with `error.detail`
+        holding the store's HTTP status and reason:
+        - `WOO_AUTH_REJECTED`: WooCommerce answered 401 (wrong or revoked key).
+        - `WOO_PERMISSION_DENIED`: WooCommerce answered 403 (key or its WordPress user lacks permission).
+        - `WOO_BLOCKED`: a 401/403 that did not come from WordPress (firewall, WAF, CrowdSec in front of the store).
+        - `CONNECTION_TEST_FAILED`: any other failure (network, DNS, TLS, unexpected status).
       parameters:
         - $ref: '#/components/parameters/id'
       responses:

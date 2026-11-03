@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	wc "github.com/adirkuhn/go-woocommerce-api"
 
@@ -28,16 +29,18 @@ func (f *Factory) NewClient(storeURL, consumerKey, consumerSecret string) (integ
 	// this client makes. Trimming it here, once, is cheaper than fixing
 	// the vendored SDK.
 	trimmedStoreURL := strings.TrimRight(storeURL, "/")
+	httpClient := newStoreHTTPClient()
 	client, err := wc.New(wc.Config{
 		ShopURL:        trimmedStoreURL,
 		ConsumerKey:    consumerKey,
 		ConsumerSecret: consumerSecret,
+		HTTPClient:     httpClient,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &wooClient{
-		client: client,
+		client: client, httpClient: httpClient,
 		// go-woocommerce-api has no Categories resource and doesn't expose
 		// its internal httpClient/baseURL, so ListCategories builds its own
 		// request against the same REST base the library itself targets —
@@ -47,8 +50,21 @@ func (f *Factory) NewClient(storeURL, consumerKey, consumerSecret string) (integ
 }
 
 type wooClient struct {
-	client                                *wc.WooCommerce
+	client *wc.WooCommerce
+	// httpClient is shared with the SDK, so our own raw requests get the
+	// same 401/403 classification (see authFailureTransport).
+	httpClient                            *http.Client
 	storeURL, consumerKey, consumerSecret string
+}
+
+// storeRequestTimeout matches go-woocommerce-api's own default.
+const storeRequestTimeout = 10 * time.Second
+
+func newStoreHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout:   storeRequestTimeout,
+		Transport: newAuthFailureTransport(http.DefaultTransport),
+	}
 }
 
 // TestConnection lists a single product as the cheapest real call that

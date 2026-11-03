@@ -68,3 +68,33 @@ func TestNewChild_isItsParentButKeepsItsOwnCode(t *testing.T) {
 	assert.Equal(t, "SAMPLE_CHILD", code)
 	assert.Equal(t, "thing has sales history", message)
 }
+
+var (
+	errSampleUpstream = errs.NewWithCause("SAMPLE_REMOTE_FAILED", "upstream failed")
+	errSampleBlocked  = errs.NewChildWithCause(errSampleUpstream, "SAMPLE_REMOTE_BLOCKED", "upstream blocked us")
+)
+
+// Callers wrap a generic parent around an adapter error that already
+// carries a more specific child ("%w: %w", parent, err): the child is what
+// the reader needs.
+func TestCodeOf_aChildDeeperInTheChainRefinesItsParent(t *testing.T) {
+	adapterErr := fmt.Errorf("Get \"https://shop\": %w: status 403", errSampleBlocked)
+	wrapped := fmt.Errorf("importThing: %w: %w", errSampleUpstream, adapterErr)
+
+	code, message, ok := errs.CodeOf(wrapped)
+	assert.True(t, ok)
+	assert.Equal(t, "SAMPLE_REMOTE_BLOCKED", code)
+	assert.Equal(t, "upstream blocked us", message)
+	assert.True(t, errors.Is(wrapped, errSampleUpstream))
+
+	detail, ok := errs.DetailOf(wrapped)
+	assert.True(t, ok)
+	assert.Equal(t, "status 403", detail)
+}
+
+func TestCodeOf_anUnrelatedCodedErrorDeeperInTheChainDoesNotWin(t *testing.T) {
+	wrapped := fmt.Errorf("x: %w: %w", errSampleUpstream, errSample)
+
+	code, _, _ := errs.CodeOf(wrapped)
+	assert.Equal(t, "SAMPLE_REMOTE_FAILED", code)
+}
