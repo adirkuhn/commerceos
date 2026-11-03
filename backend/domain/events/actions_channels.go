@@ -32,9 +32,11 @@ var (
 	ProductListingUpdated = defineAction("channels.product_listing.updated",
 		"A listing's link changed (changes: variant_id, external_id, not_for_sale_note). data: product_id, connection_id, provider.")
 	ProductListingDeleted = defineAction("channels.product_listing.deleted",
-		"A listing was removed. data: product_id, variant_id, connection_id, provider, external_id, reason (shape_migration, variant_removed).")
+		"A listing was removed. data: product_id, variant_id, connection_id, provider, external_id, reason (shape_migration, variant_removed, missing_in_channel).")
 	ProductListingSynced = defineAction("channels.product_listing.synced",
 		"A listing was synced with its channel (a sync log entry was written; an unchanged successful re-sync records nothing). changes: the synced fields that changed since the previous sync, before/after as strings. data: product_id, connection_id, provider, external_id, direction (push, import), status (success, error), error_message.")
+	ProductListingOrphaned = defineAction("channels.product_listing.orphaned",
+		"The channel no longer has the product a listing points at (e.g. deleted in WooCommerce); the listing is marked missing and nothing more is pushed to it until it is handled (re-created when the product is still enrolled and active). data: product_id, variant_id, connection_id, provider, external_id.")
 	ProductListingGated = defineAction("channels.product_listing.gated",
 		"A listing was taken off sale on its channel because the product is no longer active (Woo status pushed, Bol offer put on hold). data: product_id, connection_id, provider, external_id.")
 	ProductListingUngated = defineAction("channels.product_listing.ungated",

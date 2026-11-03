@@ -30,6 +30,13 @@ var (
 	// ErrWooBlocked: a 401/403 that is not WordPress's own JSON error -- a
 	// firewall, WAF or CrowdSec in front of the store refused the request.
 	ErrWooBlocked = errs.NewChildWithCause(ErrWooRequestFailed, "WOO_BLOCKED", "the store's firewall blocked the request")
+	// ErrWooProductNotFound: WooCommerce answered that the product (or
+	// variation) id does not exist -- WordPress error code
+	// woocommerce_rest_product_invalid_id or
+	// woocommerce_rest_product_variation_invalid_id -- e.g. it was deleted
+	// in the store. Never a plain 404 without that code (a missing route
+	// means the REST API itself is off, not that the product is gone).
+	ErrWooProductNotFound = errs.NewChildWithCause(ErrWooRequestFailed, "WOO_PRODUCT_NOT_FOUND", "the product no longer exists in WooCommerce")
 	// ErrWooDuplicateSKU distinguishes WooCommerce rejecting a product
 	// create specifically because a product with this SKU already exists
 	// on the store (Woo's own SKU-uniqueness constraint, WC REST error

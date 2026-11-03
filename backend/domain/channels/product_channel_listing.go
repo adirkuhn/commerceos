@@ -14,6 +14,11 @@ const (
 	SyncStatusPending SyncStatus = "pending"
 	SyncStatusSynced  SyncStatus = "synced"
 	SyncStatusError   SyncStatus = "error"
+	// SyncStatusMissing: the channel no longer has the product this
+	// listing points at (e.g. deleted in Woo). Nothing is pushed to it;
+	// application/channels.HandleMissingListingUseCase either creates the
+	// product again (still enrolled and active) or leaves it marked.
+	SyncStatusMissing SyncStatus = "missing"
 )
 
 type ProductChannelListing struct {

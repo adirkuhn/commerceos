@@ -470,5 +470,6 @@
   "DEAD_LETTER_NOT_FOUND": "Dead letter não encontrada. Talvez já tenha sido reprocessada ou descartada.",
   "DEAD_LETTER_INVALID_STREAM": "O stream de dead letters deve ser events ou webhooks.",
   "DEAD_LETTER_RETRY_FAILED": "Não foi possível publicar o evento novamente. A dead letter continua lá.",
-  "DEAD_LETTER_FORBIDDEN": "Somente um super-admin pode gerenciar dead letters."
+  "DEAD_LETTER_FORBIDDEN": "Somente um super-admin pode gerenciar dead letters.",
+  "WOO_PRODUCT_NOT_FOUND": "O produto não existe mais no WooCommerce (excluído na loja)."
 }

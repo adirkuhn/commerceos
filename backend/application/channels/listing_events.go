@@ -20,6 +20,9 @@ const (
 const (
 	ListingDeletedReasonShapeMigration = "shape_migration"
 	ListingDeletedReasonVariantRemoved = "variant_removed"
+	// ListingDeletedReasonMissingInChannel: the channel's product was gone
+	// and the product is being created there again (COM-18).
+	ListingDeletedReasonMissingInChannel = "missing_in_channel"
 )
 
 func listingData(l channelsDomain.ProductChannelListing) eventrecord.Data {
@@ -68,4 +71,8 @@ func syncLogChanges(diff map[string]channelsDomain.FieldChange) eventrecord.Chan
 		c = c.Set(field, ch.From, ch.To)
 	}
 	return c
+}
+
+func recordListingMissing(ctx context.Context, outbox eventrecord.Enqueuer, l channelsDomain.ProductChannelListing) error {
+	return eventrecord.Record(ctx, outbox, events.ProductListingOrphaned, l.ID, listingData(l))
 }

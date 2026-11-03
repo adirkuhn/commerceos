@@ -223,7 +223,9 @@ export interface SyncSchedule {
   last_run_error: string
 }
 
-export type ProductChannelListingSyncStatus = 'pending' | 'synced' | 'error'
+// missing: the channel no longer has the product (e.g. deleted in Woo) --
+// re-created when the sales channel still allows it, else left marked.
+export type ProductChannelListingSyncStatus = 'pending' | 'synced' | 'error' | 'missing'
 
 export interface ProductChannelListing {
   id: string

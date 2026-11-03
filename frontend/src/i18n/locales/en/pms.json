@@ -547,7 +547,8 @@
     "syncStatus": "Sync status",
     "taxClass": "Tax class (Woo)",
     "taxStatus": "Tax status (Woo)",
-    "wooId": "Woo ID {{id}}"
+    "wooId": "Woo ID {{id}}",
+    "missing": "Missing in WooCommerce"
   },
   "supplierCosts": {
     "average": "Average, all suppliers",

@@ -550,7 +550,8 @@
     "syncStatus": "Status de sincronização",
     "taxClass": "Classe fiscal (Woo)",
     "taxStatus": "Status fiscal (Woo)",
-    "wooId": "ID Woo {{id}}"
+    "wooId": "ID Woo {{id}}",
+    "missing": "Ausente no WooCommerce"
   },
   "supplierCosts": {
     "average": "Média, todos os fornecedores",

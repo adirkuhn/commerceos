@@ -300,6 +300,16 @@ func main() {
 		defer sub.Unsubscribe()
 	}
 
+	// A product deleted in WooCommerce is created again when its sales
+	// channel still allows it, else left marked missing (COM-18).
+	handleMissingListingUC := channelsapp.NewHandleMissingListingUseCase(db, listingRepo, productRepo,
+		salesChannelRepo, salesChannelOverrideRepo, pushUC, outboxRepo)
+	missingListingConsumer := consumers.NewMissingListingConsumer(processedEventRepo, handleMissingListingUC, js)
+	if sub := subscribeConsumer(js, events.ProductListingOrphaned.Subject, missingListingConsumer.Name(),
+		consumers.MaxDeliverBeforeDeadLetter, consumers.BackoffSchedule, missingListingConsumer.Handle); sub != nil {
+		defer sub.Unsubscribe()
+	}
+
 	// Moneybird auto sync: a no-op per tenant unless they turned it on.
 	moneybirdAutoSync := moneybirdhandler.NewAutoSync(db, outboxRepo, cfg.IntegrationsEncryptionSecret)
 	for _, c := range []struct {

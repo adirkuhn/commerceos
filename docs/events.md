@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-244 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+245 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -78,8 +78,9 @@ Payload (`events.EntityAction`):
 | `channels.order.stock_shortage_detected` | action | An imported order's stock could not be taken for some lines (marked pending, order flagged for stock review). data: pending_line_item_ids. | envelope |
 | `channels.product.imported` | action | A product was created from an external shop's product (its listing also raises product_listing.created, source import). data: connection_id, provider, external_id, variant_id, sku_id, sku_code, category_id, price_minor_units, currency_code. | envelope |
 | `channels.product_listing.created` | action | A product or variant was linked to a listing on an external channel. data: product_id, variant_id, connection_id, provider, external_id, is_variation, source (push, variant_added, link_existing, import). | envelope |
-| `channels.product_listing.deleted` | action | A listing was removed. data: product_id, variant_id, connection_id, provider, external_id, reason (shape_migration, variant_removed). | envelope |
+| `channels.product_listing.deleted` | action | A listing was removed. data: product_id, variant_id, connection_id, provider, external_id, reason (shape_migration, variant_removed, missing_in_channel). | envelope |
 | `channels.product_listing.gated` | action | A listing was taken off sale on its channel because the product is no longer active (Woo status pushed, Bol offer put on hold). data: product_id, connection_id, provider, external_id. | envelope |
+| `channels.product_listing.orphaned` | action | The channel no longer has the product a listing points at (e.g. deleted in WooCommerce); the listing is marked missing and nothing more is pushed to it until it is handled (re-created when the product is still enrolled and active). data: product_id, variant_id, connection_id, provider, external_id. | envelope |
 | `channels.product_listing.synced` | action | A listing was synced with its channel (a sync log entry was written; an unchanged successful re-sync records nothing). changes: the synced fields that changed since the previous sync, before/after as strings. data: product_id, connection_id, provider, external_id, direction (push, import), status (success, error), error_message. | envelope |
 | `channels.product_listing.ungated` | action | A gated listing went back on sale after the product became active again. data: product_id, connection_id, provider, external_id. | envelope |
 | `channels.product_listing.updated` | action | A listing's link changed (changes: variant_id, external_id, not_for_sale_note). data: product_id, connection_id, provider. | envelope |

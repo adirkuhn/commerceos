@@ -1,6 +1,7 @@
 package woocommerce
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,7 +22,9 @@ const maxRefusalBody = 64 << 10
 // (see integrationsDomain.ErrWooAuthRejected and its siblings), for every
 // request this adapter makes -- the SDK's and our own raw ones alike. A bare
 // "403" can't tell a wrong key from a firewall ban (2026-11-03: CrowdSec);
-// WordPress's own JSON error body can.
+// WordPress's own JSON error body can. It also turns WooCommerce's
+// "invalid product id" answer into integrationsDomain.ErrWooProductNotFound,
+// so a product deleted in the store is recognised (COM-18).
 type authFailureTransport struct {
 	next http.RoundTripper
 }
@@ -32,8 +35,14 @@ func newAuthFailureTransport(next http.RoundTripper) http.RoundTripper {
 
 func (t *authFailureTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := t.next.RoundTrip(req)
-	if err != nil || !isRefusal(resp.StatusCode) {
+	if err != nil {
 		return resp, err
+	}
+	if mayBeMissingProduct(resp.StatusCode) {
+		return classifyMissingProduct(resp)
+	}
+	if !isRefusal(resp.StatusCode) {
+		return resp, nil
 	}
 	defer resp.Body.Close()
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxRefusalBody))
@@ -45,6 +54,36 @@ func (t *authFailureTransport) RoundTrip(req *http.Request) (*http.Response, err
 
 func isRefusal(status int) bool {
 	return status == http.StatusUnauthorized || status == http.StatusForbidden
+}
+
+// missingProductCodes are WooCommerce's "no such product/variation" error
+// codes (WC REST controllers: woocommerce_rest_{post_type}_invalid_id) --
+// 404 on read, 400 on update.
+var missingProductCodes = map[string]bool{
+	"woocommerce_rest_product_invalid_id":           true,
+	"woocommerce_rest_product_variation_invalid_id": true,
+}
+
+func mayBeMissingProduct(status int) bool {
+	return status == http.StatusNotFound || status == http.StatusBadRequest
+}
+
+// classifyMissingProduct turns WooCommerce's invalid-id answer into
+// ErrWooProductNotFound; any other 400/404 is handed back untouched, its
+// body restored for the caller to read.
+func classifyMissingProduct(resp *http.Response) (*http.Response, error) {
+	// read whole: a non-matching body is handed back to the caller intact
+	body, readErr := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if readErr != nil {
+		return nil, fmt.Errorf("%w: status %d", integrationsDomain.ErrWooRequestFailed, resp.StatusCode)
+	}
+	var wp wordPressError
+	if json.Unmarshal(body, &wp) == nil && missingProductCodes[wp.Code] {
+		return nil, withDetail(integrationsDomain.ErrWooProductNotFound, resp.StatusCode, wp.Message)
+	}
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	return resp, nil
 }
 
 // wordPressError is the body WordPress's REST API sends with every error.

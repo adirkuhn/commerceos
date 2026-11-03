@@ -547,7 +547,8 @@
     "syncStatus": "Synchronisatiestatus",
     "taxClass": "Btw-klasse (Woo)",
     "taxStatus": "Btw-status (Woo)",
-    "wooId": "Woo-ID {{id}}"
+    "wooId": "Woo-ID {{id}}",
+    "missing": "Ontbreekt in WooCommerce"
   },
   "supplierCosts": {
     "average": "Gemiddelde, alle leveranciers",

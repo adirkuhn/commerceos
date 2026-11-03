@@ -23,6 +23,7 @@ const WOO_SYNC_STATUS_STYLE: Record<ProductChannelListingSyncStatus, string> = {
   pending: 'text-warning',
   synced: 'text-success',
   error: 'text-danger',
+  missing: 'text-danger',
 }
 
 export function ProductWooCommerceTab({
@@ -34,7 +35,7 @@ export function ProductWooCommerceTab({
   const { formatDateTime } = useDateFormat()
   const { token } = useAuth()
   const { t } = useTranslation('pms')
-  const syncLabel: Record<ProductChannelListingSyncStatus, string> = { pending: t('woo.pending'), synced: t('woo.synced'), error: t('woo.error') }
+  const syncLabel: Record<ProductChannelListingSyncStatus, string> = { pending: t('woo.pending'), synced: t('woo.synced'), error: t('woo.error'), missing: t('woo.missing') }
   const [listings, setListings] = useState<ProductChannelListing[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

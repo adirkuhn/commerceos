@@ -3,6 +3,7 @@ package woocommerce
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -104,4 +105,38 @@ func TestClient_bothRequestPathsClassifyAFirewallBlock(t *testing.T) {
 
 	assert.True(t, errors.Is(sdkErr, integrationsDomain.ErrWooBlocked), "sdk path: %v", sdkErr)
 	assert.True(t, errors.Is(rawErr, integrationsDomain.ErrWooBlocked), "raw path: %v", rawErr)
+}
+
+// A product (or variation) deleted in the store: WooCommerce answers with
+// its invalid-id error code -- 404 on read, 400 on update.
+func TestAuthFailureTransport_classifiesAProductThatNoLongerExists(t *testing.T) {
+	for _, tc := range []struct {
+		status int
+		code   string
+	}{
+		{404, "woocommerce_rest_product_invalid_id"},
+		{400, "woocommerce_rest_product_invalid_id"},
+		{404, "woocommerce_rest_product_variation_invalid_id"},
+	} {
+		got := getThroughTransport(t, storeAnswering(t, tc.status, wpJSON,
+			`{"code":"`+tc.code+`","message":"Invalid ID.","data":{"status":`+map[int]string{400: "400", 404: "404"}[tc.status]+`}}`))
+
+		require.Error(t, got)
+		assert.True(t, errors.Is(got, integrationsDomain.ErrWooProductNotFound), "%d %s: %v", tc.status, tc.code, got)
+		assert.True(t, errors.Is(got, integrationsDomain.ErrWooRequestFailed))
+	}
+}
+
+// Any other 400/404 -- a missing route, a validation error -- is not "the
+// product is gone" and passes through untouched, body intact.
+func TestAuthFailureTransport_passesOtherNotFoundsThroughWithTheirBody(t *testing.T) {
+	body := `{"code":"rest_no_route","message":"No route was found","data":{"status":404}}`
+	client := &http.Client{Transport: newAuthFailureTransport(http.DefaultTransport)}
+
+	resp, err := client.Get(storeAnswering(t, 404, wpJSON, body))
+
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	got, _ := io.ReadAll(resp.Body)
+	assert.Equal(t, body, string(got))
 }

@@ -164,6 +164,7 @@ func (uc *SyncProductToChannelsUseCase) Execute(ctx context.Context, productID s
 	if err != nil {
 		return fmt.Errorf("syncProductToChannels: %w", err)
 	}
+	listings = withoutMissingConnections(listings)
 	if len(listings) == 0 {
 		return nil
 	}
@@ -274,26 +275,25 @@ func (uc *SyncProductToChannelsUseCase) syncBolConnection(ctx context.Context, p
 }
 
 func (uc *SyncProductToChannelsUseCase) recordSyncResult(ctx context.Context, listing channelsDomain.ProductChannelListing, syncErr error, fields map[string]string) {
-	now := time.Now()
-	listing.LastSyncedAt = &now
-	listing.UpdatedAt = now
+	newlyMissing := applyPushOutcome(&listing, syncErr, time.Now())
 	status := channelsDomain.SyncLogStatusSuccess
 	errMsg := ""
 	if syncErr != nil {
-		listing.SyncStatus = channelsDomain.SyncStatusError
-		listing.LastSyncError = syncErr.Error()
 		status = channelsDomain.SyncLogStatusError
 		errMsg = syncErr.Error()
 		log.Printf("syncProductToChannels: listing %s: %v", listing.ID, syncErr)
-	} else {
-		listing.SyncStatus = channelsDomain.SyncStatusSynced
-		listing.LastSyncError = ""
 	}
 
 	recordSyncLog(ctx, uc.db, uc.syncLogRepo, uc.outbox, listing, channelsDomain.SyncFlowPush, status, errMsg, fields)
 
 	if uErr := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		return uc.listingRepo.Update(ctx, &listing)
+		if err := uc.listingRepo.Update(ctx, &listing); err != nil {
+			return err
+		}
+		if newlyMissing {
+			return recordListingMissing(ctx, uc.outbox, listing)
+		}
+		return nil
 	}); uErr != nil {
 		log.Printf("syncProductToChannels: recording sync result for listing %s: %v", listing.ID, uErr)
 	}

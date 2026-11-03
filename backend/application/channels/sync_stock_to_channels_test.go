@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
@@ -492,4 +493,43 @@ func TestSyncStockToChannels_propagatesSKUNotFound(t *testing.T) {
 
 	require.Error(t, err)
 	require.True(t, errors.Is(err, pmsDomain.ErrSKUNotFound))
+}
+
+// A product deleted in Woo (COM-18): the listing is marked missing and
+// channels.product_listing.orphaned is raised -- once -- so it is handled
+// (re-created or left marked) instead of retried on every change.
+func TestSyncStockToChannels_marksTheListingMissingWhenWooNoLongerHasTheProduct(t *testing.T) {
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: "product-1", ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "23981", SyncStatus: channelsDomain.SyncStatusSynced,
+	}
+	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listing})
+	h.wooClient.updateStockErr = fmt.Errorf("%w: status 400: Invalid ID.", integrationsDomain.ErrWooProductNotFound)
+	outbox := &eventrecordtest.Outbox{}
+	uc := appchannels.NewSyncStockToChannelsUseCase(
+		newMockGormDB(t, 5), h.skuRepo, h.variantRepo, h.listingRepo, h.syncLogRepo,
+		h.connRepo, h.wooFactory, &stubStockLevelGetter{level: &invapp.StockLevel{Syncable: 12}}, testEncryptionSecret, nil, outbox,
+	)
+
+	require.NoError(t, uc.Execute(context.Background(), "sku-1"))
+
+	require.NotEmpty(t, h.listingRepo.updated)
+	assert.Equal(t, channelsDomain.SyncStatusMissing, h.listingRepo.updated[len(h.listingRepo.updated)-1].SyncStatus)
+	missing := eventsBySubject(outbox, "channels.product_listing.orphaned")
+	require.Len(t, missing, 1)
+	assert.Equal(t, "listing-1", missing[0].Payload["entity_id"])
+}
+
+func TestSyncStockToChannels_pushesNothingToAConnectionWithAMissingListing(t *testing.T) {
+	listing := channelsDomain.ProductChannelListing{
+		ID: "listing-1", ProductID: "product-1", ConnectionID: "conn-1",
+		Provider: string(integrationsDomain.ProviderWooCommerce), ExternalID: "23981", SyncStatus: channelsDomain.SyncStatusMissing,
+	}
+	h := newStockSyncTestHarness([]channelsDomain.ProductChannelListing{listing})
+	uc := h.newSyncStockUseCase(t, 1, &stubStockLevelGetter{level: &invapp.StockLevel{Syncable: 12}})
+
+	require.NoError(t, uc.Execute(context.Background(), "sku-1"))
+
+	assert.Empty(t, h.wooClient.updateStockCalled)
+	assert.Empty(t, h.syncLogRepo.created)
 }
