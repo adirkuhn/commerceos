@@ -1,0 +1,43 @@
+package oms
+
+// AcceptsChannelStatus decides whether a status read back from a sales
+// channel (e.g. a WooCommerce order import) may replace this local status.
+//
+// The channel is not always ahead of us: during an outage our status pushes
+// fail, and Shipped is pushed to Woo as "on-hold" (Woo has no shipped
+// status), so a re-import would read either a stale pre-shipment status or
+// the echo of our own push. Once an order has left the warehouse
+// (Shipped/Completed) it never moves back to pending/processing/on-hold
+// from a channel. A terminal outcome decided on the channel (cancelled,
+// refunded, failed) always wins.
+func (current SalesOrderStatus) AcceptsChannelStatus(incoming SalesOrderStatus) bool {
+	if incoming == current {
+		return false
+	}
+	if incoming.isChannelTerminalOutcome() {
+		return true
+	}
+	return !(current.hasLeftWarehouse() && incoming.isPreShipment())
+}
+
+func (s SalesOrderStatus) hasLeftWarehouse() bool {
+	return s == SalesOrderStatusShipped || s == SalesOrderStatusCompleted
+}
+
+func (s SalesOrderStatus) isPreShipment() bool {
+	switch s {
+	case SalesOrderStatusPending, SalesOrderStatusProcessing, SalesOrderStatusOnHold:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s SalesOrderStatus) isChannelTerminalOutcome() bool {
+	switch s {
+	case SalesOrderStatusCancelled, SalesOrderStatusRefunded, SalesOrderStatusFailed:
+		return true
+	default:
+		return false
+	}
+}

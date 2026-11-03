@@ -272,6 +272,94 @@ func TestImportWooOrders_updatesStatusOnAnExistingOrder(t *testing.T) {
 	assert.Nil(t, h.updateOrder.calls[0].Shipping, "address unchanged from prior import -- no needless write")
 }
 
+// Regression (prod 2026-11-03, order 27300): after a Woo API outage the
+// import read Woo's stale "processing" and moved a shipped order back to
+// processing. A shipped order must keep its status while other fields still
+// re-sync.
+func TestImportWooOrders_staleWooStatusNeverRegressesAShippedOrder(t *testing.T) {
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {simpleWooOrder()}}) // Woo still says "processing"
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{
+		ID: "so-1", Status: omsDomain.SalesOrderStatusShipped,
+		Billing:  omsDomain.Address{FirstName: "Stale", LastName: "Name", Email: "jane@example.com"},
+		Shipping: matchingShipping, CustomerID: strPtr("customer-1"),
+	}
+	uc := h.newImportUseCase(t, 2)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.updateOrder.calls, 1)
+	assert.Equal(t, 1, result.Updated)
+	call := h.updateOrder.calls[0]
+	assert.Nil(t, call.Status, "shipped must not regress to Woo's stale processing")
+	require.NotNil(t, call.Billing, "non-status fields still re-sync")
+	assert.Equal(t, matchingBilling, *call.Billing)
+}
+
+// Shipped is pushed to Woo as "on-hold"; reading that echo back must not
+// turn the order into on-hold (prod had 0 shipped Woo orders because of it).
+func TestImportWooOrders_onHoldEchoOfOurOwnShippedPushIsNoChange(t *testing.T) {
+	order := simpleWooOrder()
+	order.Status = "on-hold"
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {order}})
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{
+		ID: "so-1", Status: omsDomain.SalesOrderStatusShipped,
+		Billing: matchingBilling, Shipping: matchingShipping, CustomerID: strPtr("customer-1"),
+	}
+	uc := h.newImportUseCase(t, 2)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Unchanged)
+	assert.Empty(t, h.updateOrder.calls)
+}
+
+// Order 27270 went completed -> on-hold in the same import.
+func TestImportWooOrders_staleWooStatusNeverRegressesACompletedOrder(t *testing.T) {
+	order := simpleWooOrder()
+	order.Status = "on-hold"
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {order}})
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{
+		ID: "so-1", Status: omsDomain.SalesOrderStatusCompleted,
+		Billing: matchingBilling, Shipping: matchingShipping, CustomerID: strPtr("customer-1"),
+	}
+	uc := h.newImportUseCase(t, 2)
+
+	result, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Unchanged)
+	assert.Empty(t, h.updateOrder.calls)
+}
+
+// A cancellation/refund decided in Woo still reaches a shipped order.
+func TestImportWooOrders_wooRefundStillAppliesToAShippedOrder(t *testing.T) {
+	order := simpleWooOrder()
+	order.Status = "refunded"
+	h := newOrdersHarness(map[int][]integrationsDomain.WooOrder{1: {order}})
+	h.salesOrderRepo.byExternalID["501"] = omsDomain.SalesOrder{
+		ID: "so-1", Status: omsDomain.SalesOrderStatusShipped,
+		Billing: matchingBilling, Shipping: matchingShipping, CustomerID: strPtr("customer-1"),
+	}
+	uc := h.newImportUseCase(t, 2)
+
+	_, err := uc.Execute(context.Background(), appchannels.ImportWooOrdersInput{
+		ConnectionID: "conn-1", DefaultWarehouseID: "warehouse-1",
+	})
+
+	require.NoError(t, err)
+	require.Len(t, h.updateOrder.calls, 1)
+	require.NotNil(t, h.updateOrder.calls[0].Status)
+	assert.Equal(t, omsDomain.SalesOrderStatusRefunded, *h.updateOrder.calls[0].Status)
+}
+
 // TestImportWooOrders_reconciliationResyncsBillingShippingWhenTheyDriftFromWoo
 // is the direct fix for the reported bug: a customer's name/phone (billing +
 // shipping) got corrected in Woo (e.g. Woo matched the order to an existing

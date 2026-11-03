@@ -330,7 +330,9 @@ func (uc *ImportWooOrdersUseCase) importOne(ctx context.Context, in ImportWooOrd
 // stock-transition logic when the status itself hasn't moved.
 func (uc *ImportWooOrdersUseCase) routeToExisting(ctx context.Context, existing *omsDomain.SalesOrder, wo integrationsDomain.WooOrder, externalOrderID string, status omsDomain.SalesOrderStatus, customerID *string, result *ImportOrdersResult) {
 	in := appoms.UpdateSalesOrderInput{}
-	if existing.Status != status {
+	// Woo can be stale (missed pushes) or echo our own Shipped->on-hold push;
+	// the domain rule decides whether its status may replace ours.
+	if existing.Status.AcceptsChannelStatus(status) {
 		in.Status = &status
 	}
 	if billing := wooAddressToOMS(wo.Billing); existing.Billing != billing {

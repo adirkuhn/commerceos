@@ -37,9 +37,10 @@ const (
 	// this type's doc comment on mirroring Woo) -- added specifically for a
 	// non-Woo order (pos/manual/bol) handed to a carrier via MyParcel's
 	// order_status_change webhook ("processed"), since none of Woo's own
-	// values mean "in transit." A Woo-sourced order uses OnHold for the same
-	// transition instead, to keep its status round-trippable against Woo's
-	// own vocabulary. See application/shipping.HandleOrderStatusWebhookUseCase.
+	// values mean "in transit." A Woo-sourced order is stored as Shipped too;
+	// only the outbound push translates it to Woo's "on-hold", and
+	// AcceptsChannelStatus keeps that echo (or a stale Woo status) from
+	// regressing it on re-import. See application/shipping.HandleOrderStatusWebhookUseCase.
 	SalesOrderStatusShipped   SalesOrderStatus = "shipped"
 	SalesOrderStatusCompleted SalesOrderStatus = "completed"
 	SalesOrderStatusCancelled SalesOrderStatus = "cancelled"
