@@ -73,6 +73,13 @@ func TestConnectionRepo_Integration_DisconnectedIsHiddenButFoundForReconnect(t *
 		live, err := repo.FindByStore(ctx, integrationsDomain.ProviderWooCommerce, "https://other.example/")
 		require.NoError(t, err, "a live connection is found too: new keys replace the old ones on its row")
 		assert.Equal(t, other, live.ID)
+		for _, sameStore := range []integrationsDomain.StoreURL{"https://www.other.example", "http://other.example", "http://WWW.other.example/"} {
+			found, err := repo.FindByStore(ctx, integrationsDomain.ProviderWooCommerce, sameStore)
+			require.NoError(t, err, "same store: %s", sameStore)
+			assert.Equal(t, other, found.ID)
+		}
+		_, err = repo.FindByStore(ctx, integrationsDomain.ProviderWooCommerce, "https://shop.other.example")
+		assert.ErrorIs(t, err, integrationsDomain.ErrConnectionNotFound, "a subdomain is another store")
 		_, err = repo.FindByStore(ctx, integrationsDomain.ProviderBol, "https://shop.example")
 		assert.ErrorIs(t, err, integrationsDomain.ErrConnectionNotFound)
 		return nil

@@ -8,8 +8,8 @@ type ConnectionRepository interface {
 	ListByTenant(ctx context.Context) ([]Connection, error)
 	Update(ctx context.Context, c *Connection) error
 	// FindByStore returns the tenant's connection to provider at storeURL
-	// (compared without case or a trailing slash) whatever its status, a
-	// live one first, or ErrConnectionNotFound. It is the only lookup that
+	// (compared without scheme, www., case or a trailing slash) whatever
+	// its status, a live one first, or ErrConnectionNotFound. It is the only lookup that
 	// sees a disconnected connection: FindByID and ListByTenant never do.
 	FindByStore(ctx context.Context, provider Provider, storeURL StoreURL) (*Connection, error)
 }

@@ -166,7 +166,7 @@ func (r *ConnectionRepo) FindByStore(ctx context.Context, provider integrationsD
 		return nil, err
 	}
 	var m integrationConnectionModel
-	err = tx.Where("provider = ? AND lower(rtrim(store_url, '/')) = lower(rtrim(?, '/'))",
+	err = tx.Where("provider = ? AND "+sameStoreSQL("store_url")+" = "+sameStoreSQL("?"),
 		string(provider), strings.TrimSpace(storeURL.String())).
 		Order(clause.OrderBy{Expression: clause.Expr{SQL: "(status = ?), updated_at DESC", Vars: []any{string(integrationsDomain.StatusDisconnected)}}}).
 		First(&m).Error
@@ -177,6 +177,12 @@ func (r *ConnectionRepo) FindByStore(ctx context.Context, provider integrationsD
 		return nil, fmt.Errorf("connectionRepo.FindByStore: %w", err)
 	}
 	return toConnectionDomain(m), nil
+}
+
+// sameStoreSQL reduces a store URL to what identifies the store: no scheme,
+// no www., no case, no trailing slash. Another subdomain stays another store.
+func sameStoreSQL(expr string) string {
+	return "regexp_replace(lower(rtrim(" + expr + ", '/')), '^(https?://)?(www\\.)?', '')"
 }
 
 func toConnectionDomain(m integrationConnectionModel) *integrationsDomain.Connection {
