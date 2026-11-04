@@ -45,7 +45,7 @@ type fakeConnections struct {
 	disconnected *integrationsDomain.Connection
 }
 
-func (f *fakeConnections) FindDisconnected(context.Context, integrationsDomain.Provider, integrationsDomain.StoreURL) (*integrationsDomain.Connection, error) {
+func (f *fakeConnections) FindByStore(context.Context, integrationsDomain.Provider, integrationsDomain.StoreURL) (*integrationsDomain.Connection, error) {
 	if f.disconnected == nil {
 		return nil, integrationsDomain.ErrConnectionNotFound
 	}

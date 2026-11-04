@@ -118,7 +118,7 @@ func (s *stubConnectionRepo) ListByTenant(_ context.Context) ([]integrationsDoma
 func (s *stubConnectionRepo) Update(_ context.Context, _ *integrationsDomain.Connection) error {
 	return nil
 }
-func (s *stubConnectionRepo) FindDisconnected(context.Context, integrationsDomain.Provider, integrationsDomain.StoreURL) (*integrationsDomain.Connection, error) {
+func (s *stubConnectionRepo) FindByStore(context.Context, integrationsDomain.Provider, integrationsDomain.StoreURL) (*integrationsDomain.Connection, error) {
 	return nil, integrationsDomain.ErrConnectionNotFound
 }
 

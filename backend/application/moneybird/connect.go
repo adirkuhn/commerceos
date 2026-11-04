@@ -22,7 +22,7 @@ type connectionStore interface {
 	connectionLister
 	Create(ctx context.Context, c *integrationsDomain.Connection) error
 	Update(ctx context.Context, c *integrationsDomain.Connection) error
-	FindDisconnected(ctx context.Context, provider integrationsDomain.Provider, storeURL integrationsDomain.StoreURL) (*integrationsDomain.Connection, error)
+	FindByStore(ctx context.Context, provider integrationsDomain.Provider, storeURL integrationsDomain.StoreURL) (*integrationsDomain.Connection, error)
 }
 
 type ConnectInput struct {

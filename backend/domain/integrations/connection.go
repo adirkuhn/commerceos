@@ -76,7 +76,7 @@ const (
 	// is kept (credentials wiped) so nothing referencing it -- sales
 	// channels, listings, schedules, orders -- is cascaded away, and a
 	// reconnect to the same store takes the row back (SaveConnection).
-	// Repositories hide it from every lookup except FindDisconnected.
+	// Repositories hide it from every lookup except FindByStore.
 	StatusDisconnected Status = "disconnected"
 )
 

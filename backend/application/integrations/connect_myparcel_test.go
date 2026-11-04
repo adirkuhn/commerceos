@@ -70,3 +70,39 @@ func TestConnectMyParcel_noTenantContext_returnsError(t *testing.T) {
 
 	require.ErrorIs(t, err, integrationsDomain.ErrNoTenantContext)
 }
+
+func TestConnectMyParcel_reconnectingLeavesTheCarrierDefaults(t *testing.T) {
+	var updated *integrationsDomain.Connection
+	connRepo := &mocks.ConnectionRepo{
+		FindByStoreFn: func(context.Context, integrationsDomain.Provider, integrationsDomain.StoreURL) (*integrationsDomain.Connection, error) {
+			return &integrationsDomain.Connection{ID: "conn-myparcel-1", Provider: integrationsDomain.ProviderMyParcel, Status: integrationsDomain.StatusConnected}, nil
+		},
+		UpdateFn: func(_ context.Context, c *integrationsDomain.Connection) error {
+			updated = c
+			return nil
+		},
+	}
+	var upsertedSettings *shippingDomain.ShippingConnectionSettings
+	settingsRepo := &mocks.ShippingConnectionSettingsRepo{
+		UpsertFn: func(_ context.Context, s *shippingDomain.ShippingConnectionSettings) error {
+			upsertedSettings = s
+			return nil
+		},
+	}
+	var enqueuedSubject string
+	outboxRepo := &mocks.OutboxRepo{
+		EnqueueFn: func(_ context.Context, subject, _ string, _ []byte, _ time.Time) error {
+			enqueuedSubject = subject
+			return nil
+		},
+	}
+	uc := appintegrations.NewConnectMyParcelUseCase(newMockGormDB(t), connRepo, settingsRepo, outboxRepo, testEncryptionSecret)
+
+	conn, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), appintegrations.ConnectMyParcelInput{APIKey: "api-key-2"})
+
+	require.NoError(t, err)
+	assert.Equal(t, "conn-myparcel-1", conn.ID)
+	require.NotNil(t, updated)
+	assert.Nil(t, upsertedSettings, "carrier defaults kept")
+	assert.NotEmpty(t, enqueuedSubject, "the connect is still recorded")
+}

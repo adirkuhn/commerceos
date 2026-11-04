@@ -70,17 +70,20 @@ func (uc *ConnectMyParcelUseCase) Execute(ctx context.Context, in ConnectMyParce
 			Status:                  integrationsDomain.StatusConnected,
 			CreatedAt:               now, UpdatedAt: now,
 		}
-		if _, err := integrationsDomain.SaveConnection(ctx, uc.connRepo, &conn); err != nil {
+		reconnected, err := integrationsDomain.SaveConnection(ctx, uc.connRepo, &conn)
+		if err != nil {
 			return err
 		}
 
-		if err := uc.settingsRepo.Upsert(ctx, &shippingDomain.ShippingConnectionSettings{
-			ConnectionID: conn.ID, TenantID: tenantID,
-			DefaultCarrier: shippingDomain.CarrierPostNL, DefaultPackageType: shippingDomain.PackageTypePackage,
-			DefaultLabelFormat: shippingDomain.LabelFormatPDF,
-			CreatedAt:          now, UpdatedAt: now,
-		}); err != nil {
-			return err
+		if !reconnected {
+			if err := uc.settingsRepo.Upsert(ctx, &shippingDomain.ShippingConnectionSettings{
+				ConnectionID: conn.ID, TenantID: tenantID,
+				DefaultCarrier: shippingDomain.CarrierPostNL, DefaultPackageType: shippingDomain.PackageTypePackage,
+				DefaultLabelFormat: shippingDomain.LabelFormatPDF,
+				CreatedAt:          now, UpdatedAt: now,
+			}); err != nil {
+				return err
+			}
 		}
 
 		event := events.IntegrationConnected{

@@ -30,8 +30,8 @@ type ConnectionRepo struct {
 	FindByIDFn     func(ctx context.Context, id string) (*integrations.Connection, error)
 	ListByTenantFn func(ctx context.Context) ([]integrations.Connection, error)
 	UpdateFn       func(ctx context.Context, c *integrations.Connection) error
-	// FindDisconnectedFn nil = nothing to reconnect (ErrConnectionNotFound).
-	FindDisconnectedFn func(ctx context.Context, provider integrations.Provider, storeURL integrations.StoreURL) (*integrations.Connection, error)
+	// FindByStoreFn nil = nothing to reconnect (ErrConnectionNotFound).
+	FindByStoreFn func(ctx context.Context, provider integrations.Provider, storeURL integrations.StoreURL) (*integrations.Connection, error)
 }
 
 func (m *ConnectionRepo) Create(ctx context.Context, c *integrations.Connection) error {
@@ -46,11 +46,11 @@ func (m *ConnectionRepo) ListByTenant(ctx context.Context) ([]integrations.Conne
 func (m *ConnectionRepo) Update(ctx context.Context, c *integrations.Connection) error {
 	return m.UpdateFn(ctx, c)
 }
-func (m *ConnectionRepo) FindDisconnected(ctx context.Context, provider integrations.Provider, storeURL integrations.StoreURL) (*integrations.Connection, error) {
-	if m.FindDisconnectedFn == nil {
+func (m *ConnectionRepo) FindByStore(ctx context.Context, provider integrations.Provider, storeURL integrations.StoreURL) (*integrations.Connection, error) {
+	if m.FindByStoreFn == nil {
 		return nil, integrations.ErrConnectionNotFound
 	}
-	return m.FindDisconnectedFn(ctx, provider, storeURL)
+	return m.FindByStoreFn(ctx, provider, storeURL)
 }
 
 // WooClientFactory mock

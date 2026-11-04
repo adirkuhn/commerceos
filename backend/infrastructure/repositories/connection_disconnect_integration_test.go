@@ -46,7 +46,7 @@ func disconnect(t *testing.T, db *gorm.DB, ctx context.Context, id string) {
 }
 
 // COM-15: disconnecting keeps the row (no cascade) but hides it from every
-// ordinary lookup; FindDisconnected finds it again for a reconnect.
+// ordinary lookup; FindByStore finds it again for a reconnect.
 func TestConnectionRepo_Integration_DisconnectedIsHiddenButFoundForReconnect(t *testing.T) {
 	db := newIntegrationDB(t)
 	_, ctx := newTestTenant()
@@ -65,14 +65,15 @@ func TestConnectionRepo_Integration_DisconnectedIsHiddenButFoundForReconnect(t *
 		require.Len(t, all, 1)
 		assert.Equal(t, other, all[0].ID)
 
-		found, err := repo.FindDisconnected(ctx, integrationsDomain.ProviderWooCommerce, "https://shop.example")
+		found, err := repo.FindByStore(ctx, integrationsDomain.ProviderWooCommerce, "https://shop.example")
 		require.NoError(t, err, "same store: case and trailing slash ignored")
 		assert.Equal(t, id, found.ID)
 		assert.Empty(t, found.ConsumerSecretEncrypted)
 
-		_, err = repo.FindDisconnected(ctx, integrationsDomain.ProviderWooCommerce, "https://other.example")
-		assert.ErrorIs(t, err, integrationsDomain.ErrConnectionNotFound, "a connected row is not a reconnect candidate")
-		_, err = repo.FindDisconnected(ctx, integrationsDomain.ProviderBol, "https://shop.example")
+		live, err := repo.FindByStore(ctx, integrationsDomain.ProviderWooCommerce, "https://other.example/")
+		require.NoError(t, err, "a live connection is found too: new keys replace the old ones on its row")
+		assert.Equal(t, other, live.ID)
+		_, err = repo.FindByStore(ctx, integrationsDomain.ProviderBol, "https://shop.example")
 		assert.ErrorIs(t, err, integrationsDomain.ErrConnectionNotFound)
 		return nil
 	}))
@@ -145,6 +146,60 @@ func TestConnectionRepo_Integration_DisconnectAndReconnectKeepEverythingReferenc
 		require.NoError(t, err)
 		assert.Equal(t, "enc2", c.ConsumerSecretEncrypted)
 		assert.Equal(t, integrationsDomain.StatusConnected, c.Status)
+		return nil
+	}))
+}
+
+// Woo rotated its keys: connecting the store again while it is still
+// connected used to hit UNIQUE (tenant, provider, store_url). It now
+// replaces the keys on the same row, and the row's settings stay.
+func TestConnectionRepo_Integration_ConnectingALiveStoreReplacesItsKeys(t *testing.T) {
+	db := newIntegrationDB(t)
+	_, ctx := newTestTenant()
+	repo := repositories.NewConnectionRepo(db)
+	scheduleRepo := repositories.NewSyncScheduleRepo(db)
+	id := seedWooConnection(t, db, ctx, "https://shop.example")
+	now := time.Now()
+
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		c, err := repo.FindByID(ctx, id)
+		if err != nil {
+			return err
+		}
+		c.DefaultCurrency = "EUR"
+		if err := repo.Update(ctx, c); err != nil {
+			return err
+		}
+		return scheduleRepo.Upsert(ctx, &channelsDomain.SyncSchedule{
+			TenantID: tenant.IDFromContext(ctx), ConnectionID: id,
+			EntityType: channelsDomain.SyncEntityOrders, Direction: channelsDomain.SyncDirectionImport,
+			Enabled: true, IntervalMinutes: 5, CreatedAt: now, UpdatedAt: now,
+		})
+	}))
+
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		fresh := integrationsDomain.Connection{
+			TenantID: tenant.IDFromContext(ctx), Provider: integrationsDomain.ProviderWooCommerce,
+			StoreURL: "https://Shop.example/", ConsumerKey: "ck_rotated", ConsumerSecretEncrypted: "enc_rotated",
+			Status: integrationsDomain.StatusConnected, CreatedAt: now, UpdatedAt: now,
+		}
+		reconnected, err := integrationsDomain.SaveConnection(ctx, repo, &fresh)
+		require.NoError(t, err)
+		assert.True(t, reconnected)
+		assert.Equal(t, id, fresh.ID)
+		return nil
+	}))
+
+	require.NoError(t, tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		all, err := repo.ListByTenant(ctx)
+		require.NoError(t, err)
+		require.Len(t, all, 1, "still one connection for the store")
+		assert.Equal(t, "ck_rotated", all[0].ConsumerKey)
+		assert.Equal(t, "EUR", all[0].DefaultCurrency)
+		schedules, err := scheduleRepo.ListByConnection(ctx, id)
+		require.NoError(t, err)
+		require.Len(t, schedules, 1, "what hangs off the row is untouched")
+		assert.True(t, schedules[0].Enabled)
 		return nil
 	}))
 }

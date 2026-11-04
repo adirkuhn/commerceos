@@ -107,30 +107,14 @@ func (uc *ConnectPostNLUseCase) Execute(ctx context.Context, in ConnectPostNLInp
 			PostNLCustomerCode: code, PostNLCustomerNumber: number, PostNLSandbox: in.Sandbox,
 			Status: integrationsDomain.StatusConnected, CreatedAt: now, UpdatedAt: now,
 		}
-		if _, err := integrationsDomain.SaveConnection(ctx, uc.connRepo, &conn); err != nil {
+		reconnected, err := integrationsDomain.SaveConnection(ctx, uc.connRepo, &conn)
+		if err != nil {
 			return err
 		}
-		if err := uc.settingsRepo.Upsert(ctx, &shippingDomain.ShippingConnectionSettings{
-			ConnectionID: conn.ID, TenantID: tenantID,
-			DefaultCarrier: shippingDomain.CarrierPostNL, DefaultPackageType: shippingDomain.PackageTypePackage,
-			DefaultLabelFormat: shippingDomain.LabelFormatPDF, CreatedAt: now, UpdatedAt: now,
-		}); err != nil {
-			return err
-		}
-		tmpl := postnlTrackingURLTemplate
-		if err := uc.overrides.Upsert(ctx, &shippingDomain.ShippingCarrierOverride{
-			TenantID: tenantID, ConnectionID: conn.ID, Carrier: shippingDomain.CarrierPostNL,
-			TrackingURLTemplate: &tmpl, CreatedAt: now, UpdatedAt: now,
-		}); err != nil {
-			return err
-		}
-		next := now.Add(postnlStatusPollMinutes * time.Minute)
-		if err := uc.schedules.Upsert(ctx, &channelsDomain.SyncSchedule{
-			TenantID: tenantID, ConnectionID: conn.ID,
-			EntityType: channelsDomain.SyncEntityShipmentReconciliation, Direction: channelsDomain.SyncDirectionImport,
-			Enabled: true, IntervalMinutes: postnlStatusPollMinutes, NextRunAt: &next, CreatedAt: now, UpdatedAt: now,
-		}); err != nil {
-			return err
+		if !reconnected {
+			if err := uc.seedNewConnection(ctx, tenantID, conn.ID, now); err != nil {
+				return err
+			}
 		}
 		event := events.IntegrationConnected{
 			Base:     events.Base{EventID: idgen.NewV4(), OccurredAt: now},
@@ -146,4 +130,30 @@ func (uc *ConnectPostNLUseCase) Execute(ctx context.Context, in ConnectPostNLInp
 		return nil, fmt.Errorf("connectPostNL: %w", err)
 	}
 	return &conn, nil
+}
+
+// seedNewConnection writes a first connection's carrier defaults, tracking
+// link and status polling. A reconnect skips it: by then they are the
+// merchant's.
+func (uc *ConnectPostNLUseCase) seedNewConnection(ctx context.Context, tenantID, connectionID string, now time.Time) error {
+	if err := uc.settingsRepo.Upsert(ctx, &shippingDomain.ShippingConnectionSettings{
+		ConnectionID: connectionID, TenantID: tenantID,
+		DefaultCarrier: shippingDomain.CarrierPostNL, DefaultPackageType: shippingDomain.PackageTypePackage,
+		DefaultLabelFormat: shippingDomain.LabelFormatPDF, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		return err
+	}
+	tmpl := postnlTrackingURLTemplate
+	if err := uc.overrides.Upsert(ctx, &shippingDomain.ShippingCarrierOverride{
+		TenantID: tenantID, ConnectionID: connectionID, Carrier: shippingDomain.CarrierPostNL,
+		TrackingURLTemplate: &tmpl, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		return err
+	}
+	next := now.Add(postnlStatusPollMinutes * time.Minute)
+	return uc.schedules.Upsert(ctx, &channelsDomain.SyncSchedule{
+		TenantID: tenantID, ConnectionID: connectionID,
+		EntityType: channelsDomain.SyncEntityShipmentReconciliation, Direction: channelsDomain.SyncDirectionImport,
+		Enabled: true, IntervalMinutes: postnlStatusPollMinutes, NextRunAt: &next, CreatedAt: now, UpdatedAt: now,
+	})
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/internal/txctx"
@@ -159,20 +160,21 @@ func (r *ConnectionRepo) Update(ctx context.Context, c *integrationsDomain.Conne
 	return nil
 }
 
-func (r *ConnectionRepo) FindDisconnected(ctx context.Context, provider integrationsDomain.Provider, storeURL integrationsDomain.StoreURL) (*integrationsDomain.Connection, error) {
+func (r *ConnectionRepo) FindByStore(ctx context.Context, provider integrationsDomain.Provider, storeURL integrationsDomain.StoreURL) (*integrationsDomain.Connection, error) {
 	tx, err := r.tx(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var m integrationConnectionModel
-	err = tx.Where("status = ? AND provider = ? AND lower(rtrim(store_url, '/')) = lower(rtrim(?, '/'))",
-		integrationsDomain.StatusDisconnected, string(provider), strings.TrimSpace(storeURL.String())).
-		Order("updated_at desc").First(&m).Error
+	err = tx.Where("provider = ? AND lower(rtrim(store_url, '/')) = lower(rtrim(?, '/'))",
+		string(provider), strings.TrimSpace(storeURL.String())).
+		Order(clause.OrderBy{Expression: clause.Expr{SQL: "(status = ?), updated_at DESC", Vars: []any{string(integrationsDomain.StatusDisconnected)}}}).
+		First(&m).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, integrationsDomain.ErrConnectionNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("connectionRepo.FindDisconnected: %w", err)
+		return nil, fmt.Errorf("connectionRepo.FindByStore: %w", err)
 	}
 	return toConnectionDomain(m), nil
 }

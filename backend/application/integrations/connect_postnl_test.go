@@ -136,3 +136,38 @@ func TestConnectPostNL_requiresTenant(t *testing.T) {
 
 	assert.ErrorIs(t, err, integrationsDomain.ErrNoTenantContext)
 }
+
+// New keys for a store already connected: the carrier defaults, tracking
+// link and polling schedule are the merchant's by now and must stay.
+func TestConnectPostNL_reconnectingLeavesSettingsTrackingLinkAndPolling(t *testing.T) {
+	var updated *integrationsDomain.Connection
+	f := &postnlConnectFixture{}
+	connRepo := &mocks.ConnectionRepo{
+		FindByStoreFn: func(context.Context, integrationsDomain.Provider, integrationsDomain.StoreURL) (*integrationsDomain.Connection, error) {
+			return &integrationsDomain.Connection{ID: "conn-postnl-1", Provider: integrationsDomain.ProviderPostNL, Status: integrationsDomain.StatusConnected}, nil
+		},
+		UpdateFn: func(_ context.Context, c *integrationsDomain.Connection) error {
+			updated = c
+			return nil
+		},
+	}
+	settingsRepo := &mocks.ShippingConnectionSettingsRepo{UpsertFn: func(_ context.Context, s *shippingDomain.ShippingConnectionSettings) error {
+		f.settings = s
+		return nil
+	}}
+	outboxRepo := &mocks.OutboxRepo{EnqueueFn: func(_ context.Context, subject, _ string, _ []byte, _ time.Time) error {
+		f.subject = subject
+		return nil
+	}}
+	uc := appintegrations.NewConnectPostNLUseCase(newMockGormDB(t), connRepo, settingsRepo, &f.overrides, &f.schedules, outboxRepo, testEncryptionSecret)
+
+	conn, err := uc.Execute(tenant.WithTenantID(context.Background(), "tenant-1"), validPostNLInput())
+
+	require.NoError(t, err)
+	assert.Equal(t, "conn-postnl-1", conn.ID)
+	require.NotNil(t, updated)
+	assert.Nil(t, f.settings, "carrier defaults kept")
+	assert.Nil(t, f.overrides.upserted, "tracking link kept")
+	assert.Nil(t, f.schedules.upserted, "polling schedule kept")
+	assert.NotEmpty(t, f.subject, "the connect is still recorded")
+}

@@ -60,7 +60,7 @@ func (f *fakeConnRepo) ListByTenant(ctx context.Context) ([]integrationsDomain.C
 func (f *fakeConnRepo) Update(ctx context.Context, c *integrationsDomain.Connection) error {
 	return nil
 }
-func (f *fakeConnRepo) FindDisconnected(context.Context, integrationsDomain.Provider, integrationsDomain.StoreURL) (*integrationsDomain.Connection, error) {
+func (f *fakeConnRepo) FindByStore(context.Context, integrationsDomain.Provider, integrationsDomain.StoreURL) (*integrationsDomain.Connection, error) {
 	return nil, integrationsDomain.ErrConnectionNotFound
 }
 
