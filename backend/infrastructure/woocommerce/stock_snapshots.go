@@ -20,7 +20,7 @@ func (c *wooClient) ListProductStock(ctx context.Context, page, perPage int) ([]
 	out := make([]integrationsDomain.WooStockSnapshot, len(products))
 	for i, p := range products {
 		out[i] = integrationsDomain.WooStockSnapshot{
-			ID: strconv.Itoa(p.ID), Type: p.Type, ManageStock: p.ManageStock,
+			ID: strconv.Itoa(p.ID), Name: p.Name, SKU: p.Sku, Type: p.Type, ManageStock: p.ManageStock,
 			StockQuantity: p.StockQuantity, Meta: metaStrings(p.MetaData),
 		}
 	}
@@ -37,7 +37,7 @@ func (c *wooClient) ListVariationStock(ctx context.Context, parentExternalID str
 	out := make([]integrationsDomain.WooStockSnapshot, len(variations))
 	for i, v := range variations {
 		out[i] = integrationsDomain.WooStockSnapshot{
-			ID: strconv.Itoa(v.ID), ManageStock: v.ManageStock,
+			ID: strconv.Itoa(v.ID), SKU: v.Sku, ManageStock: v.ManageStock,
 			StockQuantity: v.StockQuantity, Meta: metaStrings(v.MetaData),
 		}
 	}

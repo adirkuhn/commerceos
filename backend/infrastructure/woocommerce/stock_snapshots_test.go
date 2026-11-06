@@ -17,11 +17,11 @@ func TestListProductAndVariationStock_mapStockAndMetaAsStrings(t *testing.T) {
 		case "/wp-json/wc/v3/products":
 			assert.Equal(t, "2", r.URL.Query().Get("page"))
 			assert.Equal(t, "100", r.URL.Query().Get("per_page"))
-			_, _ = w.Write([]byte(`[{"id":23981,"type":"simple","manage_stock":true,"stock_quantity":7,
+			_, _ = w.Write([]byte(`[{"id":23981,"name":"Guarana","sku":"7891","type":"simple","manage_stock":true,"stock_quantity":7,
 				"meta_data":[{"id":1,"key":"lot_number","value":"L42"},{"id":2,"key":"expiry_date","value":"2027-01-31"},{"id":3,"key":"_n","value":3}]},
 				{"id":500,"type":"variable","manage_stock":false,"stock_quantity":null,"meta_data":[]}]`))
 		case "/wp-json/wc/v3/products/500/variations":
-			_, _ = w.Write([]byte(`[{"id":501,"manage_stock":true,"stock_quantity":0,"meta_data":[{"key":"lot_number","value":""}]}]`))
+			_, _ = w.Write([]byte(`[{"id":501,"sku":"7892","manage_stock":true,"stock_quantity":0,"meta_data":[{"key":"lot_number","value":""}]}]`))
 		default:
 			http.NotFound(w, r)
 		}
@@ -34,6 +34,8 @@ func TestListProductAndVariationStock_mapStockAndMetaAsStrings(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, products, 2)
 	assert.Equal(t, "23981", products[0].ID)
+	assert.Equal(t, "Guarana", products[0].Name)
+	assert.Equal(t, "7891", products[0].SKU)
 	assert.Equal(t, "simple", products[0].Type)
 	assert.True(t, products[0].ManageStock)
 	require.NotNil(t, products[0].StockQuantity)
@@ -45,6 +47,7 @@ func TestListProductAndVariationStock_mapStockAndMetaAsStrings(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, variations, 1)
 	assert.Equal(t, "501", variations[0].ID)
+	assert.Equal(t, "7892", variations[0].SKU)
 	assert.Equal(t, 0, *variations[0].StockQuantity)
 	assert.Equal(t, "", variations[0].Meta["lot_number"])
 }

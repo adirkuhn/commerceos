@@ -71,9 +71,12 @@ type WooProduct struct {
 // WooStockSnapshot is a product's or variation's stock as the store reports
 // it: whether Woo manages its stock, the quantity, the product type
 // (simple/variable/... -- empty for a variation) and its meta data as
-// strings (the commerceos lot_number/expiry_date among them).
+// strings (the commerceos lot_number/expiry_date among them). Name is empty
+// for a variation. SKU is what the store holds, untrimmed.
 type WooStockSnapshot struct {
 	ID            string
+	Name          string
+	SKU           string
 	Type          string
 	ManageStock   bool
 	StockQuantity *int
