@@ -59,14 +59,29 @@ func (c *nvidiaChat) setFallbackModels(commaSeparated string) {
 }
 
 // completeJSON sends prompt, forces schema, and unmarshals the reply into
-// out -- falling back to the next model only on HTTP 429, since any other
-// failure (auth, bad request, malformed output) would repeat on every model.
+// out.
 func (c nvidiaChat) completeJSON(ctx context.Context, prompt string, schema map[string]any, maxTokens int64, out any) error {
 	schemaJSON, err := json.Marshal(schema)
 	if err != nil {
 		return fmt.Errorf("nvidia: marshal schema: %w", err)
 	}
-	client := openai.NewClient(
+	client := c.newClient()
+	fullPrompt := prompt + "\n\nReply with JSON only, matching this JSON schema:\n" + string(schemaJSON)
+
+	return c.withFallback(func(model string) error {
+		content, err := c.complete(ctx, client, model, fullPrompt, schema, maxTokens)
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal([]byte(stripCodeFence(content)), out); err != nil {
+			return fmt.Errorf("nvidia: unmarshal reply: %w", err)
+		}
+		return nil
+	})
+}
+
+func (c nvidiaChat) newClient() openai.Client {
+	return openai.NewClient(
 		option.WithAPIKey(c.apiKey),
 		option.WithBaseURL(c.baseURL),
 		// Retrying is the fallback list's job (and, for the assistant, the
@@ -74,21 +89,21 @@ func (c nvidiaChat) completeJSON(ctx context.Context, prompt string, schema map[
 		// that just said it's over its limit.
 		option.WithMaxRetries(0),
 	)
-	fullPrompt := prompt + "\n\nReply with JSON only, matching this JSON schema:\n" + string(schemaJSON)
+}
 
+// withFallback runs call with the primary model, then each fallback model
+// -- moving on only after HTTP 429, since any other failure (auth, bad
+// request, malformed output) would repeat on every model.
+func (c nvidiaChat) withFallback(call func(model string) error) error {
 	models := append([]string{c.model}, c.fallbackModels...)
 	var lastErr error
 	for i, model := range models {
-		content, err := c.complete(ctx, client, model, fullPrompt, schema, maxTokens)
+		err := call(model)
 		if err == nil {
-			if err := json.Unmarshal([]byte(stripCodeFence(content)), out); err != nil {
-				return fmt.Errorf("nvidia: unmarshal reply: %w", err)
-			}
 			return nil
 		}
 		lastErr = err
-		var apiErr *openai.Error
-		if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusTooManyRequests {
+		if httpStatus(err) != http.StatusTooManyRequests {
 			return lastErr
 		}
 		if i < len(models)-1 {
@@ -96,6 +111,15 @@ func (c nvidiaChat) completeJSON(ctx context.Context, prompt string, schema map[
 		}
 	}
 	return lastErr
+}
+
+// httpStatus is the HTTP status of an API error in err's chain, 0 if none.
+func httpStatus(err error) int {
+	var apiErr *openai.Error
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode
+	}
+	return 0
 }
 
 func (c nvidiaChat) complete(ctx context.Context, client openai.Client, model, prompt string, schema map[string]any, maxTokens int64) (string, error) {
