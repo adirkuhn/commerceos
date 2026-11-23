@@ -1,4 +1,5 @@
-// The admin's settings (API URL, lm2 login, storefront, default design).
+// The admin's settings (API URL, lm2 login, storefront, default design)
+// and the deployed version.
 //
 // In production they come from /config.js, which the frontend container
 // writes at startup from the server's .env (see frontend/docker/) -- so one
@@ -17,6 +18,7 @@ const KEYS = [
   'VITE_LM2_CALLBACK_PATH',
   'VITE_STOREFRONT_URL',
   'VITE_DESIGN_DEFAULT',
+  'COMMERCEOS_VERSION',
 ] as const satisfies readonly (keyof ImportMetaEnv)[]
 
 export function appEnv(): AppEnv {

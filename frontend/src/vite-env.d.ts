@@ -12,6 +12,9 @@ interface ImportMetaEnv {
   // picked one in the account menu (rollback switch); anything else means
   // the depot design. See theme/designPreference.
   readonly VITE_DESIGN_DEFAULT?: string
+  // The deployed release (e.g. "1.0.11"): only ever from the server's
+  // /config.js -- deploy.sh writes it to .env. Absent in local dev.
+  readonly COMMERCEOS_VERSION?: string
 }
 
 interface ImportMeta {

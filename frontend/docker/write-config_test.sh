@@ -30,4 +30,8 @@ run 'VITE_STOREFRONT_URL=https://x.example/a"b\c'
 check "quotes and backslashes are escaped" \
 	'window.__COMMERCEOS_CONFIG__ = {"VITE_STOREFRONT_URL":"https://x.example/a\"b\\c"}' "$(cat "$T/config.js")"
 
+run COMMERCEOS_VERSION=1.0.11 VITE_API_BASE_URL=https://api.example/api/v1
+check "publishes the deployed version" \
+	'window.__COMMERCEOS_CONFIG__ = {"VITE_API_BASE_URL":"https://api.example/api/v1","COMMERCEOS_VERSION":"1.0.11"}' "$(cat "$T/config.js")"
+
 exit $fail

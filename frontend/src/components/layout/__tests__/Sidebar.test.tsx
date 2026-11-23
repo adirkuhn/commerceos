@@ -218,3 +218,37 @@ describe('Sidebar depot navigation', () => {
     expect(screen.getByRole('button', { name: 'Webhooks' })).toHaveAttribute('aria-current', 'page')
   })
 })
+
+describe('Sidebar deployed version', () => {
+  beforeEach(() => vi.mocked(listProducts).mockResolvedValue({ products: [], total: 0 }))
+  afterEach(() => {
+    delete globalThis.__COMMERCEOS_CONFIG__
+    auth.role = 'customer_owner'
+  })
+
+  it('shows the deployed version under the role', async () => {
+    auth.role = 'super_admin'
+    globalThis.__COMMERCEOS_CONFIG__ = { COMMERCEOS_VERSION: '1.0.11' }
+
+    renderSidebar()
+
+    const account = await screen.findByRole('button', { name: /Account: Platform admin/ })
+    expect(within(account).getByText('Platform admin')).toBeInTheDocument()
+    expect(within(account).getByText('v1.0.11')).toBeInTheDocument()
+  })
+
+  it('keeps a leading v the server already wrote', async () => {
+    globalThis.__COMMERCEOS_CONFIG__ = { COMMERCEOS_VERSION: 'v1.0.11' }
+
+    renderSidebar()
+
+    expect(await screen.findByText('v1.0.11')).toBeInTheDocument()
+  })
+
+  it('shows no version when none is deployed (local dev)', async () => {
+    renderSidebar()
+
+    await screen.findByRole('button', { name: /Account: Owner/ })
+    expect(screen.queryByText(/^v\d/)).not.toBeInTheDocument()
+  })
+})

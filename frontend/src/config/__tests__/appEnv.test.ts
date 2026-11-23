@@ -35,4 +35,14 @@ describe('appEnv', () => {
 
     expect(appEnv().VITE_STOREFRONT_URL).toBe('https://shop.example')
   })
+
+  it('reads the deployed version the server published', () => {
+    globalThis.__COMMERCEOS_CONFIG__ = { COMMERCEOS_VERSION: '1.0.11' }
+
+    expect(appEnv().COMMERCEOS_VERSION).toBe('1.0.11')
+  })
+
+  it('has no version when developing locally', () => {
+    expect(appEnv().COMMERCEOS_VERSION).toBeUndefined()
+  })
 })

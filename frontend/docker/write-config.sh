@@ -13,7 +13,9 @@ set -eu
 
 out=${1:-/usr/share/nginx/html/config.js}
 json=""
-for key in VITE_API_BASE_URL VITE_LM2_LOGIN_URL VITE_LM2_CALLBACK_PATH VITE_STOREFRONT_URL VITE_DESIGN_DEFAULT; do
+# COMMERCEOS_VERSION is the deployed release (deploy.sh writes it to .env
+# before the containers start), shown in the sidebar.
+for key in VITE_API_BASE_URL VITE_LM2_LOGIN_URL VITE_LM2_CALLBACK_PATH VITE_STOREFRONT_URL VITE_DESIGN_DEFAULT COMMERCEOS_VERSION; do
 	eval "value=\${$key:-}"
 	[ -n "$value" ] || continue
 	escaped=$(printf '%s' "$value" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')

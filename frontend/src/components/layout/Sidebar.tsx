@@ -7,6 +7,7 @@ import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../auth/AuthContext'
 import { useProducts } from '../../pms/hooks/useProducts'
 import type { NavItem } from '../../types'
+import { appEnv } from '../../config/appEnv'
 import { homeLink, navGroupsForRole, roleLabel, sidebarActiveId, type NavGroup, type NavLink } from './navConfig'
 import { useDesign } from '../../theme/useDesign'
 import type { Design } from '../../theme/designPreference'
@@ -174,6 +175,14 @@ export default function Sidebar() {
   )
 }
 
+// deployedVersion is the release the server runs ("v1.0.11"), from
+// /config.js -- empty in local dev.
+function deployedVersion(): string {
+  const v = appEnv().COMMERCEOS_VERSION?.trim()
+  if (!v) return ''
+  return v.startsWith('v') ? v : `v${v}`
+}
+
 function AccountMenu({ role, style }: { role?: string; style: SidebarStyle }) {
   const { logout } = useAuth()
   const { design, setDesign } = useDesign()
@@ -182,6 +191,7 @@ function AccountMenu({ role, style }: { role?: string; style: SidebarStyle }) {
   const buttonRef = useRef<HTMLButtonElement>(null)
   const itemRef = useRef<HTMLButtonElement>(null)
   const label = roleLabel(role)
+  const version = deployedVersion()
 
   useEffect(() => {
     if (open) itemRef.current?.focus()
@@ -239,7 +249,10 @@ function AccountMenu({ role, style }: { role?: string; style: SidebarStyle }) {
         <span className={clsx('w-7 h-7 rounded-full flex items-center justify-center text-2xs font-semibold shrink-0', style.avatar)} aria-hidden>
           {label.charAt(0)}
         </span>
-        <span className={clsx('flex-1 min-w-0 text-xs font-medium truncate', style.accountName)}>{label}</span>
+        <span className="flex-1 min-w-0 flex flex-col">
+          <span className={clsx('text-xs font-medium truncate', style.accountName)}>{label}</span>
+          {version && <span className="text-2xs text-ink-4 truncate tabular-nums">{version}</span>}
+        </span>
         <ChevronDown size={12} className={clsx('shrink-0', style.chevron)} aria-hidden />
       </button>
     </div>
