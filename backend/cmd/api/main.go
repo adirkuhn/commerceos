@@ -53,6 +53,7 @@ import (
 	genwhatsapp "github.com/adirkuhn/commerceos/api/whatsapp"
 	"github.com/adirkuhn/commerceos/domain/messaging"
 	pmsDomain "github.com/adirkuhn/commerceos/domain/pms"
+	assistanthandler "github.com/adirkuhn/commerceos/infrastructure/handlers/assistant"
 	bolconfirmationshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/bolconfirmations"
 	collectionshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/collections"
 	couponshandler "github.com/adirkuhn/commerceos/infrastructure/handlers/coupons"
@@ -481,6 +482,13 @@ func main() {
 	}
 	if err := deadlettershandler.Register(v1, db, jsAPI, outboxRepo); err != nil {
 		log.Fatalf("deadletters: %v", err)
+	}
+
+	// Admin AI assistant: admin roles and the assistant-only spec validator
+	// are applied inside Register. The API only queues and reads requests;
+	// the scheduler process runs the model on them.
+	if err := assistanthandler.Register(v1, db, outboxRepo); err != nil {
+		log.Fatalf("assistant: %v", err)
 	}
 
 	suppliersSpec, err := gensuppliers.GetSpec()

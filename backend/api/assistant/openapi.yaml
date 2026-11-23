@@ -19,6 +19,7 @@ paths:
     get:
       operationId: listAssistantRequests
       summary: The tenant's assistant requests, newest first
+      description: Invalid query parameters (or any request that breaks this contract) answer 422 VALIDATION_ERROR.
       parameters:
         - name: status
           in: query
@@ -31,6 +32,12 @@ paths:
           description: next_cursor from the previous page.
           schema: { type: string, format: uuid }
       responses:
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
         '200':
           description: ok
           content:
@@ -47,6 +54,12 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/AssistantTextRequest' }
       responses:
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
         '201':
           description: queued
           content:
@@ -62,6 +75,14 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
         '200':
           description: ok
           content:
@@ -83,6 +104,12 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/AssistantTextRequest' }
       responses:
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
         '200':
           description: queued again
           content:
@@ -103,6 +130,14 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
         '200':
           description: cancelled
           content:
