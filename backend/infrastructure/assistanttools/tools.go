@@ -33,7 +33,7 @@ func ReadTools(db *gorm.DB) []assistant.Tool {
 	search := appsearch.NewGlobalSearchUseCase(db, productRepo, repositories.NewSupplierRepo(db),
 		repositories.NewCustomerRepo(db), salesOrderRepo)
 
-	return []assistant.Tool{
+	core := []assistant.Tool{
 		tools.NewSearchTool(search),
 		tools.NewGetSalesOrderTool(
 			appoms.NewGetSalesOrderUseCase(db, salesOrderRepo, repositories.NewSalesOrderLineItemRepo(db), repositories.NewSalesOrderPaymentRepo(db)),
@@ -53,4 +53,6 @@ func ReadTools(db *gorm.DB) []assistant.Tool {
 			apptax.NewListTaxClassesUseCase(db, repositories.NewTaxClassRepo(db)),
 			apptax.NewListTaxRatesUseCase(db, repositories.NewTaxRateRepo(db))),
 	}
+	core = append(core, salesTools(db)...)
+	return append(core, operationsTools(db)...)
 }
