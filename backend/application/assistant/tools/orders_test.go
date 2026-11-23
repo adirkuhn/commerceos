@@ -12,6 +12,7 @@ import (
 	"github.com/adirkuhn/commerceos/application/assistant/tools"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	appsearch "github.com/adirkuhn/commerceos/application/search"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 )
 
@@ -129,4 +130,43 @@ func TestListSalesOrdersTool_defaultsAndErrors(t *testing.T) {
 
 	assert.ErrorIs(t, callErr(t, tools.NewListSalesOrdersTool(list), `{"status":"lost"}`), tools.ErrInvalidArguments)
 	assert.ErrorContains(t, callErr(t, tools.NewListSalesOrdersTool(&stubListOrders{err: errors.New("db down")}), `{}`), "db down")
+}
+
+type stubOrigins struct {
+	out    map[string]integrationsDomain.SalesOrderOrigin
+	err    error
+	gotIDs []string
+}
+
+func (s *stubOrigins) Execute(_ context.Context, ids []string) (map[string]integrationsDomain.SalesOrderOrigin, error) {
+	s.gotIDs = ids
+	return s.out, s.err
+}
+
+func TestGetSalesOrderTool_includesTheOrdersOrigin(t *testing.T) {
+	conn := "conn-woo"
+	origins := &stubOrigins{out: map[string]integrationsDomain.SalesOrderOrigin{orderUUID: {
+		SalesOrderID: orderUUID, Origin: integrationsDomain.OriginWooCommerce, ConnectionID: &conn, ExternalOrderID: "27270", ExternalKey: "wc_order_secret",
+	}}}
+	tool := tools.NewGetSalesOrderTool(&stubGetOrder{out: shippedOrder()}, &stubSearch{}).WithOrigins(origins)
+
+	got := call(t, tool, `{"order":"`+orderUUID+`"}`)
+
+	assert.Equal(t, []string{orderUUID}, origins.gotIDs)
+	assert.Equal(t, map[string]any{"source": "woocommerce", "connection_id": "conn-woo", "external_order_id": "27270"}, got["origin"],
+		"the shop's order key is a secret-ish reference and stays out")
+}
+
+func TestGetSalesOrderTool_orderWithoutOriginOmitsIt(t *testing.T) {
+	tool := tools.NewGetSalesOrderTool(&stubGetOrder{out: shippedOrder()}, &stubSearch{}).WithOrigins(&stubOrigins{})
+
+	got := call(t, tool, `{"order":"`+orderUUID+`"}`)
+
+	assert.NotContains(t, got, "origin")
+}
+
+func TestGetSalesOrderTool_originLookupErrorFails(t *testing.T) {
+	tool := tools.NewGetSalesOrderTool(&stubGetOrder{out: shippedOrder()}, &stubSearch{}).WithOrigins(&stubOrigins{err: errors.New("db down")})
+
+	assert.ErrorContains(t, callErr(t, tool, `{"order":"`+orderUUID+`"}`), "db down")
 }

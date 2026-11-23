@@ -20,10 +20,11 @@ func TestReadTools_everyToolHasAUniqueName(t *testing.T) {
 		assert.False(t, seen[name], "duplicate tool %q", name)
 		seen[name] = true
 	}
-	assert.ElementsMatch(t, []string{
+	// The core tools; each area's wiring test checks its own (tools_*_test.go).
+	assert.Subset(t, keys(seen), []string{
 		"search", "get_sales_order", "list_sales_orders", "get_quote", "list_quotes", "get_product",
 		"list_sales_channels", "list_product_channel_listings", "get_tenant_settings", "get_company_profile", "list_tax_rates",
-	}, keys(seen))
+	})
 }
 
 func keys(m map[string]bool) []string {

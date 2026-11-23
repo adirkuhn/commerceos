@@ -8,6 +8,7 @@ import (
 
 	"github.com/adirkuhn/commerceos/application/assistant/tools"
 	appchannels "github.com/adirkuhn/commerceos/application/channels"
+	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
 	appinventory "github.com/adirkuhn/commerceos/application/inventory"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
@@ -37,9 +38,9 @@ func ReadTools(db *gorm.DB) []assistant.Tool {
 		tools.NewSearchTool(search),
 		tools.NewGetSalesOrderTool(
 			appoms.NewGetSalesOrderUseCase(db, salesOrderRepo, repositories.NewSalesOrderLineItemRepo(db), repositories.NewSalesOrderPaymentRepo(db)),
-			search),
+			search).WithOrigins(appintegrations.NewListSalesOrderOriginsUseCase(db, repositories.NewSalesOrderOriginRepo(db))),
 		tools.NewListSalesOrdersTool(appoms.NewListSalesOrdersUseCase(db, salesOrderRepo, settingsRepo)),
-		tools.NewGetQuoteTool(appquotes.NewGetQuoteUseCase(db, quoteRepo)),
+		tools.NewGetQuoteTool(appquotes.NewGetQuoteUseCase(db, quoteRepo), appquotes.NewListQuotesUseCase(db, quoteRepo)),
 		tools.NewListQuotesTool(appquotes.NewListQuotesUseCase(db, quoteRepo)),
 		tools.NewGetProductTool(
 			apppms.NewGetProductUseCase(db, productRepo, repositories.NewVariantRepo(db), repositories.NewSKURepo(db)),

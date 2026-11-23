@@ -9,6 +9,7 @@ import (
 
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	"github.com/adirkuhn/commerceos/domain/assistant"
+	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 )
 
@@ -33,14 +34,26 @@ type salesOrderLister interface {
 	Execute(ctx context.Context, in appoms.ListSalesOrdersInput) (*appoms.ListSalesOrdersResult, error)
 }
 
+type salesOrderOriginLister interface {
+	Execute(ctx context.Context, salesOrderIDs []string) (map[string]integrationsDomain.SalesOrderOrigin, error)
+}
+
 // GetSalesOrderTool reads one order by id or by its human order number.
 type GetSalesOrderTool struct {
-	get    salesOrderGetter
-	search globalSearcher
+	get     salesOrderGetter
+	resolve orderResolver
+	origins salesOrderOriginLister
 }
 
 func NewGetSalesOrderTool(get salesOrderGetter, search globalSearcher) *GetSalesOrderTool {
-	return &GetSalesOrderTool{get: get, search: search}
+	return &GetSalesOrderTool{get: get, resolve: orderResolver{search: search}}
+}
+
+// WithOrigins adds where the order came from (channel, external order
+// number) -- since COM-15 that lives beside the order, not on it.
+func (t *GetSalesOrderTool) WithOrigins(origins salesOrderOriginLister) *GetSalesOrderTool {
+	t.origins = origins
+	return t
 }
 
 func (t *GetSalesOrderTool) Definition() assistant.ToolDefinition {
@@ -53,32 +66,41 @@ func (t *GetSalesOrderTool) Definition() assistant.ToolDefinition {
 }
 
 type orderView struct {
-	ID                      string          `json:"id"`
-	Number                  string          `json:"number"`
-	Status                  string          `json:"status"`
-	Customer                orderCustomer   `json:"customer"`
-	CustomerID              string          `json:"customer_id,omitempty"`
-	QuoteID                 string          `json:"quote_id,omitempty"`
-	ShippingAddress         string          `json:"shipping_address,omitempty"`
-	CustomerNote            string          `json:"customer_note,omitempty"`
-	Lines                   []orderLineView `json:"lines"`
-	CurrencyCode            string          `json:"currency_code"`
-	DiscountTotalMinorUnits int64           `json:"discount_total_minor_units"`
-	ShippingTotalMinorUnits int64           `json:"shipping_total_minor_units"`
-	TaxTotalMinorUnits      int64           `json:"tax_total_minor_units"`
-	TotalMinorUnits         int64           `json:"total_minor_units"`
-	CouponCode              string          `json:"coupon_code,omitempty"`
-	PaymentMethod           string          `json:"payment_method,omitempty"`
-	DatePaid                string          `json:"date_paid,omitempty"`
-	DateCompleted           string          `json:"date_completed,omitempty"`
-	ShippingMethod          string          `json:"shipping_method,omitempty"`
-	ShipByDate              string          `json:"ship_by_date,omitempty"`
-	Packed                  bool            `json:"packed"`
-	Fulfilled               bool            `json:"fulfilled"`
-	NeedsStockReview        bool            `json:"needs_stock_review"`
-	NeedsSKUReview          bool            `json:"needs_sku_review"`
-	OccurredAt              string          `json:"occurred_at"`
-	UpdatedAt               string          `json:"updated_at"`
+	ID                      string           `json:"id"`
+	Number                  string           `json:"number"`
+	Status                  string           `json:"status"`
+	Customer                orderCustomer    `json:"customer"`
+	CustomerID              string           `json:"customer_id,omitempty"`
+	Origin                  *orderOriginView `json:"origin,omitempty"`
+	QuoteID                 string           `json:"quote_id,omitempty"`
+	ShippingAddress         string           `json:"shipping_address,omitempty"`
+	CustomerNote            string           `json:"customer_note,omitempty"`
+	Lines                   []orderLineView  `json:"lines"`
+	CurrencyCode            string           `json:"currency_code"`
+	DiscountTotalMinorUnits int64            `json:"discount_total_minor_units"`
+	ShippingTotalMinorUnits int64            `json:"shipping_total_minor_units"`
+	TaxTotalMinorUnits      int64            `json:"tax_total_minor_units"`
+	TotalMinorUnits         int64            `json:"total_minor_units"`
+	CouponCode              string           `json:"coupon_code,omitempty"`
+	PaymentMethod           string           `json:"payment_method,omitempty"`
+	DatePaid                string           `json:"date_paid,omitempty"`
+	DateCompleted           string           `json:"date_completed,omitempty"`
+	ShippingMethod          string           `json:"shipping_method,omitempty"`
+	ShipByDate              string           `json:"ship_by_date,omitempty"`
+	Packed                  bool             `json:"packed"`
+	Fulfilled               bool             `json:"fulfilled"`
+	NeedsStockReview        bool             `json:"needs_stock_review"`
+	NeedsSKUReview          bool             `json:"needs_sku_review"`
+	OccurredAt              string           `json:"occurred_at"`
+	UpdatedAt               string           `json:"updated_at"`
+}
+
+// orderOriginView is where an order came from. The shop's order key is
+// left out: it's a credential-like reference, not something to show.
+type orderOriginView struct {
+	Source          string `json:"source"`
+	ConnectionID    string `json:"connection_id,omitempty"`
+	ExternalOrderID string `json:"external_order_id,omitempty"`
 }
 
 type orderCustomer struct {
@@ -106,31 +128,52 @@ func (t *GetSalesOrderTool) Call(ctx context.Context, raw json.RawMessage) (stri
 	if err := required("order", args.Order); err != nil {
 		return "", err
 	}
-	id := strings.TrimSpace(args.Order)
-	if !uuidPattern.MatchString(id) {
-		found, err := t.idForNumber(ctx, id)
-		if err != nil {
-			return "", err
-		}
-		id = found
+	id, err := t.resolve.id(ctx, args.Order)
+	if err != nil {
+		return "", err
 	}
 	res, err := t.get.Execute(ctx, id)
 	if err != nil {
 		return "", err
 	}
-	return toJSON(toOrderView(res))
+	view := toOrderView(res)
+	if t.origins != nil {
+		origins, err := t.origins.Execute(ctx, []string{res.SalesOrder.ID})
+		if err != nil {
+			return "", err
+		}
+		if o, ok := origins[res.SalesOrder.ID]; ok {
+			view.Origin = &orderOriginView{Source: string(o.Origin), ConnectionID: deref(o.ConnectionID), ExternalOrderID: o.ExternalOrderID}
+		}
+	}
+	return toJSON(view)
+}
+
+// orderResolver turns what the model passed -- an order id or the number
+// the shop shows -- into the order's id.
+type orderResolver struct{ search globalSearcher }
+
+func (r orderResolver) id(ctx context.Context, ref string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if uuidPattern.MatchString(ref) {
+		return ref, nil
+	}
+	return r.idForNumber(ctx, ref)
 }
 
 // idForNumber resolves an order number through search, accepting only an
 // exact (case-insensitive) number match -- search is fuzzy, and the model
 // must never read a different order than the one asked for.
-func (t *GetSalesOrderTool) idForNumber(ctx context.Context, number string) (string, error) {
+func (r orderResolver) idForNumber(ctx context.Context, number string) (string, error) {
 	number = strings.TrimPrefix(strings.TrimSpace(number), "#")
-	res, err := t.search.Execute(ctx, number)
+	res, err := r.search.Execute(ctx, number)
 	if err != nil {
 		return "", err
 	}
 	var near []string
+	if res == nil {
+		return "", fmt.Errorf("no order numbered %q", number)
+	}
 	for _, o := range res.SalesOrders {
 		if strings.EqualFold(o.Number, number) {
 			return o.ID, nil

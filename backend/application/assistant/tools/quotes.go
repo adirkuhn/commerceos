@@ -3,6 +3,10 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
 
 	appquotes "github.com/adirkuhn/commerceos/application/quotes"
 	"github.com/adirkuhn/commerceos/domain/assistant"
@@ -17,17 +21,57 @@ type quoteLister interface {
 	Execute(ctx context.Context, in appquotes.ListQuotesInput) (*appquotes.ListQuotesResult, error)
 }
 
-// GetQuoteTool reads one saved B2B quote.
-type GetQuoteTool struct{ get quoteGetter }
+// GetQuoteTool reads one saved B2B quote by id or by its reference.
+type GetQuoteTool struct {
+	get  quoteGetter
+	list quoteLister
+}
 
-func NewGetQuoteTool(get quoteGetter) *GetQuoteTool { return &GetQuoteTool{get: get} }
+func NewGetQuoteTool(get quoteGetter, list quoteLister) *GetQuoteTool {
+	return &GetQuoteTool{get: get, list: list}
+}
 
 func (t *GetQuoteTool) Definition() assistant.ToolDefinition {
 	return assistant.ToolDefinition{
-		Name:        "get_quote",
-		Description: "Read one saved B2B quote -- customer, discount, lines and total -- by its id (from list_quotes).",
-		Parameters:  object(map[string]any{"quote_id": str("The quote id.")}, "quote_id"),
+		Name: "get_quote",
+		Description: "Read one saved B2B quote -- customer, discount, lines and total -- by its id or its reference as the " +
+			"shop shows it (Q-0012, or just 12). To find a quote by name or customer, use list_quotes.",
+		Parameters: object(map[string]any{"quote": str("The quote id (uuid) or reference, e.g. Q-0012.")}, "quote"),
 	}
+}
+
+var quoteReference = regexp.MustCompile(`^(?i)#?\s*q?-?\s*0*(\d+)$`)
+
+// id resolves a reference through list_quotes' search, accepting only the
+// exact number -- search also matches names and other numbers.
+func (t *GetQuoteTool) id(ctx context.Context, ref string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if uuidPattern.MatchString(ref) {
+		return ref, nil
+	}
+	m := quoteReference.FindStringSubmatch(ref)
+	if m == nil {
+		return "", fmt.Errorf("%w: %q is neither a quote id nor a reference like Q-0012 -- use list_quotes to search by name", ErrInvalidArguments, ref)
+	}
+	number, err := strconv.ParseInt(m[1], 10, 64)
+	if err != nil {
+		return "", fmt.Errorf("%w: quote number %q", ErrInvalidArguments, m[1])
+	}
+	res, err := t.list.Execute(ctx, appquotes.ListQuotesInput{Page: 1, PerPage: maxLimit, Search: m[1]})
+	if err != nil {
+		return "", err
+	}
+	var near []string
+	for _, q := range res.Quotes {
+		if q.Number == number {
+			return q.ID, nil
+		}
+		near = append(near, quotes.Reference(q.Number))
+	}
+	if len(near) == 0 {
+		return "", fmt.Errorf("no quote %s", quotes.Reference(number))
+	}
+	return "", fmt.Errorf("no quote %s; similar: %s", quotes.Reference(number), strings.Join(near, ", "))
 }
 
 type quoteCustomerView struct {
@@ -45,21 +89,26 @@ type quoteLineView struct {
 
 func (t *GetQuoteTool) Call(ctx context.Context, raw json.RawMessage) (string, error) {
 	var args struct {
-		QuoteID string `json:"quote_id"`
+		Quote string `json:"quote"`
 	}
 	if err := decode(raw, &args); err != nil {
 		return "", err
 	}
-	if err := required("quote_id", args.QuoteID); err != nil {
+	if err := required("quote", args.Quote); err != nil {
 		return "", err
 	}
-	q, err := t.get.Execute(ctx, args.QuoteID)
+	id, err := t.id(ctx, args.Quote)
+	if err != nil {
+		return "", err
+	}
+	q, err := t.get.Execute(ctx, id)
 	if err != nil {
 		return "", err
 	}
 	view := struct {
 		ID                  string             `json:"id"`
 		Number              int64              `json:"number"`
+		Reference           string             `json:"reference"`
 		Name                string             `json:"name"`
 		Customer            *quoteCustomerView `json:"customer,omitempty"`
 		CurrencyCode        string             `json:"currency_code"`
@@ -69,7 +118,7 @@ func (t *GetQuoteTool) Call(ctx context.Context, raw json.RawMessage) (string, e
 		CreatedAt           string             `json:"created_at"`
 		UpdatedAt           string             `json:"updated_at"`
 	}{
-		ID: q.ID, Number: q.Number, Name: q.Name, CurrencyCode: q.CurrencyCode, DiscountBasisPoints: q.DiscountBasisPoints,
+		ID: q.ID, Number: q.Number, Reference: quotes.Reference(q.Number), Name: q.Name, CurrencyCode: q.CurrencyCode, DiscountBasisPoints: q.DiscountBasisPoints,
 		Lines: make([]quoteLineView, 0, len(q.Lines)), TotalMinorUnits: q.Total(),
 		CreatedAt: formatTime(q.CreatedAt), UpdatedAt: formatTime(q.UpdatedAt),
 	}
