@@ -28,7 +28,7 @@ func (p *NVIDIADocumentParser) WithBaseURL(url string) *NVIDIADocumentParser {
 	return p
 }
 
-// WithModel overrides the default meta/llama-3.3-70b-instruct.
+// WithModel overrides the default openai/gpt-oss-120b.
 func (p *NVIDIADocumentParser) WithModel(model string) *NVIDIADocumentParser {
 	p.chat.setModel(model)
 	return p

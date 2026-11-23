@@ -15,8 +15,12 @@ import (
 
 const (
 	defaultNVIDIABaseURL = "https://integrate.api.nvidia.com/v1"
-	defaultNVIDIAModel   = "meta/llama-3.3-70b-instruct"
+	// defaultNVIDIAModel: strong multi-step tool calling on the free
+	// catalog (late 2026); qwen3-next is the fast fallback.
+	defaultNVIDIAModel = "openai/gpt-oss-120b"
 )
+
+var defaultNVIDIAFallbacks = []string{"qwen/qwen3-next-80b-a3b-instruct"}
 
 // chatCompletionsClient is the shared transport for OpenAI-compatible Chat
 // Completions: every NVIDIA adapter and the OpenAI assistant model. NVIDIA's
@@ -35,10 +39,40 @@ type chatCompletionsClient struct {
 	baseURL        string
 	model          string
 	fallbackModels []string
+	// defaultFallbacks are used when no fallback models are configured.
+	defaultFallbacks []string
+	// reasoningEffort returns the reasoning_effort to send for a model, ""
+	// for none -- only models that understand it get the field.
+	reasoningEffort func(model string) string
 }
 
 func newNVIDIAChat(apiKey string) chatCompletionsClient {
-	return chatCompletionsClient{label: "nvidia", apiKey: apiKey, baseURL: defaultNVIDIABaseURL, model: defaultNVIDIAModel}
+	return chatCompletionsClient{
+		label: "nvidia", apiKey: apiKey, baseURL: defaultNVIDIABaseURL, model: defaultNVIDIAModel,
+		fallbackModels: defaultNVIDIAFallbacks, defaultFallbacks: defaultNVIDIAFallbacks,
+		reasoningEffort: nvidiaReasoningEffort,
+	}
+}
+
+// nvidiaReasoningEffort keeps gpt-oss's thinking short, so the answer (or
+// tool call) fits the token budget; other models get no field, since some
+// reject unknown fields.
+func nvidiaReasoningEffort(model string) string {
+	if strings.HasPrefix(model, "openai/gpt-oss") {
+		return "low"
+	}
+	return ""
+}
+
+// requestOptions are the per-model extra body fields.
+func (c chatCompletionsClient) requestOptions(model string) []option.RequestOption {
+	if c.reasoningEffort == nil {
+		return nil
+	}
+	if effort := c.reasoningEffort(model); effort != "" {
+		return []option.RequestOption{option.WithJSONSet("reasoning_effort", effort)}
+	}
+	return nil
 }
 
 func (c *chatCompletionsClient) setModel(model string) {
@@ -49,8 +83,13 @@ func (c *chatCompletionsClient) setModel(model string) {
 
 // setFallbackModels parses a comma-separated list of models retried, in
 // order, when the current one is rate-limited (the free tier caps requests
-// per minute). Blank entries and the primary model itself are dropped.
+// per minute). Blank entries and the primary model itself are dropped; an
+// empty list means the provider's default fallbacks.
 func (c *chatCompletionsClient) setFallbackModels(commaSeparated string) {
+	if strings.TrimSpace(commaSeparated) == "" {
+		c.fallbackModels = c.defaultFallbacks
+		return
+	}
 	c.fallbackModels = nil
 	for _, m := range strings.Split(commaSeparated, ",") {
 		m = strings.TrimSpace(m)
@@ -98,7 +137,12 @@ func (c chatCompletionsClient) newClient() openai.Client {
 // -- moving on only after HTTP 429, since any other failure (auth, bad
 // request, malformed output) would repeat on every model.
 func (c chatCompletionsClient) withFallback(call func(model string) error) error {
-	models := append([]string{c.model}, c.fallbackModels...)
+	models := []string{c.model}
+	for _, f := range c.fallbackModels {
+		if f != c.model {
+			models = append(models, f)
+		}
+	}
 	var lastErr error
 	for i, model := range models {
 		err := call(model)
@@ -134,7 +178,7 @@ func (c chatCompletionsClient) complete(ctx context.Context, client openai.Clien
 		Messages:    []openai.ChatCompletionMessageParamUnion{openai.UserMessage(prompt)},
 		Temperature: openai.Float(0),
 		MaxTokens:   openai.Int(maxTokens),
-	}, option.WithJSONSet("nvext", map[string]any{"guided_json": schema}))
+	}, append(c.requestOptions(model), option.WithJSONSet("nvext", map[string]any{"guided_json": schema}))...)
 	if err != nil {
 		return "", fmt.Errorf("nvidia: %w", err)
 	}

@@ -24,7 +24,7 @@ func (p *NVIDIAWhatsAppIntentParser) WithBaseURL(url string) *NVIDIAWhatsAppInte
 	return p
 }
 
-// WithModel overrides the default meta/llama-3.3-70b-instruct.
+// WithModel overrides the default openai/gpt-oss-120b.
 func (p *NVIDIAWhatsAppIntentParser) WithModel(model string) *NVIDIAWhatsAppIntentParser {
 	p.chat.setModel(model)
 	return p

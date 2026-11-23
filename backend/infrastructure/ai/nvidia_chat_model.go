@@ -22,7 +22,7 @@ func (m *NVIDIAChatModel) WithBaseURL(url string) *NVIDIAChatModel {
 	return m
 }
 
-// WithModel overrides the default meta/llama-3.3-70b-instruct.
+// WithModel overrides the default openai/gpt-oss-120b.
 func (m *NVIDIAChatModel) WithModel(model string) *NVIDIAChatModel {
 	m.core.chat.setModel(model)
 	return m

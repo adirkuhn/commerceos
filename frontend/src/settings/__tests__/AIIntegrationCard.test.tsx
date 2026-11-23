@@ -76,7 +76,7 @@ describe('AIIntegrationCard', () => {
     await user.click(await screen.findByRole('button', { name: /Add AI provider/ }))
     await user.selectOptions(screen.getByLabelText('Provider'), 'nvidia')
     expect(screen.getByLabelText('API key')).toHaveAttribute('placeholder', 'nvapi-...')
-    expect(screen.getByLabelText(/Model/)).toHaveAttribute('placeholder', 'meta/llama-3.3-70b-instruct')
+    expect(screen.getByLabelText(/Model/)).toHaveAttribute('placeholder', 'openai/gpt-oss-120b')
     await user.type(screen.getByLabelText(/Label/), 'key 2')
     await user.type(screen.getByLabelText('API key'), 'nvapi-x')
     await user.type(screen.getByLabelText(/Fallback models/), 'meta/llama-3.1-8b-instruct')
@@ -87,6 +87,15 @@ describe('AIIntegrationCard', () => {
     }))
     expect(await screen.findByText('key 2 · NVIDIA (free models)')).toBeInTheDocument()
     expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
+  })
+
+  it('hints the default fallback for NVIDIA', async () => {
+    vi.mocked(api.listAIConnections).mockResolvedValue([])
+    const user = userEvent.setup()
+    render(<AIIntegrationCard />)
+    await user.click(await screen.findByRole('button', { name: /Add AI provider/ }))
+    await user.selectOptions(screen.getByLabelText('Provider'), 'nvidia')
+    expect(screen.getByLabelText(/Fallback models/)).toHaveAttribute('placeholder', 'qwen/qwen3-next-80b-a3b-instruct')
   })
 
   it('asks for a server URL instead of a key for Ollama', async () => {

@@ -30,7 +30,7 @@ func (m chatCompletionsModel) next(ctx context.Context, turn assistant.ChatTurn)
 	var reply assistant.ChatReply
 	err := m.chat.withFallback(func(model string) error {
 		params.Model = model
-		resp, err := client.Chat.Completions.New(ctx, params)
+		resp, err := client.Chat.Completions.New(ctx, params, m.chat.requestOptions(model)...)
 		if err != nil {
 			return err
 		}

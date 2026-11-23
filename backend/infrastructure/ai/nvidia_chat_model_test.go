@@ -59,7 +59,7 @@ func TestNVIDIAChatModel_sendsConversationAndToolsAndReturnsToolCalls(t *testing
 	assert.Empty(t, reply.Content)
 	assert.Equal(t, []assistant.ToolCall{{ID: "call_9", Name: "get_sales_order", Arguments: `{"number":"CO-13"}`}}, reply.ToolCalls)
 
-	assert.Equal(t, "meta/llama-3.3-70b-instruct", body["model"])
+	assert.Equal(t, "openai/gpt-oss-120b", body["model"])
 	assert.EqualValues(t, 0, body["temperature"])
 	msgs := body["messages"].([]any)
 	require.Len(t, msgs, 6)
@@ -145,7 +145,7 @@ func TestNVIDIAChatModel_fallsBackOnRateLimit(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "ok", reply.Content)
-	assert.Equal(t, []string{"meta/llama-3.3-70b-instruct", "meta/llama-3.1-8b-instruct"}, models)
+	assert.Equal(t, []string{"openai/gpt-oss-120b", "meta/llama-3.1-8b-instruct"}, models)
 }
 
 func TestNVIDIAChatModel_errorNamesTheModelAndTheProvidersReason(t *testing.T) {
@@ -158,7 +158,75 @@ func TestNVIDIAChatModel_errorNamesTheModelAndTheProvidersReason(t *testing.T) {
 		assistant.ChatTurn{Messages: []assistant.Message{{Role: assistant.RoleUser, Content: "x"}}})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "meta/llama-3.3-70b-instruct")
+	assert.Contains(t, err.Error(), "openai/gpt-oss-120b")
 	assert.Contains(t, err.Error(), "end of life")
 	assert.NotErrorIs(t, err, assistant.ErrModelBusy, "a retired model won't come back by waiting")
+}
+
+func nvidiaBodies(t *testing.T, status func(model string) int) (*httptest.Server, *[]map[string]any) {
+	t.Helper()
+	var bodies []map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		bodies = append(bodies, body)
+		if code := status(body["model"].(string)); code != http.StatusOK {
+			writeJSON(w, code, map[string]any{"error": map[string]any{"message": "rate limited"}})
+			return
+		}
+		writeJSON(w, http.StatusOK, chatCompletion("ok"))
+	}))
+	t.Cleanup(server.Close)
+	return server, &bodies
+}
+
+func TestNVIDIAChatModel_gptOSSReasonsLow(t *testing.T) {
+	server, bodies := nvidiaBodies(t, func(string) int { return http.StatusOK })
+
+	_, err := ai.NewNVIDIAChatModel("k").WithBaseURL(server.URL).Next(context.Background(),
+		assistant.ChatTurn{Messages: []assistant.Message{{Role: assistant.RoleUser, Content: "x"}}})
+
+	require.NoError(t, err)
+	assert.Equal(t, "openai/gpt-oss-120b", (*bodies)[0]["model"])
+	assert.Equal(t, "low", (*bodies)[0]["reasoning_effort"], "short thinking keeps the answer inside the token budget")
+}
+
+func TestNVIDIAChatModel_otherModelsGetNoReasoningEffort(t *testing.T) {
+	server, bodies := nvidiaBodies(t, func(string) int { return http.StatusOK })
+
+	_, err := ai.NewNVIDIAChatModel("k").WithBaseURL(server.URL).WithModel("qwen/qwen3-next-80b-a3b-instruct").
+		Next(context.Background(), assistant.ChatTurn{Messages: []assistant.Message{{Role: assistant.RoleUser, Content: "x"}}})
+
+	require.NoError(t, err)
+	assert.NotContains(t, (*bodies)[0], "reasoning_effort", "models that don't know it may reject it")
+}
+
+func TestNVIDIAChatModel_defaultFallbackIsQwenWhenNoneIsSet(t *testing.T) {
+	server, bodies := nvidiaBodies(t, func(model string) int {
+		if model == "openai/gpt-oss-120b" {
+			return http.StatusTooManyRequests
+		}
+		return http.StatusOK
+	})
+
+	_, err := ai.NewNVIDIAChatModel("k").WithBaseURL(server.URL).WithFallbackModels("").
+		Next(context.Background(), assistant.ChatTurn{Messages: []assistant.Message{{Role: assistant.RoleUser, Content: "x"}}})
+
+	require.NoError(t, err)
+	require.Len(t, *bodies, 2)
+	assert.Equal(t, "qwen/qwen3-next-80b-a3b-instruct", (*bodies)[1]["model"])
+}
+
+func TestNVIDIAWhatsAppIntentParser_gptOSSReasonsLow(t *testing.T) {
+	var body map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		writeJSON(w, http.StatusOK, chatCompletion(`{"command":"UNKNOWN","product_query":""}`))
+	}))
+	defer server.Close()
+
+	_, err := ai.NewNVIDIAWhatsAppIntentParser("k").WithBaseURL(server.URL).ParseIntent(context.Background(), "oi")
+
+	require.NoError(t, err)
+	assert.Equal(t, "low", body["reasoning_effort"])
 }
