@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	appassistant "github.com/adirkuhn/commerceos/application/assistant"
 	appintegrations "github.com/adirkuhn/commerceos/application/integrations"
+	"github.com/adirkuhn/commerceos/infrastructure/assistanttools"
 	"log"
 	"os/signal"
 	"strings"
@@ -530,6 +532,13 @@ func main() {
 	recoverOrphanedImportJobs(ctx, db, importJobRepo)
 	recoverOrphanedDocumentParsingJobs(ctx, db, parsingJobRepo)
 	recoverOrphanedReceivingParsingJobs(ctx, db, receivingJobRepo)
+
+	assistantRequests, assistantMessages := repositories.NewAssistantRequestRepo(db), repositories.NewAssistantMessageRepo(db)
+	processAssistantRequestUC := appassistant.NewProcessRequestUseCase(db, assistantRequests, assistantMessages,
+		ai.NewAssistantModelResolver(db, aiConnRepo, cfg.IntegrationsEncryptionSecret), assistanttools.ReadTools(db), outboxRepo, time.Now)
+	go runAssistantWorker(ctx,
+		appassistant.NewProcessDueRequestsUseCase(db, assistantRequests, processAssistantRequestUC, time.Now, assistantBatchSize),
+		appassistant.NewRequeueStaleRequestsUseCase(db, assistantRequests, time.Now), assistantPollInterval)
 
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
