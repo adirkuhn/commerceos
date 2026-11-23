@@ -17,9 +17,13 @@ var (
 	ProviderWebhookDeleted = defineAction("integrations.provider_webhook.deleted",
 		"A provider webhook subscription was removed. data: connection_id, provider.")
 	AIConnectionConnected = defineAction("integrations.ai_connection.connected",
-		"The tenant's AI provider was connected or switched. data: provider, model, base_url, fallback_models.")
+		"An AI provider was added to the tenant's ordered AI connections. data: provider, model, base_url, fallback_models, label, position, enabled.")
+	AIConnectionUpdated = defineAction("integrations.ai_connection.updated",
+		"An AI connection's settings changed (changes: provider, model, base_url, fallback_models, label, enabled; api_key_changed when a new key was saved -- never the key).")
 	AIConnectionDisconnected = defineAction("integrations.ai_connection.disconnected",
-		"The tenant's AI provider connection was removed.")
+		"An AI connection was removed from the tenant's list. data: provider.")
+	AIConnectionsReordered = defineAction("integrations.ai_connection.reordered",
+		"The order AI features try the tenant's AI connections in changed. entity_id is the tenant. data: order (connection ids, first tried first).")
 	MoneybirdSettingsUpdated = defineAction("integrations.moneybird_settings.updated",
 		"A Moneybird connection's settings changed (changes: administration_id, default_ledger_account_id, auto_sync, tax_rates, payment_methods, guest_contact_id). entity_id is the connection.")
 	MoneybirdDocumentSynced = defineAction("integrations.moneybird_document.synced",

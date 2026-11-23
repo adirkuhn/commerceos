@@ -12,14 +12,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/adirkuhn/commerceos/application/integrations/mocks"
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	"github.com/adirkuhn/commerceos/infrastructure/ai"
 	"github.com/adirkuhn/commerceos/internal/crypto"
 )
 
 func TestWhatsAppIntentParserResolver_returnsNilWhenNotConfigured(t *testing.T) {
-	repo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) { return nil, nil }}
+	repo := repoOf(func(_ context.Context) (*integrationsDomain.AIConnection, error) { return nil, nil })
 	resolver := ai.NewWhatsAppIntentParserResolver(newMockGormDB(t), repo, "test-secret")
 
 	parser, err := resolver.Resolve(context.Background())
@@ -42,9 +41,9 @@ func TestWhatsAppIntentParserResolver_buildsCorrectAdapterPerProvider(t *testing
 	}
 	for _, tc := range cases {
 		t.Run(string(tc.provider), func(t *testing.T) {
-			repo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
+			repo := repoOf(func(_ context.Context) (*integrationsDomain.AIConnection, error) {
 				return &integrationsDomain.AIConnection{Provider: tc.provider, BaseURL: tc.baseURL}, nil
-			}}
+			})
 			resolver := ai.NewWhatsAppIntentParserResolver(newMockGormDB(t), repo, "test-secret")
 
 			parser, err := resolver.Resolve(context.Background())
@@ -76,12 +75,12 @@ func TestWhatsAppIntentParserResolver_geminiWiresFallbackModelsFromConnection(t 
 
 	encryptedKey, err := crypto.Encrypt("test-secret", "test-api-key")
 	require.NoError(t, err)
-	repo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
+	repo := repoOf(func(_ context.Context) (*integrationsDomain.AIConnection, error) {
 		return &integrationsDomain.AIConnection{
 			Provider: integrationsDomain.AIProviderGemini, BaseURL: server.URL, APIKeyEncrypted: encryptedKey,
 			Model: "primary-model", FallbackModels: "fallback-model",
 		}, nil
-	}}
+	})
 	resolver := ai.NewWhatsAppIntentParserResolver(newMockGormDB(t), repo, "test-secret")
 
 	parser, err := resolver.Resolve(context.Background())
@@ -95,9 +94,9 @@ func TestWhatsAppIntentParserResolver_geminiWiresFallbackModelsFromConnection(t 
 }
 
 func TestWhatsAppIntentParserResolver_propagatesRepoError(t *testing.T) {
-	repo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
+	repo := repoOf(func(_ context.Context) (*integrationsDomain.AIConnection, error) {
 		return nil, errors.New("db down")
-	}}
+	})
 	resolver := ai.NewWhatsAppIntentParserResolver(newMockGormDB(t), repo, "test-secret")
 
 	_, err := resolver.Resolve(context.Background())
@@ -107,9 +106,9 @@ func TestWhatsAppIntentParserResolver_propagatesRepoError(t *testing.T) {
 }
 
 func TestWhatsAppIntentParserResolver_propagatesUnsupportedProvider(t *testing.T) {
-	repo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
+	repo := repoOf(func(_ context.Context) (*integrationsDomain.AIConnection, error) {
 		return &integrationsDomain.AIConnection{Provider: integrationsDomain.AIProvider("deepseek")}, nil
-	}}
+	})
 	resolver := ai.NewWhatsAppIntentParserResolver(newMockGormDB(t), repo, "test-secret")
 
 	_, err := resolver.Resolve(context.Background())
@@ -131,11 +130,11 @@ func TestWhatsAppIntentParserResolver_wiresNVIDIAFallbackModels(t *testing.T) {
 	}))
 	defer server.Close()
 
-	repo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
+	repo := repoOf(func(_ context.Context) (*integrationsDomain.AIConnection, error) {
 		return &integrationsDomain.AIConnection{
 			Provider: integrationsDomain.AIProviderNVIDIA, BaseURL: server.URL, FallbackModels: "meta/llama-3.1-8b-instruct",
 		}, nil
-	}}
+	})
 
 	parser, err := ai.NewWhatsAppIntentParserResolver(newMockGormDB(t), repo, "test-secret").Resolve(context.Background())
 	require.NoError(t, err)

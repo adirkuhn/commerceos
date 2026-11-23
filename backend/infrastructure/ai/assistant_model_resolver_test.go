@@ -19,7 +19,7 @@ import (
 
 func assistantResolverFor(t *testing.T, conn *integrationsDomain.AIConnection) *ai.AssistantModelResolver {
 	t.Helper()
-	repo := &mocks.AIConnectionRepo{GetFn: func(context.Context) (*integrationsDomain.AIConnection, error) { return conn, nil }}
+	repo := repoOf(func(context.Context) (*integrationsDomain.AIConnection, error) { return conn, nil })
 	return ai.NewAssistantModelResolver(newMockGormDB(t), repo, "test-secret")
 }
 
@@ -86,4 +86,74 @@ func TestAssistantModelResolver_passesTheDecryptedKeyAndModel(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "Bearer sk-real", auth)
 	assert.Equal(t, "gpt-5-mini", model)
+}
+
+func listRepo(conns ...integrationsDomain.AIConnection) *mocks.AIConnectionRepo {
+	return &mocks.AIConnectionRepo{ListFn: func(context.Context) ([]integrationsDomain.AIConnection, error) { return conns, nil }}
+}
+
+func TestAssistantModelResolver_routesToTheNextConnectionOnAnyFailure(t *testing.T) {
+	var hits []string
+	failing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits = append(hits, "first")
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": map[string]any{"message": "invalid api key"}})
+	}))
+	defer failing.Close()
+	working := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits = append(hits, "second")
+		writeJSON(w, http.StatusOK, chatCompletion("from the second"))
+	}))
+	defer working.Close()
+	disabled := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits = append(hits, "disabled")
+		writeJSON(w, http.StatusOK, chatCompletion("never"))
+	}))
+	defer disabled.Close()
+
+	repo := listRepo(
+		integrationsDomain.AIConnection{Position: 0, Enabled: false, Provider: integrationsDomain.AIProviderNVIDIA, BaseURL: disabled.URL},
+		integrationsDomain.AIConnection{Position: 1, Enabled: true, Provider: integrationsDomain.AIProviderNVIDIA, BaseURL: failing.URL, Label: "key 1"},
+		integrationsDomain.AIConnection{Position: 2, Enabled: true, Provider: integrationsDomain.AIProviderOpenAI, BaseURL: working.URL},
+	)
+	model, err := ai.NewAssistantModelResolver(newMockGormDB(t), repo, "test-secret").Resolve(context.Background())
+	require.NoError(t, err)
+
+	reply, err := model.Next(context.Background(), assistant.ChatTurn{Messages: []assistant.Message{{Role: assistant.RoleUser, Content: "hi"}}})
+
+	require.NoError(t, err)
+	assert.Equal(t, "from the second", reply.Content)
+	assert.Equal(t, []string{"first", "second"}, hits, "a disabled connection is skipped; a bad key moves on")
+}
+
+func TestAssistantModelResolver_allFailingWithOneBusyKeepsTheRequestQueued(t *testing.T) {
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": map[string]any{"message": "invalid api key"}})
+	}))
+	defer bad.Close()
+	busy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusTooManyRequests, map[string]any{"error": map[string]any{"message": "quota"}})
+	}))
+	defer busy.Close()
+	repo := listRepo(
+		integrationsDomain.AIConnection{Position: 0, Enabled: true, Provider: integrationsDomain.AIProviderOpenAI, BaseURL: bad.URL},
+		integrationsDomain.AIConnection{Position: 1, Enabled: true, Provider: integrationsDomain.AIProviderNVIDIA, BaseURL: busy.URL},
+	)
+	model, err := ai.NewAssistantModelResolver(newMockGormDB(t), repo, "test-secret").Resolve(context.Background())
+	require.NoError(t, err)
+
+	_, err = model.Next(context.Background(), assistant.ChatTurn{Messages: []assistant.Message{{Role: assistant.RoleUser, Content: "hi"}}})
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, assistant.ErrModelBusy)
+	assert.Contains(t, err.Error(), "invalid api key")
+	assert.Contains(t, err.Error(), "quota")
+}
+
+func TestAssistantModelResolver_onlyDisabledConnectionsMeansNotConfigured(t *testing.T) {
+	repo := listRepo(integrationsDomain.AIConnection{Enabled: false, Provider: integrationsDomain.AIProviderNVIDIA})
+
+	model, err := ai.NewAssistantModelResolver(newMockGormDB(t), repo, "test-secret").Resolve(context.Background())
+
+	require.NoError(t, err)
+	assert.Nil(t, model)
 }

@@ -181,16 +181,33 @@ type dismissFailedSyncUC interface {
 	Execute(ctx context.Context, syncLogEntryID string) error
 }
 
-type getAIConnectionUC interface {
-	Execute(ctx context.Context) (*integrationsDomain.AIConnection, error)
+type listAIConnectionsUC interface {
+	Execute(ctx context.Context) ([]integrationsDomain.AIConnection, error)
 }
 
-type connectAIProviderUC interface {
-	Execute(ctx context.Context, in appintegrations.ConnectAIProviderInput) (*integrationsDomain.AIConnection, error)
+type createAIConnectionUC interface {
+	Execute(ctx context.Context, in appintegrations.AIConnectionInput) (*integrationsDomain.AIConnection, error)
 }
 
-type disconnectAIConnectionUC interface {
-	Execute(ctx context.Context) error
+type updateAIConnectionUC interface {
+	Execute(ctx context.Context, id string, p appintegrations.AIConnectionPatch) (*integrationsDomain.AIConnection, error)
+}
+
+type deleteAIConnectionUC interface {
+	Execute(ctx context.Context, id string) error
+}
+
+type reorderAIConnectionsUC interface {
+	Execute(ctx context.Context, ids []string) ([]integrationsDomain.AIConnection, error)
+}
+
+// AIConnectionUseCases are the ordered AI connection list's operations.
+type AIConnectionUseCases struct {
+	List    listAIConnectionsUC
+	Create  createAIConnectionUC
+	Update  updateAIConnectionUC
+	Delete  deleteAIConnectionUC
+	Reorder reorderAIConnectionsUC
 }
 
 type listSalesChannelsUC interface {

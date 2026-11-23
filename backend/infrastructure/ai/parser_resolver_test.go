@@ -39,7 +39,7 @@ func newMockGormDB(t *testing.T) *gorm.DB {
 }
 
 func TestParserResolver_returnsNilWhenNotConfigured(t *testing.T) {
-	repo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) { return nil, nil }}
+	repo := repoOf(func(_ context.Context) (*integrationsDomain.AIConnection, error) { return nil, nil })
 	resolver := ai.NewParserResolver(newMockGormDB(t), repo, "test-secret")
 
 	parser, err := resolver.Resolve(context.Background())
@@ -62,9 +62,9 @@ func TestParserResolver_buildsCorrectAdapterPerProvider(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(string(tc.provider), func(t *testing.T) {
-			repo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
+			repo := repoOf(func(_ context.Context) (*integrationsDomain.AIConnection, error) {
 				return &integrationsDomain.AIConnection{Provider: tc.provider, BaseURL: tc.baseURL}, nil
-			}}
+			})
 			resolver := ai.NewParserResolver(newMockGormDB(t), repo, "test-secret")
 
 			parser, err := resolver.Resolve(context.Background())
@@ -92,9 +92,9 @@ func TestParserResolver_decryptsAPIKeyForTheAdapterToUse(t *testing.T) {
 	encryptedKey, err := crypto.Encrypt("test-secret", "sk-real-key")
 	require.NoError(t, err)
 
-	repo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
+	repo := repoOf(func(_ context.Context) (*integrationsDomain.AIConnection, error) {
 		return &integrationsDomain.AIConnection{Provider: integrationsDomain.AIProviderOpenAI, APIKeyEncrypted: encryptedKey, BaseURL: server.URL}, nil
-	}}
+	})
 	resolver := ai.NewParserResolver(newMockGormDB(t), repo, "test-secret")
 
 	parser, err := resolver.Resolve(context.Background())
@@ -106,9 +106,9 @@ func TestParserResolver_decryptsAPIKeyForTheAdapterToUse(t *testing.T) {
 }
 
 func TestParserResolver_propagatesRepoError(t *testing.T) {
-	repo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
+	repo := repoOf(func(_ context.Context) (*integrationsDomain.AIConnection, error) {
 		return nil, errors.New("db down")
-	}}
+	})
 	resolver := ai.NewParserResolver(newMockGormDB(t), repo, "test-secret")
 
 	_, err := resolver.Resolve(context.Background())
@@ -118,9 +118,9 @@ func TestParserResolver_propagatesRepoError(t *testing.T) {
 }
 
 func TestParserResolver_propagatesUnsupportedProvider(t *testing.T) {
-	repo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
+	repo := repoOf(func(_ context.Context) (*integrationsDomain.AIConnection, error) {
 		return &integrationsDomain.AIConnection{Provider: integrationsDomain.AIProvider("deepseek")}, nil
-	}}
+	})
 	resolver := ai.NewParserResolver(newMockGormDB(t), repo, "test-secret")
 
 	_, err := resolver.Resolve(context.Background())
@@ -145,12 +145,12 @@ func TestParserResolver_wiresNVIDIAConnection(t *testing.T) {
 
 	encryptedKey, err := crypto.Encrypt("test-secret", "nvapi-real")
 	require.NoError(t, err)
-	repo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
+	repo := repoOf(func(_ context.Context) (*integrationsDomain.AIConnection, error) {
 		return &integrationsDomain.AIConnection{
 			Provider: integrationsDomain.AIProviderNVIDIA, APIKeyEncrypted: encryptedKey, BaseURL: server.URL,
 			Model: "meta/llama-3.1-405b-instruct", FallbackModels: "meta/llama-3.3-70b-instruct",
 		}, nil
-	}}
+	})
 
 	parser, err := ai.NewParserResolver(newMockGormDB(t), repo, "test-secret").Resolve(context.Background())
 	require.NoError(t, err)
@@ -160,4 +160,18 @@ func TestParserResolver_wiresNVIDIAConnection(t *testing.T) {
 	assert.Equal(t, "Acme", result.SupplierName)
 	assert.Equal(t, []string{"meta/llama-3.1-405b-instruct", "meta/llama-3.3-70b-instruct"}, models)
 	assert.Equal(t, []string{"Bearer nvapi-real", "Bearer nvapi-real"}, auths)
+}
+
+// repoOf serves a single connection (enabled) -- or none when get returns
+// nil -- as the tenant's ordered list.
+func repoOf(get func(context.Context) (*integrationsDomain.AIConnection, error)) *mocks.AIConnectionRepo {
+	return &mocks.AIConnectionRepo{ListFn: func(ctx context.Context) ([]integrationsDomain.AIConnection, error) {
+		c, err := get(ctx)
+		if err != nil || c == nil {
+			return nil, err
+		}
+		cp := *c
+		cp.Enabled = true
+		return []integrationsDomain.AIConnection{cp}, nil
+	}}
 }

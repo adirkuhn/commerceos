@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-253 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+255 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -168,8 +168,10 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
-| `integrations.ai_connection.connected` | action | The tenant's AI provider was connected or switched. data: provider, model, base_url, fallback_models. | envelope |
-| `integrations.ai_connection.disconnected` | action | The tenant's AI provider connection was removed. | envelope |
+| `integrations.ai_connection.connected` | action | An AI provider was added to the tenant's ordered AI connections. data: provider, model, base_url, fallback_models, label, position, enabled. | envelope |
+| `integrations.ai_connection.disconnected` | action | An AI connection was removed from the tenant's list. data: provider. | envelope |
+| `integrations.ai_connection.reordered` | action | The order AI features try the tenant's AI connections in changed. entity_id is the tenant. data: order (connection ids, first tried first). | envelope |
+| `integrations.ai_connection.updated` | action | An AI connection's settings changed (changes: provider, model, base_url, fallback_models, label, enabled; api_key_changed when a new key was saved -- never the key). | envelope |
 | `integrations.connection.connected` | typed | IntegrationConnected is raised when a tenant successfully connects a new third-party integration (e.g. a WooCommerce store). | `IntegrationConnected`: event_id, occurred_at, tenant_id, provider, connection_id |
 | `integrations.connection.disconnected` | action | A third-party connection (WooCommerce, Bol, MyParcel, WhatsApp, ...) was removed. data: provider. | envelope |
 | `integrations.connection.tested` | action | A connection's credentials were tested against the provider (changes: status). data: provider, succeeded. | envelope |

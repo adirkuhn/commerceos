@@ -25,8 +25,8 @@ func TestSetWhatsAppAIParsing_enablesWhenAIConnectionConfigured(t *testing.T) {
 			return nil
 		},
 	}
-	aiConnRepo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
-		return &integrationsDomain.AIConnection{Provider: integrationsDomain.AIProviderGemini}, nil
+	aiConnRepo := &mocks.AIConnectionRepo{ListFn: func(_ context.Context) ([]integrationsDomain.AIConnection, error) {
+		return []integrationsDomain.AIConnection{{Provider: integrationsDomain.AIProviderGemini, Enabled: true}}, nil
 	}}
 	uc := appintegrations.NewSetWhatsAppAIParsingUseCase(newMockGormDB(t), connRepo, aiConnRepo, &eventrecordtest.Outbox{})
 
@@ -40,7 +40,9 @@ func TestSetWhatsAppAIParsing_enablesWhenAIConnectionConfigured(t *testing.T) {
 func TestSetWhatsAppAIParsing_refusesToEnableWithNoAIConnection(t *testing.T) {
 	conn := &integrationsDomain.Connection{ID: "conn-1", Provider: integrationsDomain.ProviderWhatsApp}
 	connRepo := &mocks.ConnectionRepo{FindByIDFn: func(_ context.Context, _ string) (*integrationsDomain.Connection, error) { return conn, nil }}
-	aiConnRepo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) { return nil, nil }}
+	aiConnRepo := &mocks.AIConnectionRepo{ListFn: func(_ context.Context) ([]integrationsDomain.AIConnection, error) {
+		return []integrationsDomain.AIConnection{{Provider: integrationsDomain.AIProviderGemini, Enabled: false}}, nil
+	}}
 	uc := appintegrations.NewSetWhatsAppAIParsingUseCase(newMockGormDB(t), connRepo, aiConnRepo, &eventrecordtest.Outbox{})
 
 	_, err := uc.Execute(context.Background(), "conn-1", true)
@@ -59,7 +61,7 @@ func TestSetWhatsAppAIParsing_disablingNeverChecksAIConnection(t *testing.T) {
 		},
 	}
 	aiConnRepoCalled := false
-	aiConnRepo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
+	aiConnRepo := &mocks.AIConnectionRepo{ListFn: func(_ context.Context) ([]integrationsDomain.AIConnection, error) {
 		aiConnRepoCalled = true
 		return nil, nil
 	}}

@@ -96,20 +96,31 @@ func (m *OutboxRepo) MarkFailed(ctx context.Context, id uint) error {
 // AIConnectionRepo mock
 
 type AIConnectionRepo struct {
-	GetFn    func(ctx context.Context) (*integrations.AIConnection, error)
-	UpsertFn func(ctx context.Context, c *integrations.AIConnection) error
-	DeleteFn func(ctx context.Context) error
+	ListFn   func(ctx context.Context) ([]integrations.AIConnection, error)
+	GetFn    func(ctx context.Context, id string) (*integrations.AIConnection, error)
+	CreateFn func(ctx context.Context, c *integrations.AIConnection) error
+	UpdateFn func(ctx context.Context, c *integrations.AIConnection) error
+	DeleteFn func(ctx context.Context, id string) error
 }
 
-func (m *AIConnectionRepo) Get(ctx context.Context) (*integrations.AIConnection, error) {
-	if m.GetFn == nil {
+func (m *AIConnectionRepo) List(ctx context.Context) ([]integrations.AIConnection, error) {
+	if m.ListFn == nil {
 		return nil, nil
 	}
-	return m.GetFn(ctx)
+	return m.ListFn(ctx)
 }
-func (m *AIConnectionRepo) Upsert(ctx context.Context, c *integrations.AIConnection) error {
-	return m.UpsertFn(ctx, c)
+func (m *AIConnectionRepo) Get(ctx context.Context, id string) (*integrations.AIConnection, error) {
+	if m.GetFn == nil {
+		return nil, integrations.ErrAIConnectionNotFound
+	}
+	return m.GetFn(ctx, id)
 }
-func (m *AIConnectionRepo) Delete(ctx context.Context) error {
-	return m.DeleteFn(ctx)
+func (m *AIConnectionRepo) Create(ctx context.Context, c *integrations.AIConnection) error {
+	return m.CreateFn(ctx, c)
+}
+func (m *AIConnectionRepo) Update(ctx context.Context, c *integrations.AIConnection) error {
+	return m.UpdateFn(ctx, c)
+}
+func (m *AIConnectionRepo) Delete(ctx context.Context, id string) error {
+	return m.DeleteFn(ctx, id)
 }

@@ -23,8 +23,8 @@ type connectionLister interface {
 	Execute(ctx context.Context) ([]integrationsDomain.Connection, error)
 }
 
-type aiConnectionGetter interface {
-	Execute(ctx context.Context) (*integrationsDomain.AIConnection, error)
+type aiConnectionLister interface {
+	Execute(ctx context.Context) ([]integrationsDomain.AIConnection, error)
 }
 
 type syncLogPager interface {
@@ -45,10 +45,10 @@ func hostOf(raw string) string {
 // provider, store and status leave this tool -- never keys or secrets.
 type ListIntegrationConnectionsTool struct {
 	connections connectionLister
-	ai          aiConnectionGetter
+	ai          aiConnectionLister
 }
 
-func NewListIntegrationConnectionsTool(connections connectionLister, ai aiConnectionGetter) *ListIntegrationConnectionsTool {
+func NewListIntegrationConnectionsTool(connections connectionLister, ai aiConnectionLister) *ListIntegrationConnectionsTool {
 	return &ListIntegrationConnectionsTool{connections: connections, ai: ai}
 }
 
@@ -56,7 +56,7 @@ func (t *ListIntegrationConnectionsTool) Definition() assistant.ToolDefinition {
 	return assistant.ToolDefinition{
 		Name: "list_integration_connections",
 		Description: "List the shop's integrations (WooCommerce, Bol, MyParcel, PostNL, WhatsApp, payments, email...) with " +
-			"their store and status (connected/error/disconnected), plus the connected AI provider and model. " +
+			"their store and status (connected/error/disconnected), plus the AI connections (provider, label, model, enabled) in the order AI features try them. " +
 			"Gives connection ids for list_sync_logs.",
 		Parameters: object(map[string]any{}),
 	}
@@ -74,7 +74,9 @@ type connectionView struct {
 
 type aiConnectionView struct {
 	Provider string `json:"provider"`
+	Label    string `json:"label,omitempty"`
 	Model    string `json:"model,omitempty"`
+	Enabled  bool   `json:"enabled"`
 	Status   string `json:"status"`
 }
 
@@ -92,15 +94,15 @@ func (t *ListIntegrationConnectionsTool) Call(ctx context.Context, args json.Raw
 		out[i] = connectionView{ID: c.ID, Provider: string(c.Provider), Store: hostOf(string(c.StoreURL)), Status: string(c.Status),
 			DefaultCurrency: c.DefaultCurrency, ConnectedAt: formatTime(c.CreatedAt), UpdatedAt: formatTime(c.UpdatedAt)}
 	}
-	ai, err := t.ai.Execute(ctx)
+	ais, err := t.ai.Execute(ctx)
 	if err != nil {
 		return "", err
 	}
-	var aiView *aiConnectionView
-	if ai != nil {
-		aiView = &aiConnectionView{Provider: string(ai.Provider), Model: ai.Model, Status: string(ai.Status)}
+	aiViews := make([]aiConnectionView, len(ais))
+	for i, a := range ais {
+		aiViews[i] = aiConnectionView{Provider: string(a.Provider), Label: a.Label, Model: a.Model, Enabled: a.Enabled, Status: string(a.Status)}
 	}
-	return toJSON(map[string]any{"connections": out, "ai": aiView})
+	return toJSON(map[string]any{"connections": out, "ai_connections": aiViews})
 }
 
 // ListSyncLogsTool lists recent product sync results between CommerceOS

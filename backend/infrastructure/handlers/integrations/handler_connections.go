@@ -35,53 +35,6 @@ func (h *Handler) ListConnections(c *gin.Context) {
 	middleware.OK(c, resp)
 }
 
-func (h *Handler) GetAIConnection(c *gin.Context) {
-	conn, err := h.getAIConnection.Execute(c.Request.Context())
-	if err := mapError(c, err); err != nil {
-		return
-	}
-	if conn == nil {
-		middleware.OK(c, nil)
-		return
-	}
-	resp := toGenAIConnection(*conn)
-	middleware.OK(c, &resp)
-}
-
-func (h *Handler) ConnectAIProvider(c *gin.Context) {
-	var req genintegrations.ConnectAIProviderRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
-		return
-	}
-	in := appintegrations.ConnectAIProviderInput{Provider: integrationsDomain.AIProvider(req.Provider)}
-	if req.ApiKey != nil {
-		in.APIKey = *req.ApiKey
-	}
-	if req.BaseUrl != nil {
-		in.BaseURL = *req.BaseUrl
-	}
-	if req.Model != nil {
-		in.Model = *req.Model
-	}
-	if req.FallbackModels != nil {
-		in.FallbackModels = *req.FallbackModels
-	}
-	conn, err := h.connectAIProvider.Execute(c.Request.Context(), in)
-	if err := mapError(c, err); err != nil {
-		return
-	}
-	resp := toGenAIConnection(*conn)
-	middleware.OK(c, &resp)
-}
-
-func (h *Handler) DisconnectAIProvider(c *gin.Context) {
-	if err := mapError(c, h.disconnectAIConnection.Execute(c.Request.Context())); err != nil {
-		return
-	}
-	middleware.OK(c, nil)
-}
-
 func (h *Handler) StartWooConnect(c *gin.Context) {
 	var req genintegrations.StartWooConnectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -357,21 +310,4 @@ func toGenConnection(c integrationsDomain.Connection) genintegrations.Connection
 		WhatsappInstanceName:      whatsappInstanceName,
 		CreatedAt:                 c.CreatedAt,
 	}
-}
-
-func toGenAIConnection(c integrationsDomain.AIConnection) genintegrations.AIConnection {
-	resp := genintegrations.AIConnection{
-		Id: c.ID, Provider: genintegrations.AIProvider(c.Provider),
-		Status: genintegrations.ConnectionStatus(c.Status), CreatedAt: c.CreatedAt,
-	}
-	if c.BaseURL != "" {
-		resp.BaseUrl = &c.BaseURL
-	}
-	if c.Model != "" {
-		resp.Model = &c.Model
-	}
-	if c.FallbackModels != "" {
-		resp.FallbackModels = &c.FallbackModels
-	}
-	return resp
 }

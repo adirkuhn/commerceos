@@ -45,11 +45,11 @@ func (uc *SetWhatsAppAIParsingUseCase) Execute(ctx context.Context, connectionID
 			return integrationsDomain.ErrNotWhatsAppConnection
 		}
 		if enabled {
-			aiConn, err := uc.aiConnRepo.Get(ctx)
+			conns, err := uc.aiConnRepo.List(ctx)
 			if err != nil {
 				return err
 			}
-			if aiConn == nil {
+			if !anyEnabled(conns) {
 				return ErrAIConnectionRequiredForWhatsAppParsing
 			}
 		}
@@ -71,4 +71,13 @@ func (uc *SetWhatsAppAIParsingUseCase) Execute(ctx context.Context, connectionID
 		return nil, fmt.Errorf("setWhatsAppAIParsing: %w", err)
 	}
 	return result, nil
+}
+
+func anyEnabled(conns []integrationsDomain.AIConnection) bool {
+	for _, c := range conns {
+		if c.Enabled {
+			return true
+		}
+	}
+	return false
 }

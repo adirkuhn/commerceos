@@ -30,38 +30,90 @@ paths:
               schema:
                 $ref: '#/components/schemas/ConnectionListResponse'
 
-  /integrations/ai:
+  /integrations/ai-connections:
     get:
-      operationId: getAIConnection
-      summary: Get the tenant's configured AI provider (for procurement document parsing), if any
+      operationId: listAIConnections
+      summary: The tenant's AI connections in routing order
+      description: >-
+        Every AI feature (document parsing, WhatsApp parsing, the assistant)
+        routes through this list: the first enabled connection is tried and
+        any failure moves on to the next.
       responses:
         '200':
           description: ok
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AIConnectionResponse'
+                $ref: '#/components/schemas/AIConnectionListResponse'
     post:
-      operationId: connectAIProvider
-      summary: Configure (or switch) the tenant's AI provider -- overwrites any existing configuration, only one is active at a time
+      operationId: createAIConnection
+      summary: Add an AI connection at the end of the list
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ConnectAIProviderRequest'
+              $ref: '#/components/schemas/CreateAIConnectionRequest'
       responses:
-        '200':
-          description: ok
+        '201':
+          description: created
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AIConnectionResponse'
         '422':
           $ref: '#/components/responses/Error'
+
+  /integrations/ai-connections/order:
+    put:
+      operationId: reorderAIConnections
+      summary: Set the order AI features try the connections in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderAIConnectionsRequest'
+      responses:
+        '200':
+          description: the list in its new order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIConnectionListResponse'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /integrations/ai-connections/{aiConnectionId}:
+    parameters:
+      - name: aiConnectionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      operationId: updateAIConnection
+      summary: Change an AI connection; only the fields sent change
+      description: An empty or missing api_key keeps the stored key. The position changes only through PUT /integrations/ai-connections/order.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAIConnectionRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIConnectionResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
     delete:
-      operationId: disconnectAIProvider
-      summary: Remove the tenant's AI provider configuration
+      operationId: deleteAIConnection
+      summary: Remove an AI connection; the ones after it move up
       responses:
         '200':
           description: ok
@@ -69,6 +121,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
 
   /integrations/sales-channels:
     get:
@@ -1628,11 +1682,15 @@ components:
 
     AIConnection:
       type: object
-      required: [id, provider, status, created_at]
+      required: [id, provider, position, label, enabled, has_api_key, status, created_at]
       description: Never includes the stored API key -- credentials must never round-trip to the frontend.
       properties:
         id: { type: string }
         provider: { $ref: '#/components/schemas/AIProvider' }
+        position: { type: integer, description: 0 is tried first. }
+        label: { type: string, description: Optional name telling two connections apart. }
+        enabled: { type: boolean, description: A disabled connection is skipped. }
+        has_api_key: { type: boolean, description: A key is stored (it is never returned). }
         # Only set for Ollama (self-hosted endpoint) or a proxy/private
         # endpoint for the other providers -- empty means "use the
         # provider's default".
@@ -1642,14 +1700,16 @@ components:
           type: string
           description: >
             Comma-separated model IDs to retry, in order, when model comes
-            back rate-limited (HTTP 429). Consumed by the Gemini and NVIDIA
-            adapters. Empty means no fallback.
+            back rate-limited (HTTP 429) before moving to the next
+            connection. Consumed by the Gemini and NVIDIA adapters. Empty
+            means no fallback.
         status: { $ref: '#/components/schemas/ConnectionStatus' }
         created_at: { type: string, format: date-time }
 
-    ConnectAIProviderRequest:
+    CreateAIConnectionRequest:
       type: object
       required: [provider]
+      additionalProperties: false
       properties:
         provider: { $ref: '#/components/schemas/AIProvider' }
         # Required for every provider except ollama (self-hosted, no key).
@@ -1658,13 +1718,45 @@ components:
         base_url: { type: string }
         model: { type: string }
         fallback_models: { type: string }
+        label: { type: string, maxLength: 80 }
+        enabled: { type: boolean, default: true }
+
+    UpdateAIConnectionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        provider: { $ref: '#/components/schemas/AIProvider' }
+        api_key: { type: string, description: Empty or missing keeps the stored key. }
+        base_url: { type: string }
+        model: { type: string }
+        fallback_models: { type: string }
+        label: { type: string, maxLength: 80 }
+        enabled: { type: boolean }
+
+    ReorderAIConnectionsRequest:
+      type: object
+      required: [ids]
+      additionalProperties: false
+      properties:
+        ids:
+          type: array
+          description: Every connection's id exactly once, first tried first.
+          items: { type: string, format: uuid }
 
     AIConnectionResponse:
       type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/AIConnection' }
+        error: { nullable: true }
+
+    AIConnectionListResponse:
+      type: object
+      required: [data]
       properties:
         data:
-          allOf: [{ $ref: '#/components/schemas/AIConnection' }]
-          nullable: true
+          type: array
+          items: { $ref: '#/components/schemas/AIConnection' }
         error: { nullable: true }
 
     ChannelType:

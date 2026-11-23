@@ -100,8 +100,8 @@ func TestSetWhatsAppTestMode_RecordsChanges(t *testing.T) {
 func TestSetWhatsAppAIParsing_RecordsChanges(t *testing.T) {
 	outbox := &eventrecordtest.Outbox{}
 	repo := connRepoWith(&integrationsDomain.Connection{ID: "conn-1", Provider: integrationsDomain.ProviderWhatsApp})
-	ai := &mocks.AIConnectionRepo{GetFn: func(context.Context) (*integrationsDomain.AIConnection, error) {
-		return &integrationsDomain.AIConnection{ID: "ai-1"}, nil
+	ai := &mocks.AIConnectionRepo{ListFn: func(context.Context) ([]integrationsDomain.AIConnection, error) {
+		return []integrationsDomain.AIConnection{{ID: "ai-1", Enabled: true}}, nil
 	}}
 
 	_, err := appintegrations.NewSetWhatsAppAIParsingUseCase(newMockGormDB(t), repo, ai, outbox).Execute(context.Background(), "conn-1", true)
@@ -150,52 +150,6 @@ func TestTestConnection_RecordsResult(t *testing.T) {
 	e := onlyEvent(t, outbox)
 	assert.Equal(t, "integrations.connection.tested", e.Subject)
 	assert.Equal(t, map[string]any{"provider": "woocommerce", "succeeded": false}, e.Data())
-}
-
-func TestConnectAIProvider_RecordsWithoutTheKey(t *testing.T) {
-	outbox := &eventrecordtest.Outbox{}
-	ai := &mocks.AIConnectionRepo{UpsertFn: func(_ context.Context, c *integrationsDomain.AIConnection) error {
-		c.ID = "ai-1"
-		return nil
-	}}
-
-	_, err := appintegrations.NewConnectAIProviderUseCase(newMockGormDB(t), ai, testEncryptionSecret, outbox).Execute(withTenantCtx("t-1"), appintegrations.ConnectAIProviderInput{
-		Provider: integrationsDomain.AIProviderOpenAI, APIKey: "sk-secret", Model: "gpt-x",
-	})
-
-	require.NoError(t, err)
-	e := onlyEvent(t, outbox)
-	assert.Equal(t, "integrations.ai_connection.connected", e.Subject)
-	assert.Equal(t, "ai-1", e.Payload["entity_id"])
-	assert.Equal(t, map[string]any{"provider": "openai", "model": "gpt-x", "base_url": "", "fallback_models": ""}, e.Data())
-	noSecrets(t, e, "sk-secret")
-}
-
-func TestDisconnectAIConnection_RecordsDisconnected(t *testing.T) {
-	outbox := &eventrecordtest.Outbox{}
-	ai := &mocks.AIConnectionRepo{
-		GetFn:    func(context.Context) (*integrationsDomain.AIConnection, error) { return &integrationsDomain.AIConnection{ID: "ai-1"}, nil },
-		DeleteFn: func(context.Context) error { return nil },
-	}
-
-	require.NoError(t, appintegrations.NewDisconnectAIConnectionUseCase(newMockGormDB(t), ai, outbox).Execute(context.Background()))
-
-	e := onlyEvent(t, outbox)
-	assert.Equal(t, "integrations.ai_connection.disconnected", e.Subject)
-	assert.Equal(t, "ai-1", e.Payload["entity_id"])
-}
-
-// Already disconnected: nothing changed, nothing recorded.
-func TestDisconnectAIConnection_NothingToDisconnectRecordsNothing(t *testing.T) {
-	outbox := &eventrecordtest.Outbox{}
-	ai := &mocks.AIConnectionRepo{
-		GetFn:    func(context.Context) (*integrationsDomain.AIConnection, error) { return nil, nil },
-		DeleteFn: func(context.Context) error { return nil },
-	}
-
-	require.NoError(t, appintegrations.NewDisconnectAIConnectionUseCase(newMockGormDB(t), ai, outbox).Execute(context.Background()))
-
-	assert.Empty(t, outbox.Events)
 }
 
 func TestIntegrationUseCases_FailWhenTheEventCantBeRecorded(t *testing.T) {

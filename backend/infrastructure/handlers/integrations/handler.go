@@ -53,9 +53,7 @@ type Handler struct {
 	retryFailedSync                 retryFailedSyncUC
 	dismissFailedSync               dismissFailedSyncUC
 	resyncProductToChannels         resyncProductToChannelsUC
-	getAIConnection                 getAIConnectionUC
-	connectAIProvider               connectAIProviderUC
-	disconnectAIConnection          disconnectAIConnectionUC
+	aiConnections                   AIConnectionUseCases
 	listSalesChannels               listSalesChannelsUC
 	createSalesChannel              createSalesChannelUC
 	updateSalesChannel              updateSalesChannelUC
@@ -125,9 +123,7 @@ func NewHandler(
 	retryFailedSync retryFailedSyncUC,
 	dismissFailedSync dismissFailedSyncUC,
 	resyncProductToChannels resyncProductToChannelsUC,
-	getAIConnection getAIConnectionUC,
-	connectAIProvider connectAIProviderUC,
-	disconnectAIConnection disconnectAIConnectionUC,
+	aiConnections AIConnectionUseCases,
 	listSalesChannels listSalesChannelsUC,
 	createSalesChannel createSalesChannelUC,
 	updateSalesChannel updateSalesChannelUC,
@@ -196,9 +192,7 @@ func NewHandler(
 		retryFailedSync:                 retryFailedSync,
 		dismissFailedSync:               dismissFailedSync,
 		resyncProductToChannels:         resyncProductToChannels,
-		getAIConnection:                 getAIConnection,
-		connectAIProvider:               connectAIProvider,
-		disconnectAIConnection:          disconnectAIConnection,
+		aiConnections:                   aiConnections,
 		listSalesChannels:               listSalesChannels,
 		createSalesChannel:              createSalesChannel,
 		updateSalesChannel:              updateSalesChannel,
@@ -401,9 +395,13 @@ func Register(
 		appchannels.NewRetryFailedSyncUseCase(db, syncLogRepo, pushProductToWooUC),
 		appchannels.NewDismissFailedSyncUseCase(db, syncLogRepo, repositories.NewOutboxRepository(db)),
 		resyncProductToChannelsUC,
-		appintegrations.NewGetAIConnectionUseCase(db, aiConnRepo),
-		appintegrations.NewConnectAIProviderUseCase(db, aiConnRepo, encryptionSecret, outboxRepo),
-		appintegrations.NewDisconnectAIConnectionUseCase(db, aiConnRepo, outboxRepo),
+		AIConnectionUseCases{
+			List:    appintegrations.NewListAIConnectionsUseCase(db, aiConnRepo),
+			Create:  appintegrations.NewCreateAIConnectionUseCase(db, aiConnRepo, encryptionSecret, outboxRepo),
+			Update:  appintegrations.NewUpdateAIConnectionUseCase(db, aiConnRepo, encryptionSecret, outboxRepo),
+			Delete:  appintegrations.NewDeleteAIConnectionUseCase(db, aiConnRepo, outboxRepo),
+			Reorder: appintegrations.NewReorderAIConnectionsUseCase(db, aiConnRepo, outboxRepo),
+		},
 		appchannels.NewListSalesChannelsUseCase(db, salesChannelRepo),
 		appchannels.NewCreateSalesChannelUseCase(db, salesChannelRepo, connRepo, exchangeRateRepo, channelWarehouseRepo, repositories.NewTenantSettingsRepo(db), repositories.NewOutboxRepository(db)),
 		appchannels.NewUpdateSalesChannelUseCase(db, salesChannelRepo, connRepo, channelWarehouseRepo, repositories.NewOutboxRepository(db)),

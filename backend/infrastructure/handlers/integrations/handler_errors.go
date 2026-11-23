@@ -32,7 +32,8 @@ func mapError(c *gin.Context, err error) error {
 		errors.Is(err, channelsDomain.ErrSyncLogNotFound),
 		errors.Is(err, webhooksDomain.ErrFallbackEventNotFound),
 		errors.Is(err, webhooksDomain.ErrWebhookEventNotFound),
-		errors.Is(err, integrationsDomain.ErrWooProductNotFoundBySKU):
+		errors.Is(err, integrationsDomain.ErrWooProductNotFoundBySKU),
+		errors.Is(err, integrationsDomain.ErrAIConnectionNotFound):
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, webhooksDomain.ErrWebhookEventNotDispatchable):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
@@ -43,6 +44,8 @@ func mapError(c *gin.Context, err error) error {
 	case errors.Is(err, integrationsDomain.ErrProviderNotSupported),
 		errors.Is(err, integrationsDomain.ErrAPIKeyRequired),
 		errors.Is(err, integrationsDomain.ErrBaseURLRequired),
+		errors.Is(err, integrationsDomain.ErrInvalidAIOrder),
+		errors.Is(err, integrationsDomain.ErrAILabelTooLong),
 		errors.Is(err, integrationsDomain.ErrInvalidBolDeliveryCode),
 		errors.Is(err, integrationsDomain.ErrWhatsAppTestPhoneRequired),
 		errors.Is(err, integrationsDomain.ErrNotWhatsAppConnection),

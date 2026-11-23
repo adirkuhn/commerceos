@@ -8,13 +8,10 @@ import (
 
 	integrationsDomain "github.com/adirkuhn/commerceos/domain/integrations"
 	whatsappDomain "github.com/adirkuhn/commerceos/domain/whatsapp"
-	"github.com/adirkuhn/commerceos/internal/crypto"
-	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
 // WhatsAppIntentParserResolver implements whatsapp.AIIntentParserResolver
-// -- same shape as ParserResolver (procurement's), the one place that
-// knows about every adapter.
+// over the tenant's ordered AI connections (see router.go).
 type WhatsAppIntentParserResolver struct {
 	db               *gorm.DB
 	aiConnRepo       integrationsDomain.AIConnectionRepository
@@ -26,59 +23,63 @@ func NewWhatsAppIntentParserResolver(db *gorm.DB, aiConnRepo integrationsDomain.
 }
 
 func (r *WhatsAppIntentParserResolver) Resolve(ctx context.Context) (whatsappDomain.AIIntentParser, error) {
-	var conn *integrationsDomain.AIConnection
-	err := tenant.WithTenant(ctx, r.db, func(ctx context.Context) error {
-		c, err := r.aiConnRepo.Get(ctx)
-		if err != nil {
-			return err
-		}
-		conn = c
-		return nil
-	})
+	conns, err := loadConnections(ctx, r.db, r.aiConnRepo, r.encryptionSecret)
 	if err != nil {
 		return nil, fmt.Errorf("whatsAppIntentParserResolver: %w", err)
 	}
-	if conn == nil {
+	targets := buildTargets(conns, buildIntentParser)
+	switch {
+	case len(targets) == 0 && len(conns) > 0:
+		return nil, fmt.Errorf("whatsAppIntentParserResolver: %w", integrationsDomain.ErrProviderNotSupported)
+	case len(targets) == 0:
 		return nil, nil
+	case len(targets) == 1:
+		return targets[0].target, nil
 	}
+	return routedIntentParser{targets: targets}, nil
+}
 
-	var apiKey string
-	if conn.APIKeyEncrypted != "" {
-		decrypted, err := crypto.Decrypt(r.encryptionSecret, conn.APIKeyEncrypted)
-		if err != nil {
-			return nil, fmt.Errorf("whatsAppIntentParserResolver: decrypt key: %w", err)
-		}
-		apiKey = decrypted
-	}
+// routedIntentParser tries each connection's parser in order.
+type routedIntentParser struct {
+	targets []routeTarget[whatsappDomain.AIIntentParser]
+}
 
-	switch conn.Provider {
+func (p routedIntentParser) ParseIntent(ctx context.Context, text string) (whatsappDomain.ParsedIntent, error) {
+	return route(ctx, p.targets, func(t whatsappDomain.AIIntentParser) (whatsappDomain.ParsedIntent, error) {
+		return t.ParseIntent(ctx, text)
+	})
+}
+
+func buildIntentParser(lc loadedConnection) (whatsappDomain.AIIntentParser, error) {
+	c, key := lc.conn, lc.apiKey
+	switch c.Provider {
 	case integrationsDomain.AIProviderOpenAI:
-		p := NewOpenAIWhatsAppIntentParser(apiKey).WithModel(conn.Model)
-		if conn.BaseURL != "" {
-			p = p.WithBaseURL(conn.BaseURL)
+		p := NewOpenAIWhatsAppIntentParser(key).WithModel(c.Model)
+		if c.BaseURL != "" {
+			p = p.WithBaseURL(c.BaseURL)
 		}
 		return p, nil
 	case integrationsDomain.AIProviderAnthropic:
-		p := NewAnthropicWhatsAppIntentParser(apiKey).WithModel(conn.Model)
-		if conn.BaseURL != "" {
-			p = p.WithBaseURL(conn.BaseURL)
+		p := NewAnthropicWhatsAppIntentParser(key).WithModel(c.Model)
+		if c.BaseURL != "" {
+			p = p.WithBaseURL(c.BaseURL)
 		}
 		return p, nil
 	case integrationsDomain.AIProviderGemini:
-		p := NewGeminiWhatsAppIntentParser(apiKey).WithModel(conn.Model).WithFallbackModels(conn.FallbackModels)
-		if conn.BaseURL != "" {
-			p = p.WithBaseURL(conn.BaseURL)
-		}
-		return p, nil
-	case integrationsDomain.AIProviderNVIDIA:
-		p := NewNVIDIAWhatsAppIntentParser(apiKey).WithModel(conn.Model).WithFallbackModels(conn.FallbackModels)
-		if conn.BaseURL != "" {
-			p = p.WithBaseURL(conn.BaseURL)
+		p := NewGeminiWhatsAppIntentParser(key).WithModel(c.Model).WithFallbackModels(c.FallbackModels)
+		if c.BaseURL != "" {
+			p = p.WithBaseURL(c.BaseURL)
 		}
 		return p, nil
 	case integrationsDomain.AIProviderOllama:
-		return NewOllamaWhatsAppIntentParser(conn.BaseURL).WithModel(conn.Model), nil
+		return NewOllamaWhatsAppIntentParser(c.BaseURL).WithModel(c.Model), nil
+	case integrationsDomain.AIProviderNVIDIA:
+		p := NewNVIDIAWhatsAppIntentParser(key).WithModel(c.Model).WithFallbackModels(c.FallbackModels)
+		if c.BaseURL != "" {
+			p = p.WithBaseURL(c.BaseURL)
+		}
+		return p, nil
 	default:
-		return nil, fmt.Errorf("whatsAppIntentParserResolver: %w", integrationsDomain.ErrProviderNotSupported)
+		return nil, integrationsDomain.ErrProviderNotSupported
 	}
 }

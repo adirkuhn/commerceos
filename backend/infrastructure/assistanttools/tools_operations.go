@@ -38,7 +38,7 @@ func operationsTools(db *gorm.DB) []assistant.Tool {
 		tools.NewListExpiringStockTool(appinventory.NewListExpiringBatchesUseCase(db, batchRepo)),
 		tools.NewListIntegrationConnectionsTool(
 			appintegrations.NewListConnectionsUseCase(db, connRepo),
-			appintegrations.NewGetAIConnectionUseCase(db, repositories.NewAIConnectionRepo(db))),
+			appintegrations.NewListAIConnectionsUseCase(db, repositories.NewAIConnectionRepo(db))),
 		tools.NewListSyncLogsTool(
 			appchannels.NewListAllSyncLogsUseCase(db, syncLogRepo, productRepo, connRepo),
 			appchannels.NewListSyncLogsNeedingAttentionUseCase(db, syncLogRepo, productRepo, connRepo)),

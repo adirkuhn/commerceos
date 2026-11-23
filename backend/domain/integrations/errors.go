@@ -72,6 +72,9 @@ var (
 	// ErrBaseURLRequired guards AIProviderOllama, which has no fixed
 	// default endpoint the way hosted providers do.
 	ErrBaseURLRequired = errs.New("AI_BASE_URL_REQUIRED", "a base URL is required for this provider")
+	// ErrInvalidAIOrder: a reorder must name every AI connection once.
+	ErrInvalidAIOrder = errs.New("AI_INVALID_ORDER", "the new order must list every AI connection exactly once")
+	ErrAILabelTooLong = errs.New("AI_LABEL_TOO_LONG", "a label can be at most 80 characters")
 	// ErrInvalidBolDeliveryCode guards UpdateConnectionSettingsUseCase --
 	// checked against ValidBolDeliveryCodes so a typo is caught at save
 	// time instead of surfacing as an opaque Bol 400 on the next push.

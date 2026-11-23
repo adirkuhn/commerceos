@@ -25,11 +25,11 @@ func (s stubConnections) Execute(context.Context) ([]integrationsDomain.Connecti
 }
 
 type stubAIConnection struct {
-	out *integrationsDomain.AIConnection
+	out []integrationsDomain.AIConnection
 	err error
 }
 
-func (s stubAIConnection) Execute(context.Context) (*integrationsDomain.AIConnection, error) {
+func (s stubAIConnection) Execute(context.Context) ([]integrationsDomain.AIConnection, error) {
 	return s.out, s.err
 }
 
@@ -53,14 +53,17 @@ func TestListIntegrationConnections_neverLeaksCredentials(t *testing.T) {
 			ConsumerKey: "ck_secret", ConsumerSecretEncrypted: "enc", WebhookSecretEncrypted: "whsec",
 			Status: integrationsDomain.StatusError, DefaultCurrency: "EUR", CreatedAt: at, UpdatedAt: at,
 		}}},
-		stubAIConnection{out: &integrationsDomain.AIConnection{Provider: integrationsDomain.AIProviderNVIDIA, APIKeyEncrypted: "enc-key",
-			Model: "meta/llama-3.3-70b-instruct", Status: integrationsDomain.StatusConnected}},
+		stubAIConnection{out: []integrationsDomain.AIConnection{
+			{Provider: integrationsDomain.AIProviderNVIDIA, APIKeyEncrypted: "enc-key", Label: "key 1", Enabled: true,
+				Model: "meta/llama-3.3-70b-instruct", Status: integrationsDomain.StatusConnected},
+			{Provider: integrationsDomain.AIProviderGemini, APIKeyEncrypted: "enc-key", Position: 1, Status: integrationsDomain.StatusConnected},
+		}},
 	)
 	assertStrictDefinition(t, tool, "list_integration_connections")
 
 	raw, err := tool.Call(context.Background(), nil)
 	require.NoError(t, err)
-	for _, secret := range []string{"ck_secret", "enc", "whsec"} {
+	for _, secret := range []string{"ck_secret", "enc", "whsec", "enc-key"} {
 		assert.NotContains(t, raw, `"`+secret+`"`)
 	}
 	out := call(t, tool, `{}`)
@@ -68,14 +71,19 @@ func TestListIntegrationConnections_neverLeaksCredentials(t *testing.T) {
 	assert.Equal(t, "woocommerce", c["provider"])
 	assert.Equal(t, "www.shop.example", c["store"])
 	assert.Equal(t, "error", c["status"])
-	ai := out["ai"].(map[string]any)
-	assert.Equal(t, "nvidia", ai["provider"])
-	assert.Equal(t, "meta/llama-3.3-70b-instruct", ai["model"])
+	ai := out["ai_connections"].([]any)
+	require.Len(t, ai, 2, "every AI connection, in the order AI features try them")
+	first := ai[0].(map[string]any)
+	assert.Equal(t, "nvidia", first["provider"])
+	assert.Equal(t, "key 1", first["label"])
+	assert.Equal(t, "meta/llama-3.3-70b-instruct", first["model"])
+	assert.Equal(t, true, first["enabled"])
+	assert.Equal(t, false, ai[1].(map[string]any)["enabled"])
 }
 
 func TestListIntegrationConnections_noAIAndErrors(t *testing.T) {
 	out := call(t, tools.NewListIntegrationConnectionsTool(stubConnections{}, stubAIConnection{}), `{}`)
-	assert.Nil(t, out["ai"])
+	assert.Empty(t, out["ai_connections"])
 	assert.Empty(t, out["connections"])
 
 	err := callErr(t, tools.NewListIntegrationConnectionsTool(stubConnections{err: errors.New("boom")}, stubAIConnection{}), `{}`)
