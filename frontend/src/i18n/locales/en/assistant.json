@@ -15,6 +15,7 @@
   "conversation": {
     "assistant": "Assistant",
     "back": "All requests",
+    "changesLabel": "Ask for changes",
     "followUpLabel": "Ask a follow-up",
     "lookedUp": "Looked up: {{tool}}",
     "question": "Question",
@@ -38,10 +39,48 @@
     "title": "Requests"
   },
   "notice": {
+    "proposal_confirmed": "You confirmed the proposal.",
+    "proposal_rejected": "You rejected the proposal.",
+    "proposed": "The assistant proposed a change.",
     "too_many_steps": "The assistant needed too many steps without an answer. Add more detail and send it again."
+  },
+  "proposal": {
+    "col": {
+      "lineTotal": "Total",
+      "listPrice": "List price",
+      "product": "Product",
+      "quantity": "Qty",
+      "unitPrice": "Price"
+    },
+    "confirm": "Confirm",
+    "confirming": "Confirming…",
+    "convertTitle": "Convert {{ref}} to a sales order",
+    "createdOrder": "Created order {{ref}}",
+    "createdQuote": "Created quote {{ref}}",
+    "customer": "Customer",
+    "discount": "{{percent}}% discount",
+    "lastError": "Last try failed",
+    "noCustomer": "No customer",
+    "pricesExclTax": "Prices exclude VAT",
+    "pricesInclTax": "Prices include VAT",
+    "quoteTitle": "Proposed quote",
+    "reject": "Reject",
+    "rejectConfirm": "Reject proposal",
+    "rejectMessage": "Nothing is created. You can still reply to ask for something else.",
+    "rejectTitle": "Reject this proposal?",
+    "rejected": "Rejected",
+    "running": "Running…",
+    "shortfallLine": "{{requested}} requested, {{available}} available, {{short}} short",
+    "shortfallTitle": "Not enough stock in this warehouse",
+    "stockCheckedFor": "Stock was checked for {{warehouse}}; it’s checked again for this warehouse when you confirm.",
+    "superseded": "Replaced by your reply",
+    "total": "Total",
+    "unknownProduct": "Product no longer listed",
+    "warehouse": "Warehouse"
   },
   "status": {
     "answered": "Answered",
+    "awaiting_confirmation": "Waiting for your confirmation",
     "cancelled": "Cancelled",
     "needs_input": "Needs your answer",
     "processing": "Working",

@@ -15,6 +15,7 @@
   "conversation": {
     "assistant": "Assistent",
     "back": "Alle vragen",
+    "changesLabel": "Vraag om wijzigingen",
     "followUpLabel": "Stel een vervolgvraag",
     "lookedUp": "Opgezocht: {{tool}}",
     "question": "Vraag",
@@ -38,10 +39,48 @@
     "title": "Vragen"
   },
   "notice": {
+    "proposal_confirmed": "Je hebt het voorstel bevestigd.",
+    "proposal_rejected": "Je hebt het voorstel afgewezen.",
+    "proposed": "De assistent stelde een wijziging voor.",
     "too_many_steps": "De assistent had te veel stappen nodig zonder antwoord. Voeg meer details toe en stuur het opnieuw."
+  },
+  "proposal": {
+    "col": {
+      "lineTotal": "Totaal",
+      "listPrice": "Lijstprijs",
+      "product": "Product",
+      "quantity": "Aantal",
+      "unitPrice": "Prijs"
+    },
+    "confirm": "Bevestigen",
+    "confirming": "Bevestigen…",
+    "convertTitle": "{{ref}} omzetten in een verkooporder",
+    "createdOrder": "Order {{ref}} aangemaakt",
+    "createdQuote": "Offerte {{ref}} aangemaakt",
+    "customer": "Klant",
+    "discount": "{{percent}}% korting",
+    "lastError": "Laatste poging mislukt",
+    "noCustomer": "Geen klant",
+    "pricesExclTax": "Prijzen exclusief btw",
+    "pricesInclTax": "Prijzen inclusief btw",
+    "quoteTitle": "Voorgestelde offerte",
+    "reject": "Afwijzen",
+    "rejectConfirm": "Voorstel afwijzen",
+    "rejectMessage": "Er wordt niets aangemaakt. Je kunt nog antwoorden om iets anders te vragen.",
+    "rejectTitle": "Dit voorstel afwijzen?",
+    "rejected": "Afgewezen",
+    "running": "Bezig…",
+    "shortfallLine": "{{requested}} gevraagd, {{available}} beschikbaar, {{short}} tekort",
+    "shortfallTitle": "Niet genoeg voorraad in dit magazijn",
+    "stockCheckedFor": "De voorraad is gecontroleerd voor {{warehouse}}; bij bevestigen wordt dit magazijn opnieuw gecontroleerd.",
+    "superseded": "Vervangen door je antwoord",
+    "total": "Totaal",
+    "unknownProduct": "Product staat niet meer in de lijst",
+    "warehouse": "Magazijn"
   },
   "status": {
     "answered": "Beantwoord",
+    "awaiting_confirmation": "Wacht op je bevestiging",
     "cancelled": "Geannuleerd",
     "needs_input": "Wacht op je antwoord",
     "processing": "Bezig",

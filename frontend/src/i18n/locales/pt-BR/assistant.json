@@ -15,6 +15,7 @@
   "conversation": {
     "assistant": "Assistente",
     "back": "Todos os pedidos",
+    "changesLabel": "Pedir alterações",
     "followUpLabel": "Faça outra pergunta",
     "lookedUp": "Consultou: {{tool}}",
     "question": "Pergunta",
@@ -38,10 +39,48 @@
     "title": "Pedidos"
   },
   "notice": {
+    "proposal_confirmed": "Você confirmou a proposta.",
+    "proposal_rejected": "Você recusou a proposta.",
+    "proposed": "O assistente propôs uma alteração.",
     "too_many_steps": "O assistente precisou de passos demais sem chegar a uma resposta. Dê mais detalhes e envie de novo."
+  },
+  "proposal": {
+    "col": {
+      "lineTotal": "Total",
+      "listPrice": "Preço de lista",
+      "product": "Produto",
+      "quantity": "Qtd",
+      "unitPrice": "Preço"
+    },
+    "confirm": "Confirmar",
+    "confirming": "Confirmando…",
+    "convertTitle": "Converter {{ref}} em pedido de venda",
+    "createdOrder": "Pedido {{ref}} criado",
+    "createdQuote": "Orçamento {{ref}} criado",
+    "customer": "Cliente",
+    "discount": "{{percent}}% de desconto",
+    "lastError": "A última tentativa falhou",
+    "noCustomer": "Sem cliente",
+    "pricesExclTax": "Preços sem IVA",
+    "pricesInclTax": "Preços com IVA",
+    "quoteTitle": "Orçamento proposto",
+    "reject": "Recusar",
+    "rejectConfirm": "Recusar proposta",
+    "rejectMessage": "Nada é criado. Você ainda pode responder pedindo outra coisa.",
+    "rejectTitle": "Recusar esta proposta?",
+    "rejected": "Recusada",
+    "running": "Executando…",
+    "shortfallLine": "{{requested}} pedidos, {{available}} disponíveis, faltam {{short}}",
+    "shortfallTitle": "Estoque insuficiente neste armazém",
+    "stockCheckedFor": "O estoque foi verificado em {{warehouse}}; será verificado de novo para este armazém ao confirmar.",
+    "superseded": "Substituída pela sua resposta",
+    "total": "Total",
+    "unknownProduct": "Produto não está mais na lista",
+    "warehouse": "Armazém"
   },
   "status": {
     "answered": "Respondido",
+    "awaiting_confirmation": "Aguardando sua confirmação",
     "cancelled": "Cancelado",
     "needs_input": "Aguarda sua resposta",
     "processing": "Trabalhando",

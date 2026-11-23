@@ -483,5 +483,8 @@
   "ORDER_CHANNEL_UNRESOLVED": "Deze bestelling heeft geen koppeling om naar te sturen. Koppel de integratie waar hij vandaan kwam opnieuw.",
   "SALES_ORDER_ORIGIN_INVALID": "De herkomst van de bestelling is ongeldig.",
   "SALES_ORDER_ORIGIN_NOT_FOUND": "Waar deze bestelling vandaan komt is niet bekend.",
-  "EXTERNAL_ORDER_ALREADY_IMPORTED": "Deze externe bestelling is al geïmporteerd."
+  "EXTERNAL_ORDER_ALREADY_IMPORTED": "Deze externe bestelling is al geïmporteerd.",
+  "ASSISTANT_PROPOSAL_NOT_FOUND": "Dit voorstel bestaat niet (meer).",
+  "ASSISTANT_PROPOSAL_NOT_PENDING": "Over dit voorstel is al beslist. Vernieuw om te zien wat er gebeurde.",
+  "ASSISTANT_UNKNOWN_PROPOSAL_KIND": "De assistent stelde iets voor dat hij niet kan uitvoeren."
 }

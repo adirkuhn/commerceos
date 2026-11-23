@@ -8,6 +8,7 @@ const STYLES: Record<AssistantRequestStatus, string> = {
   processing: 'bg-accent/15 text-accent',
   needs_input: 'bg-amber-500/15 text-warning',
   answered: 'bg-green-500/15 text-success',
+  awaiting_confirmation: 'bg-amber-500/15 text-warning',
   cancelled: 'bg-fill text-ink-4',
 }
 

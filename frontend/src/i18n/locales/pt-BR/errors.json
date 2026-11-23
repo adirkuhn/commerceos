@@ -483,5 +483,8 @@
   "ORDER_CHANNEL_UNRESOLVED": "Este pedido não tem integração para onde enviar. Reconecte a integração de onde ele veio.",
   "SALES_ORDER_ORIGIN_INVALID": "A origem do pedido é inválida.",
   "SALES_ORDER_ORIGIN_NOT_FOUND": "A origem deste pedido não é conhecida.",
-  "EXTERNAL_ORDER_ALREADY_IMPORTED": "Este pedido externo já foi importado."
+  "EXTERNAL_ORDER_ALREADY_IMPORTED": "Este pedido externo já foi importado.",
+  "ASSISTANT_PROPOSAL_NOT_FOUND": "Esta proposta não existe (mais).",
+  "ASSISTANT_PROPOSAL_NOT_PENDING": "Esta proposta já foi decidida. Atualize para ver o que aconteceu.",
+  "ASSISTANT_UNKNOWN_PROPOSAL_KIND": "O assistente propôs algo que não sabe fazer."
 }

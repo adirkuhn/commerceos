@@ -1,12 +1,16 @@
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useConfirm } from '../components/common/useConfirm'
 import { useAuth } from '../auth/AuthContext'
 import { useStackNavigation } from '../routing/useStackNavigation'
 import { Conversation } from './Conversation'
 import { ASSISTANT_PATH, canReply, isCancellable, isWorking } from './format'
 import { useAssistantActions } from './hooks/useAssistantActions'
 import { useAssistantRequest } from './hooks/useAssistantRequest'
-import { ReplyBox } from './ReplyBox'
+import { useProposalActions } from './hooks/useProposalActions'
+import { ProposalCard } from './ProposalCard'
+import { ReplyBox, type ReplyMode } from './ReplyBox'
+import type { AssistantRequestStatus } from './types'
 import { StatusChip } from './StatusChip'
 import { useCancelRequest } from './useCancelRequest'
 import { WaitReason } from './WaitReason'
@@ -20,6 +24,25 @@ export function AssistantRequestView({ id }: { id: string }) {
   const detail = useAssistantRequest(token ?? '', id)
   const actions = useAssistantActions(token ?? '')
   const { cancel, confirmDialog } = useCancelRequest(actions, detail.setRequest)
+  const proposals = useProposalActions(token ?? '', id, detail.setDetail)
+  const { confirm: ask, confirmDialog: rejectDialog } = useConfirm()
+
+  async function reject(proposalId: string) {
+    const ok = await ask({ title: t('proposal.rejectTitle'), message: t('proposal.rejectMessage'), confirmLabel: t('proposal.rejectConfirm'), destructive: true })
+    if (ok) await proposals.reject(proposalId)
+  }
+
+  function renderProposal(proposalId: string) {
+    const p = detail.data?.proposals.find(x => x.id === proposalId)
+    if (!p) return null
+    return (
+      <ProposalCard
+        key={p.id} proposal={p} actionable={detail.data?.request.status === 'awaiting_confirmation'}
+        busy={proposals.busyId === p.id} error={proposals.errors[p.id]}
+        onConfirm={warehouseId => proposals.confirm(p.id, warehouseId)} onReject={() => reject(p.id)}
+      />
+    )
+  }
 
   async function send(text: string): Promise<boolean> {
     const out = await actions.reply(id, text)
@@ -50,7 +73,7 @@ export function AssistantRequestView({ id }: { id: string }) {
             )}
           </header>
 
-          <Conversation messages={detail.data.messages} />
+          <Conversation messages={detail.data.messages} renderProposal={renderProposal} />
 
           {isWorking(request.status) && (
             <div className="flex flex-col gap-1 rounded-lg border border-line bg-sunken px-3 py-2">
@@ -63,10 +86,17 @@ export function AssistantRequestView({ id }: { id: string }) {
           )}
 
           {actions.error && <p className="text-xs text-danger">{actions.error}</p>}
-          {canReply(request.status) && <ReplyBox followUp={request.status === 'answered'} busy={actions.busy} onSend={send} />}
+          {canReply(request.status) && <ReplyBox mode={replyMode(request.status)} busy={actions.busy} onSend={send} />}
         </>
       )}
       {confirmDialog}
+      {rejectDialog}
     </div>
   )
+}
+
+function replyMode(status: AssistantRequestStatus): ReplyMode {
+  if (status === 'answered') return 'followUp'
+  if (status === 'awaiting_confirmation') return 'changes'
+  return 'answer'
 }

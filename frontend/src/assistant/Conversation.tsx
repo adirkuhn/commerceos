@@ -1,21 +1,37 @@
 import clsx from 'clsx'
 import { Search } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AssistantMessage } from './types'
 
+// Notices recording a person's decision on a proposal: shown as a short
+// system line, never their English content (that's for the model).
+const DECISION_NOTICES = new Set(['proposal_confirmed', 'proposal_rejected'])
+
 // The request's messages. Everything is rendered as text (never HTML):
-// pasted emails and model output may contain markup.
-export function Conversation({ messages }: { messages: AssistantMessage[] }) {
+// pasted emails and model output may contain markup. renderProposal draws
+// the card for the message that made a proposal.
+export function Conversation({ messages, renderProposal }: {
+  messages: AssistantMessage[]
+  renderProposal?: (proposalId: string) => ReactNode
+}) {
   return (
     <ol className="flex flex-col gap-3">
-      {messages.map(m => <MessageItem key={m.seq} message={m} />)}
+      {messages.map(m => <MessageItem key={m.seq} message={m} renderProposal={renderProposal} />)}
     </ol>
   )
 }
 
-function MessageItem({ message: m }: { message: AssistantMessage }) {
+function MessageItem({ message: m, renderProposal }: { message: AssistantMessage; renderProposal?: (proposalId: string) => ReactNode }) {
   const { t } = useTranslation('assistant')
 
+  if (m.notice === 'proposed' && m.proposal_id && renderProposal) {
+    const card = renderProposal(m.proposal_id)
+    if (card) return card
+  }
+  if (m.notice && DECISION_NOTICES.has(m.notice)) {
+    return <li className="text-2xs text-ink-4 text-center">{t(`notice.${m.notice}`)}</li>
+  }
   if (m.role === 'tool') {
     return (
       <li className="flex items-center gap-1.5 text-2xs text-ink-4 pl-1">

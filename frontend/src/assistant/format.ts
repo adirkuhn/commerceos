@@ -17,12 +17,22 @@ export function isWorking(status: AssistantRequestStatus): boolean {
 
 // Hasn't finished: the user can still cancel it.
 export function isCancellable(status: AssistantRequestStatus): boolean {
-  return isWorking(status) || status === 'needs_input'
+  return isWorking(status) || status === 'needs_input' || status === 'awaiting_confirmation'
 }
 
-// The user answers a question or asks a follow-up.
+// The user answers a question, asks a follow-up, or asks for changes to
+// what the assistant proposed.
 export function canReply(status: AssistantRequestStatus): boolean {
-  return status === 'needs_input' || status === 'answered'
+  return status === 'needs_input' || status === 'answered' || status === 'awaiting_confirmation'
+}
+
+// Where a confirmed proposal's result opens.
+export function quotePath(id: string): string {
+  return `/quotes/${encodeURIComponent(id)}`
+}
+
+export function salesOrderPath(id: string): string {
+  return `/sales-orders/${encodeURIComponent(id)}`
 }
 
 // Matches the backend's RequireRole on /assistant.

@@ -483,5 +483,8 @@
   "ORDER_CHANNEL_UNRESOLVED": "This order has no integration to send to. Reconnect the integration it came from.",
   "SALES_ORDER_ORIGIN_INVALID": "The order's origin is invalid.",
   "SALES_ORDER_ORIGIN_NOT_FOUND": "Where this order came from is not known.",
-  "EXTERNAL_ORDER_ALREADY_IMPORTED": "This external order was already imported."
+  "EXTERNAL_ORDER_ALREADY_IMPORTED": "This external order was already imported.",
+  "ASSISTANT_PROPOSAL_NOT_FOUND": "This proposal doesn’t exist (any more).",
+  "ASSISTANT_PROPOSAL_NOT_PENDING": "This proposal was already decided. Refresh to see what happened.",
+  "ASSISTANT_UNKNOWN_PROPOSAL_KIND": "The assistant proposed something it can’t do."
 }

@@ -62,4 +62,19 @@ describe('assistant api', () => {
     expect(err).toBeInstanceOf(CodedApiError)
     expect(err.code).toBe('ASSISTANT_NOT_CANCELLABLE')
   })
+
+  it('confirms a proposal with the chosen warehouse and rejects one, both returning the detail', async () => {
+    const detail = { request: req, messages: [], proposals: [] }
+    const fetchMock = mockFetch({ data: detail, error: null })
+
+    await expect(api.confirmAssistantProposal('t', 'r-1', 'p-1', { warehouse_id: 'w-2' })).resolves.toEqual(detail)
+    await api.confirmAssistantProposal('t', 'r-1', 'p-1')
+    await api.rejectAssistantProposal('t', 'r-1', 'p-1')
+
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/assistant\/requests\/r-1\/proposals\/p-1\/confirm$/)
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', body: JSON.stringify({ warehouse_id: 'w-2' }) })
+    expect(fetchMock.mock.calls[1][1].body).toBe('{}')
+    expect(fetchMock.mock.calls[2][0]).toMatch(/\/assistant\/requests\/r-1\/proposals\/p-1\/reject$/)
+    expect(fetchMock.mock.calls[2][1].method).toBe('POST')
+  })
 })

@@ -1,6 +1,6 @@
 import { CodedApiError } from '../api/codedApiError'
 import { appEnv } from '../config/appEnv'
-import type { AssistantListQuery, AssistantRequest, AssistantRequestDetail, AssistantRequestList } from './types'
+import type { AssistantListQuery, AssistantRequest, AssistantRequestDetail, AssistantRequestList, ConfirmProposalRequest } from './types'
 
 interface Envelope<T> {
   data: T
@@ -44,4 +44,16 @@ export function replyToAssistantRequest(token: string, id: string, text: string)
 
 export function cancelAssistantRequest(token: string, id: string): Promise<AssistantRequest> {
   return request<AssistantRequest>(`${base()}/${encodeURIComponent(id)}/cancel`, token, { method: 'POST' })
+}
+
+function proposalPath(requestId: string, proposalId: string): string {
+  return `${base()}/${encodeURIComponent(requestId)}/proposals/${encodeURIComponent(proposalId)}`
+}
+
+export function confirmAssistantProposal(token: string, requestId: string, proposalId: string, body: ConfirmProposalRequest = {}): Promise<AssistantRequestDetail> {
+  return request<AssistantRequestDetail>(`${proposalPath(requestId, proposalId)}/confirm`, token, { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function rejectAssistantProposal(token: string, requestId: string, proposalId: string): Promise<AssistantRequestDetail> {
+  return request<AssistantRequestDetail>(`${proposalPath(requestId, proposalId)}/reject`, token, { method: 'POST' })
 }

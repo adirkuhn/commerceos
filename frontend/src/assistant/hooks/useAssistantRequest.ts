@@ -13,6 +13,8 @@ export interface AssistantRequestState {
   // Shows a request returned by reply/cancel right away (and restarts
   // polling when it's queued again) without waiting for the next read.
   setRequest: (request: AssistantRequest) => void
+  // Shows the whole request a proposal decision returned.
+  setDetail: (detail: AssistantRequestDetail) => void
 }
 
 // One request with its conversation, re-read every POLL_INTERVAL_MS while
@@ -56,5 +58,11 @@ export function useAssistantRequest(token: string, id: string): AssistantRequest
     setData(d => (d ? { ...d, request } : d))
   }, [])
 
-  return { data, loading, error, refresh: load, setRequest }
+  const setDetail = useCallback((detail: AssistantRequestDetail) => {
+    latest.current++
+    setData(detail)
+    setError(null)
+  }, [])
+
+  return { data, loading, error, refresh: load, setRequest, setDetail }
 }
