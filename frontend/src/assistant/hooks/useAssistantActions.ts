@@ -1,13 +1,14 @@
 import i18next from 'i18next'
 import { useCallback, useState } from 'react'
 import { apiErrorText } from '../../api/apiErrorText'
-import { cancelAssistantRequest, createAssistantRequest, replyToAssistantRequest } from '../api'
+import { cancelAssistantRequest, createAssistantRequest, replyToAssistantRequest, retryAssistantRequest } from '../api'
 import type { AssistantRequest } from '../types'
 
 export interface AssistantActions {
   create: (text: string) => Promise<AssistantRequest | null>
   reply: (id: string, text: string) => Promise<AssistantRequest | null>
   cancel: (id: string) => Promise<AssistantRequest | null>
+  retry: (id: string) => Promise<AssistantRequest | null>
   busy: boolean
   error: string | null
 }
@@ -34,6 +35,7 @@ export function useAssistantActions(token: string): AssistantActions {
   const create = useCallback((text: string) => run(() => createAssistantRequest(token, text)), [run, token])
   const reply = useCallback((id: string, text: string) => run(() => replyToAssistantRequest(token, id, text)), [run, token])
   const cancel = useCallback((id: string) => run(() => cancelAssistantRequest(token, id)), [run, token])
+  const retry = useCallback((id: string) => run(() => retryAssistantRequest(token, id)), [run, token])
 
-  return { create, reply, cancel, busy, error }
+  return { create, reply, cancel, retry, busy, error }
 }

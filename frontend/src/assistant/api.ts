@@ -46,6 +46,12 @@ export function cancelAssistantRequest(token: string, id: string): Promise<Assis
   return request<AssistantRequest>(`${base()}/${encodeURIComponent(id)}/cancel`, token, { method: 'POST' })
 }
 
+// A request waiting after a failed attempt is tried again now (409 when
+// it isn't waiting).
+export function retryAssistantRequest(token: string, id: string): Promise<AssistantRequest> {
+  return request<AssistantRequest>(`${base()}/${encodeURIComponent(id)}/retry`, token, { method: 'POST' })
+}
+
 function proposalPath(requestId: string, proposalId: string): string {
   return `${base()}/${encodeURIComponent(requestId)}/proposals/${encodeURIComponent(proposalId)}`
 }

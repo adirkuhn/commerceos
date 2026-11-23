@@ -105,6 +105,18 @@ describe('useAssistantRequests', () => {
     expect(result.current.items[0].status).toBe('cancelled')
   })
 
+  it('upsert puts a new chat on top and updates an existing one in place', async () => {
+    vi.mocked(api.listAssistantRequests).mockResolvedValue({ requests: [aRequest({ id: 'r-1' })], next_cursor: null })
+    const { result } = renderHook(() => useAssistantRequests('tok', undefined))
+    await waitFor(() => expect(result.current.items).toHaveLength(1))
+
+    act(() => { result.current.upsert(aRequest({ id: 'r-2', title: 'New' })) })
+    act(() => { result.current.upsert(aRequest({ id: 'r-1', status: 'answered' })) })
+
+    expect(result.current.items.map(r => r.id)).toEqual(['r-2', 'r-1'])
+    expect(result.current.items[1].status).toBe('answered')
+  })
+
   it('surfaces a list error', async () => {
     vi.mocked(api.listAssistantRequests).mockRejectedValue(new Error('network down'))
     const { result } = renderHook(() => useAssistantRequests('tok', undefined))
@@ -139,5 +151,16 @@ describe('useAssistantActions', () => {
     expect(out).toBeNull()
     expect(result.current.error).toBe('Only a request that hasn’t finished can be cancelled.')
     expect(result.current.busy).toBe(false)
+  })
+
+  it('retries a waiting request now', async () => {
+    vi.mocked(api.retryAssistantRequest).mockResolvedValue(aRequest({ next_attempt_at: '2026-11-23T12:00:00Z' }))
+    const { result } = renderHook(() => useAssistantActions('tok'))
+
+    let out: unknown
+    await act(async () => { out = await result.current.retry('r-1') })
+
+    expect(api.retryAssistantRequest).toHaveBeenCalledWith('tok', 'r-1')
+    expect(out).toMatchObject({ id: 'r-1' })
   })
 })

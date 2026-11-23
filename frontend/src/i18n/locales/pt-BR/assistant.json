@@ -6,6 +6,15 @@
     "message": "O assistente para de trabalhar nele e não é possível retomá-lo.",
     "title": "Cancelar este pedido?"
   },
+  "chat": {
+    "actionsFor": "Ações para {{title}}",
+    "empty": "Nenhuma conversa ainda.",
+    "emptyTitle": "Como posso ajudar?",
+    "history": "Conversas",
+    "newChat": "Nova conversa",
+    "retryNow": "Tentar agora",
+    "retrying": "Tentando de novo…"
+  },
   "compose": {
     "label": "Pergunte ou cole…",
     "placeholder": "ex.: Qual é o status do pedido CO-1042? Quando o produto X sincronizou com o Bol pela última vez?",
@@ -13,30 +22,25 @@
     "submit": "Perguntar"
   },
   "conversation": {
-    "assistant": "Assistente",
-    "back": "Todos os pedidos",
+    "cancelledHint": "Esta conversa foi cancelada. Comece uma nova conversa para perguntar de novo.",
     "changesLabel": "Pedir alterações",
     "followUpLabel": "Faça outra pergunta",
-    "lookedUp": "Consultou: {{tool}}",
+    "lookedUpCount_one": "Consultou {{count}} coisa",
+    "lookedUpCount_other": "Consultou {{count}} coisas",
     "question": "Pergunta",
     "queued": "Esperando na fila…",
     "replyLabel": "Sua resposta",
     "replyPlaceholder": "Escreva sua resposta…",
     "send": "Enviar",
     "sending": "Enviando…",
-    "working": "O assistente está trabalhando nisso…",
-    "you": "Você"
+    "thinking": "O assistente está pensando…",
+    "waitHint": "Você pode escrever de novo quando ele responder.",
+    "working": "O assistente está trabalhando nisso…"
   },
   "intro": "Pergunte sobre pedidos, orçamentos, produtos, estoque, canais de venda ou configurações — ou cole o e-mail de um cliente. Cada pedido espera na fila até o seu modelo de IA pegá-lo.",
   "list": {
-    "all": "Todos",
-    "asked": "Enviado",
     "cancel": "Cancelar",
-    "empty": "Nenhum pedido ainda.",
-    "emptyFiltered": "Nenhum pedido com este status.",
-    "filter": "Status",
-    "loadMore": "Carregar mais",
-    "title": "Pedidos"
+    "loadMore": "Carregar mais"
   },
   "notice": {
     "proposal_confirmed": "Você confirmou a proposta.",
@@ -88,10 +92,12 @@
   },
   "title": "Assistente",
   "wait": {
+    "hideDetails": "Ocultar detalhes",
     "model_busy": "O modelo de IA está ocupado ou sem cota. Ele tentará de novo.",
     "model_error": "A última tentativa falhou. Ele tentará de novo.",
     "nextTry": "Próxima tentativa às {{time}}",
     "no_provider": "Nenhum provedor de IA conectado. Conecte um em Configurações › Integrações › IA.",
-    "provider_unsupported": "O provedor de IA conectado não é compatível com o assistente. Escolha outro em Configurações › Integrações › IA."
+    "provider_unsupported": "O provedor de IA conectado não é compatível com o assistente. Escolha outro em Configurações › Integrações › IA.",
+    "showDetails": "Mostrar detalhes"
   }
 }

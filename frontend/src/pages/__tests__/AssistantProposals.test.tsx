@@ -17,6 +17,7 @@ vi.mock('../../auth/AuthContext', () => ({
 vi.mock('../../assistant/api')
 
 beforeEach(() => {
+  vi.mocked(api.listAssistantRequests).mockReset().mockResolvedValue({ requests: [], next_cursor: null })
   vi.mocked(api.getAssistantRequest).mockReset()
   vi.mocked(api.confirmAssistantProposal).mockReset()
   vi.mocked(api.rejectAssistantProposal).mockReset()
@@ -50,7 +51,7 @@ describe('quote proposal', () => {
     expect(within(c).getByTestId('proposal-total')).toHaveTextContent(formatMoney(4500, 'EUR'))
     expect(within(c).queryByText('p-1')).not.toBeInTheDocument()
     expect(within(c).queryByText('s-1')).not.toBeInTheDocument()
-    expect(screen.getByText('Waiting for your confirmation')).toBeInTheDocument()
+    expect(within(screen.getByRole('main')).getByText('Waiting for your confirmation')).toBeInTheDocument()
     expect(screen.getByLabelText('Ask for changes')).toBeInTheDocument()
   })
 
@@ -67,7 +68,8 @@ describe('quote proposal', () => {
     const link = await within(await card()).findByRole('link', { name: 'Created quote Q-0012' })
     expect(link).toHaveAttribute('href', '/quotes/q-1')
     expect(within(await card()).queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument()
-    expect(screen.getByText('You confirmed the proposal.')).toBeInTheDocument()
+    const notice = screen.getByTestId('assistant-notice-3')
+    expect(within(notice).getByRole('link', { name: '✓ Created quote Q-0012' })).toHaveAttribute('href', '/quotes/q-1')
     expect(screen.queryByText('The user confirmed…')).not.toBeInTheDocument()
   })
 
@@ -161,7 +163,7 @@ describe('conversion proposal', () => {
     expect(api.confirmAssistantProposal).toHaveBeenCalledWith('test-token', 'r-1', 'p-2', { warehouse_id: 'w-2' })
     const link = await within(await screen.findByTestId('assistant-proposal-p-2')).findByRole('link', { name: 'Created order CO-40' })
     expect(link).toHaveAttribute('href', '/sales-orders/so-1')
-    await waitFor(() => expect(screen.getByText('Answered')).toBeInTheDocument())
+    await waitFor(() => expect(within(screen.getByRole('main')).getByText('Answered')).toBeInTheDocument())
   })
 })
 

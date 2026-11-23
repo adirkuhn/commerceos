@@ -6,6 +6,15 @@
     "message": "The assistant stops working on it, and it can’t be resumed.",
     "title": "Cancel this request?"
   },
+  "chat": {
+    "actionsFor": "Actions for {{title}}",
+    "empty": "No chats yet.",
+    "emptyTitle": "How can I help?",
+    "history": "Chats",
+    "newChat": "New chat",
+    "retryNow": "Retry now",
+    "retrying": "Retrying…"
+  },
   "compose": {
     "label": "Ask or paste…",
     "placeholder": "e.g. What’s the status of order CO-1042? When did product X last sync to Bol?",
@@ -13,30 +22,25 @@
     "submit": "Ask"
   },
   "conversation": {
-    "assistant": "Assistant",
-    "back": "All requests",
+    "cancelledHint": "This chat was cancelled. Start a new chat to ask again.",
     "changesLabel": "Ask for changes",
     "followUpLabel": "Ask a follow-up",
-    "lookedUp": "Looked up: {{tool}}",
+    "lookedUpCount_one": "Looked up {{count}} thing",
+    "lookedUpCount_other": "Looked up {{count}} things",
     "question": "Question",
     "queued": "Waiting in the queue…",
     "replyLabel": "Your answer",
     "replyPlaceholder": "Write your answer…",
     "send": "Send",
     "sending": "Sending…",
-    "working": "The assistant is working on it…",
-    "you": "You"
+    "thinking": "Assistant is thinking…",
+    "waitHint": "You can write again when it answers.",
+    "working": "The assistant is working on it…"
   },
   "intro": "Ask about orders, quotes, products, stock, sales channels or settings — or paste a customer’s email. Each request waits in the queue until your AI model takes it.",
   "list": {
-    "all": "All",
-    "asked": "Asked",
     "cancel": "Cancel",
-    "empty": "No requests yet.",
-    "emptyFiltered": "No requests with this status.",
-    "filter": "Status",
-    "loadMore": "Load more",
-    "title": "Requests"
+    "loadMore": "Load more"
   },
   "notice": {
     "proposal_confirmed": "You confirmed the proposal.",
@@ -88,10 +92,12 @@
   },
   "title": "Assistant",
   "wait": {
+    "hideDetails": "Hide details",
     "model_busy": "The AI model is busy or out of quota. It will try again.",
     "model_error": "The last attempt failed. It will try again.",
     "nextTry": "Next try at {{time}}",
     "no_provider": "No AI provider is connected. Connect one in Settings › Integrations › AI.",
-    "provider_unsupported": "The connected AI provider isn’t one the assistant supports. Choose another in Settings › Integrations › AI."
+    "provider_unsupported": "The connected AI provider isn’t one the assistant supports. Choose another in Settings › Integrations › AI.",
+    "showDetails": "Show details"
   }
 }

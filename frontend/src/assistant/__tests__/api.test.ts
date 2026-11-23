@@ -35,6 +35,15 @@ describe('assistant api', () => {
     expect(fetchMock.mock.calls[0][0]).toMatch(/\/assistant\/requests$/)
   })
 
+  it('retries with POST on the request', async () => {
+    const fetchMock = mockFetch({ data: req, error: null })
+
+    await expect(api.retryAssistantRequest('t', 'r-1')).resolves.toEqual(req)
+
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/assistant\/requests\/r-1\/retry$/)
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST')
+  })
+
   it('creates and replies with the text body, cancels with POST', async () => {
     const fetchMock = mockFetch({ data: req, error: null })
 

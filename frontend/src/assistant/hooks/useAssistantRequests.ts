@@ -12,6 +12,9 @@ export interface AssistantRequestsState {
   loadMore: () => void
   refresh: () => void
   replace: (request: AssistantRequest) => void
+  // Shows a request in the list: a new chat goes on top, a known one is
+  // updated in place.
+  upsert: (request: AssistantRequest) => void
 }
 
 // The tenant's requests, newest first, optionally one status; "load more"
@@ -54,5 +57,11 @@ export function useAssistantRequests(token: string, status: AssistantRequestStat
     setItems(prev => prev.map(r => (r.id === request.id ? request : r)))
   }, [])
 
-  return { items, loading, error, hasMore: cursor !== null, loadMore, refresh, replace }
+  const upsert = useCallback((request: AssistantRequest) => {
+    setItems(prev => (prev.some(r => r.id === request.id)
+      ? prev.map(r => (r.id === request.id ? request : r))
+      : [request, ...prev]))
+  }, [])
+
+  return { items, loading, error, hasMore: cursor !== null, loadMore, refresh, replace, upsert }
 }
