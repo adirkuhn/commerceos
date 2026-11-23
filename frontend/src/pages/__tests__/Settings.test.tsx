@@ -538,6 +538,30 @@ describe('Settings > Integrations > AI', () => {
     }))
   })
 
+  it('connects NVIDIA with an nvapi key and fallback models', async () => {
+    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
+    vi.mocked(integrationsApi.connectAIProvider).mockResolvedValue({
+      id: 'ai-conn-1', provider: 'nvidia', status: 'connected', created_at: '',
+    })
+
+    renderAt(<Settings />, '/settings')
+    await openIntegrationsSection()
+    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
+    await userEvent.selectOptions(screen.getByLabelText('Provider'), 'nvidia')
+
+    expect(screen.getByRole('option', { name: 'NVIDIA (free models)' })).toBeInTheDocument()
+    expect(screen.getByLabelText('API key')).toHaveAttribute('placeholder', 'nvapi-...')
+    expect(screen.getByLabelText(/Model/)).toHaveAttribute('placeholder', 'meta/llama-3.3-70b-instruct')
+
+    await userEvent.type(screen.getByLabelText('API key'), 'nvapi-test')
+    await userEvent.type(screen.getByLabelText(/Fallback models/), 'meta/llama-3.1-8b-instruct')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(integrationsApi.connectAIProvider).toHaveBeenCalledWith('test-token', {
+      provider: 'nvidia', apiKey: 'nvapi-test', baseUrl: '', model: '', fallbackModels: 'meta/llama-3.1-8b-instruct',
+    }))
+  })
+
   it('prefills fallback models from the existing connection', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
     vi.mocked(integrationsApi.getAIConnection).mockResolvedValue({

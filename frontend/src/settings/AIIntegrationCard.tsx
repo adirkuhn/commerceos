@@ -12,7 +12,22 @@ import { useConfirm } from '../components/common/useConfirm'
 import { STATUS_STYLES } from './IntegrationsSettingsSection'
 import { apiErrorText } from '../api/apiErrorText'
 
-const AI_PROVIDERS: AIProvider[] = ['openai', 'anthropic', 'gemini', 'ollama']
+const AI_PROVIDERS: AIProvider[] = ['openai', 'anthropic', 'gemini', 'ollama', 'nvidia']
+
+// Providers whose free tiers rate-limit hard enough that the adapter
+// retries a list of fallback models on HTTP 429.
+const PROVIDERS_WITH_FALLBACK: ReadonlySet<AIProvider> = new Set<AIProvider>(['gemini', 'nvidia'])
+
+const FALLBACK_PLACEHOLDER: Partial<Record<AIProvider, string>> = {
+  gemini: 'gemini-3.5-flash-lite, gemini-3.1-flash-lite',
+  nvidia: 'meta/llama-3.1-8b-instruct',
+}
+
+const API_KEY_PLACEHOLDER: Partial<Record<AIProvider, string>> = { nvidia: 'nvapi-...' }
+
+// The adapter's built-in default model, shown when it's worth knowing
+// which model an empty field means.
+const DEFAULT_MODEL: Partial<Record<AIProvider, string>> = { nvidia: 'meta/llama-3.3-70b-instruct' }
 
 function providerLabel(t: TFunction<['settings', 'common']>, provider: AIProvider): string {
   switch (provider) {
@@ -20,6 +35,7 @@ function providerLabel(t: TFunction<['settings', 'common']>, provider: AIProvide
     case 'anthropic': return 'Anthropic (Claude)'
     case 'gemini': return 'Google Gemini'
     case 'ollama': return t('ai.ollama')
+    case 'nvidia': return t('ai.nvidia')
   }
 }
 
@@ -150,7 +166,7 @@ export function AIIntegrationCard() {
                     autoFocus
                     value={apiKey}
                     onChange={e => setApiKey(e.target.value)}
-                    placeholder={'sk-...'}
+                    placeholder={API_KEY_PLACEHOLDER[provider] ?? 'sk-...'}
                     className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                 </div>
@@ -179,11 +195,11 @@ export function AIIntegrationCard() {
                   type="text"
                   value={model}
                   onChange={e => setModel(e.target.value)}
-                  placeholder={t('ai.modelPlaceholder')}
+                  placeholder={DEFAULT_MODEL[provider] ?? t('ai.modelPlaceholder')}
                   className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                 />
               </div>
-              {provider === 'gemini' && (
+              {PROVIDERS_WITH_FALLBACK.has(provider) && (
                 <div>
                   <label htmlFor="ai-fallback-models" className="block text-2xs text-ink-4 caps-label mb-1.5">
                     {t('ai.fallbackModels')}
@@ -193,7 +209,7 @@ export function AIIntegrationCard() {
                     type="text"
                     value={fallbackModels}
                     onChange={e => setFallbackModels(e.target.value)}
-                    placeholder={'gemini-3.5-flash-lite, gemini-3.1-flash-lite'}
+                    placeholder={FALLBACK_PLACEHOLDER[provider]}
                     className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
                   />
                   <p className="mt-1.5 text-2xs text-ink-4">

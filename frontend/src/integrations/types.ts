@@ -282,7 +282,7 @@ export interface SyncLogEntry {
   store_url?: string
 }
 
-export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'ollama'
+export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'ollama' | 'nvidia'
 
 export interface AIConnection {
   id: string
