@@ -221,6 +221,15 @@ components:
         name: { type: string }
         arguments: { type: string, description: The JSON arguments the model passed. }
 
+    AssistantNotice:
+      type: string
+      enum: [too_many_steps]
+      description: >-
+        Set instead of content when the app, not the model, wrote the
+        message; show it translated. too_many_steps = the model kept
+        looking things up without answering, so the turn stopped and the
+        user is asked to add detail.
+
     AssistantMessage:
       type: object
       required: [seq, role, content, question, created_at]
@@ -238,10 +247,8 @@ components:
         tool_name: { type: string, nullable: true, description: Set on tool messages. }
         question: { type: boolean, description: The assistant asked the user to clarify. }
         notice:
-          type: string
+          allOf: [{ $ref: '#/components/schemas/AssistantNotice' }]
           nullable: true
-          enum: [too_many_steps]
-          description: Set instead of content when the app wrote the message; show it translated.
         created_at: { type: string, format: date-time }
 
     AssistantRequestDetail:

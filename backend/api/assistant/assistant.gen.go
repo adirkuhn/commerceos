@@ -20,21 +20,6 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// Defines values for AssistantMessageNotice.
-const (
-	TooManySteps AssistantMessageNotice = "too_many_steps"
-)
-
-// Valid indicates whether the value is a known member of the AssistantMessageNotice enum.
-func (e AssistantMessageNotice) Valid() bool {
-	switch e {
-	case TooManySteps:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for AssistantMessageRole.
 const (
 	Assistant AssistantMessageRole = "assistant"
@@ -50,6 +35,21 @@ func (e AssistantMessageRole) Valid() bool {
 	case Tool:
 		return true
 	case User:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AssistantNotice.
+const (
+	TooManySteps AssistantNotice = "too_many_steps"
+)
+
+// Valid indicates whether the value is a known member of the AssistantNotice enum.
+func (e AssistantNotice) Valid() bool {
+	switch e {
+	case TooManySteps:
 		return true
 	default:
 		return false
@@ -110,11 +110,9 @@ func (e AssistantWaitReason) Valid() bool {
 // AssistantMessage defines model for AssistantMessage.
 type AssistantMessage struct {
 	// Content What the user wrote or the model answered. Always empty for tool messages -- raw tool results stay server-side.
-	Content   string    `json:"content"`
-	CreatedAt time.Time `json:"created_at"`
-
-	// Notice Set instead of content when the app wrote the message; show it translated.
-	Notice *AssistantMessageNotice `json:"notice,omitempty"`
+	Content   string           `json:"content"`
+	CreatedAt time.Time        `json:"created_at"`
+	Notice    *AssistantNotice `json:"notice,omitempty"`
 
 	// Question The assistant asked the user to clarify.
 	Question  bool                 `json:"question"`
@@ -126,11 +124,11 @@ type AssistantMessage struct {
 	ToolName *string `json:"tool_name,omitempty"`
 }
 
-// AssistantMessageNotice Set instead of content when the app wrote the message; show it translated.
-type AssistantMessageNotice string
-
 // AssistantMessageRole defines model for AssistantMessageRole.
 type AssistantMessageRole string
+
+// AssistantNotice Set instead of content when the app, not the model, wrote the message; show it translated. too_many_steps = the model kept looking things up without answering, so the turn stopped and the user is asked to add detail.
+type AssistantNotice string
 
 // AssistantRequest defines model for AssistantRequest.
 type AssistantRequest struct {
@@ -434,42 +432,43 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

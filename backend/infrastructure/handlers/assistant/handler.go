@@ -216,7 +216,7 @@ func toGenMessage(m assistant.Message) genassistant.AssistantMessage {
 		out.ToolName = &m.ToolName
 	}
 	if m.Notice != "" {
-		notice := genassistant.AssistantMessageNotice(m.Notice)
+		notice := genassistant.AssistantNotice(m.Notice)
 		out.Notice = &notice
 	}
 	return out
