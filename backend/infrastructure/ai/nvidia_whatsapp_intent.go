@@ -9,9 +9,9 @@ import (
 
 // NVIDIAWhatsAppIntentParser implements whatsapp.AIIntentParser against
 // NVIDIA's hosted API -- same prompt/schema/validation as the other four
-// adapters, over the shared nvidiaChat transport.
+// adapters, over the shared chatCompletionsClient transport.
 type NVIDIAWhatsAppIntentParser struct {
-	chat nvidiaChat
+	chat chatCompletionsClient
 }
 
 func NewNVIDIAWhatsAppIntentParser(apiKey string) *NVIDIAWhatsAppIntentParser {

@@ -92,6 +92,6 @@
     "model_error": "The last attempt failed. It will try again.",
     "nextTry": "Next try at {{time}}",
     "no_provider": "No AI provider is connected. Connect one in Settings › Integrations › AI.",
-    "provider_unsupported": "The connected AI provider can’t run the assistant yet. Switch to NVIDIA in Settings › Integrations › AI."
+    "provider_unsupported": "The connected AI provider isn’t one the assistant supports. Choose another in Settings › Integrations › AI."
   }
 }

@@ -15,7 +15,7 @@ const nvidiaDocumentMaxTokens = 4096
 // NVIDIA's hosted API. Like Ollama, the open models behind it have no
 // native PDF input, so it prompts on the document's extracted text layer.
 type NVIDIADocumentParser struct {
-	chat nvidiaChat
+	chat chatCompletionsClient
 }
 
 func NewNVIDIADocumentParser(apiKey string) *NVIDIADocumentParser {

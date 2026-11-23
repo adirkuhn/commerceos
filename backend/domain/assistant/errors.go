@@ -18,5 +18,5 @@ var (
 	ErrModelBusy = errs.New("ASSISTANT_MODEL_BUSY", "the AI model is busy or out of quota")
 	// ErrProviderUnsupported: the tenant's AI provider can't run the
 	// assistant (no tool calling adapter for it yet).
-	ErrProviderUnsupported = errs.New("ASSISTANT_PROVIDER_UNSUPPORTED", "the connected AI provider can't run the assistant yet")
+	ErrProviderUnsupported = errs.New("ASSISTANT_PROVIDER_UNSUPPORTED", "the connected AI provider isn't one the assistant supports")
 )

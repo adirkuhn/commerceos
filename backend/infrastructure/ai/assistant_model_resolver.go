@@ -13,9 +13,7 @@ import (
 )
 
 // AssistantModelResolver implements assistant.ChatModelResolver from the
-// tenant's AI connection. The assistant needs tool calling, which only the
-// NVIDIA adapter does so far; other providers resolve to
-// ErrProviderUnsupported and their requests wait in the queue.
+// tenant's AI connection: every provider has a tool-calling adapter.
 type AssistantModelResolver struct {
 	db               *gorm.DB
 	aiConnRepo       integrationsDomain.AIConnectionRepository
@@ -40,17 +38,45 @@ func (r *AssistantModelResolver) Resolve(ctx context.Context) (assistant.ChatMod
 		return nil, nil
 	}
 
+	apiKey, err := r.apiKey(conn)
+	if err != nil {
+		return nil, err
+	}
+	return buildChatModel(conn, apiKey)
+}
+
+// buildChatModel is the one place that maps a provider to its tool-calling
+// adapter; BaseURL overrides each provider's endpoint (Ollama's is its
+// server).
+func buildChatModel(conn *integrationsDomain.AIConnection, apiKey string) (assistant.ChatModel, error) {
+	base := conn.BaseURL
 	switch conn.Provider {
 	case integrationsDomain.AIProviderNVIDIA:
-		apiKey, err := r.apiKey(conn)
-		if err != nil {
-			return nil, err
-		}
 		m := NewNVIDIAChatModel(apiKey).WithModel(conn.Model).WithFallbackModels(conn.FallbackModels)
-		if conn.BaseURL != "" {
-			m = m.WithBaseURL(conn.BaseURL)
+		if base != "" {
+			m = m.WithBaseURL(base)
 		}
 		return m, nil
+	case integrationsDomain.AIProviderOpenAI:
+		m := NewOpenAIChatModel(apiKey).WithModel(conn.Model)
+		if base != "" {
+			m = m.WithBaseURL(base)
+		}
+		return m, nil
+	case integrationsDomain.AIProviderAnthropic:
+		m := NewAnthropicChatModel(apiKey).WithModel(conn.Model)
+		if base != "" {
+			m = m.WithBaseURL(base)
+		}
+		return m, nil
+	case integrationsDomain.AIProviderGemini:
+		m := NewGeminiChatModel(apiKey).WithModel(conn.Model).WithFallbackModels(conn.FallbackModels)
+		if base != "" {
+			m = m.WithBaseURL(base)
+		}
+		return m, nil
+	case integrationsDomain.AIProviderOllama:
+		return NewOllamaChatModel(base).WithModel(conn.Model), nil
 	default:
 		return nil, fmt.Errorf("assistantModelResolver: %s: %w", conn.Provider, assistant.ErrProviderUnsupported)
 	}

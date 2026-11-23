@@ -92,6 +92,6 @@
     "model_error": "A última tentativa falhou. Ele tentará de novo.",
     "nextTry": "Próxima tentativa às {{time}}",
     "no_provider": "Nenhum provedor de IA conectado. Conecte um em Configurações › Integrações › IA.",
-    "provider_unsupported": "O provedor de IA conectado ainda não pode executar o assistente. Mude para NVIDIA em Configurações › Integrações › IA."
+    "provider_unsupported": "O provedor de IA conectado não é compatível com o assistente. Escolha outro em Configurações › Integrações › IA."
   }
 }

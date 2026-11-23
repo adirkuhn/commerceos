@@ -255,7 +255,7 @@ components:
         Why a queued request is still waiting after an attempt.
         model_busy = rate limit, quota or overload; no_provider = no AI
         provider connected; provider_unsupported = the connected provider
-        can't run the assistant yet; model_error = any other model failure
+        isn't one the assistant supports; model_error = any other model failure
         (last_error has the detail).
 
     AssistantTextRequest:

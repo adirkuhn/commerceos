@@ -92,6 +92,6 @@
     "model_error": "De laatste poging is mislukt. Het probeert het opnieuw.",
     "nextTry": "Volgende poging om {{time}}",
     "no_provider": "Er is geen AI-provider gekoppeld. Koppel er een via Instellingen › Integraties › AI.",
-    "provider_unsupported": "De gekoppelde AI-provider kan de assistent nog niet uitvoeren. Kies NVIDIA in Instellingen › Integraties › AI."
+    "provider_unsupported": "De gekoppelde AI-provider wordt niet door de assistent ondersteund. Kies een andere in Instellingen › Integraties › AI."
   }
 }

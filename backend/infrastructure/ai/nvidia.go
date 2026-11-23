@@ -18,27 +18,30 @@ const (
 	defaultNVIDIAModel   = "meta/llama-3.3-70b-instruct"
 )
 
-// nvidiaChat is the shared transport behind every NVIDIA adapter. NVIDIA's
+// chatCompletionsClient is the shared transport for OpenAI-compatible Chat
+// Completions: every NVIDIA adapter and the OpenAI assistant model. NVIDIA's
 // API catalog (build.nvidia.com) is OpenAI-compatible only for Chat
-// Completions -- not the Responses API the OpenAI adapters use -- so it
-// can't be reached by pointing an OpenAI adapter at a different base URL.
+// Completions -- not the Responses API the OpenAI document/intent adapters
+// use -- so it can't be reached by pointing those at a different base URL.
 //
 // Structured output goes through NVIDIA's own nvext.guided_json extension
 // (constrained decoding on their side); the schema is also spelled out in
 // the prompt and the reply is parsed defensively, since not every model in
 // the catalog honours guided decoding.
-type nvidiaChat struct {
+type chatCompletionsClient struct {
+	// label names the provider in errors and logs.
+	label          string
 	apiKey         string
 	baseURL        string
 	model          string
 	fallbackModels []string
 }
 
-func newNVIDIAChat(apiKey string) nvidiaChat {
-	return nvidiaChat{apiKey: apiKey, baseURL: defaultNVIDIABaseURL, model: defaultNVIDIAModel}
+func newNVIDIAChat(apiKey string) chatCompletionsClient {
+	return chatCompletionsClient{label: "nvidia", apiKey: apiKey, baseURL: defaultNVIDIABaseURL, model: defaultNVIDIAModel}
 }
 
-func (c *nvidiaChat) setModel(model string) {
+func (c *chatCompletionsClient) setModel(model string) {
 	if model != "" {
 		c.model = model
 	}
@@ -47,7 +50,7 @@ func (c *nvidiaChat) setModel(model string) {
 // setFallbackModels parses a comma-separated list of models retried, in
 // order, when the current one is rate-limited (the free tier caps requests
 // per minute). Blank entries and the primary model itself are dropped.
-func (c *nvidiaChat) setFallbackModels(commaSeparated string) {
+func (c *chatCompletionsClient) setFallbackModels(commaSeparated string) {
 	c.fallbackModels = nil
 	for _, m := range strings.Split(commaSeparated, ",") {
 		m = strings.TrimSpace(m)
@@ -60,7 +63,7 @@ func (c *nvidiaChat) setFallbackModels(commaSeparated string) {
 
 // completeJSON sends prompt, forces schema, and unmarshals the reply into
 // out.
-func (c nvidiaChat) completeJSON(ctx context.Context, prompt string, schema map[string]any, maxTokens int64, out any) error {
+func (c chatCompletionsClient) completeJSON(ctx context.Context, prompt string, schema map[string]any, maxTokens int64, out any) error {
 	schemaJSON, err := json.Marshal(schema)
 	if err != nil {
 		return fmt.Errorf("nvidia: marshal schema: %w", err)
@@ -80,7 +83,7 @@ func (c nvidiaChat) completeJSON(ctx context.Context, prompt string, schema map[
 	})
 }
 
-func (c nvidiaChat) newClient() openai.Client {
+func (c chatCompletionsClient) newClient() openai.Client {
 	return openai.NewClient(
 		option.WithAPIKey(c.apiKey),
 		option.WithBaseURL(c.baseURL),
@@ -94,7 +97,7 @@ func (c nvidiaChat) newClient() openai.Client {
 // withFallback runs call with the primary model, then each fallback model
 // -- moving on only after HTTP 429, since any other failure (auth, bad
 // request, malformed output) would repeat on every model.
-func (c nvidiaChat) withFallback(call func(model string) error) error {
+func (c chatCompletionsClient) withFallback(call func(model string) error) error {
 	models := append([]string{c.model}, c.fallbackModels...)
 	var lastErr error
 	for i, model := range models {
@@ -107,7 +110,7 @@ func (c nvidiaChat) withFallback(call func(model string) error) error {
 			return lastErr
 		}
 		if i < len(models)-1 {
-			log.Printf("nvidia: %s rate-limited, falling back to %s", model, models[i+1])
+			log.Printf("%s: %s rate-limited, falling back to %s", c.label, model, models[i+1])
 		}
 	}
 	return lastErr
@@ -122,7 +125,7 @@ func httpStatus(err error) int {
 	return 0
 }
 
-func (c nvidiaChat) complete(ctx context.Context, client openai.Client, model, prompt string, schema map[string]any, maxTokens int64) (string, error) {
+func (c chatCompletionsClient) complete(ctx context.Context, client openai.Client, model, prompt string, schema map[string]any, maxTokens int64) (string, error) {
 	resp, err := client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
 		Model:       model,
 		Messages:    []openai.ChatCompletionMessageParamUnion{openai.UserMessage(prompt)},
