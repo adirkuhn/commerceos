@@ -3,8 +3,9 @@ import i18next from 'i18next'
 import {
   LayoutDashboard, Package, Settings, Plug, Radio, Warehouse, History, Boxes, Truck, ShoppingBag,
   ShoppingCart, Users, AlertTriangle, PackageSearch, Clock, ScanBarcode, Tag, BarChart3, Ticket, Star,
-  Webhook, MessageSquare, PackageCheck, UserCog, Layers, Mail, CalendarClock, Calculator, FileText, Inbox,
+  Webhook, MessageSquare, PackageCheck, UserCog, Layers, Mail, CalendarClock, Calculator, FileText, Inbox, Bot,
 } from 'lucide-react'
+import { canUseAssistant } from '../../assistant/format'
 import type { NavItem } from '../../types'
 import type { Design } from '../../theme/designPreference'
 
@@ -132,6 +133,8 @@ export const REPORT_SECTIONS: NavGroup[] = [
 const USERS_LINK: NavLink = { id: 'users', get label() { return i18next.t('layout:nav.users') }, icon: UserCog }
 const SCHEDULED_JOBS_LINK: NavLink = { id: 'scheduled-jobs', get label() { return i18next.t('layout:nav.scheduledJobs') }, icon: Clock }
 const DEAD_LETTERS_LINK: NavLink = { id: 'dead-letters', get label() { return i18next.t('layout:nav.deadLetters') }, icon: Inbox }
+// The AI assistant matches the backend's admin-only RequireRole.
+const ASSISTANT_LINK: NavLink = { id: 'assistant', get label() { return i18next.t('layout:nav.assistant') }, icon: Bot }
 const SETTINGS_LINK: NavLink = { id: 'settings', get label() { return i18next.t('layout:nav.settings') }, icon: Settings }
 
 // Pages reachable by URL but not listed in the sidebar (demo screens).
@@ -146,10 +149,11 @@ export function navGroupsForRole(role?: string, design: Design = 'classic'): Nav
     ...(role === 'super_admin' ? [SCHEDULED_JOBS_LINK, DEAD_LETTERS_LINK] : []),
     SETTINGS_LINK,
   ]
+  const assistant = canUseAssistant(role) ? [group('assistant', () => i18next.t('layout:nav.assistant'), [ASSISTANT_LINK], { flat: true })] : []
   if (design === 'depot') {
-    return [...DEPOT_GROUPS, group('setup', () => i18next.t('layout:group.setup'), [L.salesChannels, L.integrations, L.webhooks, L.syncLog, ...admin], { collapsedByDefault: true, pinned: true })]
+    return [...assistant, ...DEPOT_GROUPS, group('setup', () => i18next.t('layout:group.setup'), [L.salesChannels, L.integrations, L.webhooks, L.syncLog, ...admin], { collapsedByDefault: true, pinned: true })]
   }
-  return [...CLASSIC_GROUPS, group('admin', () => i18next.t('layout:group.admin'), admin)]
+  return [...assistant, ...CLASSIC_GROUPS, group('admin', () => i18next.t('layout:group.admin'), admin)]
 }
 
 export function homeLink(design: Design): NavLink {

@@ -2,6 +2,7 @@ import { createElement, type ComponentType } from 'react'
 import type { NavItem } from './types'
 
 import Home from './pages/Home'
+import Assistant from './pages/Assistant'
 import Products from './pages/Products'
 import PriceList from './pages/PriceList'
 import Quotes from './pages/Quotes'
@@ -69,6 +70,7 @@ function inReportsShell(Page: ComponentType): ComponentType {
 
 export const PAGE_ROUTES: PageRoute[] = [
   { nav: 'dashboard', path: '/', Component: Home },
+  { nav: 'assistant', path: '/assistant', Component: Assistant },
   { nav: 'sales-orders', path: '/sales-orders', Component: SalesOrders },
   { nav: 'quotes', path: '/quotes', Component: Quotes },
   { nav: 'stock-issues', path: '/stock-issues', Component: StockIssues },

@@ -1,0 +1,58 @@
+{
+  "adminOnly": "Alleen eigenaren en beheerders kunnen de assistent gebruiken.",
+  "cancel": {
+    "action": "Vraag annuleren",
+    "confirm": "Vraag annuleren",
+    "message": "De assistent stopt ermee en de vraag kan niet worden hervat.",
+    "title": "Deze vraag annuleren?"
+  },
+  "compose": {
+    "label": "Vraag of plak…",
+    "placeholder": "bijv. Wat is de status van order CO-1042? Wanneer is product X voor het laatst naar Bol gesynchroniseerd?",
+    "sending": "Versturen…",
+    "submit": "Vragen"
+  },
+  "conversation": {
+    "assistant": "Assistent",
+    "back": "Alle vragen",
+    "followUpLabel": "Stel een vervolgvraag",
+    "lookedUp": "Opgezocht: {{tool}}",
+    "question": "Vraag",
+    "queued": "Wacht in de wachtrij…",
+    "replyLabel": "Je antwoord",
+    "replyPlaceholder": "Schrijf je antwoord…",
+    "send": "Versturen",
+    "sending": "Versturen…",
+    "working": "De assistent is ermee bezig…",
+    "you": "Jij"
+  },
+  "intro": "Vraag naar orders, offertes, producten, voorraad, verkoopkanalen of instellingen — of plak de e-mail van een klant. Elke vraag wacht in de wachtrij tot je AI-model hem oppakt.",
+  "list": {
+    "all": "Alle",
+    "asked": "Gesteld",
+    "cancel": "Annuleren",
+    "empty": "Nog geen vragen.",
+    "emptyFiltered": "Geen vragen met deze status.",
+    "filter": "Status",
+    "loadMore": "Meer laden",
+    "title": "Vragen"
+  },
+  "notice": {
+    "too_many_steps": "De assistent had te veel stappen nodig zonder antwoord. Voeg meer details toe en stuur het opnieuw."
+  },
+  "status": {
+    "answered": "Beantwoord",
+    "cancelled": "Geannuleerd",
+    "needs_input": "Wacht op je antwoord",
+    "processing": "Bezig",
+    "queued": "In wachtrij"
+  },
+  "title": "Assistent",
+  "wait": {
+    "model_busy": "Het AI-model is bezet of zit door zijn quotum heen. Het probeert het opnieuw.",
+    "model_error": "De laatste poging is mislukt. Het probeert het opnieuw.",
+    "nextTry": "Volgende poging om {{time}}",
+    "no_provider": "Er is geen AI-provider gekoppeld. Koppel er een via Instellingen › Integraties › AI.",
+    "provider_unsupported": "De gekoppelde AI-provider kan de assistent nog niet uitvoeren. Kies NVIDIA in Instellingen › Integraties › AI."
+  }
+}

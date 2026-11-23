@@ -20,6 +20,7 @@
     "reportsStock": "Voorraad"
   },
   "nav": {
+    "assistant": "Assistent",
     "collections": "Collecties",
     "coupons": "Kortingscodes",
     "customers": "Klanten",

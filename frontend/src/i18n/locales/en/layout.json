@@ -20,6 +20,7 @@
     "reportsStock": "Stock"
   },
   "nav": {
+    "assistant": "Assistant",
     "collections": "Collections",
     "coupons": "Coupons",
     "customers": "Customers",

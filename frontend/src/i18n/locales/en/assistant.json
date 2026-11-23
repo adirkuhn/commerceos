@@ -1,0 +1,58 @@
+{
+  "adminOnly": "Only owners and admins can use the assistant.",
+  "cancel": {
+    "action": "Cancel request",
+    "confirm": "Cancel request",
+    "message": "The assistant stops working on it, and it can’t be resumed.",
+    "title": "Cancel this request?"
+  },
+  "compose": {
+    "label": "Ask or paste…",
+    "placeholder": "e.g. What’s the status of order CO-1042? When did product X last sync to Bol?",
+    "sending": "Sending…",
+    "submit": "Ask"
+  },
+  "conversation": {
+    "assistant": "Assistant",
+    "back": "All requests",
+    "followUpLabel": "Ask a follow-up",
+    "lookedUp": "Looked up: {{tool}}",
+    "question": "Question",
+    "queued": "Waiting in the queue…",
+    "replyLabel": "Your answer",
+    "replyPlaceholder": "Write your answer…",
+    "send": "Send",
+    "sending": "Sending…",
+    "working": "The assistant is working on it…",
+    "you": "You"
+  },
+  "intro": "Ask about orders, quotes, products, stock, sales channels or settings — or paste a customer’s email. Each request waits in the queue until your AI model takes it.",
+  "list": {
+    "all": "All",
+    "asked": "Asked",
+    "cancel": "Cancel",
+    "empty": "No requests yet.",
+    "emptyFiltered": "No requests with this status.",
+    "filter": "Status",
+    "loadMore": "Load more",
+    "title": "Requests"
+  },
+  "notice": {
+    "too_many_steps": "The assistant needed too many steps without an answer. Add more detail and send it again."
+  },
+  "status": {
+    "answered": "Answered",
+    "cancelled": "Cancelled",
+    "needs_input": "Needs your answer",
+    "processing": "Working",
+    "queued": "Queued"
+  },
+  "title": "Assistant",
+  "wait": {
+    "model_busy": "The AI model is busy or out of quota. It will try again.",
+    "model_error": "The last attempt failed. It will try again.",
+    "nextTry": "Next try at {{time}}",
+    "no_provider": "No AI provider is connected. Connect one in Settings › Integrations › AI.",
+    "provider_unsupported": "The connected AI provider can’t run the assistant yet. Switch to NVIDIA in Settings › Integrations › AI."
+  }
+}

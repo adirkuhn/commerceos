@@ -42,6 +42,16 @@ describe('navGroupsForRole', () => {
     expect(ids('super_admin')).toContain('scheduled-jobs')
   })
 
+  it('shows the assistant only to admin roles, in both designs', () => {
+    expect(ids('customer_user')).not.toContain('assistant')
+    for (const role of ['customer_owner', 'customer_admin', 'super_admin']) {
+      expect(ids(role), role).toContain('assistant')
+      expect(navGroupsForRole(role, 'depot').flatMap(g => g.items.map(i => i.id)), role).toContain('assistant')
+    }
+    expect(navGroupsForRole('customer_user', 'depot').flatMap(g => g.items.map(i => i.id))).not.toContain('assistant')
+    expect(navTitle('assistant')).toBe('Assistant')
+  })
+
   it('names list pages with plural nouns', () => {
     const labels = navGroupsForRole('super_admin').flatMap(g => g.items.map(i => i.label))
     expect(labels).toContain('Sales Orders')
