@@ -27,3 +27,8 @@ var (
 	AssistantProposalRejected = defineAction("assistant.proposal.rejected",
 		"An admin rejected an assistant proposal. data: request_id, kind.")
 )
+
+// AssistantRequestRetried is raised when an admin asks a waiting request to
+// be tried again now instead of at its next scheduled attempt.
+var AssistantRequestRetried = defineAction("assistant.request.retried",
+	"An admin asked a request waiting after a failed attempt to be tried again now. data: wait_reason.")

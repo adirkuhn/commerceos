@@ -166,3 +166,27 @@ func TestStatus_valid(t *testing.T) {
 	assert.True(t, assistant.StatusNeedsInput.Valid())
 	assert.False(t, assistant.Status("done").Valid())
 }
+
+func TestRequest_retryNowRunsAWaitingRequestNextWithFreshBackoff(t *testing.T) {
+	r := queued(t)
+	require.NoError(t, r.Start(t0))
+	require.NoError(t, r.RetryLater(assistant.WaitModelBusy, "429", t0))
+	require.NoError(t, r.Start(t0.Add(time.Minute)))
+	require.NoError(t, r.RetryLater(assistant.WaitModelBusy, "429", t0.Add(time.Minute)))
+	later := t0.Add(2 * time.Minute)
+
+	require.NoError(t, r.RetryNow(later))
+
+	assert.Equal(t, assistant.StatusQueued, r.Status)
+	assert.Equal(t, later, r.NextAttemptAt)
+	assert.Zero(t, r.Attempts)
+	assert.Equal(t, assistant.WaitModelBusy, r.WaitReason, "the last reason stays until the next attempt replaces it")
+}
+
+func TestRequest_retryNowOnlyWhileQueued(t *testing.T) {
+	r := queued(t)
+	require.NoError(t, r.Start(t0))
+	assert.ErrorIs(t, r.RetryNow(t0), assistant.ErrInvalidTransition)
+	require.NoError(t, r.Answer(t0))
+	assert.ErrorIs(t, r.RetryNow(t0), assistant.ErrInvalidTransition)
+}

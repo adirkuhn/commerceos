@@ -54,8 +54,13 @@ type rejectUC interface {
 	Execute(ctx context.Context, requestID, proposalID string) (*appassistant.RequestDetail, error)
 }
 
+type retryUC interface {
+	Execute(ctx context.Context, id string) (*assistant.Request, error)
+}
+
 // UseCases are the handler's ports, one per operation.
 type UseCases struct {
+	Retry   retryUC
 	Create  createUC
 	List    listUC
 	Get     getUC
@@ -88,6 +93,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) error {
 		Cancel:  appassistant.NewCancelRequestUseCase(db, requests, proposals, outboxRepo, time.Now),
 		Confirm: appassistant.NewConfirmProposalUseCase(db, decide),
 		Reject:  appassistant.NewRejectProposalUseCase(db, decide),
+		Retry:   appassistant.NewRetryRequestUseCase(db, requests, outboxRepo, time.Now),
 	}))
 }
 
@@ -219,6 +225,14 @@ func (h *Handler) ReplyToAssistantRequest(c *gin.Context, id genassistant.Id) {
 		return
 	}
 	r, err := h.uc.Reply.Execute(c.Request.Context(), id.String(), req.Text)
+	if mapError(c, err) != nil {
+		return
+	}
+	c.JSON(http.StatusOK, genassistant.AssistantRequestResponse{Data: toGenRequest(*r)})
+}
+
+func (h *Handler) RetryAssistantRequest(c *gin.Context, id genassistant.Id) {
+	r, err := h.uc.Retry.Execute(c.Request.Context(), id.String())
 	if mapError(c, err) != nil {
 		return
 	}

@@ -148,6 +148,18 @@ func (r *Request) RetryLater(reason WaitReason, detail string, now time.Time) er
 	return nil
 }
 
+// RetryNow makes a request waiting after a failed attempt due right away,
+// with its backoff reset -- the person asked to try again now.
+func (r *Request) RetryNow(now time.Time) error {
+	if r.Status != StatusQueued {
+		return ErrInvalidTransition
+	}
+	r.NextAttemptAt = now
+	r.Attempts = 0
+	r.UpdatedAt = now
+	return nil
+}
+
 // Answer records that the model finished this turn.
 func (r *Request) Answer(now time.Time) error {
 	return r.finishTurn(StatusAnswered, now)

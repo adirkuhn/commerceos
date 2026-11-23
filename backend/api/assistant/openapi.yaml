@@ -122,6 +122,38 @@ paths:
         '422':
           $ref: '#/components/responses/Error'
 
+  /assistant/requests/{id}/retry:
+    post:
+      operationId: retryAssistantRequest
+      summary: Try a waiting request again now
+      description: >-
+        For a queued request waiting after a failed attempt (wait_reason
+        set, next_attempt_at in the future): it is tried on the worker's
+        next poll, with its backoff reset. 409 when the request isn't
+        queued (processing, needs_input, answered, awaiting_confirmation,
+        cancelled). A proposal whose confirm failed is retried by
+        confirming it again.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+        '200':
+          description: queued to run now
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantRequestResponse' }
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
   /assistant/requests/{id}/cancel:
     post:
       operationId: cancelAssistantRequest

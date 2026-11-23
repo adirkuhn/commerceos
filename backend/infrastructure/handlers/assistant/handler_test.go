@@ -126,7 +126,21 @@ func (s stubReject) Execute(ctx context.Context, requestID, proposalID string) (
 	return s.confirm(ctx, requestID, proposalID, appassistant.ConfirmChoices{})
 }
 
+type stubRetry struct {
+	gotID string
+	err   error
+}
+
+func (s *stubRetry) Execute(_ context.Context, id string) (*assistant.Request, error) {
+	s.gotID = id
+	if s.err != nil {
+		return nil, s.err
+	}
+	return sample(assistant.StatusQueued), nil
+}
+
 type stubs struct {
+	retry   *stubRetry
 	create  *stubCreate
 	list    *stubList
 	get     *stubGet
@@ -138,7 +152,7 @@ type stubs struct {
 
 func newStubs() stubs {
 	detail := &appassistant.RequestDetail{Request: *sample(assistant.StatusAnswered)}
-	return stubs{create: &stubCreate{}, list: &stubList{out: &appassistant.RequestPage{}}, get: &stubGet{}, reply: &stubReply{}, cancel: &stubCancel{},
+	return stubs{retry: &stubRetry{}, create: &stubCreate{}, list: &stubList{out: &appassistant.RequestPage{}}, get: &stubGet{}, reply: &stubReply{}, cancel: &stubCancel{},
 		confirm: &stubDecide{out: detail}, reject: &stubDecide{out: detail}}
 }
 
@@ -149,7 +163,7 @@ func newRouter(t *testing.T, s stubs) *gin.Engine {
 	g.Use(middleware.JWT([]byte(secret)))
 	require.NoError(t, handler.Mount(g, handler.NewHandler(handler.UseCases{
 		Create: s.create, List: s.list, Get: s.get, Reply: s.reply, Cancel: s.cancel,
-		Confirm: stubConfirm{s.confirm}, Reject: stubReject{s.reject},
+		Confirm: stubConfirm{s.confirm}, Reject: stubReject{s.reject}, Retry: s.retry,
 	})))
 	return r
 }
@@ -376,6 +390,7 @@ func TestAdminOnly(t *testing.T) {
 		{http.MethodGet, "/api/v1/assistant/requests/" + reqID, nil},
 		{http.MethodPost, "/api/v1/assistant/requests/" + reqID + "/reply", map[string]string{"text": "hi"}},
 		{http.MethodPost, "/api/v1/assistant/requests/" + reqID + "/cancel", nil},
+		{http.MethodPost, "/api/v1/assistant/requests/" + reqID + "/retry", nil},
 		{http.MethodPost, "/api/v1/assistant/requests/" + reqID + "/proposals/" + proposalID + "/confirm", nil},
 		{http.MethodPost, "/api/v1/assistant/requests/" + reqID + "/proposals/" + proposalID + "/reject", nil},
 	}
@@ -485,4 +500,23 @@ func TestGet_mapsProposalPreviewsByKind(t *testing.T) {
 	require.NotNil(t, ps[1].Conversion)
 	assert.Equal(t, int64(6), ps[1].Conversion.Shortfall[0].Short)
 	assert.Equal(t, "insufficient stock", *ps[1].LastError)
+}
+
+func TestRetry(t *testing.T) {
+	s := newStubs()
+
+	w := do(t, newRouter(t, s), http.MethodPost, "/api/v1/assistant/requests/"+reqID+"/retry", nil, middleware.RoleCustomerAdmin)
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Equal(t, reqID, s.retry.gotID)
+}
+
+func TestRetry_notWaitingIs409(t *testing.T) {
+	s := newStubs()
+	s.retry.err = assistant.ErrInvalidTransition
+
+	w := do(t, newRouter(t, s), http.MethodPost, "/api/v1/assistant/requests/"+reqID+"/retry", nil, middleware.RoleCustomerAdmin)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+	assert.Equal(t, "ASSISTANT_INVALID_TRANSITION", errorCode(t, w))
 }

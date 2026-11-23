@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-255 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+256 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -71,6 +71,7 @@ Payload (`events.EntityAction`):
 | `assistant.request.created` | action | An admin asked the AI assistant something; the request is queued for the model. | envelope |
 | `assistant.request.question_asked` | action | The assistant's model asked the admin to clarify a request. data: attempts, tool_calls, notice. | envelope |
 | `assistant.request.replied` | action | An admin answered the assistant's question or asked a follow-up; the request is queued again. | envelope |
+| `assistant.request.retried` | action | An admin asked a request waiting after a failed attempt to be tried again now. data: wait_reason. | envelope |
 
 ### channels
 

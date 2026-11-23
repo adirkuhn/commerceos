@@ -69,6 +69,7 @@ func TestProcess_answersDirectly(t *testing.T) {
 
 	turn := f.model.turns[0]
 	assert.Contains(t, turn.System, "CommerceOS")
+	assert.Contains(t, turn.System, "admin_path", "records are linked only with paths the tools returned")
 	assert.Len(t, turn.Messages, 1)
 	var names []string
 	for _, d := range turn.Tools {

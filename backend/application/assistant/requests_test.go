@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -218,4 +219,31 @@ func TestCancelRequest_supersedesThePendingProposal(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, assistant.ProposalSuperseded, proposals.byID["p-1"].Status)
+}
+
+func TestRetryRequest_runsAWaitingRequestNow(t *testing.T) {
+	r := queuedRequest("r-1")
+	r.Attempts, r.WaitReason, r.NextAttemptAt = 3, assistant.WaitModelBusy, now.Add(10*time.Minute)
+	reqs, outbox := newStubRequests(r), &eventrecordtest.Outbox{}
+
+	out, err := appassistant.NewRetryRequestUseCase(newMockGormDB(t), reqs, outbox, clock).Execute(adminCtx(), "r-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, now, out.NextAttemptAt)
+	assert.Zero(t, reqs.byID["r-1"].Attempts)
+	event, err := outbox.Only()
+	require.NoError(t, err)
+	assert.Equal(t, "assistant.request.retried", event.Subject)
+	assert.Equal(t, map[string]any{"wait_reason": "model_busy"}, event.Data())
+}
+
+func TestRetryRequest_onlyWhileQueued(t *testing.T) {
+	r := queuedRequest("r-1")
+	r.Status = assistant.StatusAnswered
+	outbox := &eventrecordtest.Outbox{}
+
+	_, err := appassistant.NewRetryRequestUseCase(newMockGormDB(t), newStubRequests(r), outbox, clock).Execute(adminCtx(), "r-1")
+
+	assert.ErrorIs(t, err, assistant.ErrInvalidTransition)
+	assert.Empty(t, outbox.Subjects())
 }
