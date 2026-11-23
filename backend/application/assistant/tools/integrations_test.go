@@ -114,6 +114,7 @@ func TestListSyncLogs(t *testing.T) {
 	require.Len(t, rows, 1)
 	r := rows[0].(map[string]any)
 	assert.Equal(t, "Doce de leite", r["product_name"])
+	assert.Equal(t, "/products/"+r["product_id"].(string), r["admin_path"])
 	assert.Equal(t, "shop.example", r["store"])
 	assert.Equal(t, "push", r["direction"])
 	assert.Equal(t, "403 forbidden", r["error_message"])

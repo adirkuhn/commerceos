@@ -50,6 +50,7 @@ func TestSearchSuppliers(t *testing.T) {
 	require.Len(t, list, 1)
 	s := list[0].(map[string]any)
 	assert.Equal(t, "s-1", s["id"])
+	assert.Equal(t, "/suppliers/s-1", s["admin_path"])
 	assert.Equal(t, "orders@bauducco.example", s["email"])
 	assert.EqualValues(t, 5, s["lead_time_days"])
 
@@ -88,6 +89,8 @@ func TestGetSupplier_withRecentPurchaseOrders(t *testing.T) {
 	recent := out["recent_purchase_orders"].([]any)
 	require.Len(t, recent, 5)
 	assert.Equal(t, "po-g", recent[0].(map[string]any)["id"], "newest first")
+	assert.Equal(t, "/procurement/po-g", recent[0].(map[string]any)["admin_path"])
+	assert.Equal(t, "/suppliers/s-1", out["admin_path"])
 	assert.EqualValues(t, 600, recent[0].(map[string]any)["total_minor_units"])
 	assert.EqualValues(t, 7, out["purchase_order_count"])
 }

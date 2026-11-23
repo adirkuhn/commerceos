@@ -67,6 +67,7 @@ func (t *GetSalesOrderTool) Definition() assistant.ToolDefinition {
 
 type orderView struct {
 	ID                      string           `json:"id"`
+	AdminPath               string           `json:"admin_path"`
 	Number                  string           `json:"number"`
 	Status                  string           `json:"status"`
 	Customer                orderCustomer    `json:"customer"`
@@ -104,10 +105,12 @@ type orderOriginView struct {
 }
 
 type orderCustomer struct {
-	Name    string `json:"name"`
-	Company string `json:"company,omitempty"`
-	Email   string `json:"email,omitempty"`
-	Phone   string `json:"phone,omitempty"`
+	// AdminPath is set when the order is linked to a customer record.
+	AdminPath string `json:"admin_path,omitempty"`
+	Name      string `json:"name"`
+	Company   string `json:"company,omitempty"`
+	Email     string `json:"email,omitempty"`
+	Phone     string `json:"phone,omitempty"`
 }
 
 type orderLineView struct {
@@ -189,9 +192,10 @@ func (r orderResolver) idForNumber(ctx context.Context, number string) (string, 
 func toOrderView(res *appoms.GetSalesOrderResult) orderView {
 	o := res.SalesOrder
 	v := orderView{
-		ID: o.ID, Number: o.Number, Status: string(o.Status),
+		ID: o.ID, AdminPath: adminPath(salesOrderPage, o.ID), Number: o.Number, Status: string(o.Status),
 		Customer: orderCustomer{
-			Name: fullName(o.Billing.FirstName, o.Billing.LastName), Company: o.Billing.Company,
+			AdminPath: adminPath(customerPage, deref(o.CustomerID)),
+			Name:      fullName(o.Billing.FirstName, o.Billing.LastName), Company: o.Billing.Company,
 			Email: o.Billing.Email, Phone: o.Billing.Phone,
 		},
 		CustomerID: deref(o.CustomerID), QuoteID: deref(o.QuoteID),

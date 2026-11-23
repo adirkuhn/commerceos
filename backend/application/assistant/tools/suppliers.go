@@ -25,6 +25,7 @@ type purchaseOrderLister interface {
 
 type supplierView struct {
 	ID           string `json:"id"`
+	AdminPath    string `json:"admin_path"`
 	Name         string `json:"name"`
 	Email        string `json:"email,omitempty"`
 	Phone        string `json:"phone,omitempty"`
@@ -35,7 +36,7 @@ type supplierView struct {
 }
 
 func toSupplierView(s suppliersDomain.Supplier) supplierView {
-	return supplierView{ID: s.ID, Name: s.Name, Email: s.Email, Phone: s.Phone, Country: s.Country,
+	return supplierView{ID: s.ID, AdminPath: adminPath(supplierPage, s.ID), Name: s.Name, Email: s.Email, Phone: s.Phone, Country: s.Country,
 		LeadTimeDays: s.LeadTimeDays, Status: string(s.Status), Notes: s.Notes}
 }
 
@@ -104,6 +105,7 @@ func (t *GetSupplierTool) Definition() assistant.ToolDefinition {
 
 type purchaseOrderSummary struct {
 	ID              string `json:"id"`
+	AdminPath       string `json:"admin_path"`
 	Status          string `json:"status"`
 	CurrencyCode    string `json:"currency_code,omitempty"`
 	TotalMinorUnits int64  `json:"total_minor_units"`
@@ -112,7 +114,7 @@ type purchaseOrderSummary struct {
 }
 
 func toPurchaseOrderSummary(po procurementDomain.PurchaseOrder) purchaseOrderSummary {
-	return purchaseOrderSummary{ID: po.ID, Status: string(po.Status), CurrencyCode: po.CurrencyCode, TotalMinorUnits: po.TotalMinorUnits,
+	return purchaseOrderSummary{ID: po.ID, AdminPath: adminPath(purchaseOrderPage, po.ID), Status: string(po.Status), CurrencyCode: po.CurrencyCode, TotalMinorUnits: po.TotalMinorUnits,
 		ExpectedDate: dayOfPtr(po.ExpectedDate), CreatedAt: formatTime(po.CreatedAt)}
 }
 

@@ -125,8 +125,10 @@ func (t *ListProductChannelListingsTool) Call(ctx context.Context, raw json.RawM
 		}
 	}
 	out := struct {
-		Listings []listingView `json:"listings"`
-	}{Listings: []listingView{}}
+		ProductID string        `json:"product_id"`
+		AdminPath string        `json:"admin_path"`
+		Listings  []listingView `json:"listings"`
+	}{ProductID: args.ProductID, AdminPath: adminPath(productPage, args.ProductID), Listings: []listingView{}}
 	for _, c := range chs {
 		if c.ConnectionID == nil {
 			continue

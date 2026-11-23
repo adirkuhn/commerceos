@@ -75,9 +75,10 @@ func (t *GetQuoteTool) id(ctx context.Context, ref string) (string, error) {
 }
 
 type quoteCustomerView struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email,omitempty"`
+	ID        string `json:"id"`
+	AdminPath string `json:"admin_path,omitempty"`
+	Name      string `json:"name"`
+	Email     string `json:"email,omitempty"`
 }
 
 type quoteLineView struct {
@@ -107,6 +108,7 @@ func (t *GetQuoteTool) Call(ctx context.Context, raw json.RawMessage) (string, e
 	}
 	view := struct {
 		ID                  string             `json:"id"`
+		AdminPath           string             `json:"admin_path"`
 		Number              int64              `json:"number"`
 		Reference           string             `json:"reference"`
 		Name                string             `json:"name"`
@@ -118,12 +120,12 @@ func (t *GetQuoteTool) Call(ctx context.Context, raw json.RawMessage) (string, e
 		CreatedAt           string             `json:"created_at"`
 		UpdatedAt           string             `json:"updated_at"`
 	}{
-		ID: q.ID, Number: q.Number, Reference: quotes.Reference(q.Number), Name: q.Name, CurrencyCode: q.CurrencyCode, DiscountBasisPoints: q.DiscountBasisPoints,
+		ID: q.ID, AdminPath: adminPath(quotePage, q.ID), Number: q.Number, Reference: quotes.Reference(q.Number), Name: q.Name, CurrencyCode: q.CurrencyCode, DiscountBasisPoints: q.DiscountBasisPoints,
 		Lines: make([]quoteLineView, 0, len(q.Lines)), TotalMinorUnits: q.Total(),
 		CreatedAt: formatTime(q.CreatedAt), UpdatedAt: formatTime(q.UpdatedAt),
 	}
 	if q.Customer != nil {
-		view.Customer = &quoteCustomerView{ID: q.Customer.ID, Name: q.Customer.Name, Email: q.Customer.Email}
+		view.Customer = &quoteCustomerView{ID: q.Customer.ID, AdminPath: adminPath(customerPage, q.Customer.ID), Name: q.Customer.Name, Email: q.Customer.Email}
 	}
 	for _, l := range q.Lines {
 		view.Lines = append(view.Lines, quoteLineView{ProductID: l.ProductID, SKUID: l.SKUID, Quantity: l.Quantity, UnitPriceMinorUnits: l.UnitPriceMinorUnits})
@@ -146,6 +148,7 @@ func (t *ListQuotesTool) Definition() assistant.ToolDefinition {
 
 type quoteHit struct {
 	ID              string `json:"id"`
+	AdminPath       string `json:"admin_path"`
 	Number          int64  `json:"number"`
 	Name            string `json:"name"`
 	CustomerName    string `json:"customer_name,omitempty"`
@@ -172,7 +175,7 @@ func (t *ListQuotesTool) Call(ctx context.Context, raw json.RawMessage) (string,
 		Quotes []quoteHit `json:"quotes"`
 	}{Total: res.Total, Quotes: make([]quoteHit, 0, len(res.Quotes))}
 	for _, q := range res.Quotes {
-		hit := quoteHit{ID: q.ID, Number: q.Number, Name: q.Name, LineCount: q.LineCount, TotalMinorUnits: q.TotalMinorUnits,
+		hit := quoteHit{ID: q.ID, AdminPath: adminPath(quotePage, q.ID), Number: q.Number, Name: q.Name, LineCount: q.LineCount, TotalMinorUnits: q.TotalMinorUnits,
 			CurrencyCode: q.CurrencyCode, UpdatedAt: formatTime(q.UpdatedAt)}
 		if q.Customer != nil {
 			hit.CustomerName = q.Customer.Name

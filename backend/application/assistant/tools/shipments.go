@@ -87,9 +87,11 @@ func (t *GetOrderShipmentsTool) Call(ctx context.Context, raw json.RawMessage) (
 		return "", err
 	}
 	out := struct {
+		OrderID          string                `json:"order_id"`
+		AdminPath        string                `json:"admin_path"`
 		Shipments        []shipmentView        `json:"shipments"`
 		BolConfirmations []bolConfirmationView `json:"bol_confirmations,omitempty"`
-	}{Shipments: make([]shipmentView, 0, len(shipments))}
+	}{OrderID: id, AdminPath: adminPath(salesOrderPage, id), Shipments: make([]shipmentView, 0, len(shipments))}
 	for _, s := range shipments {
 		events, err := t.tracking.Execute(ctx, s.ID)
 		if err != nil {

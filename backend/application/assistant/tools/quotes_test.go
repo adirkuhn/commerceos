@@ -49,6 +49,8 @@ func TestGetQuoteTool(t *testing.T) {
 
 	assert.Equal(t, quoteUUID, get.gotID)
 	assert.EqualValues(t, 3, got["number"])
+	assert.Equal(t, "/quotes/q-1", got["admin_path"])
+	assert.Equal(t, "/customers/c-1", got["customer"].(map[string]any)["admin_path"])
 	assert.Equal(t, "Sabor BV", got["customer"].(map[string]any)["name"])
 	assert.EqualValues(t, q.Total(), got["total_minor_units"])
 	assert.EqualValues(t, 1000, got["discount_basis_points"])
@@ -103,6 +105,7 @@ func TestListQuotesTool(t *testing.T) {
 	assert.EqualValues(t, 1, got["total"])
 	first := got["quotes"].([]any)[0].(map[string]any)
 	assert.Equal(t, "Sabor BV", first["customer_name"])
+	assert.Equal(t, "/quotes/q-1", first["admin_path"])
 	assert.EqualValues(t, 9000, first["total_minor_units"])
 
 	assert.ErrorContains(t, callErr(t, tools.NewListQuotesTool(&stubListQuotes{err: errors.New("db down")}), `{}`), "db down")

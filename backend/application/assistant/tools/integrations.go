@@ -133,6 +133,7 @@ func (t *ListSyncLogsTool) Definition() assistant.ToolDefinition {
 
 type syncLogView struct {
 	ProductID    string `json:"product_id"`
+	AdminPath    string `json:"admin_path,omitempty"`
 	ProductName  string `json:"product_name"`
 	ConnectionID string `json:"connection_id"`
 	Provider     string `json:"provider"`
@@ -174,7 +175,7 @@ func (t *ListSyncLogsTool) Call(ctx context.Context, args json.RawMessage) (stri
 			break
 		}
 		out = append(out, syncLogView{
-			ProductID: l.ProductID, ProductName: l.ProductName, ConnectionID: l.ConnectionID, Provider: l.Provider, Store: hostOf(l.StoreURL),
+			ProductID: l.ProductID, AdminPath: adminPath(productPage, l.ProductID), ProductName: l.ProductName, ConnectionID: l.ConnectionID, Provider: l.Provider, Store: hostOf(l.StoreURL),
 			ExternalID: l.ExternalID, Direction: string(l.Direction), Status: string(l.Status), ErrorMessage: l.ErrorMessage, SyncedAt: formatTime(l.SyncedAt),
 		})
 	}

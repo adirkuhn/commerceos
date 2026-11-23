@@ -71,6 +71,7 @@ func (t *GetStockByWarehouseTool) Call(ctx context.Context, raw json.RawMessage)
 	}
 	out := struct {
 		ProductID   string         `json:"product_id,omitempty"`
+		AdminPath   string         `json:"admin_path,omitempty"`
 		ProductName string         `json:"product_name,omitempty"`
 		SKUs        []skuStockView `json:"skus"`
 	}{SKUs: []skuStockView{}}
@@ -82,6 +83,7 @@ func (t *GetStockByWarehouseTool) Call(ctx context.Context, raw json.RawMessage)
 			return "", err
 		}
 		out.ProductID, out.ProductName = d.Product.ID, d.Product.Name
+		out.AdminPath = adminPath(productPage, d.Product.ID)
 		skus = nil
 		for _, v := range d.Variants {
 			for _, s := range v.SKUs {

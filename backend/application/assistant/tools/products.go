@@ -79,12 +79,13 @@ func (t *GetProductTool) Call(ctx context.Context, raw json.RawMessage) (string,
 	}
 	view := struct {
 		ID          string    `json:"id"`
+		AdminPath   string    `json:"admin_path,omitempty"`
 		Name        string    `json:"name"`
 		Status      string    `json:"status"`
 		Tags        []string  `json:"tags,omitempty"`
 		HasVariants bool      `json:"has_variants"`
 		SKUs        []skuView `json:"skus"`
-	}{ID: d.Product.ID, Name: d.Product.Name, Status: string(d.Product.Status), Tags: d.Product.Tags, HasVariants: d.Product.HasVariants, SKUs: []skuView{}}
+	}{ID: d.Product.ID, AdminPath: adminPath(productPage, d.Product.ID), Name: d.Product.Name, Status: string(d.Product.Status), Tags: d.Product.Tags, HasVariants: d.Product.HasVariants, SKUs: []skuView{}}
 	for _, v := range d.Variants {
 		for _, s := range v.SKUs {
 			level := levels[s.ID]

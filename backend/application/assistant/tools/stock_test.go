@@ -18,7 +18,9 @@ type stubStockWarehouses struct {
 	err error
 }
 
-func (s *stubStockWarehouses) Execute(context.Context) ([]invDomain.Warehouse, error) { return s.out, s.err }
+func (s *stubStockWarehouses) Execute(context.Context) ([]invDomain.Warehouse, error) {
+	return s.out, s.err
+}
 
 type stubScopedStock struct {
 	qty map[string]int64 // sku|warehouse -> qty
@@ -45,6 +47,7 @@ func TestGetStockByWarehouseTool_forAProduct(t *testing.T) {
 	got := call(t, tool, `{"product_id":"p-1"}`)
 
 	assert.Equal(t, "Doce de leite", got["product_name"])
+	assert.Equal(t, "/products/"+got["product_id"].(string), got["admin_path"])
 	skus := got["skus"].([]any)
 	require.Len(t, skus, 1)
 	sku := skus[0].(map[string]any)

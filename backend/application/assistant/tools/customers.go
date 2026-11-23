@@ -45,6 +45,7 @@ func (t *SearchCustomersTool) Definition() assistant.ToolDefinition {
 
 type customerHitView struct {
 	ID           string `json:"id"`
+	AdminPath    string `json:"admin_path"`
 	Name         string `json:"name"`
 	Type         string `json:"type"`
 	Email        string `json:"email,omitempty"`
@@ -80,7 +81,7 @@ func (t *SearchCustomersTool) Call(ctx context.Context, raw json.RawMessage) (st
 		out.TotalMatches++
 		if len(out.Customers) < limit {
 			out.Customers = append(out.Customers, customerHitView{
-				ID: c.ID, Name: c.DisplayName(), Type: string(c.Type), Email: c.Email, Phone: c.PhoneE164,
+				ID: c.ID, AdminPath: adminPath(customerPage, c.ID), Name: c.DisplayName(), Type: string(c.Type), Email: c.Email, Phone: c.PhoneE164,
 				ClientNumber: c.ClientNumber, City: c.Billing.City,
 			})
 		}
@@ -157,14 +158,16 @@ type contactPersonView struct {
 }
 
 type lastOrderView struct {
-	ID     string `json:"id"`
-	Number string `json:"number"`
-	Status string `json:"status"`
-	Date   string `json:"date"`
+	ID        string `json:"id"`
+	AdminPath string `json:"admin_path"`
+	Number    string `json:"number"`
+	Status    string `json:"status"`
+	Date      string `json:"date"`
 }
 
 type customerView struct {
 	ID              string              `json:"id"`
+	AdminPath       string              `json:"admin_path"`
 	Name            string              `json:"name"`
 	Type            string              `json:"type"`
 	CompanyName     string              `json:"company_name,omitempty"`
@@ -210,7 +213,7 @@ func (t *GetCustomerTool) Call(ctx context.Context, raw json.RawMessage) (string
 		return "", err
 	}
 	view := customerView{
-		ID: c.ID, Name: c.DisplayName(), Type: string(c.Type), CompanyName: c.CompanyName, ContactName: fullName(c.FirstName, c.LastName),
+		ID: c.ID, AdminPath: adminPath(customerPage, c.ID), Name: c.DisplayName(), Type: string(c.Type), CompanyName: c.CompanyName, ContactName: fullName(c.FirstName, c.LastName),
 		Email: c.Email, Phone: firstNonEmpty(c.PhoneE164, c.Billing.Phone), ClientNumber: c.ClientNumber, VATNumber: c.VATNumber,
 		KVKNumber: c.KVKNumber, BillingAddress: customerAddress(c.Billing), ShippingAddress: customerAddress(c.Shipping),
 		Note: c.CustomerNote, PayingCustomer: c.IsPayingCustomer, ContactPersons: []contactPersonView{},
@@ -221,7 +224,7 @@ func (t *GetCustomerTool) Call(ctx context.Context, raw json.RawMessage) (string
 	}
 	if len(orders.SalesOrders) > 0 {
 		o := orders.SalesOrders[0]
-		view.LastOrder = &lastOrderView{ID: o.ID, Number: o.Number, Status: string(o.Status), Date: formatTime(o.OccurredAt)}
+		view.LastOrder = &lastOrderView{ID: o.ID, AdminPath: adminPath(salesOrderPage, o.ID), Number: o.Number, Status: string(o.Status), Date: formatTime(o.OccurredAt)}
 	}
 	return toJSON(view)
 }

@@ -70,6 +70,7 @@ func TestListProductChannelListingsTool(t *testing.T) {
 	got := call(t, tool, `{"product_id":"p-1"}`)
 
 	assert.Equal(t, []string{"p-1@conn-woo", "p-1@conn-bol"}, listings.calls, "internal channels have no external listing")
+	assert.Equal(t, "/products/p-1", got["admin_path"])
 	list := got["listings"].([]any)
 	require.Len(t, list, 2)
 	woo := list[0].(map[string]any)

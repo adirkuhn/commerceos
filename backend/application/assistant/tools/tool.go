@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -19,6 +20,27 @@ const (
 	defaultLimit = 10
 	maxLimit     = 20
 )
+
+// Admin pages a record opens on. admin_path in a tool result is built by
+// the app from these -- never by the model -- so the model can link a
+// record as markdown and the UI can open it.
+const (
+	salesOrderPage    = "/sales-orders"
+	quotePage         = "/quotes"
+	productPage       = "/products"
+	customerPage      = "/customers"
+	supplierPage      = "/suppliers"
+	purchaseOrderPage = "/procurement"
+)
+
+// adminPath is the admin URL path of the record id on page base; "" when
+// the id is unknown.
+func adminPath(base, id string) string {
+	if id == "" {
+		return ""
+	}
+	return base + "/" + url.PathEscape(id)
+}
 
 // ErrInvalidArguments: the model's arguments don't match the tool's
 // schema. The message goes back to the model so it can correct itself.

@@ -42,15 +42,16 @@ func dayOfPtr(t *time.Time) string {
 }
 
 type namedRef struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID        string `json:"id"`
+	AdminPath string `json:"admin_path,omitempty"`
+	Name      string `json:"name"`
 }
 
 func supplierRef(id *string, names map[string]string) *namedRef {
 	if id == nil {
 		return nil
 	}
-	return &namedRef{ID: *id, Name: names[*id]}
+	return &namedRef{ID: *id, AdminPath: adminPath(supplierPage, *id), Name: names[*id]}
 }
 
 func supplierNames(ctx context.Context, suppliers supplierLister) (map[string]string, error) {

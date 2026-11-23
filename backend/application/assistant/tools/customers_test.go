@@ -63,6 +63,7 @@ func TestSearchCustomersTool_matchesNameCompanyEmailPhoneAndIgnoresAccents(t *te
 		list := got["customers"].([]any)
 		require.Len(t, list, 1, query)
 		assert.Equal(t, want, list[0].(map[string]any)["id"], query)
+		assert.Equal(t, "/customers/"+want, list[0].(map[string]any)["admin_path"], query)
 	}
 }
 
@@ -101,6 +102,8 @@ func TestGetCustomerTool(t *testing.T) {
 	assert.Equal(t, "Deliver before 9", got["note"])
 	assert.EqualValues(t, 7, got["order_count"])
 	assert.Equal(t, "CO-40", got["last_order"].(map[string]any)["number"])
+	assert.Equal(t, "/customers/"+got["id"].(string), got["admin_path"])
+	assert.Equal(t, "/sales-orders/"+got["last_order"].(map[string]any)["id"].(string), got["last_order"].(map[string]any)["admin_path"])
 	assert.Equal(t, "2026-11-20T00:00:00Z", got["last_order"].(map[string]any)["date"])
 	assert.Equal(t, "Rita Lima", got["contact_persons"].([]any)[0].(map[string]any)["name"])
 	require.NotNil(t, orders.got.CustomerID)

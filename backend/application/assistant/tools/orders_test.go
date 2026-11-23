@@ -44,7 +44,7 @@ func shippedOrder() *appoms.GetSalesOrderResult {
 	paid := time.Date(2026, 11, 20, 10, 0, 0, 0, time.UTC)
 	return &appoms.GetSalesOrderResult{
 		SalesOrder: omsDomain.SalesOrder{
-			ID: orderUUID, Number: "CO-12", Status: omsDomain.SalesOrderStatusShipped, CurrencyCode: "EUR",
+			ID: orderUUID, Number: "CO-12", Status: omsDomain.SalesOrderStatusShipped, CurrencyCode: "EUR", CustomerID: ptr("c-1"),
 			TotalMinorUnits: 2598, ShippingTotalMinorUnits: 495, TaxTotalMinorUnits: 214,
 			Billing:            omsDomain.Address{FirstName: "Ana", LastName: "Souza", Email: "ana@x.test", City: "Utrecht", Country: "NL"},
 			Shipping:           omsDomain.Address{FirstName: "Ana", LastName: "Souza", City: "Utrecht", Country: "NL"},
@@ -68,6 +68,8 @@ func TestGetSalesOrderTool_byID(t *testing.T) {
 	assert.EqualValues(t, 2598, got["total_minor_units"])
 	assert.Equal(t, "EUR", got["currency_code"])
 	assert.Equal(t, "Ana Souza", got["customer"].(map[string]any)["name"])
+	assert.Equal(t, "/sales-orders/"+orderUUID, got["admin_path"])
+	assert.Equal(t, "/customers/c-1", got["customer"].(map[string]any)["admin_path"])
 	assert.Equal(t, true, got["fulfilled"])
 	assert.Equal(t, "PostNL", got["shipping_method"])
 	assert.NotContains(t, got, "transaction_id")
@@ -120,6 +122,7 @@ func TestListSalesOrdersTool(t *testing.T) {
 	assert.Equal(t, omsDomain.SortDesc, list.got.SortDir)
 	assert.EqualValues(t, 42, got["total"])
 	assert.Equal(t, "CO-12", got["sales_orders"].([]any)[0].(map[string]any)["number"])
+	assert.Equal(t, "/sales-orders/"+orderUUID, got["sales_orders"].([]any)[0].(map[string]any)["admin_path"])
 }
 
 func TestListSalesOrdersTool_defaultsAndErrors(t *testing.T) {

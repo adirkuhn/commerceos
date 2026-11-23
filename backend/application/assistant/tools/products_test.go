@@ -57,6 +57,7 @@ func TestGetProductTool(t *testing.T) {
 	assert.Equal(t, "p-1", get.gotID)
 	assert.Equal(t, []string{"s-1"}, stock.gotIDs)
 	assert.Equal(t, "Doce de leite", got["name"])
+	assert.Equal(t, "/products/"+got["id"].(string), got["admin_path"])
 	assert.Equal(t, "active", got["status"])
 	skus := got["skus"].([]any)
 	require.Len(t, skus, 1)

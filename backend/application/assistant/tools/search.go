@@ -41,13 +41,15 @@ type searchView struct {
 }
 
 type productHit struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
+	ID        string `json:"id"`
+	AdminPath string `json:"admin_path"`
+	Name      string `json:"name"`
+	Status    string `json:"status"`
 }
 
 type customerHit struct {
 	ID           string `json:"id"`
+	AdminPath    string `json:"admin_path"`
 	Name         string `json:"name"`
 	CompanyName  string `json:"company_name,omitempty"`
 	Email        string `json:"email,omitempty"`
@@ -55,13 +57,15 @@ type customerHit struct {
 }
 
 type supplierHit struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email,omitempty"`
+	ID        string `json:"id"`
+	AdminPath string `json:"admin_path"`
+	Name      string `json:"name"`
+	Email     string `json:"email,omitempty"`
 }
 
 type orderHit struct {
 	ID              string `json:"id"`
+	AdminPath       string `json:"admin_path"`
 	Number          string `json:"number"`
 	Status          string `json:"status"`
 	CustomerName    string `json:"customer_name,omitempty"`
@@ -84,15 +88,15 @@ func (t *SearchTool) Call(ctx context.Context, raw json.RawMessage) (string, err
 	}
 	view := searchView{Products: []productHit{}, Customers: []customerHit{}, Suppliers: []supplierHit{}, SalesOrders: []orderHit{}}
 	for _, p := range res.Products {
-		view.Products = append(view.Products, productHit{ID: p.ID, Name: p.Name, Status: string(p.Status)})
+		view.Products = append(view.Products, productHit{ID: p.ID, AdminPath: adminPath(productPage, p.ID), Name: p.Name, Status: string(p.Status)})
 	}
 	for _, c := range res.Customers {
 		view.Customers = append(view.Customers, customerHit{
-			ID: c.ID, Name: fullName(c.FirstName, c.LastName), CompanyName: c.CompanyName, Email: c.Email, ClientNumber: c.ClientNumber,
+			ID: c.ID, AdminPath: adminPath(customerPage, c.ID), Name: fullName(c.FirstName, c.LastName), CompanyName: c.CompanyName, Email: c.Email, ClientNumber: c.ClientNumber,
 		})
 	}
 	for _, s := range res.Suppliers {
-		view.Suppliers = append(view.Suppliers, supplierHit{ID: s.ID, Name: s.Name, Email: s.Email})
+		view.Suppliers = append(view.Suppliers, supplierHit{ID: s.ID, AdminPath: adminPath(supplierPage, s.ID), Name: s.Name, Email: s.Email})
 	}
 	for _, o := range res.SalesOrders {
 		view.SalesOrders = append(view.SalesOrders, toOrderHit(o))
@@ -102,7 +106,7 @@ func (t *SearchTool) Call(ctx context.Context, raw json.RawMessage) (string, err
 
 func toOrderHit(o omsDomain.SalesOrder) orderHit {
 	return orderHit{
-		ID: o.ID, Number: o.Number, Status: string(o.Status), CustomerName: orderCustomerName(o),
+		ID: o.ID, AdminPath: adminPath(salesOrderPage, o.ID), Number: o.Number, Status: string(o.Status), CustomerName: orderCustomerName(o),
 		TotalMinorUnits: o.TotalMinorUnits, CurrencyCode: o.CurrencyCode, OccurredAt: formatTime(o.OccurredAt),
 	}
 }

@@ -71,6 +71,7 @@ func TestGetOrderShipmentsTool(t *testing.T) {
 	got := call(t, tool, `{"order":"CO-12"}`)
 
 	assert.Equal(t, orderUUID, shipments.gotID)
+	assert.Equal(t, "/sales-orders/"+orderUUID, got["admin_path"])
 	list := got["shipments"].([]any)
 	require.Len(t, list, 2)
 	first := list[0].(map[string]any)
