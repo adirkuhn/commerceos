@@ -1,0 +1,259 @@
+openapi: 3.0.3
+info:
+  title: CommerceOS AI assistant API
+  version: "1.0"
+  description: >-
+    The admin AI assistant. A person writes or pastes a request; it waits
+    in a queue until the tenant's AI model (Settings > Integrations > AI)
+    takes it. The model looks facts up with read-only tools that run as
+    that person, then answers or asks a clarifying question. A busy,
+    rate-limited or unreachable model -- or no connected provider -- leaves
+    the request queued and retried with backoff (wait_reason says why);
+    only the user cancels it. Admin roles only (customer_owner,
+    customer_admin, super_admin).
+servers:
+  - url: /api/v1
+
+paths:
+  /assistant/requests:
+    get:
+      operationId: listAssistantRequests
+      summary: The tenant's assistant requests, newest first
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/AssistantRequestStatus' }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - name: cursor
+          in: query
+          description: next_cursor from the previous page.
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantRequestListResponse' }
+        '422':
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: createAssistantRequest
+      summary: Queue a new request for the assistant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AssistantTextRequest' }
+      responses:
+        '201':
+          description: queued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantRequestResponse' }
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /assistant/requests/{id}:
+    get:
+      operationId: getAssistantRequest
+      summary: One request with its conversation
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantRequestDetailResponse' }
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /assistant/requests/{id}/reply:
+    post:
+      operationId: replyToAssistantRequest
+      summary: Answer the assistant's question, or ask a follow-up on its answer
+      description: Only while the request is needs_input or answered (else 409). Queues it again.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AssistantTextRequest' }
+      responses:
+        '200':
+          description: queued again
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantRequestResponse' }
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /assistant/requests/{id}/cancel:
+    post:
+      operationId: cancelAssistantRequest
+      summary: Cancel a request that hasn't finished (queued, processing or needs_input)
+      description: A finished (answered) or already cancelled request answers 409.
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: cancelled
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantRequestResponse' }
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      description: Assistant request ID.
+      schema: { type: string, format: uuid }
+
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    AssistantRequestStatus:
+      type: string
+      enum: [queued, processing, needs_input, answered, cancelled]
+      description: >-
+        queued = waiting for the model (next_attempt_at); processing = the
+        model is working on it; needs_input = the assistant asked a
+        question; answered = it replied (a follow-up queues it again);
+        cancelled = stopped by a user.
+
+    AssistantWaitReason:
+      type: string
+      enum: [model_busy, no_provider, provider_unsupported, model_error]
+      description: >-
+        Why a queued request is still waiting after an attempt.
+        model_busy = rate limit, quota or overload; no_provider = no AI
+        provider connected; provider_unsupported = the connected provider
+        can't run the assistant yet; model_error = any other model failure
+        (last_error has the detail).
+
+    AssistantTextRequest:
+      type: object
+      required: [text]
+      additionalProperties: false
+      properties:
+        text: { type: string, minLength: 1, maxLength: 20000 }
+
+    AssistantRequest:
+      type: object
+      required: [id, title, status, attempts, next_attempt_at, user_id, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, description: First line of the opening text, at most 120 characters. }
+        status: { $ref: '#/components/schemas/AssistantRequestStatus' }
+        attempts: { type: integer, description: Model attempts in the current turn. }
+        next_attempt_at: { type: string, format: date-time, description: When a queued request is next tried. }
+        wait_reason:
+          allOf: [{ $ref: '#/components/schemas/AssistantWaitReason' }]
+          nullable: true
+        last_error: { type: string, nullable: true, description: The last failed attempt's error, while queued. }
+        user_id: { type: string, description: Who asked; the tools run as them. }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    AssistantMessageRole:
+      type: string
+      enum: [user, assistant, tool]
+
+    AssistantToolCall:
+      type: object
+      required: [id, name, arguments]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        arguments: { type: string, description: The JSON arguments the model passed. }
+
+    AssistantMessage:
+      type: object
+      required: [seq, role, content, question, created_at]
+      properties:
+        seq: { type: integer }
+        role: { $ref: '#/components/schemas/AssistantMessageRole' }
+        content:
+          type: string
+          description: >-
+            What the user wrote or the model answered. Always empty for
+            tool messages -- raw tool results stay server-side.
+        tool_calls:
+          type: array
+          items: { $ref: '#/components/schemas/AssistantToolCall' }
+        tool_name: { type: string, nullable: true, description: Set on tool messages. }
+        question: { type: boolean, description: The assistant asked the user to clarify. }
+        notice:
+          type: string
+          nullable: true
+          enum: [too_many_steps]
+          description: Set instead of content when the app wrote the message; show it translated.
+        created_at: { type: string, format: date-time }
+
+    AssistantRequestDetail:
+      type: object
+      required: [request, messages]
+      properties:
+        request: { $ref: '#/components/schemas/AssistantRequest' }
+        messages:
+          type: array
+          items: { $ref: '#/components/schemas/AssistantMessage' }
+
+    AssistantRequestList:
+      type: object
+      required: [requests]
+      properties:
+        requests:
+          type: array
+          items: { $ref: '#/components/schemas/AssistantRequest' }
+        next_cursor: { type: string, nullable: true }
+
+    AssistantRequestResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/AssistantRequest' }
+        error: { nullable: true }
+
+    AssistantRequestDetailResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/AssistantRequestDetail' }
+        error: { nullable: true }
+
+    AssistantRequestListResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/AssistantRequestList' }
+        error: { nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        data: { nullable: true }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
