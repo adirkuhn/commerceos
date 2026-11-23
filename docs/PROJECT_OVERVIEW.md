@@ -94,7 +94,7 @@ Cron jobs (`domain/scheduler`): `expired_sale_prices`, `expired_batches`, `cost_
 - "processed" status → non-Woo order `shipped`, Woo order `on-hold`. Event: `shipping.shipment.fulfillment_signal`.
 
 ### Sales channels & integrations (`channels`, `integrations`)
-- **Connection** per provider: woocommerce, bol, myparcel, whatsapp (Evolution API), stripe, revolut, email (per-tenant SMTP). Separate AI connection (openai/anthropic/gemini/ollama, one active per tenant).
+- **Connection** per provider: woocommerce, bol, myparcel, whatsapp (Evolution API), stripe, revolut, email (per-tenant SMTP). Separate AI connection (openai/anthropic/gemini/ollama/nvidia, one active per tenant).
 - **SalesChannel** (woocommerce | bol | internal | whatsapp): enrollment mode all/category/tag/manual + per-product override, price adjustment (bp), B2B quantity breaks, fixed currency (FX hybrid: tenant exchange rates + per-SKU currency overrides), default warehouse, payment connection.
 - Listings per product/channel, **sync log** (push/import, field diffs, retry/dismiss), sync schedules per entity+direction (products, stock, orders, reconciliation, bol_*).
 - **WooCommerce:** OAuth-style connect or manual; product push in 3 shapes (single / separate products per variant / variable+variations), images, categories (connection-scoped links), tax class links, stock + lot/expiry meta, order import (incremental, reconciliation), status + notes pushed back, provider webhook management. Companion WP plugin lives in a separate repo.
@@ -143,7 +143,7 @@ Cron jobs (`domain/scheduler`): `expired_sale_prices`, `expired_batches`, `cost_
 - Roadmap for forecasting / recommendation engine: `docs/intelligence-roadmap.md`.
 
 ### AI usage (`infrastructure/ai`)
-Pluggable per tenant (OpenAI, Anthropic, Gemini, Ollama) for two jobs only: procurement document line-item extraction, and WhatsApp intent classification. Everything works without AI (deterministic paths).
+Pluggable per tenant (OpenAI, Anthropic, Gemini, Ollama, NVIDIA free hosted models) for two jobs only: procurement document line-item extraction, and WhatsApp intent classification. Everything works without AI (deterministic paths).
 
 ## 6. Frontends
 

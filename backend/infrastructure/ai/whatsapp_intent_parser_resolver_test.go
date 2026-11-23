@@ -38,6 +38,7 @@ func TestWhatsAppIntentParserResolver_buildsCorrectAdapterPerProvider(t *testing
 		{integrationsDomain.AIProviderAnthropic, "", &ai.AnthropicWhatsAppIntentParser{}},
 		{integrationsDomain.AIProviderGemini, "", &ai.GeminiWhatsAppIntentParser{}},
 		{integrationsDomain.AIProviderOllama, "http://localhost:11434", &ai.OllamaWhatsAppIntentParser{}},
+		{integrationsDomain.AIProviderNVIDIA, "", &ai.NVIDIAWhatsAppIntentParser{}},
 	}
 	for _, tc := range cases {
 		t.Run(string(tc.provider), func(t *testing.T) {
@@ -114,4 +115,32 @@ func TestWhatsAppIntentParserResolver_propagatesUnsupportedProvider(t *testing.T
 	_, err := resolver.Resolve(context.Background())
 
 	assert.ErrorIs(t, err, integrationsDomain.ErrProviderNotSupported)
+}
+
+func TestWhatsAppIntentParserResolver_wiresNVIDIAFallbackModels(t *testing.T) {
+	var models []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		models = append(models, body["model"].(string))
+		if len(models) == 1 {
+			writeJSON(w, http.StatusTooManyRequests, map[string]any{"error": map[string]any{"message": "rate limited"}})
+			return
+		}
+		writeJSON(w, http.StatusOK, chatCompletion(`{"command":"STOCK","product_query":"x"}`))
+	}))
+	defer server.Close()
+
+	repo := &mocks.AIConnectionRepo{GetFn: func(_ context.Context) (*integrationsDomain.AIConnection, error) {
+		return &integrationsDomain.AIConnection{
+			Provider: integrationsDomain.AIProviderNVIDIA, BaseURL: server.URL, FallbackModels: "meta/llama-3.1-8b-instruct",
+		}, nil
+	}}
+
+	parser, err := ai.NewWhatsAppIntentParserResolver(newMockGormDB(t), repo, "test-secret").Resolve(context.Background())
+	require.NoError(t, err)
+	_, err = parser.ParseIntent(context.Background(), "tem x?")
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"meta/llama-3.3-70b-instruct", "meta/llama-3.1-8b-instruct"}, models)
 }

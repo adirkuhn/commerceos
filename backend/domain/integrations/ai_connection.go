@@ -14,11 +14,15 @@ const (
 	AIProviderAnthropic AIProvider = "anthropic"
 	AIProviderGemini    AIProvider = "gemini"
 	AIProviderOllama    AIProvider = "ollama"
+	// AIProviderNVIDIA is NVIDIA's hosted API catalog (build.nvidia.com),
+	// whose free developer tier serves open models over an
+	// OpenAI-compatible Chat Completions endpoint.
+	AIProviderNVIDIA AIProvider = "nvidia"
 )
 
 func (p AIProvider) Valid() bool {
 	switch p {
-	case AIProviderOpenAI, AIProviderAnthropic, AIProviderGemini, AIProviderOllama:
+	case AIProviderOpenAI, AIProviderAnthropic, AIProviderGemini, AIProviderOllama, AIProviderNVIDIA:
 		return true
 	default:
 		return false

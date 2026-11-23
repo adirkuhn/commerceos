@@ -14,7 +14,7 @@ import (
 
 // WhatsAppIntentParserResolver implements whatsapp.AIIntentParserResolver
 // -- same shape as ParserResolver (procurement's), the one place that
-// knows about all four adapters.
+// knows about every adapter.
 type WhatsAppIntentParserResolver struct {
 	db               *gorm.DB
 	aiConnRepo       integrationsDomain.AIConnectionRepository
@@ -66,6 +66,12 @@ func (r *WhatsAppIntentParserResolver) Resolve(ctx context.Context) (whatsappDom
 		return p, nil
 	case integrationsDomain.AIProviderGemini:
 		p := NewGeminiWhatsAppIntentParser(apiKey).WithModel(conn.Model).WithFallbackModels(conn.FallbackModels)
+		if conn.BaseURL != "" {
+			p = p.WithBaseURL(conn.BaseURL)
+		}
+		return p, nil
+	case integrationsDomain.AIProviderNVIDIA:
+		p := NewNVIDIAWhatsAppIntentParser(apiKey).WithModel(conn.Model).WithFallbackModels(conn.FallbackModels)
 		if conn.BaseURL != "" {
 			p = p.WithBaseURL(conn.BaseURL)
 		}

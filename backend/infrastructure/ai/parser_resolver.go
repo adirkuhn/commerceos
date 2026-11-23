@@ -14,7 +14,7 @@ import (
 
 // ParserResolver implements procurement.AIParserResolver -- looks up the
 // tenant's AIConnection and constructs the matching per-vendor adapter.
-// This is the one place that knows about all four adapters; everything
+// This is the one place that knows about every adapter; everything
 // downstream only ever depends on the AIDocumentParser port.
 type ParserResolver struct {
 	db               *gorm.DB
@@ -67,6 +67,12 @@ func (r *ParserResolver) Resolve(ctx context.Context) (procurementDomain.AIDocum
 		return p, nil
 	case integrationsDomain.AIProviderGemini:
 		p := NewGeminiDocumentParser(apiKey).WithModel(conn.Model)
+		if conn.BaseURL != "" {
+			p = p.WithBaseURL(conn.BaseURL)
+		}
+		return p, nil
+	case integrationsDomain.AIProviderNVIDIA:
+		p := NewNVIDIADocumentParser(apiKey).WithModel(conn.Model).WithFallbackModels(conn.FallbackModels)
 		if conn.BaseURL != "" {
 			p = p.WithBaseURL(conn.BaseURL)
 		}
