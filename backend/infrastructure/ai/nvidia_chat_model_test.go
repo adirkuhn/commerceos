@@ -147,3 +147,18 @@ func TestNVIDIAChatModel_fallsBackOnRateLimit(t *testing.T) {
 	assert.Equal(t, "ok", reply.Content)
 	assert.Equal(t, []string{"meta/llama-3.3-70b-instruct", "meta/llama-3.1-8b-instruct"}, models)
 }
+
+func TestNVIDIAChatModel_errorNamesTheModelAndTheProvidersReason(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusGone, map[string]any{"detail": "Model has reached its end of life"})
+	}))
+	defer server.Close()
+
+	_, err := ai.NewNVIDIAChatModel("k").WithBaseURL(server.URL).Next(context.Background(),
+		assistant.ChatTurn{Messages: []assistant.Message{{Role: assistant.RoleUser, Content: "x"}}})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "meta/llama-3.3-70b-instruct")
+	assert.Contains(t, err.Error(), "end of life")
+	assert.NotErrorIs(t, err, assistant.ErrModelBusy, "a retired model won't come back by waiting")
+}

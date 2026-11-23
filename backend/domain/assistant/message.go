@@ -18,6 +18,10 @@ type ToolCall struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	Arguments string `json:"arguments"`
+	// Signature is provider state that must travel back with the call on
+	// later steps (Gemini's base64 thought signature); opaque elsewhere,
+	// empty for providers that have none.
+	Signature string `json:"signature,omitempty"`
 }
 
 // Message is one entry of a request's conversation, in order (Seq).

@@ -21,7 +21,7 @@ const (
 	MaxSteps = 8
 	// MaxToolResultChars keeps one tool result from flooding the context.
 	MaxToolResultChars = 12000
-	maxErrorDetail     = 500
+	maxErrorDetail     = 2000
 	askUserToolName    = "ask_user"
 )
 

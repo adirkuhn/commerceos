@@ -38,15 +38,16 @@ func busyStatus(code int) bool {
 	return false
 }
 
-// chatError wraps a provider failure for the assistant: transient ones
-// (busyStatus, or a network failure) wrap ErrModelBusy so the request waits
-// in the queue.
-func chatError(label string, status int, err error) error {
+// chatError wraps a provider failure for the assistant, naming the
+// provider and model so a retired model or a bad key is obvious in the
+// request's last error. Transient ones (busyStatus, or a network failure)
+// wrap ErrModelBusy so the request waits in the queue.
+func chatError(label, model string, status int, err error) error {
 	var netErr net.Error
 	if busyStatus(status) || errors.As(err, &netErr) {
-		return fmt.Errorf("%sChatModel: %w: %w", label, assistant.ErrModelBusy, err)
+		return fmt.Errorf("%s (%s): %w: %w", label, model, assistant.ErrModelBusy, err)
 	}
-	return fmt.Errorf("%sChatModel: %w", label, err)
+	return fmt.Errorf("%s (%s): %w", label, model, err)
 }
 
 // argsMap decodes a tool call's JSON arguments for providers that take

@@ -121,7 +121,7 @@ func TestAssistantMessageRepo_AppendAndListInOrder(t *testing.T) {
 		msgs := []assistant.Message{
 			{RequestID: r.ID, TenantID: tenantID, Role: assistant.RoleUser, Content: "status CO-12?"},
 			{RequestID: r.ID, TenantID: tenantID, Role: assistant.RoleAssistant,
-				ToolCalls: []assistant.ToolCall{{ID: "c1", Name: "get_sales_order", Arguments: `{"number":"CO-12"}`}}},
+				ToolCalls: []assistant.ToolCall{{ID: "c1", Name: "get_sales_order", Arguments: `{"number":"CO-12"}`, Signature: "c2ln"}}},
 			{RequestID: r.ID, TenantID: tenantID, Role: assistant.RoleTool, ToolCallID: "c1", ToolName: "get_sales_order", Content: `{"status":"shipped"}`},
 			{RequestID: r.ID, TenantID: tenantID, Role: assistant.RoleAssistant, Question: true, Notice: assistant.NoticeTooManySteps},
 		}
@@ -135,7 +135,7 @@ func TestAssistantMessageRepo_AppendAndListInOrder(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, got, 4)
 		assert.Equal(t, "status CO-12?", got[0].Content)
-		assert.Equal(t, []assistant.ToolCall{{ID: "c1", Name: "get_sales_order", Arguments: `{"number":"CO-12"}`}}, got[1].ToolCalls)
+		assert.Equal(t, []assistant.ToolCall{{ID: "c1", Name: "get_sales_order", Arguments: `{"number":"CO-12"}`, Signature: "c2ln"}}, got[1].ToolCalls)
 		assert.Equal(t, "c1", got[2].ToolCallID)
 		assert.Equal(t, "get_sales_order", got[2].ToolName)
 		assert.True(t, got[3].Question)

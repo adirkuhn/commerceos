@@ -105,6 +105,9 @@ func (c chatCompletionsClient) withFallback(call func(model string) error) error
 		if err == nil {
 			return nil
 		}
+		if len(models) > 1 {
+			err = fmt.Errorf("model %s: %w", model, err)
+		}
 		lastErr = err
 		if httpStatus(err) != http.StatusTooManyRequests {
 			return lastErr

@@ -63,7 +63,7 @@ func (m *AnthropicChatModel) Next(ctx context.Context, turn assistant.ChatTurn) 
 		if errors.As(err, &apiErr) {
 			status = apiErr.StatusCode
 		}
-		return assistant.ChatReply{}, chatError("anthropic", status, err)
+		return assistant.ChatReply{}, chatError("anthropic", string(m.model), status, err)
 	}
 
 	var reply assistant.ChatReply

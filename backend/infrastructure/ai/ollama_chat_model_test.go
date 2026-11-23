@@ -97,3 +97,17 @@ func TestOllamaChatModel_modelErrorIsNotTransient(t *testing.T) {
 	assert.NotErrorIs(t, err, assistant.ErrModelBusy)
 	assert.Contains(t, err.Error(), "does not support tools")
 }
+
+func TestOllamaChatModel_errorNamesTheModel(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"model not found"}`))
+	}))
+	defer server.Close()
+
+	_, err := ai.NewOllamaChatModel(server.URL).WithModel("qwen9").Next(context.Background(), sampleTurn())
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ollama (qwen9)")
+	assert.Contains(t, err.Error(), "model not found")
+}

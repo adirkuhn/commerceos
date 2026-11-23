@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -95,7 +96,7 @@ func (m *GeminiChatModel) Next(ctx context.Context, turn assistant.ChatTurn) (as
 	if errors.As(lastErr, &apiErr) {
 		status = apiErr.Code
 	}
-	return assistant.ChatReply{}, chatError("gemini", status, lastErr)
+	return assistant.ChatReply{}, chatError("gemini", m.model, status, lastErr)
 }
 
 func geminiReply(resp *genai.GenerateContentResponse) assistant.ChatReply {
@@ -115,7 +116,11 @@ func geminiReply(resp *genai.GenerateContentResponse) assistant.ChatReply {
 			if id == "" {
 				id = generatedCallID(len(reply.ToolCalls), p.FunctionCall.Name)
 			}
-			reply.ToolCalls = append(reply.ToolCalls, assistant.ToolCall{ID: id, Name: p.FunctionCall.Name, Arguments: string(args)})
+			call := assistant.ToolCall{ID: id, Name: p.FunctionCall.Name, Arguments: string(args)}
+			if len(p.ThoughtSignature) > 0 {
+				call.Signature = base64.StdEncoding.EncodeToString(p.ThoughtSignature)
+			}
+			reply.ToolCalls = append(reply.ToolCalls, call)
 		case p.Text != "" && !p.Thought:
 			text = append(text, p.Text)
 		}
@@ -124,6 +129,12 @@ func geminiReply(resp *genai.GenerateContentResponse) assistant.ChatReply {
 	return reply
 }
 
+// toGeminiContents maps the conversation. Gemini 3 refuses a function
+// call in the history without the thought signature it attached, so a step
+// is sent as function calls only when Gemini made it (its first call is
+// signed; parallel calls after the first carry none). Steps another model
+// made -- the router may have used a different connection earlier -- go as
+// plain text, with their results, so the facts they found are kept.
 func toGeminiContents(msgs []assistant.Message) []*genai.Content {
 	var out []*genai.Content
 	add := func(role genai.Role, parts ...*genai.Part) {
@@ -136,26 +147,49 @@ func toGeminiContents(msgs []assistant.Message) []*genai.Content {
 		}
 		out = append(out, &genai.Content{Role: string(role), Parts: parts})
 	}
+	asText := map[string]bool{} // call ids sent as text
 	for _, m := range msgs {
 		switch m.Role {
 		case assistant.RoleUser:
 			add(genai.RoleUser, genai.NewPartFromText(m.Content))
 		case assistant.RoleTool:
+			if asText[m.ToolCallID] {
+				add(genai.RoleUser, genai.NewPartFromText(fmt.Sprintf("Result of %s: %s", m.ToolName, m.Content)))
+				continue
+			}
 			// Matched to its call by name: call ids may be generated ones
 			// Gemini never saw.
 			add(genai.RoleUser, &genai.Part{FunctionResponse: &genai.FunctionResponse{Name: m.ToolName, Response: toolResponse(m.Content)}})
 		case assistant.RoleAssistant:
-			var parts []*genai.Part
-			if text := assistantText(m); text != "" {
-				parts = append(parts, genai.NewPartFromText(text))
-			}
-			for _, c := range m.ToolCalls {
-				parts = append(parts, &genai.Part{FunctionCall: &genai.FunctionCall{Name: c.Name, Args: argsMap(c.Arguments)}})
-			}
-			add(genai.RoleModel, parts...)
+			add(genai.RoleModel, geminiStep(m, asText)...)
 		}
 	}
 	return out
+}
+
+func geminiStep(m assistant.Message, asText map[string]bool) []*genai.Part {
+	var parts []*genai.Part
+	if text := assistantText(m); text != "" {
+		parts = append(parts, genai.NewPartFromText(text))
+	}
+	if len(m.ToolCalls) == 0 {
+		return parts
+	}
+	if m.ToolCalls[0].Signature == "" {
+		for _, c := range m.ToolCalls {
+			asText[c.ID] = true
+			parts = append(parts, genai.NewPartFromText(fmt.Sprintf("(Earlier step) I called the tool %s with %s.", c.Name, c.Arguments)))
+		}
+		return parts
+	}
+	for _, c := range m.ToolCalls {
+		part := &genai.Part{FunctionCall: &genai.FunctionCall{Name: c.Name, Args: argsMap(c.Arguments)}}
+		if sig, err := base64.StdEncoding.DecodeString(c.Signature); err == nil && len(sig) > 0 {
+			part.ThoughtSignature = sig
+		}
+		parts = append(parts, part)
+	}
+	return parts
 }
 
 // toolResponse: Gemini takes a function's result as a JSON object; any

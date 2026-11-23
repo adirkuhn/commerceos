@@ -33,7 +33,9 @@ func TestGeminiChatModel_mapsConversationToolsAndFunctionCalls(t *testing.T) {
 	}))
 	defer server.Close()
 
-	reply, err := ai.NewGeminiChatModel("gm-key").WithBaseURL(server.URL).Next(context.Background(), sampleTurn())
+	turn := sampleTurn()
+	turn.Messages[1].ToolCalls[0].Signature = "c2lnLTA=" // Gemini made this call itself
+	reply, err := ai.NewGeminiChatModel("gm-key").WithBaseURL(server.URL).Next(context.Background(), turn)
 
 	require.NoError(t, err)
 	assert.Contains(t, path, "gemini-3.6-flash:generateContent")
@@ -76,7 +78,7 @@ func TestGeminiChatModel_nonObjectToolResultIsWrapped(t *testing.T) {
 	defer server.Close()
 	turn := assistant.ChatTurn{Messages: []assistant.Message{
 		{Role: assistant.RoleUser, Content: "x"},
-		{Role: assistant.RoleAssistant, ToolCalls: []assistant.ToolCall{{ID: "c", Name: "search", Arguments: `{}`}}},
+		{Role: assistant.RoleAssistant, ToolCalls: []assistant.ToolCall{{ID: "c", Name: "search", Arguments: `{}`, Signature: "c2ln"}}},
 		{Role: assistant.RoleTool, ToolCallID: "c", ToolName: "search", Content: `[1,2]`},
 	}}
 
@@ -101,4 +103,77 @@ func TestGeminiChatModel_fallsBackOnRateLimitThenBusy(t *testing.T) {
 	assert.ErrorIs(t, err, assistant.ErrModelBusy)
 	require.Len(t, paths, 2)
 	assert.True(t, strings.Contains(paths[1], "gemini-3.5-flash-lite"))
+}
+
+func TestGeminiChatModel_keepsTheThoughtSignatureOfItsCalls(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, geminiReply(map[string]any{
+			"functionCall":     map[string]any{"name": "search_customers", "args": map[string]any{"query": "Ana"}},
+			"thoughtSignature": "c2lnLTE=",
+		}))
+	}))
+	defer server.Close()
+
+	reply, err := ai.NewGeminiChatModel("k").WithBaseURL(server.URL).Next(context.Background(), sampleTurn())
+
+	require.NoError(t, err)
+	require.Len(t, reply.ToolCalls, 1)
+	assert.Equal(t, "c2lnLTE=", reply.ToolCalls[0].Signature)
+}
+
+func TestGeminiChatModel_sendsItsOwnSignedCallsBackWithTheirSignature(t *testing.T) {
+	var body map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		writeJSON(w, http.StatusOK, geminiReply(map[string]any{"text": "ok"}))
+	}))
+	defer server.Close()
+	turn := assistant.ChatTurn{Messages: []assistant.Message{
+		{Role: assistant.RoleUser, Content: "find Ana"},
+		{Role: assistant.RoleAssistant, ToolCalls: []assistant.ToolCall{
+			{ID: "c1", Name: "search_customers", Arguments: `{"query":"Ana"}`, Signature: "c2lnLTE="},
+			{ID: "c2", Name: "search_suppliers", Arguments: `{"query":"Ana"}`},
+		}},
+		{Role: assistant.RoleTool, ToolCallID: "c1", ToolName: "search_customers", Content: `{"hits":1}`},
+		{Role: assistant.RoleTool, ToolCallID: "c2", ToolName: "search_suppliers", Content: `{"hits":0}`},
+	}}
+
+	_, err := ai.NewGeminiChatModel("k").WithBaseURL(server.URL).Next(context.Background(), turn)
+
+	require.NoError(t, err)
+	contents := body["contents"].([]any)
+	parts := contents[1].(map[string]any)["parts"].([]any)
+	require.Len(t, parts, 2, "a signed step keeps its function calls -- parallel calls after the first carry none")
+	assert.Equal(t, "c2lnLTE=", parts[0].(map[string]any)["thoughtSignature"])
+	assert.NotNil(t, parts[0].(map[string]any)["functionCall"])
+	assert.Nil(t, parts[1].(map[string]any)["thoughtSignature"])
+	results := contents[2].(map[string]any)["parts"].([]any)
+	assert.NotNil(t, results[0].(map[string]any)["functionResponse"])
+}
+
+func TestGeminiChatModel_callsAnotherModelMadeGoAsText(t *testing.T) {
+	var body map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		writeJSON(w, http.StatusOK, geminiReply(map[string]any{"text": "ok"}))
+	}))
+	defer server.Close()
+
+	// sampleTurn's call came from another provider: no signature.
+	_, err := ai.NewGeminiChatModel("k").WithBaseURL(server.URL).Next(context.Background(), sampleTurn())
+
+	require.NoError(t, err)
+	raw, _ := json.Marshal(body["contents"])
+	assert.NotContains(t, string(raw), "functionCall", "Gemini refuses calls without its signature")
+	assert.NotContains(t, string(raw), "functionResponse")
+	contents := body["contents"].([]any)
+	step := contents[1].(map[string]any)
+	assert.Equal(t, "model", step["role"])
+	stepText, _ := json.Marshal(step["parts"])
+	assert.Contains(t, string(stepText), "get_sales_order")
+	assert.Contains(t, string(stepText), `CO-12`)
+	result := contents[2].(map[string]any)
+	assert.Equal(t, "user", result["role"])
+	resultText, _ := json.Marshal(result["parts"])
+	assert.Contains(t, string(resultText), "shipped", "the facts the other model looked up are kept")
 }

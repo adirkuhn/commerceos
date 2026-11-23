@@ -287,3 +287,13 @@ func TestProcess_prepareErrorGoesBackToTheModel(t *testing.T) {
 	assert.Empty(t, f.proposals.order)
 	assert.Contains(t, f.msgs.byReq["r-1"][2].Content, "sku s-9 is not a SKU")
 }
+
+func TestProcess_keepsEveryConnectionsReasonInTheLastError(t *testing.T) {
+	f := newProcessFixture(t)
+	long := "nvidia: 410 Gone " + strings.Repeat("a", 700) + "\ngemini #2: 400 missing thought_signature " + strings.Repeat("b", 700)
+	f.model.errs = []error{errors.New(long)}
+
+	f.run(t)
+
+	assert.Equal(t, long, f.request().LastError, "two providers' reasons fit")
+}

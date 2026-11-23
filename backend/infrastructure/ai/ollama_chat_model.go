@@ -64,7 +64,7 @@ func (m *OllamaChatModel) Next(ctx context.Context, turn assistant.ChatTurn) (as
 		return nil
 	})
 	if err != nil {
-		return assistant.ChatReply{}, chatError("ollama", ollamaStatus(err), err)
+		return assistant.ChatReply{}, chatError("ollama", m.model, ollamaStatus(err), err)
 	}
 	return reply, nil
 }

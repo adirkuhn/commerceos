@@ -1,8 +1,11 @@
 package ai
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/shared"
@@ -42,9 +45,39 @@ func (m chatCompletionsModel) next(ctx context.Context, turn assistant.ChatTurn)
 		return nil
 	})
 	if err != nil {
-		return assistant.ChatReply{}, chatError(m.chat.label, httpStatus(err), err)
+		return assistant.ChatReply{}, chatError(m.chat.label, m.chat.model, httpStatus(err), withProviderReason(err))
 	}
 	return reply, nil
+}
+
+// withProviderReason adds the provider's response body to err when the SDK
+// left it out of the message -- NVIDIA answers some failures (a retired
+// model's 410) with a body the OpenAI SDK doesn't parse as an error.
+func withProviderReason(err error) error {
+	var apiErr *openai.Error
+	if !errors.As(err, &apiErr) {
+		return err
+	}
+	raw := strings.TrimSpace(apiErr.RawJSON())
+	if raw == "" && apiErr.Response != nil {
+		raw = strings.TrimSpace(string(responseBody(apiErr.DumpResponse(true))))
+	}
+	if raw == "" || strings.Contains(err.Error(), raw) {
+		return err
+	}
+	const maxReason = 300
+	if len(raw) > maxReason {
+		raw = raw[:maxReason] + "…"
+	}
+	return fmt.Errorf("%w: %s", err, raw)
+}
+
+// responseBody is the body part of an HTTP response dump.
+func responseBody(dump []byte) []byte {
+	if i := bytes.Index(dump, []byte("\r\n\r\n")); i >= 0 {
+		return dump[i+4:]
+	}
+	return nil
 }
 
 func toChatMessages(turn assistant.ChatTurn) []openai.ChatCompletionMessageParamUnion {

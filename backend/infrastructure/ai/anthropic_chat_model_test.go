@@ -101,3 +101,15 @@ func TestAnthropicChatModel_authErrorIsNotBusy(t *testing.T) {
 	require.Error(t, err)
 	assert.NotErrorIs(t, err, assistant.ErrModelBusy)
 }
+
+func TestAnthropicChatModel_errorNamesTheModel(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusNotFound, map[string]any{"type": "error", "error": map[string]any{"type": "not_found_error", "message": "model: claude-old"}})
+	}))
+	defer server.Close()
+
+	_, err := ai.NewAnthropicChatModel("k").WithBaseURL(server.URL).WithModel("claude-old").Next(context.Background(), sampleTurn())
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "anthropic (claude-old)")
+}
