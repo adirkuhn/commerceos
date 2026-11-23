@@ -148,6 +148,71 @@ paths:
         '409':
           $ref: '#/components/responses/Error'
 
+  /assistant/requests/{id}/proposals/{proposalId}/confirm:
+    post:
+      operationId: confirmAssistantProposal
+      summary: Confirm a pending proposal -- it runs now, as you
+      description: >-
+        Runs the proposed change with your own permissions (creating the
+        quote, or converting the quote to a sales order). After a quote is
+        created its conversion is proposed next, so the request keeps
+        awaiting_confirmation. If the change fails (422 with the reason's
+        code) the proposal stays pending with last_error; retry, reject or
+        reply with changes. 409 when the proposal was already decided or the
+        request isn't waiting on it.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/proposalId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConfirmProposalRequest' }
+      responses:
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+        '200':
+          description: done; the request with its conversation and proposals
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantRequestDetailResponse' }
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /assistant/requests/{id}/proposals/{proposalId}/reject:
+    post:
+      operationId: rejectAssistantProposal
+      summary: Reject a pending proposal; nothing is created
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/proposalId'
+      responses:
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+        '200':
+          description: rejected; the request with its conversation and proposals
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantRequestDetailResponse' }
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
 components:
   parameters:
     id:
@@ -155,6 +220,13 @@ components:
       in: path
       required: true
       description: Assistant request ID.
+      schema: { type: string, format: uuid }
+
+    proposalId:
+      name: proposalId
+      in: path
+      required: true
+      description: Proposal ID.
       schema: { type: string, format: uuid }
 
   responses:
@@ -168,12 +240,13 @@ components:
   schemas:
     AssistantRequestStatus:
       type: string
-      enum: [queued, processing, needs_input, answered, cancelled]
+      enum: [queued, processing, needs_input, answered, awaiting_confirmation, cancelled]
       description: >-
         queued = waiting for the model (next_attempt_at); processing = the
         model is working on it; needs_input = the assistant asked a
         question; answered = it replied (a follow-up queues it again);
-        cancelled = stopped by a user.
+        awaiting_confirmation = it proposed a change (see proposals) that
+        waits for you to confirm or reject; cancelled = stopped by a user.
 
     AssistantWaitReason:
       type: string
@@ -223,12 +296,14 @@ components:
 
     AssistantNotice:
       type: string
-      enum: [too_many_steps]
+      enum: [too_many_steps, proposed, proposal_confirmed, proposal_rejected]
       description: >-
-        Set instead of content when the app, not the model, wrote the
-        message; show it translated. too_many_steps = the model kept
-        looking things up without answering, so the turn stopped and the
-        user is asked to add detail.
+        Set when the app, not the model, wrote the message; show it
+        translated. too_many_steps = the model kept looking things up
+        without answering, so the turn stopped and the user is asked to add
+        detail. proposed = the model proposed the change in proposal_id
+        (show that proposal here); proposal_confirmed / proposal_rejected =
+        a person decided proposal_id.
 
     AssistantMessage:
       type: object
@@ -249,16 +324,140 @@ components:
         notice:
           allOf: [{ $ref: '#/components/schemas/AssistantNotice' }]
           nullable: true
+        proposal_id: { type: string, format: uuid, nullable: true, description: The proposal this message made or decided. }
         created_at: { type: string, format: date-time }
 
     AssistantRequestDetail:
       type: object
-      required: [request, messages]
+      required: [request, messages, proposals]
       properties:
         request: { $ref: '#/components/schemas/AssistantRequest' }
         messages:
           type: array
           items: { $ref: '#/components/schemas/AssistantMessage' }
+        proposals:
+          type: array
+          description: Every change proposed in this request, oldest first.
+          items: { $ref: '#/components/schemas/AssistantProposal' }
+
+    AssistantProposalKind:
+      type: string
+      enum: [create_quote, convert_quote]
+
+    AssistantProposalStatus:
+      type: string
+      enum: [pending, executing, confirmed, rejected, superseded]
+      description: >-
+        pending = waiting for a decision; executing = a confirm is running
+        it; confirmed = it ran (result_id/result_ref); rejected = a person
+        said no; superseded = the conversation moved past it (a reply asked
+        for changes, or the request was cancelled).
+
+    AssistantProposal:
+      type: object
+      required: [id, kind, status, created_at]
+      description: Exactly one of quote / conversion is set, matching kind.
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: '#/components/schemas/AssistantProposalKind' }
+        status: { $ref: '#/components/schemas/AssistantProposalStatus' }
+        quote: { $ref: '#/components/schemas/QuoteProposalPreview' }
+        conversion: { $ref: '#/components/schemas/ConversionProposalPreview' }
+        last_error: { type: string, nullable: true, description: Why the last confirm failed; it stays pending. }
+        result_id: { type: string, nullable: true, description: What a confirm created -- the quote's or the sales order's id. }
+        result_ref: { type: string, nullable: true, description: Its human reference, e.g. Q-0012 or the order number. }
+        decided_by: { type: string, nullable: true }
+        decided_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    ProposalCustomer:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string }
+
+    ProposalLine:
+      type: object
+      required: [product_id, sku_id, product_name, variant_name, sku_code, quantity, unit_price_minor_units, line_total_minor_units]
+      properties:
+        product_id: { type: string }
+        sku_id: { type: string }
+        product_name: { type: string }
+        variant_name: { type: string }
+        sku_code: { type: string }
+        quantity: { type: integer, format: int64 }
+        list_price_minor_units: { type: integer, format: int64, description: The catalog price before the quote's discount (quote proposals). }
+        unit_price_minor_units: { type: integer, format: int64 }
+        line_total_minor_units: { type: integer, format: int64 }
+
+    QuoteProposalPreview:
+      type: object
+      required: [name, discount_basis_points, currency_code, prices_include_tax, lines, total_minor_units]
+      properties:
+        name: { type: string }
+        customer:
+          allOf: [{ $ref: '#/components/schemas/ProposalCustomer' }]
+          nullable: true
+        discount_basis_points: { type: integer }
+        currency_code: { type: string }
+        prices_include_tax: { type: boolean }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/ProposalLine' }
+        total_minor_units: { type: integer, format: int64 }
+
+    ProposalWarehouse:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+
+    ProposalShortfall:
+      type: object
+      required: [product_id, sku_id, product_name, variant_name, sku_code, requested, available, short]
+      properties:
+        product_id: { type: string }
+        sku_id: { type: string }
+        product_name: { type: string }
+        variant_name: { type: string }
+        sku_code: { type: string }
+        requested: { type: integer, format: int64 }
+        available: { type: integer, format: int64 }
+        short: { type: integer, format: int64 }
+
+    ConversionProposalPreview:
+      type: object
+      required: [quote_id, quote_ref, name, line_count, total_minor_units, currency_code, warehouse_id, warehouses, shortfall, lines]
+      properties:
+        quote_id: { type: string }
+        quote_ref: { type: string }
+        name: { type: string }
+        customer:
+          allOf: [{ $ref: '#/components/schemas/ProposalCustomer' }]
+          nullable: true
+        line_count: { type: integer }
+        total_minor_units: { type: integer, format: int64 }
+        currency_code: { type: string }
+        warehouse_id: { type: string, description: The proposed warehouse; the confirm may pick another of warehouses. }
+        warehouses:
+          type: array
+          items: { $ref: '#/components/schemas/ProposalWarehouse' }
+        shortfall:
+          type: array
+          description: Lines the proposed warehouse can't fully cover (checked when proposed).
+          items: { $ref: '#/components/schemas/ProposalShortfall' }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/ProposalLine' }
+
+    ConfirmProposalRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        warehouse_id: { type: string, format: uuid, description: Conversion only -- overrides the proposed warehouse. }
 
     AssistantRequestList:
       type: object

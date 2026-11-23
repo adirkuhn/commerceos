@@ -43,13 +43,67 @@ func (e AssistantMessageRole) Valid() bool {
 
 // Defines values for AssistantNotice.
 const (
-	TooManySteps AssistantNotice = "too_many_steps"
+	ProposalConfirmed AssistantNotice = "proposal_confirmed"
+	ProposalRejected  AssistantNotice = "proposal_rejected"
+	Proposed          AssistantNotice = "proposed"
+	TooManySteps      AssistantNotice = "too_many_steps"
 )
 
 // Valid indicates whether the value is a known member of the AssistantNotice enum.
 func (e AssistantNotice) Valid() bool {
 	switch e {
+	case ProposalConfirmed:
+		return true
+	case ProposalRejected:
+		return true
+	case Proposed:
+		return true
 	case TooManySteps:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AssistantProposalKind.
+const (
+	ConvertQuote AssistantProposalKind = "convert_quote"
+	CreateQuote  AssistantProposalKind = "create_quote"
+)
+
+// Valid indicates whether the value is a known member of the AssistantProposalKind enum.
+func (e AssistantProposalKind) Valid() bool {
+	switch e {
+	case ConvertQuote:
+		return true
+	case CreateQuote:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AssistantProposalStatus.
+const (
+	Confirmed  AssistantProposalStatus = "confirmed"
+	Executing  AssistantProposalStatus = "executing"
+	Pending    AssistantProposalStatus = "pending"
+	Rejected   AssistantProposalStatus = "rejected"
+	Superseded AssistantProposalStatus = "superseded"
+)
+
+// Valid indicates whether the value is a known member of the AssistantProposalStatus enum.
+func (e AssistantProposalStatus) Valid() bool {
+	switch e {
+	case Confirmed:
+		return true
+	case Executing:
+		return true
+	case Pending:
+		return true
+	case Rejected:
+		return true
+	case Superseded:
 		return true
 	default:
 		return false
@@ -58,17 +112,20 @@ func (e AssistantNotice) Valid() bool {
 
 // Defines values for AssistantRequestStatus.
 const (
-	Answered   AssistantRequestStatus = "answered"
-	Cancelled  AssistantRequestStatus = "cancelled"
-	NeedsInput AssistantRequestStatus = "needs_input"
-	Processing AssistantRequestStatus = "processing"
-	Queued     AssistantRequestStatus = "queued"
+	Answered             AssistantRequestStatus = "answered"
+	AwaitingConfirmation AssistantRequestStatus = "awaiting_confirmation"
+	Cancelled            AssistantRequestStatus = "cancelled"
+	NeedsInput           AssistantRequestStatus = "needs_input"
+	Processing           AssistantRequestStatus = "processing"
+	Queued               AssistantRequestStatus = "queued"
 )
 
 // Valid indicates whether the value is a known member of the AssistantRequestStatus enum.
 func (e AssistantRequestStatus) Valid() bool {
 	switch e {
 	case Answered:
+		return true
+	case AwaitingConfirmation:
 		return true
 	case Cancelled:
 		return true
@@ -114,6 +171,9 @@ type AssistantMessage struct {
 	CreatedAt time.Time        `json:"created_at"`
 	Notice    *AssistantNotice `json:"notice,omitempty"`
 
+	// ProposalId The proposal this message made or decided.
+	ProposalId *openapi_types.UUID `json:"proposal_id,omitempty"`
+
 	// Question The assistant asked the user to clarify.
 	Question  bool                 `json:"question"`
 	Role      AssistantMessageRole `json:"role"`
@@ -127,8 +187,37 @@ type AssistantMessage struct {
 // AssistantMessageRole defines model for AssistantMessageRole.
 type AssistantMessageRole string
 
-// AssistantNotice Set instead of content when the app, not the model, wrote the message; show it translated. too_many_steps = the model kept looking things up without answering, so the turn stopped and the user is asked to add detail.
+// AssistantNotice Set when the app, not the model, wrote the message; show it translated. too_many_steps = the model kept looking things up without answering, so the turn stopped and the user is asked to add detail. proposed = the model proposed the change in proposal_id (show that proposal here); proposal_confirmed / proposal_rejected = a person decided proposal_id.
 type AssistantNotice string
+
+// AssistantProposal Exactly one of quote / conversion is set, matching kind.
+type AssistantProposal struct {
+	Conversion *ConversionProposalPreview `json:"conversion,omitempty"`
+	CreatedAt  time.Time                  `json:"created_at"`
+	DecidedAt  *time.Time                 `json:"decided_at,omitempty"`
+	DecidedBy  *string                    `json:"decided_by,omitempty"`
+	Id         openapi_types.UUID         `json:"id"`
+	Kind       AssistantProposalKind      `json:"kind"`
+
+	// LastError Why the last confirm failed; it stays pending.
+	LastError *string               `json:"last_error,omitempty"`
+	Quote     *QuoteProposalPreview `json:"quote,omitempty"`
+
+	// ResultId What a confirm created -- the quote's or the sales order's id.
+	ResultId *string `json:"result_id,omitempty"`
+
+	// ResultRef Its human reference
+	ResultRef *string `json:"result_ref,omitempty"`
+
+	// Status pending = waiting for a decision; executing = a confirm is running it; confirmed = it ran (result_id/result_ref); rejected = a person said no; superseded = the conversation moved past it (a reply asked for changes, or the request was cancelled).
+	Status AssistantProposalStatus `json:"status"`
+}
+
+// AssistantProposalKind defines model for AssistantProposalKind.
+type AssistantProposalKind string
+
+// AssistantProposalStatus pending = waiting for a decision; executing = a confirm is running it; confirmed = it ran (result_id/result_ref); rejected = a person said no; superseded = the conversation moved past it (a reply asked for changes, or the request was cancelled).
+type AssistantProposalStatus string
 
 // AssistantRequest defines model for AssistantRequest.
 type AssistantRequest struct {
@@ -143,7 +232,7 @@ type AssistantRequest struct {
 	// NextAttemptAt When a queued request is next tried.
 	NextAttemptAt time.Time `json:"next_attempt_at"`
 
-	// Status queued = waiting for the model (next_attempt_at); processing = the model is working on it; needs_input = the assistant asked a question; answered = it replied (a follow-up queues it again); cancelled = stopped by a user.
+	// Status queued = waiting for the model (next_attempt_at); processing = the model is working on it; needs_input = the assistant asked a question; answered = it replied (a follow-up queues it again); awaiting_confirmation = it proposed a change (see proposals) that waits for you to confirm or reject; cancelled = stopped by a user.
 	Status AssistantRequestStatus `json:"status"`
 
 	// Title First line of the opening text
@@ -158,7 +247,10 @@ type AssistantRequest struct {
 // AssistantRequestDetail defines model for AssistantRequestDetail.
 type AssistantRequestDetail struct {
 	Messages []AssistantMessage `json:"messages"`
-	Request  AssistantRequest   `json:"request"`
+
+	// Proposals Every change proposed in this request, oldest first.
+	Proposals []AssistantProposal `json:"proposals"`
+	Request   AssistantRequest    `json:"request"`
 }
 
 // AssistantRequestDetailResponse defines model for AssistantRequestDetailResponse.
@@ -185,7 +277,7 @@ type AssistantRequestResponse struct {
 	Error interface{}      `json:"error,omitempty"`
 }
 
-// AssistantRequestStatus queued = waiting for the model (next_attempt_at); processing = the model is working on it; needs_input = the assistant asked a question; answered = it replied (a follow-up queues it again); cancelled = stopped by a user.
+// AssistantRequestStatus queued = waiting for the model (next_attempt_at); processing = the model is working on it; needs_input = the assistant asked a question; answered = it replied (a follow-up queues it again); awaiting_confirmation = it proposed a change (see proposals) that waits for you to confirm or reject; cancelled = stopped by a user.
 type AssistantRequestStatus string
 
 // AssistantTextRequest defines model for AssistantTextRequest.
@@ -204,6 +296,31 @@ type AssistantToolCall struct {
 // AssistantWaitReason Why a queued request is still waiting after an attempt. model_busy = rate limit, quota or overload; no_provider = no AI provider connected; provider_unsupported = the connected provider can't run the assistant yet; model_error = any other model failure (last_error has the detail).
 type AssistantWaitReason string
 
+// ConfirmProposalRequest defines model for ConfirmProposalRequest.
+type ConfirmProposalRequest struct {
+	// WarehouseId Conversion only -- overrides the proposed warehouse.
+	WarehouseId *openapi_types.UUID `json:"warehouse_id,omitempty"`
+}
+
+// ConversionProposalPreview defines model for ConversionProposalPreview.
+type ConversionProposalPreview struct {
+	CurrencyCode string            `json:"currency_code"`
+	Customer     *ProposalCustomer `json:"customer,omitempty"`
+	LineCount    int               `json:"line_count"`
+	Lines        []ProposalLine    `json:"lines"`
+	Name         string            `json:"name"`
+	QuoteId      string            `json:"quote_id"`
+	QuoteRef     string            `json:"quote_ref"`
+
+	// Shortfall Lines the proposed warehouse can't fully cover (checked when proposed).
+	Shortfall       []ProposalShortfall `json:"shortfall"`
+	TotalMinorUnits int64               `json:"total_minor_units"`
+
+	// WarehouseId The proposed warehouse; the confirm may pick another of warehouses.
+	WarehouseId string              `json:"warehouse_id"`
+	Warehouses  []ProposalWarehouse `json:"warehouses"`
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Data  interface{} `json:"data,omitempty"`
@@ -213,8 +330,62 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// ProposalCustomer defines model for ProposalCustomer.
+type ProposalCustomer struct {
+	Email *string `json:"email,omitempty"`
+	Id    string  `json:"id"`
+	Name  string  `json:"name"`
+}
+
+// ProposalLine defines model for ProposalLine.
+type ProposalLine struct {
+	LineTotalMinorUnits int64 `json:"line_total_minor_units"`
+
+	// ListPriceMinorUnits The catalog price before the quote's discount (quote proposals).
+	ListPriceMinorUnits *int64 `json:"list_price_minor_units,omitempty"`
+	ProductId           string `json:"product_id"`
+	ProductName         string `json:"product_name"`
+	Quantity            int64  `json:"quantity"`
+	SkuCode             string `json:"sku_code"`
+	SkuId               string `json:"sku_id"`
+	UnitPriceMinorUnits int64  `json:"unit_price_minor_units"`
+	VariantName         string `json:"variant_name"`
+}
+
+// ProposalShortfall defines model for ProposalShortfall.
+type ProposalShortfall struct {
+	Available   int64  `json:"available"`
+	ProductId   string `json:"product_id"`
+	ProductName string `json:"product_name"`
+	Requested   int64  `json:"requested"`
+	Short       int64  `json:"short"`
+	SkuCode     string `json:"sku_code"`
+	SkuId       string `json:"sku_id"`
+	VariantName string `json:"variant_name"`
+}
+
+// ProposalWarehouse defines model for ProposalWarehouse.
+type ProposalWarehouse struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// QuoteProposalPreview defines model for QuoteProposalPreview.
+type QuoteProposalPreview struct {
+	CurrencyCode        string            `json:"currency_code"`
+	Customer            *ProposalCustomer `json:"customer,omitempty"`
+	DiscountBasisPoints int               `json:"discount_basis_points"`
+	Lines               []ProposalLine    `json:"lines"`
+	Name                string            `json:"name"`
+	PricesIncludeTax    bool              `json:"prices_include_tax"`
+	TotalMinorUnits     int64             `json:"total_minor_units"`
+}
+
 // Id defines model for id.
 type Id = openapi_types.UUID
+
+// ProposalId defines model for proposalId.
+type ProposalId = openapi_types.UUID
 
 // Error defines model for Error.
 type Error = ErrorResponse
@@ -230,6 +401,9 @@ type ListAssistantRequestsParams struct {
 
 // CreateAssistantRequestJSONRequestBody defines body for CreateAssistantRequest for application/json ContentType.
 type CreateAssistantRequestJSONRequestBody = AssistantTextRequest
+
+// ConfirmAssistantProposalJSONRequestBody defines body for ConfirmAssistantProposal for application/json ContentType.
+type ConfirmAssistantProposalJSONRequestBody = ConfirmProposalRequest
 
 // ReplyToAssistantRequestJSONRequestBody defines body for ReplyToAssistantRequest for application/json ContentType.
 type ReplyToAssistantRequestJSONRequestBody = AssistantTextRequest
@@ -248,6 +422,12 @@ type ServerInterface interface {
 	// CancelAssistantRequest Cancel a request that hasn't finished (queued, processing or needs_input)
 	// (POST /assistant/requests/{id}/cancel)
 	CancelAssistantRequest(c *gin.Context, id Id)
+	// ConfirmAssistantProposal Confirm a pending proposal -- it runs now, as you
+	// (POST /assistant/requests/{id}/proposals/{proposalId}/confirm)
+	ConfirmAssistantProposal(c *gin.Context, id Id, proposalId ProposalId)
+	// RejectAssistantProposal Reject a pending proposal; nothing is created
+	// (POST /assistant/requests/{id}/proposals/{proposalId}/reject)
+	RejectAssistantProposal(c *gin.Context, id Id, proposalId ProposalId)
 	// ReplyToAssistantRequest Answer the assistant's question, or ask a follow-up on its answer
 	// (POST /assistant/requests/{id}/reply)
 	ReplyToAssistantRequest(c *gin.Context, id Id)
@@ -368,6 +548,74 @@ func (siw *ServerInterfaceWrapper) CancelAssistantRequest(c *gin.Context) {
 	siw.Handler.CancelAssistantRequest(c, id)
 }
 
+// ConfirmAssistantProposal operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmAssistantProposal(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "proposalId" -------------
+	var proposalId ProposalId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "proposalId", c.Param("proposalId"), &proposalId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter proposalId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ConfirmAssistantProposal(c, id, proposalId)
+}
+
+// RejectAssistantProposal operation middleware
+func (siw *ServerInterfaceWrapper) RejectAssistantProposal(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "proposalId" -------------
+	var proposalId ProposalId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "proposalId", c.Param("proposalId"), &proposalId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter proposalId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RejectAssistantProposal(c, id, proposalId)
+}
+
 // ReplyToAssistantRequest operation middleware
 func (siw *ServerInterfaceWrapper) ReplyToAssistantRequest(c *gin.Context) {
 
@@ -425,6 +673,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/assistant/requests/:id", wrapper.GetAssistantRequest)
 	router.POST(options.BaseURL+"/assistant/requests/:id/reply", wrapper.ReplyToAssistantRequest)
 	router.POST(options.BaseURL+"/assistant/requests/:id/cancel", wrapper.CancelAssistantRequest)
+	router.POST(options.BaseURL+"/assistant/requests/:id/proposals/:proposalId/confirm", wrapper.ConfirmAssistantProposal)
+	router.POST(options.BaseURL+"/assistant/requests/:id/proposals/:proposalId/reject", wrapper.RejectAssistantProposal)
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
@@ -432,43 +682,65 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

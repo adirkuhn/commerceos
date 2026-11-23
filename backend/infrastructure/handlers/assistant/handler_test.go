@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -22,14 +23,16 @@ import (
 	genassistant "github.com/adirkuhn/commerceos/api/assistant"
 	appassistant "github.com/adirkuhn/commerceos/application/assistant"
 	"github.com/adirkuhn/commerceos/domain/assistant"
+	"github.com/adirkuhn/commerceos/domain/quotes"
 	handler "github.com/adirkuhn/commerceos/infrastructure/handlers/assistant"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
 
 const (
-	secret = "s"
-	reqID  = "11111111-1111-4111-8111-111111111111"
+	secret     = "s"
+	reqID      = "11111111-1111-4111-8111-111111111111"
+	proposalID = "22222222-2222-4222-8222-222222222222"
 )
 
 var at = time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)
@@ -69,7 +72,9 @@ type stubGet struct {
 	err error
 }
 
-func (s *stubGet) Execute(context.Context, string) (*appassistant.RequestDetail, error) { return s.out, s.err }
+func (s *stubGet) Execute(context.Context, string) (*appassistant.RequestDetail, error) {
+	return s.out, s.err
+}
 
 type stubReply struct {
 	gotID, gotText string
@@ -97,16 +102,44 @@ func (s *stubCancel) Execute(_ context.Context, id string) (*assistant.Request, 
 	return sample(assistant.StatusCancelled), nil
 }
 
+type stubDecide struct {
+	gotReq, gotProposal string
+	gotChoices          appassistant.ConfirmChoices
+	out                 *appassistant.RequestDetail
+	err                 error
+}
+
+func (s *stubDecide) confirm(_ context.Context, requestID, proposalID string, choices appassistant.ConfirmChoices) (*appassistant.RequestDetail, error) {
+	s.gotReq, s.gotProposal, s.gotChoices = requestID, proposalID, choices
+	return s.out, s.err
+}
+
+type stubConfirm struct{ *stubDecide }
+
+func (s stubConfirm) Execute(ctx context.Context, requestID, proposalID string, choices appassistant.ConfirmChoices) (*appassistant.RequestDetail, error) {
+	return s.confirm(ctx, requestID, proposalID, choices)
+}
+
+type stubReject struct{ *stubDecide }
+
+func (s stubReject) Execute(ctx context.Context, requestID, proposalID string) (*appassistant.RequestDetail, error) {
+	return s.confirm(ctx, requestID, proposalID, appassistant.ConfirmChoices{})
+}
+
 type stubs struct {
-	create *stubCreate
-	list   *stubList
-	get    *stubGet
-	reply  *stubReply
-	cancel *stubCancel
+	create  *stubCreate
+	list    *stubList
+	get     *stubGet
+	reply   *stubReply
+	cancel  *stubCancel
+	confirm *stubDecide
+	reject  *stubDecide
 }
 
 func newStubs() stubs {
-	return stubs{create: &stubCreate{}, list: &stubList{out: &appassistant.RequestPage{}}, get: &stubGet{}, reply: &stubReply{}, cancel: &stubCancel{}}
+	detail := &appassistant.RequestDetail{Request: *sample(assistant.StatusAnswered)}
+	return stubs{create: &stubCreate{}, list: &stubList{out: &appassistant.RequestPage{}}, get: &stubGet{}, reply: &stubReply{}, cancel: &stubCancel{},
+		confirm: &stubDecide{out: detail}, reject: &stubDecide{out: detail}}
 }
 
 func newRouter(t *testing.T, s stubs) *gin.Engine {
@@ -114,7 +147,10 @@ func newRouter(t *testing.T, s stubs) *gin.Engine {
 	r := gin.New()
 	g := r.Group("/api/v1")
 	g.Use(middleware.JWT([]byte(secret)))
-	require.NoError(t, handler.Mount(g, handler.NewHandler(s.create, s.list, s.get, s.reply, s.cancel)))
+	require.NoError(t, handler.Mount(g, handler.NewHandler(handler.UseCases{
+		Create: s.create, List: s.list, Get: s.get, Reply: s.reply, Cancel: s.cancel,
+		Confirm: stubConfirm{s.confirm}, Reject: stubReject{s.reject},
+	})))
 	return r
 }
 
@@ -340,6 +376,8 @@ func TestAdminOnly(t *testing.T) {
 		{http.MethodGet, "/api/v1/assistant/requests/" + reqID, nil},
 		{http.MethodPost, "/api/v1/assistant/requests/" + reqID + "/reply", map[string]string{"text": "hi"}},
 		{http.MethodPost, "/api/v1/assistant/requests/" + reqID + "/cancel", nil},
+		{http.MethodPost, "/api/v1/assistant/requests/" + reqID + "/proposals/" + proposalID + "/confirm", nil},
+		{http.MethodPost, "/api/v1/assistant/requests/" + reqID + "/proposals/" + proposalID + "/reject", nil},
 	}
 	for _, rt := range routes {
 		t.Run(rt.method+" "+rt.path+" as customer_user", func(t *testing.T) {
@@ -349,6 +387,7 @@ func TestAdminOnly(t *testing.T) {
 			assert.Equal(t, http.StatusForbidden, w.Code)
 			assert.Empty(t, s.create.gotText)
 			assert.Empty(t, s.cancel.gotID)
+			assert.Empty(t, s.confirm.gotProposal)
 		})
 		t.Run(rt.method+" "+rt.path+" without token", func(t *testing.T) {
 			w := do(t, newRouter(t, newStubs()), rt.method, rt.path, rt.body, "")
@@ -356,4 +395,94 @@ func TestAdminOnly(t *testing.T) {
 			assert.Equal(t, http.StatusUnauthorized, w.Code)
 		})
 	}
+}
+
+func confirmPath() string {
+	return "/api/v1/assistant/requests/" + reqID + "/proposals/" + proposalID + "/confirm"
+}
+
+func TestConfirm_passesTheChosenWarehouse(t *testing.T) {
+	s := newStubs()
+	wh := "33333333-3333-4333-8333-333333333333"
+
+	w := do(t, newRouter(t, s), http.MethodPost, confirmPath(), map[string]string{"warehouse_id": wh}, middleware.RoleCustomerAdmin)
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Equal(t, reqID, s.confirm.gotReq)
+	assert.Equal(t, proposalID, s.confirm.gotProposal)
+	assert.Equal(t, appassistant.ConfirmChoices{WarehouseID: wh}, s.confirm.gotChoices)
+}
+
+func TestConfirm_withoutBody(t *testing.T) {
+	s := newStubs()
+
+	w := do(t, newRouter(t, s), http.MethodPost, confirmPath(), nil, middleware.RoleCustomerOwner)
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Equal(t, appassistant.ConfirmChoices{}, s.confirm.gotChoices)
+}
+
+func TestConfirm_errors(t *testing.T) {
+	cases := []struct {
+		err  error
+		code int
+		want string
+	}{
+		{assistant.ErrProposalNotPending, http.StatusConflict, "ASSISTANT_PROPOSAL_NOT_PENDING"},
+		{assistant.ErrProposalNotFound, http.StatusNotFound, "ASSISTANT_PROPOSAL_NOT_FOUND"},
+		{fmt.Errorf("confirm: %w", quotes.ErrNameRequired), http.StatusUnprocessableEntity, "QUOTE_NAME_REQUIRED"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.want, func(t *testing.T) {
+			s := newStubs()
+			s.confirm.err = tc.err
+
+			w := do(t, newRouter(t, s), http.MethodPost, confirmPath(), nil, middleware.RoleCustomerAdmin)
+
+			assert.Equal(t, tc.code, w.Code)
+			assert.Equal(t, tc.want, errorCode(t, w))
+		})
+	}
+}
+
+func TestReject(t *testing.T) {
+	s := newStubs()
+
+	w := do(t, newRouter(t, s), http.MethodPost, "/api/v1/assistant/requests/"+reqID+"/proposals/"+proposalID+"/reject", nil, middleware.RoleCustomerAdmin)
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Equal(t, proposalID, s.reject.gotProposal)
+}
+
+func TestGet_mapsProposalPreviewsByKind(t *testing.T) {
+	s := newStubs()
+	decided := at
+	s.get.out = &appassistant.RequestDetail{Request: *sample(assistant.StatusAwaitingConfirmation), Proposals: []assistant.Proposal{
+		{ID: proposalID, Kind: assistant.KindCreateQuote, Status: assistant.ProposalConfirmed, ResultID: "q-1", ResultRef: "Q-0012",
+			DecidedBy: "u-1", DecidedAt: &decided, CreatedAt: at,
+			Preview: json.RawMessage(`{"name":"Ana","customer":null,"discount_basis_points":1000,"currency_code":"EUR","prices_include_tax":true,` +
+				`"lines":[{"product_id":"p","sku_id":"s","product_name":"Farofa","variant_name":"1kg","sku_code":"F1","quantity":10,` +
+				`"list_price_minor_units":500,"unit_price_minor_units":450,"line_total_minor_units":4500}],"total_minor_units":4500}`)},
+		{ID: "44444444-4444-4444-8444-444444444444", Kind: assistant.KindConvertQuote, Status: assistant.ProposalPending, CreatedAt: at,
+			LastError: "insufficient stock",
+			Preview: json.RawMessage(`{"quote_id":"q-1","quote_ref":"Q-0012","name":"Ana","customer":null,"line_count":1,` +
+				`"total_minor_units":4500,"currency_code":"EUR","warehouse_id":"wh-1","warehouses":[{"id":"wh-1","name":"Main"}],` +
+				`"shortfall":[{"product_id":"p","sku_id":"s","product_name":"Farofa","variant_name":"1kg","sku_code":"F1","requested":10,"available":4,"short":6}],` +
+				`"lines":[{"product_id":"p","sku_id":"s","product_name":"Farofa","variant_name":"1kg","sku_code":"F1","quantity":10,"unit_price_minor_units":450,"line_total_minor_units":4500}]}`)},
+	}}
+
+	w := do(t, newRouter(t, s), http.MethodGet, "/api/v1/assistant/requests/"+reqID, nil, middleware.RoleCustomerAdmin)
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	var body genassistant.AssistantRequestDetailResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	ps := body.Data.Proposals
+	require.Len(t, ps, 2)
+	require.NotNil(t, ps[0].Quote)
+	assert.Nil(t, ps[0].Conversion)
+	assert.Equal(t, "Farofa", ps[0].Quote.Lines[0].ProductName)
+	assert.Equal(t, "Q-0012", *ps[0].ResultRef)
+	require.NotNil(t, ps[1].Conversion)
+	assert.Equal(t, int64(6), ps[1].Conversion.Shortfall[0].Short)
+	assert.Equal(t, "insufficient stock", *ps[1].LastError)
 }

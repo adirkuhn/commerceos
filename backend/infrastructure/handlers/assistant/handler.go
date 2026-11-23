@@ -4,6 +4,7 @@ package assistant
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -17,8 +18,10 @@ import (
 
 	genassistant "github.com/adirkuhn/commerceos/api/assistant"
 	appassistant "github.com/adirkuhn/commerceos/application/assistant"
-	"github.com/adirkuhn/commerceos/application/eventrecord"
 	"github.com/adirkuhn/commerceos/domain/assistant"
+	"github.com/adirkuhn/commerceos/domain/errs"
+	"github.com/adirkuhn/commerceos/domain/outbox"
+	"github.com/adirkuhn/commerceos/infrastructure/assistanttools"
 	"github.com/adirkuhn/commerceos/infrastructure/middleware"
 	"github.com/adirkuhn/commerceos/infrastructure/repositories"
 )
@@ -43,30 +46,49 @@ type cancelUC interface {
 	Execute(ctx context.Context, id string) (*assistant.Request, error)
 }
 
-type Handler struct {
-	create createUC
-	list   listUC
-	get    getUC
-	reply  replyUC
-	cancel cancelUC
+type confirmUC interface {
+	Execute(ctx context.Context, requestID, proposalID string, choices appassistant.ConfirmChoices) (*appassistant.RequestDetail, error)
 }
 
-func NewHandler(create createUC, list listUC, get getUC, reply replyUC, cancel cancelUC) *Handler {
-	return &Handler{create: create, list: list, get: get, reply: reply, cancel: cancel}
+type rejectUC interface {
+	Execute(ctx context.Context, requestID, proposalID string) (*appassistant.RequestDetail, error)
 }
+
+// UseCases are the handler's ports, one per operation.
+type UseCases struct {
+	Create  createUC
+	List    listUC
+	Get     getUC
+	Reply   replyUC
+	Cancel  cancelUC
+	Confirm confirmUC
+	Reject  rejectUC
+}
+
+type Handler struct{ uc UseCases }
+
+func NewHandler(uc UseCases) *Handler { return &Handler{uc: uc} }
 
 var _ genassistant.ServerInterface = (*Handler)(nil)
 
-// Register wires the use cases on the real repositories and mounts them.
-func Register(rg gin.IRouter, db *gorm.DB, outbox eventrecord.Enqueuer) error {
+// Register wires the use cases on the real repositories and proposal
+// actions, and mounts them.
+func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) error {
 	requests, messages := repositories.NewAssistantRequestRepo(db), repositories.NewAssistantMessageRepo(db)
-	return Mount(rg, NewHandler(
-		appassistant.NewCreateRequestUseCase(db, requests, messages, outbox, time.Now),
-		appassistant.NewListRequestsUseCase(db, requests),
-		appassistant.NewGetRequestUseCase(db, requests, messages),
-		appassistant.NewReplyToRequestUseCase(db, requests, messages, outbox, time.Now),
-		appassistant.NewCancelRequestUseCase(db, requests, outbox, time.Now),
-	))
+	proposals := repositories.NewAssistantProposalRepo(db)
+	decide := appassistant.DecideDeps{
+		Requests: requests, Messages: messages, Proposals: proposals,
+		Actions: assistanttools.ProposalActions(db, outboxRepo), Outbox: outboxRepo, Now: time.Now,
+	}
+	return Mount(rg, NewHandler(UseCases{
+		Create:  appassistant.NewCreateRequestUseCase(db, requests, messages, outboxRepo, time.Now),
+		List:    appassistant.NewListRequestsUseCase(db, requests),
+		Get:     appassistant.NewGetRequestUseCase(db, requests, messages, proposals),
+		Reply:   appassistant.NewReplyToRequestUseCase(db, requests, messages, proposals, outboxRepo, time.Now),
+		Cancel:  appassistant.NewCancelRequestUseCase(db, requests, proposals, outboxRepo, time.Now),
+		Confirm: appassistant.NewConfirmProposalUseCase(db, decide),
+		Reject:  appassistant.NewRejectProposalUseCase(db, decide),
+	}))
 }
 
 // Mount guards every route to admin roles, validates each request against
@@ -107,7 +129,7 @@ func (h *Handler) ListAssistantRequests(c *gin.Context, params genassistant.List
 	if params.Cursor != nil {
 		f.Cursor = params.Cursor.String()
 	}
-	page, err := h.list.Execute(c.Request.Context(), f)
+	page, err := h.uc.List.Execute(c.Request.Context(), f)
 	if mapError(c, err) != nil {
 		return
 	}
@@ -127,7 +149,7 @@ func (h *Handler) CreateAssistantRequest(c *gin.Context) {
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
-	r, err := h.create.Execute(c.Request.Context(), req.Text)
+	r, err := h.uc.Create.Execute(c.Request.Context(), req.Text)
 	if mapError(c, err) != nil {
 		return
 	}
@@ -135,13 +157,57 @@ func (h *Handler) CreateAssistantRequest(c *gin.Context) {
 }
 
 func (h *Handler) GetAssistantRequest(c *gin.Context, id genassistant.Id) {
-	d, err := h.get.Execute(c.Request.Context(), id.String())
+	d, err := h.uc.Get.Execute(c.Request.Context(), id.String())
 	if mapError(c, err) != nil {
 		return
 	}
-	out := genassistant.AssistantRequestDetail{Request: toGenRequest(d.Request), Messages: make([]genassistant.AssistantMessage, len(d.Messages))}
+	writeDetail(c, d)
+}
+
+func (h *Handler) ConfirmAssistantProposal(c *gin.Context, id genassistant.Id, proposalID genassistant.ProposalId) {
+	var req genassistant.ConfirmProposalRequest
+	if c.Request.ContentLength != 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
+			return
+		}
+	}
+	var choices appassistant.ConfirmChoices
+	if req.WarehouseId != nil {
+		choices.WarehouseID = req.WarehouseId.String()
+	}
+	d, err := h.uc.Confirm.Execute(c.Request.Context(), id.String(), proposalID.String(), choices)
+	if mapError(c, err) != nil {
+		return
+	}
+	writeDetail(c, d)
+}
+
+func (h *Handler) RejectAssistantProposal(c *gin.Context, id genassistant.Id, proposalID genassistant.ProposalId) {
+	d, err := h.uc.Reject.Execute(c.Request.Context(), id.String(), proposalID.String())
+	if mapError(c, err) != nil {
+		return
+	}
+	writeDetail(c, d)
+}
+
+func writeDetail(c *gin.Context, d *appassistant.RequestDetail) {
+	out := genassistant.AssistantRequestDetail{
+		Request:   toGenRequest(d.Request),
+		Messages:  make([]genassistant.AssistantMessage, len(d.Messages)),
+		Proposals: make([]genassistant.AssistantProposal, 0, len(d.Proposals)),
+	}
 	for i, m := range d.Messages {
 		out.Messages[i] = toGenMessage(m)
+	}
+	for _, p := range d.Proposals {
+		gp, err := toGenProposal(p)
+		if err != nil {
+			log.Printf("assistant: proposal %s preview: %v", p.ID, err)
+			middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
+			return
+		}
+		out.Proposals = append(out.Proposals, gp)
 	}
 	c.JSON(http.StatusOK, genassistant.AssistantRequestDetailResponse{Data: out})
 }
@@ -152,7 +218,7 @@ func (h *Handler) ReplyToAssistantRequest(c *gin.Context, id genassistant.Id) {
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 		return
 	}
-	r, err := h.reply.Execute(c.Request.Context(), id.String(), req.Text)
+	r, err := h.uc.Reply.Execute(c.Request.Context(), id.String(), req.Text)
 	if mapError(c, err) != nil {
 		return
 	}
@@ -160,7 +226,7 @@ func (h *Handler) ReplyToAssistantRequest(c *gin.Context, id genassistant.Id) {
 }
 
 func (h *Handler) CancelAssistantRequest(c *gin.Context, id genassistant.Id) {
-	r, err := h.cancel.Execute(c.Request.Context(), id.String())
+	r, err := h.uc.Cancel.Execute(c.Request.Context(), id.String())
 	if mapError(c, err) != nil {
 		return
 	}
@@ -172,18 +238,25 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, assistant.ErrRequestNotFound):
+	case errors.Is(err, assistant.ErrRequestNotFound), errors.Is(err, assistant.ErrProposalNotFound):
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
-	case errors.Is(err, assistant.ErrInvalidTransition), errors.Is(err, assistant.ErrNotCancellable):
+	case errors.Is(err, assistant.ErrInvalidTransition), errors.Is(err, assistant.ErrNotCancellable),
+		errors.Is(err, assistant.ErrProposalNotPending):
 		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)
-	case errors.Is(err, assistant.ErrTextRequired), errors.Is(err, assistant.ErrTextTooLong),
-		errors.Is(err, appassistant.ErrInvalidStatusFilter), errors.Is(err, appassistant.ErrNoIdentity):
+	case isCoded(err):
+		// Validation from this module, or the reason a confirmed action
+		// was refused (a quote's or an order's own coded domain error).
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	default:
 		log.Printf("assistant: unhandled error: %v", err)
 		middleware.Fail(c, http.StatusInternalServerError, "INTERNAL", "internal server error")
 	}
 	return err
+}
+
+func isCoded(err error) bool {
+	_, _, ok := errs.CodeOf(err)
+	return ok
 }
 
 func toGenRequest(r assistant.Request) genassistant.AssistantRequest {
@@ -219,7 +292,43 @@ func toGenMessage(m assistant.Message) genassistant.AssistantMessage {
 		notice := genassistant.AssistantNotice(m.Notice)
 		out.Notice = &notice
 	}
+	if m.ProposalID != "" {
+		id := parseUUID(m.ProposalID)
+		out.ProposalId = &id
+	}
 	return out
+}
+
+// toGenProposal decodes the action-owned preview into the contract's typed
+// preview for its kind.
+func toGenProposal(p assistant.Proposal) (genassistant.AssistantProposal, error) {
+	out := genassistant.AssistantProposal{
+		Id: parseUUID(p.ID), Kind: genassistant.AssistantProposalKind(p.Kind), Status: genassistant.AssistantProposalStatus(p.Status),
+		CreatedAt: p.CreatedAt, DecidedAt: p.DecidedAt,
+		LastError: optional(p.LastError), ResultId: optional(p.ResultID), ResultRef: optional(p.ResultRef), DecidedBy: optional(p.DecidedBy),
+	}
+	switch p.Kind {
+	case assistant.KindCreateQuote:
+		var v genassistant.QuoteProposalPreview
+		if err := json.Unmarshal(p.Preview, &v); err != nil {
+			return out, err
+		}
+		out.Quote = &v
+	case assistant.KindConvertQuote:
+		var v genassistant.ConversionProposalPreview
+		if err := json.Unmarshal(p.Preview, &v); err != nil {
+			return out, err
+		}
+		out.Conversion = &v
+	}
+	return out, nil
+}
+
+func optional(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 func parseUUID(id string) openapi_types.UUID {
