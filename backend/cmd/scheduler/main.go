@@ -534,8 +534,12 @@ func main() {
 	recoverOrphanedReceivingParsingJobs(ctx, db, receivingJobRepo)
 
 	assistantRequests, assistantMessages := repositories.NewAssistantRequestRepo(db), repositories.NewAssistantMessageRepo(db)
-	processAssistantRequestUC := appassistant.NewProcessRequestUseCase(db, assistantRequests, assistantMessages,
-		ai.NewAssistantModelResolver(db, aiConnRepo, cfg.IntegrationsEncryptionSecret), assistanttools.ReadTools(db), outboxRepo, time.Now)
+	processAssistantRequestUC := appassistant.NewProcessRequestUseCase(db, appassistant.ProcessDeps{
+		Requests: assistantRequests, Messages: assistantMessages, Proposals: repositories.NewAssistantProposalRepo(db),
+		Models: ai.NewAssistantModelResolver(db, aiConnRepo, cfg.IntegrationsEncryptionSecret),
+		Tools:  assistanttools.ReadTools(db), Actions: assistanttools.ProposalActions(db, outboxRepo),
+		Outbox: outboxRepo, Now: time.Now,
+	})
 	go runAssistantWorker(ctx,
 		appassistant.NewProcessDueRequestsUseCase(db, assistantRequests, processAssistantRequestUC, time.Now, assistantBatchSize),
 		appassistant.NewRequeueStaleRequestsUseCase(db, assistantRequests, time.Now), assistantPollInterval)

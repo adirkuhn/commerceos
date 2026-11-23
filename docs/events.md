@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-250 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+253 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -63,6 +63,9 @@ Payload (`events.EntityAction`):
 
 | Subject | Kind | Description | Payload |
 |---|---|---|---|
+| `assistant.proposal.confirmed` | action | An admin confirmed an assistant proposal and it ran. data: request_id, kind, result_id, result_ref. | envelope |
+| `assistant.proposal.created` | action | The assistant proposed a change for an admin to confirm. data: request_id, kind. | envelope |
+| `assistant.proposal.rejected` | action | An admin rejected an assistant proposal. data: request_id, kind. | envelope |
 | `assistant.request.answered` | action | The assistant's model answered a request. data: attempts, tool_calls. | envelope |
 | `assistant.request.cancelled` | action | An admin cancelled an assistant request. data: previous_status. | envelope |
 | `assistant.request.created` | action | An admin asked the AI assistant something; the request is queued for the model. | envelope |

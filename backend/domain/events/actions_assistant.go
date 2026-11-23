@@ -15,3 +15,15 @@ var (
 	AssistantRequestCancelled = defineAction("assistant.request.cancelled",
 		"An admin cancelled an assistant request. data: previous_status.")
 )
+
+// Assistant proposals: changes the assistant proposed, waiting for a
+// person's decision. What a confirm creates raises its own event (e.g.
+// quotes.quote.created).
+var (
+	AssistantProposalCreated = defineAction("assistant.proposal.created",
+		"The assistant proposed a change for an admin to confirm. data: request_id, kind.")
+	AssistantProposalConfirmed = defineAction("assistant.proposal.confirmed",
+		"An admin confirmed an assistant proposal and it ran. data: request_id, kind, result_id, result_ref.")
+	AssistantProposalRejected = defineAction("assistant.proposal.rejected",
+		"An admin rejected an assistant proposal. data: request_id, kind.")
+)

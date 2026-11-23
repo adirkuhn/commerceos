@@ -2,6 +2,7 @@ package assistant_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -93,7 +94,7 @@ func TestGetRequest_returnsConversationWithoutToolResults(t *testing.T) {
 		require.NoError(t, msgs.Append(context.Background(), &m))
 	}
 
-	d, err := appassistant.NewGetRequestUseCase(newMockGormDB(t), reqs, msgs).Execute(adminCtx(), "r-1")
+	d, err := appassistant.NewGetRequestUseCase(newMockGormDB(t), reqs, msgs, newStubProposals()).Execute(adminCtx(), "r-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, "r-1", d.Request.ID)
@@ -103,7 +104,7 @@ func TestGetRequest_returnsConversationWithoutToolResults(t *testing.T) {
 }
 
 func TestGetRequest_notFound(t *testing.T) {
-	_, err := appassistant.NewGetRequestUseCase(newMockGormDB(t), newStubRequests(), newStubMessages()).Execute(adminCtx(), "nope")
+	_, err := appassistant.NewGetRequestUseCase(newMockGormDB(t), newStubRequests(), newStubMessages(), newStubProposals()).Execute(adminCtx(), "nope")
 
 	assert.ErrorIs(t, err, assistant.ErrRequestNotFound)
 }
@@ -113,7 +114,7 @@ func TestReplyToRequest_appendsAndRequeues(t *testing.T) {
 	r.Status = assistant.StatusNeedsInput
 	reqs, msgs, outbox := newStubRequests(r), newStubMessages(), &eventrecordtest.Outbox{}
 
-	out, err := appassistant.NewReplyToRequestUseCase(newMockGormDB(t), reqs, msgs, outbox, clock).
+	out, err := appassistant.NewReplyToRequestUseCase(newMockGormDB(t), reqs, msgs, newStubProposals(), outbox, clock).
 		Execute(adminCtx(), "r-1", "Ana Bakery")
 
 	require.NoError(t, err)
@@ -127,7 +128,7 @@ func TestReplyToRequest_appendsAndRequeues(t *testing.T) {
 func TestReplyToRequest_notWhileQueued(t *testing.T) {
 	reqs, msgs := newStubRequests(queuedRequest("r-1")), newStubMessages()
 
-	_, err := appassistant.NewReplyToRequestUseCase(newMockGormDB(t), reqs, msgs, &eventrecordtest.Outbox{}, clock).
+	_, err := appassistant.NewReplyToRequestUseCase(newMockGormDB(t), reqs, msgs, newStubProposals(), &eventrecordtest.Outbox{}, clock).
 		Execute(adminCtx(), "r-1", "more")
 
 	assert.ErrorIs(t, err, assistant.ErrInvalidTransition)
@@ -138,7 +139,7 @@ func TestReplyToRequest_validatesText(t *testing.T) {
 	r := queuedRequest("r-1")
 	r.Status = assistant.StatusAnswered
 
-	_, err := appassistant.NewReplyToRequestUseCase(newMockGormDB(t), newStubRequests(r), newStubMessages(), &eventrecordtest.Outbox{}, clock).
+	_, err := appassistant.NewReplyToRequestUseCase(newMockGormDB(t), newStubRequests(r), newStubMessages(), newStubProposals(), &eventrecordtest.Outbox{}, clock).
 		Execute(adminCtx(), "r-1", "")
 
 	assert.ErrorIs(t, err, assistant.ErrTextRequired)
@@ -147,7 +148,7 @@ func TestReplyToRequest_validatesText(t *testing.T) {
 func TestCancelRequest(t *testing.T) {
 	reqs, outbox := newStubRequests(queuedRequest("r-1")), &eventrecordtest.Outbox{}
 
-	out, err := appassistant.NewCancelRequestUseCase(newMockGormDB(t), reqs, outbox, clock).Execute(adminCtx(), "r-1")
+	out, err := appassistant.NewCancelRequestUseCase(newMockGormDB(t), reqs, newStubProposals(), outbox, clock).Execute(adminCtx(), "r-1")
 
 	require.NoError(t, err)
 	assert.Equal(t, assistant.StatusCancelled, out.Status)
@@ -161,7 +162,7 @@ func TestCancelRequest_finishedIsRejected(t *testing.T) {
 	r := queuedRequest("r-1")
 	r.Status = assistant.StatusAnswered
 
-	_, err := appassistant.NewCancelRequestUseCase(newMockGormDB(t), newStubRequests(r), &eventrecordtest.Outbox{}, clock).Execute(adminCtx(), "r-1")
+	_, err := appassistant.NewCancelRequestUseCase(newMockGormDB(t), newStubRequests(r), newStubProposals(), &eventrecordtest.Outbox{}, clock).Execute(adminCtx(), "r-1")
 
 	assert.ErrorIs(t, err, assistant.ErrNotCancellable)
 }
@@ -170,7 +171,51 @@ func TestCancelRequest_repoErrorIsWrapped(t *testing.T) {
 	reqs := newStubRequests(queuedRequest("r-1"))
 	reqs.err = errors.New("db down")
 
-	_, err := appassistant.NewCancelRequestUseCase(newMockGormDB(t), reqs, &eventrecordtest.Outbox{}, clock).Execute(adminCtx(), "r-1")
+	_, err := appassistant.NewCancelRequestUseCase(newMockGormDB(t), reqs, newStubProposals(), &eventrecordtest.Outbox{}, clock).Execute(adminCtx(), "r-1")
 
 	assert.ErrorContains(t, err, "db down")
+}
+
+func pendingProposalFor(t *testing.T, requestID string) *assistant.Proposal {
+	t.Helper()
+	p, err := assistant.NewProposal("t-1", requestID, assistant.KindCreateQuote, json.RawMessage(`{}`), json.RawMessage(`{"total":1}`), now)
+	require.NoError(t, err)
+	p.ID = "p-1"
+	return p
+}
+
+func TestGetRequest_includesProposals(t *testing.T) {
+	reqs, proposals := newStubRequests(queuedRequest("r-1")), newStubProposals(pendingProposalFor(t, "r-1"))
+
+	d, err := appassistant.NewGetRequestUseCase(newMockGormDB(t), reqs, newStubMessages(), proposals).Execute(adminCtx(), "r-1")
+
+	require.NoError(t, err)
+	require.Len(t, d.Proposals, 1)
+	assert.JSONEq(t, `{"total":1}`, string(d.Proposals[0].Preview))
+	assert.Nil(t, d.Proposals[0].Payload, "the executable payload stays server-side")
+}
+
+func TestReplyToRequest_asksForChangesSupersedingThePendingProposal(t *testing.T) {
+	r := queuedRequest("r-1")
+	r.Status = assistant.StatusAwaitingConfirmation
+	proposals, outbox := newStubProposals(pendingProposalFor(t, "r-1")), &eventrecordtest.Outbox{}
+
+	_, err := appassistant.NewReplyToRequestUseCase(newMockGormDB(t), newStubRequests(r), newStubMessages(), proposals, outbox, clock).
+		Execute(adminCtx(), "r-1", "make it 12 boxes")
+
+	require.NoError(t, err)
+	assert.Equal(t, assistant.ProposalSuperseded, proposals.byID["p-1"].Status)
+	assert.Equal(t, map[string]any{"superseded_proposals": float64(1)}, outbox.Events[0].Data())
+}
+
+func TestCancelRequest_supersedesThePendingProposal(t *testing.T) {
+	r := queuedRequest("r-1")
+	r.Status = assistant.StatusAwaitingConfirmation
+	proposals := newStubProposals(pendingProposalFor(t, "r-1"))
+
+	_, err := appassistant.NewCancelRequestUseCase(newMockGormDB(t), newStubRequests(r), proposals, &eventrecordtest.Outbox{}, clock).
+		Execute(adminCtx(), "r-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, assistant.ProposalSuperseded, proposals.byID["p-1"].Status)
 }

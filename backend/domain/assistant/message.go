@@ -36,8 +36,10 @@ type Message struct {
 	Question bool
 	// Notice is set instead of Content when the app, not the model, wrote
 	// the message -- clients show it translated.
-	Notice    Notice
-	CreatedAt time.Time
+	Notice Notice
+	// ProposalID links the message to the proposal it made or decided.
+	ProposalID string
+	CreatedAt  time.Time
 }
 
 type Notice string
@@ -45,3 +47,13 @@ type Notice string
 // NoticeTooManySteps: the model kept calling tools without answering, so
 // the turn stopped and the user is asked to add detail.
 const NoticeTooManySteps Notice = "too_many_steps"
+
+// NoticeProposed, NoticeProposalConfirmed and NoticeProposalRejected mark
+// the messages recording a proposal and the person's decision on it
+// (ProposalID says which). Their Content is the plain-English record the
+// model reads on later turns.
+const (
+	NoticeProposed          Notice = "proposed"
+	NoticeProposalConfirmed Notice = "proposal_confirmed"
+	NoticeProposalRejected  Notice = "proposal_rejected"
+)

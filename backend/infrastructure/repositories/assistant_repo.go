@@ -190,6 +190,7 @@ type assistantMessageModel struct {
 	ToolName   string                           `gorm:"column:tool_name;not null"`
 	Question   bool                             `gorm:"not null"`
 	Notice     string                           `gorm:"not null"`
+	ProposalID *string                          `gorm:"column:proposal_id;type:uuid"`
 	CreatedAt  time.Time
 }
 
@@ -222,6 +223,9 @@ func (r *AssistantMessageRepo) Append(ctx context.Context, msg *assistant.Messag
 		ToolCalls: jsonbValue[[]assistant.ToolCall]{V: calls}, ToolCallID: msg.ToolCallID, ToolName: msg.ToolName,
 		Question: msg.Question, Notice: string(msg.Notice), CreatedAt: msg.CreatedAt,
 	}
+	if msg.ProposalID != "" {
+		m.ProposalID = &msg.ProposalID
+	}
 	if m.CreatedAt.IsZero() {
 		m.CreatedAt = time.Now().UTC()
 	}
@@ -251,6 +255,9 @@ func (r *AssistantMessageRepo) ListByRequest(ctx context.Context, requestID stri
 			ID: m.ID, RequestID: m.RequestID, TenantID: m.TenantID, Seq: m.Seq, Role: assistant.Role(m.Role),
 			Content: m.Content, ToolCalls: calls, ToolCallID: m.ToolCallID, ToolName: m.ToolName,
 			Question: m.Question, Notice: assistant.Notice(m.Notice), CreatedAt: m.CreatedAt.UTC(),
+		}
+		if m.ProposalID != nil {
+			out[i].ProposalID = *m.ProposalID
 		}
 	}
 	return out, nil

@@ -31,13 +31,16 @@ const (
 	// StatusNeedsInput: the model asked the user a question.
 	StatusNeedsInput Status = "needs_input"
 	// StatusAnswered: the model gave its final answer for this turn.
-	StatusAnswered  Status = "answered"
-	StatusCancelled Status = "cancelled"
+	StatusAnswered Status = "answered"
+	// StatusAwaitingConfirmation: the model proposed a change (a quote, a
+	// conversion) that waits for a person to confirm or reject it.
+	StatusAwaitingConfirmation Status = "awaiting_confirmation"
+	StatusCancelled            Status = "cancelled"
 )
 
 func (s Status) Valid() bool {
 	switch s {
-	case StatusQueued, StatusProcessing, StatusNeedsInput, StatusAnswered, StatusCancelled:
+	case StatusQueued, StatusProcessing, StatusNeedsInput, StatusAnswered, StatusAwaitingConfirmation, StatusCancelled:
 		return true
 	}
 	return false
@@ -166,10 +169,30 @@ func (r *Request) finishTurn(to Status, now time.Time) error {
 	return nil
 }
 
-// Reply queues the user's next message: an answer to the model's question
-// or a follow-up on its answer. A new turn starts its own backoff.
+// Propose records that the model proposed a change for the user to decide.
+func (r *Request) Propose(now time.Time) error {
+	return r.finishTurn(StatusAwaitingConfirmation, now)
+}
+
+// Decided records that the user confirmed or rejected the pending
+// proposal: the request keeps waiting when a follow-up was proposed (a
+// created quote offering its conversion), else the turn is answered.
+func (r *Request) Decided(followUp bool, now time.Time) error {
+	if r.Status != StatusAwaitingConfirmation {
+		return ErrInvalidTransition
+	}
+	if !followUp {
+		r.Status = StatusAnswered
+	}
+	r.UpdatedAt = now
+	return nil
+}
+
+// Reply queues the user's next message: an answer to the model's question,
+// a follow-up on its answer, or changes to what it proposed. A new turn
+// starts its own backoff.
 func (r *Request) Reply(now time.Time) error {
-	if r.Status != StatusNeedsInput && r.Status != StatusAnswered {
+	if r.Status != StatusNeedsInput && r.Status != StatusAnswered && r.Status != StatusAwaitingConfirmation {
 		return ErrInvalidTransition
 	}
 	r.Status = StatusQueued
@@ -180,9 +203,11 @@ func (r *Request) Reply(now time.Time) error {
 }
 
 // Cancel stops a request that hasn't finished: queued, processing, or
-// waiting for the user.
+// waiting for the user (an answer or a decision).
 func (r *Request) Cancel(now time.Time) error {
-	if r.Status != StatusQueued && r.Status != StatusProcessing && r.Status != StatusNeedsInput {
+	switch r.Status {
+	case StatusQueued, StatusProcessing, StatusNeedsInput, StatusAwaitingConfirmation:
+	default:
 		return ErrNotCancellable
 	}
 	r.Status = StatusCancelled

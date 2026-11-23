@@ -110,62 +110,101 @@ func (uc *ListRequestsUseCase) Execute(ctx context.Context, f assistant.ListFilt
 	return page, nil
 }
 
-// GetRequestUseCase returns a request with its conversation. Raw tool
-// results stay server-side: they're the model's working data, can be
-// large, and the UI only shows which tool ran.
+// GetRequestUseCase returns a request with its conversation and
+// proposals. Raw tool results and proposal payloads stay server-side:
+// they're working data, can be large, and the UI shows which tool ran and
+// each proposal's preview.
 type GetRequestUseCase struct {
-	db       *gorm.DB
-	requests assistant.RequestRepository
-	messages assistant.MessageRepository
+	db        *gorm.DB
+	requests  assistant.RequestRepository
+	messages  assistant.MessageRepository
+	proposals assistant.ProposalRepository
 }
 
 type RequestDetail struct {
-	Request  assistant.Request
-	Messages []assistant.Message
+	Request   assistant.Request
+	Messages  []assistant.Message
+	Proposals []assistant.Proposal
 }
 
-func NewGetRequestUseCase(db *gorm.DB, requests assistant.RequestRepository, messages assistant.MessageRepository) *GetRequestUseCase {
-	return &GetRequestUseCase{db: db, requests: requests, messages: messages}
+func NewGetRequestUseCase(db *gorm.DB, requests assistant.RequestRepository, messages assistant.MessageRepository, proposals assistant.ProposalRepository) *GetRequestUseCase {
+	return &GetRequestUseCase{db: db, requests: requests, messages: messages, proposals: proposals}
 }
 
 func (uc *GetRequestUseCase) Execute(ctx context.Context, id string) (*RequestDetail, error) {
+	d, err := loadDetail(ctx, uc.db, uc.requests, uc.messages, uc.proposals, id)
+	if err != nil {
+		return nil, fmt.Errorf("getAssistantRequest: %w", err)
+	}
+	return d, nil
+}
+
+func loadDetail(ctx context.Context, db *gorm.DB, requests assistant.RequestRepository, messages assistant.MessageRepository, proposals assistant.ProposalRepository, id string) (*RequestDetail, error) {
 	var d RequestDetail
-	err := tenant.WithTenant(ctx, uc.db, func(ctx context.Context) error {
-		r, err := uc.requests.Get(ctx, id)
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		r, err := requests.Get(ctx, id)
 		if err != nil {
 			return err
 		}
-		msgs, err := uc.messages.ListByRequest(ctx, id)
-		if err != nil {
+		if d.Messages, err = messages.ListByRequest(ctx, id); err != nil {
+			return err
+		}
+		if d.Proposals, err = proposals.ListByRequest(ctx, id); err != nil {
 			return err
 		}
 		d.Request = *r
-		d.Messages = msgs
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("getAssistantRequest: %w", err)
+		return nil, err
 	}
 	for i := range d.Messages {
 		if d.Messages[i].Role == assistant.RoleTool {
 			d.Messages[i].Content = ""
 		}
 	}
+	for i := range d.Proposals {
+		d.Proposals[i].Payload = nil
+	}
 	return &d, nil
+}
+
+// supersedePending retires the request's pending proposals -- the
+// conversation moved past them -- and returns how many.
+func supersedePending(ctx context.Context, proposals assistant.ProposalRepository, requestID string, at time.Time) (int, error) {
+	all, err := proposals.ListByRequest(ctx, requestID)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for i := range all {
+		if all[i].Status != assistant.ProposalPending {
+			continue
+		}
+		if err := all[i].Supersede(at); err != nil {
+			return 0, err
+		}
+		if err := proposals.Update(ctx, &all[i]); err != nil {
+			return 0, err
+		}
+		n++
+	}
+	return n, nil
 }
 
 // ReplyToRequestUseCase adds the user's answer or follow-up and queues the
 // request again.
 type ReplyToRequestUseCase struct {
-	db       *gorm.DB
-	requests assistant.RequestRepository
-	messages assistant.MessageRepository
-	outbox   eventrecord.Enqueuer
-	now      func() time.Time
+	db        *gorm.DB
+	requests  assistant.RequestRepository
+	messages  assistant.MessageRepository
+	proposals assistant.ProposalRepository
+	outbox    eventrecord.Enqueuer
+	now       func() time.Time
 }
 
-func NewReplyToRequestUseCase(db *gorm.DB, requests assistant.RequestRepository, messages assistant.MessageRepository, outbox eventrecord.Enqueuer, now func() time.Time) *ReplyToRequestUseCase {
-	return &ReplyToRequestUseCase{db: db, requests: requests, messages: messages, outbox: outbox, now: now}
+func NewReplyToRequestUseCase(db *gorm.DB, requests assistant.RequestRepository, messages assistant.MessageRepository, proposals assistant.ProposalRepository, outbox eventrecord.Enqueuer, now func() time.Time) *ReplyToRequestUseCase {
+	return &ReplyToRequestUseCase{db: db, requests: requests, messages: messages, proposals: proposals, outbox: outbox, now: now}
 }
 
 func (uc *ReplyToRequestUseCase) Execute(ctx context.Context, id, text string) (*assistant.Request, error) {
@@ -185,13 +224,21 @@ func (uc *ReplyToRequestUseCase) Execute(ctx context.Context, id, text string) (
 		if err := uc.requests.Update(ctx, r); err != nil {
 			return err
 		}
+		superseded, err := supersedePending(ctx, uc.proposals, r.ID, at)
+		if err != nil {
+			return err
+		}
 		if err := uc.messages.Append(ctx, &assistant.Message{
 			RequestID: r.ID, TenantID: r.TenantID, Role: assistant.RoleUser, Content: text, CreatedAt: at,
 		}); err != nil {
 			return err
 		}
 		out = r
-		return eventrecord.Record(ctx, uc.outbox, events.AssistantRequestReplied, r.ID)
+		var data []eventrecord.Option
+		if superseded > 0 {
+			data = append(data, eventrecord.Data{"superseded_proposals": superseded})
+		}
+		return eventrecord.Record(ctx, uc.outbox, events.AssistantRequestReplied, r.ID, data...)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("replyToAssistantRequest: %w", err)
@@ -202,14 +249,15 @@ func (uc *ReplyToRequestUseCase) Execute(ctx context.Context, id, text string) (
 // CancelRequestUseCase stops a request that hasn't finished. A worker
 // mid-attempt notices on its next write and drops its result.
 type CancelRequestUseCase struct {
-	db       *gorm.DB
-	requests assistant.RequestRepository
-	outbox   eventrecord.Enqueuer
-	now      func() time.Time
+	db        *gorm.DB
+	requests  assistant.RequestRepository
+	proposals assistant.ProposalRepository
+	outbox    eventrecord.Enqueuer
+	now       func() time.Time
 }
 
-func NewCancelRequestUseCase(db *gorm.DB, requests assistant.RequestRepository, outbox eventrecord.Enqueuer, now func() time.Time) *CancelRequestUseCase {
-	return &CancelRequestUseCase{db: db, requests: requests, outbox: outbox, now: now}
+func NewCancelRequestUseCase(db *gorm.DB, requests assistant.RequestRepository, proposals assistant.ProposalRepository, outbox eventrecord.Enqueuer, now func() time.Time) *CancelRequestUseCase {
+	return &CancelRequestUseCase{db: db, requests: requests, proposals: proposals, outbox: outbox, now: now}
 }
 
 func (uc *CancelRequestUseCase) Execute(ctx context.Context, id string) (*assistant.Request, error) {
@@ -219,11 +267,14 @@ func (uc *CancelRequestUseCase) Execute(ctx context.Context, id string) (*assist
 		if err != nil {
 			return err
 		}
-		previous := r.Status
-		if err := r.Cancel(uc.now()); err != nil {
+		previous, at := r.Status, uc.now()
+		if err := r.Cancel(at); err != nil {
 			return err
 		}
 		if err := uc.requests.Update(ctx, r); err != nil {
+			return err
+		}
+		if _, err := supersedePending(ctx, uc.proposals, r.ID, at); err != nil {
 			return err
 		}
 		out = r

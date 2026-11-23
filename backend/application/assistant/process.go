@@ -42,32 +42,50 @@ var askUserTool = assistant.ToolDefinition{
 }
 
 // ProcessRequestUseCase runs one attempt of a claimed (processing)
-// request: model steps with tool calls until it answers, asks the user, or
-// fails -- a failure puts the request back in the queue. ctx carries the
-// requester's tenant, user and role, so every tool runs as them.
+// request: model steps with tool calls until it answers, asks the user,
+// proposes a change, or fails -- a failure puts the request back in the
+// queue. ctx carries the requester's tenant, user and role, so every tool
+// runs as them.
 type ProcessRequestUseCase struct {
 	db          *gorm.DB
 	requests    assistant.RequestRepository
 	messages    assistant.MessageRepository
+	proposals   assistant.ProposalRepository
 	models      assistant.ChatModelResolver
 	tools       map[string]assistant.Tool
+	actions     map[string]ProposalAction
 	definitions []assistant.ToolDefinition
 	outbox      eventrecord.Enqueuer
 	now         func() time.Time
 }
 
-func NewProcessRequestUseCase(
-	db *gorm.DB, requests assistant.RequestRepository, messages assistant.MessageRepository,
-	models assistant.ChatModelResolver, tools []assistant.Tool, outbox eventrecord.Enqueuer, now func() time.Time,
-) *ProcessRequestUseCase {
+// ProcessDeps are ProcessRequestUseCase's ports: Tools are the read tools,
+// Actions the changes the model may propose (by their Tool name).
+type ProcessDeps struct {
+	Requests  assistant.RequestRepository
+	Messages  assistant.MessageRepository
+	Proposals assistant.ProposalRepository
+	Models    assistant.ChatModelResolver
+	Tools     []assistant.Tool
+	Actions   []ProposalAction
+	Outbox    eventrecord.Enqueuer
+	Now       func() time.Time
+}
+
+func NewProcessRequestUseCase(db *gorm.DB, d ProcessDeps) *ProcessRequestUseCase {
 	uc := &ProcessRequestUseCase{
-		db: db, requests: requests, messages: messages, models: models,
-		tools: map[string]assistant.Tool{}, outbox: outbox, now: now,
+		db: db, requests: d.Requests, messages: d.Messages, proposals: d.Proposals, models: d.Models,
+		tools: map[string]assistant.Tool{}, actions: map[string]ProposalAction{}, outbox: d.Outbox, now: d.Now,
 	}
-	for _, t := range tools {
-		d := t.Definition()
-		uc.tools[d.Name] = t
-		uc.definitions = append(uc.definitions, d)
+	for _, t := range d.Tools {
+		def := t.Definition()
+		uc.tools[def.Name] = t
+		uc.definitions = append(uc.definitions, def)
+	}
+	for _, a := range d.Actions {
+		def := a.Tool()
+		uc.actions[def.Name] = a
+		uc.definitions = append(uc.definitions, def)
 	}
 	uc.definitions = append(uc.definitions, askUserTool)
 	return uc
@@ -122,7 +140,16 @@ func (uc *ProcessRequestUseCase) attempt(ctx context.Context, req assistant.Requ
 				(*assistant.Request).AskUser, events.AssistantRequestQuestionAsked, eventrecord.Data{"tool_calls": toolCalls})
 		}
 
-		step := uc.runTools(ctx, req.ID, reply)
+		var step []assistant.Message
+		if call, action, ok := uc.proposalCall(reply.ToolCalls); ok {
+			payload, preview, err := action.Prepare(ctx, json.RawMessage(call.Arguments))
+			if err == nil {
+				return uc.propose(ctx, req.ID, reply.Content, call, action.Kind(), payload, preview)
+			}
+			step = rejectedProposalStep(req.ID, reply.Content, call, err)
+		} else {
+			step = uc.runTools(ctx, req.ID, reply)
+		}
 		if err := uc.appendWhileProcessing(ctx, req.ID, step); err != nil {
 			return err
 		}

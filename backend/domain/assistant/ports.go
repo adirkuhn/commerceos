@@ -83,3 +83,12 @@ type ChatModel interface {
 type ChatModelResolver interface {
 	Resolve(ctx context.Context) (ChatModel, error)
 }
+
+// ProposalRepository stores proposals; the transaction comes from ctx.
+type ProposalRepository interface {
+	Create(ctx context.Context, p *Proposal) error
+	// GetForUpdate locks the proposal until the transaction ends.
+	GetForUpdate(ctx context.Context, id string) (*Proposal, error)
+	ListByRequest(ctx context.Context, requestID string) ([]Proposal, error)
+	Update(ctx context.Context, p *Proposal) error
+}

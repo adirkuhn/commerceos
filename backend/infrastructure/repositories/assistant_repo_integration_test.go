@@ -4,6 +4,7 @@ package repositories_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -243,6 +244,60 @@ func TestAssistantRepos_TenantsCannotSeeEachOther(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, msgs)
 		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestAssistantProposalRepo_CreateLockUpdateList(t *testing.T) {
+	db := newIntegrationDB(t)
+	tenantID, ctx := newTestTenant()
+	at := time.Now().UTC().Truncate(time.Microsecond)
+	r := newAssistantRequest(t, tenantID, "quote Ana", at)
+	createAssistantRequests(t, db, ctx, r)
+	repo := repositories.NewAssistantProposalRepo(db)
+
+	err := tenant.WithTenant(ctx, db, func(ctx context.Context) error {
+		p, err := assistant.NewProposal(tenantID, r.ID, assistant.KindCreateQuote,
+			json.RawMessage(`{"name":"Ana"}`), json.RawMessage(`{"total_minor_units":1200}`), at)
+		require.NoError(t, err)
+		require.NoError(t, repo.Create(ctx, p))
+		require.NotEmpty(t, p.ID)
+
+		got, err := repo.GetForUpdate(ctx, p.ID)
+		require.NoError(t, err)
+		assert.Equal(t, assistant.ProposalPending, got.Status)
+		assert.JSONEq(t, `{"name":"Ana"}`, string(got.Payload))
+		assert.JSONEq(t, `{"total_minor_units":1200}`, string(got.Preview))
+		assert.Nil(t, got.DecidedAt)
+
+		require.NoError(t, got.Claim(at))
+		require.NoError(t, got.Complete("u-1", "q-1", "Q-0012", at))
+		require.NoError(t, repo.Update(ctx, got))
+
+		msgs := repositories.NewAssistantMessageRepo(db)
+		m := assistant.Message{RequestID: r.ID, TenantID: tenantID, Role: assistant.RoleAssistant,
+			Notice: assistant.NoticeProposalConfirmed, ProposalID: p.ID, Content: "created Q-0012"}
+		require.NoError(t, msgs.Append(ctx, &m))
+		listed, err := msgs.ListByRequest(ctx, r.ID)
+		require.NoError(t, err)
+		assert.Equal(t, p.ID, listed[0].ProposalID)
+
+		all, err := repo.ListByRequest(ctx, r.ID)
+		require.NoError(t, err)
+		require.Len(t, all, 1)
+		assert.Equal(t, assistant.ProposalConfirmed, all[0].Status)
+		assert.Equal(t, "q-1", all[0].ResultID)
+		assert.Equal(t, "Q-0012", all[0].ResultRef)
+		assert.Equal(t, "u-1", all[0].DecidedBy)
+		require.NotNil(t, all[0].DecidedAt)
+
+		_, err = repo.GetForUpdate(ctx, "00000000-0000-0000-0000-000000000009")
+		assert.ErrorIs(t, err, assistant.ErrProposalNotFound)
+
+		// A request can now wait on the decision.
+		require.NoError(t, r.Start(at))
+		require.NoError(t, r.Propose(at))
+		return repositories.NewAssistantRequestRepo(db).Update(ctx, r)
 	})
 	require.NoError(t, err)
 }

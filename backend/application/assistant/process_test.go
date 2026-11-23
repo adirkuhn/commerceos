@@ -18,11 +18,13 @@ import (
 )
 
 type processFixture struct {
-	reqs   *stubRequests
-	msgs   *stubMessages
-	outbox *eventrecordtest.Outbox
-	model  *scriptedModel
-	tool   *stubTool
+	reqs      *stubRequests
+	msgs      *stubMessages
+	proposals *stubProposals
+	outbox    *eventrecordtest.Outbox
+	model     *scriptedModel
+	tool      *stubTool
+	action    *stubAction
 }
 
 func newProcessFixture(t *testing.T) *processFixture {
@@ -30,15 +32,19 @@ func newProcessFixture(t *testing.T) *processFixture {
 	r := queuedRequest("r-1")
 	require.NoError(t, r.Start(now))
 	f := &processFixture{
-		reqs: newStubRequests(r), msgs: newStubMessages(), outbox: &eventrecordtest.Outbox{},
+		reqs: newStubRequests(r), msgs: newStubMessages(), proposals: newStubProposals(), outbox: &eventrecordtest.Outbox{},
 		model: &scriptedModel{}, tool: &stubTool{name: "get_sales_order", result: `{"number":"CO-12","status":"shipped"}`},
+		action: &stubAction{kind: assistant.KindCreateQuote, tool: "propose_quote"},
 	}
 	require.NoError(t, f.msgs.Append(context.Background(), &assistant.Message{RequestID: "r-1", Role: assistant.RoleUser, Content: "status CO-12?"}))
 	return f
 }
 
 func (f *processFixture) useCase(t *testing.T, resolver assistant.ChatModelResolver) *appassistant.ProcessRequestUseCase {
-	return appassistant.NewProcessRequestUseCase(newMockGormDB(t), f.reqs, f.msgs, resolver, []assistant.Tool{f.tool}, f.outbox, clock)
+	return appassistant.NewProcessRequestUseCase(newMockGormDB(t), appassistant.ProcessDeps{
+		Requests: f.reqs, Messages: f.msgs, Proposals: f.proposals, Models: resolver,
+		Tools: []assistant.Tool{f.tool}, Actions: []appassistant.ProposalAction{f.action}, Outbox: f.outbox, Now: clock,
+	})
 }
 
 func (f *processFixture) run(t *testing.T) {
@@ -68,7 +74,7 @@ func TestProcess_answersDirectly(t *testing.T) {
 	for _, d := range turn.Tools {
 		names = append(names, d.Name)
 	}
-	assert.ElementsMatch(t, []string{"get_sales_order", "ask_user"}, names)
+	assert.ElementsMatch(t, []string{"get_sales_order", "propose_quote", "ask_user"}, names)
 }
 
 func TestProcess_runsToolsAsTheRequesterThenAnswers(t *testing.T) {
@@ -228,4 +234,56 @@ func TestProcess_stopsWhenCancelledMidAttempt(t *testing.T) {
 	assert.Equal(t, assistant.StatusCancelled, f.request().Status)
 	assert.Len(t, f.msgs.byReq["r-1"], 1, "nothing recorded after the user cancelled")
 	assert.Empty(t, f.outbox.Subjects())
+}
+
+func TestProcess_proposalWaitsForConfirmationWithoutWritingAnything(t *testing.T) {
+	f := newProcessFixture(t)
+	f.model.replies = []assistant.ChatReply{
+		{Content: "Here's the quote.", ToolCalls: []assistant.ToolCall{{ID: "c1", Name: "propose_quote", Arguments: `{"name":"Ana"}`}}},
+	}
+
+	f.run(t)
+
+	assert.Equal(t, assistant.StatusAwaitingConfirmation, f.request().Status)
+	assert.Equal(t, []string{`{"name":"Ana"}`}, f.action.gotArgs)
+	assert.Empty(t, f.action.gotPayload, "nothing is executed before a person confirms")
+
+	require.Len(t, f.proposals.order, 1)
+	p := f.proposals.byID[f.proposals.order[0]]
+	assert.Equal(t, assistant.ProposalPending, p.Status)
+	assert.Equal(t, assistant.KindCreateQuote, p.Kind)
+	assert.Equal(t, "r-1", p.RequestID)
+	assert.Equal(t, "t-1", p.TenantID)
+	assert.JSONEq(t, `{"input":{"name":"Ana"}}`, string(p.Payload))
+	assert.JSONEq(t, `{"shown":true}`, string(p.Preview))
+
+	msgs := f.msgs.byReq["r-1"]
+	require.Len(t, msgs, 3)
+	assert.Equal(t, "Here's the quote.", msgs[1].Content)
+	assert.Equal(t, "c1", msgs[1].ToolCalls[0].ID)
+	assert.Equal(t, assistant.RoleTool, msgs[2].Role)
+	assert.Equal(t, "c1", msgs[2].ToolCallID)
+	assert.Equal(t, assistant.NoticeProposed, msgs[2].Notice)
+	assert.Equal(t, p.ID, msgs[2].ProposalID)
+	assert.Contains(t, msgs[2].Content, "waiting for")
+
+	event, err := f.outbox.Only()
+	require.NoError(t, err)
+	assert.Equal(t, "assistant.proposal.created", event.Subject)
+	assert.Equal(t, map[string]any{"request_id": "r-1", "kind": "create_quote"}, event.Data())
+}
+
+func TestProcess_prepareErrorGoesBackToTheModel(t *testing.T) {
+	f := newProcessFixture(t)
+	f.action.prepareErr = errors.New("sku s-9 is not a SKU of product p-1")
+	f.model.replies = []assistant.ChatReply{
+		{ToolCalls: []assistant.ToolCall{{ID: "c1", Name: "propose_quote", Arguments: `{}`}}},
+		{Content: "I couldn't find that SKU."},
+	}
+
+	f.run(t)
+
+	assert.Equal(t, assistant.StatusAnswered, f.request().Status)
+	assert.Empty(t, f.proposals.order)
+	assert.Contains(t, f.msgs.byReq["r-1"][2].Content, "sku s-9 is not a SKU")
 }

@@ -9,6 +9,10 @@ var (
 	ErrInvalidTransition = errs.New("ASSISTANT_INVALID_TRANSITION", "the request can't do that in its current state")
 	ErrNotCancellable    = errs.New("ASSISTANT_NOT_CANCELLABLE", "only a request that hasn't finished can be cancelled")
 
+	ErrUnknownProposalKind = errs.New("ASSISTANT_UNKNOWN_PROPOSAL_KIND", "unknown kind of assistant proposal")
+	ErrProposalNotFound    = errs.New("ASSISTANT_PROPOSAL_NOT_FOUND", "assistant proposal not found")
+	ErrProposalNotPending  = errs.New("ASSISTANT_PROPOSAL_NOT_PENDING", "this proposal was already decided")
+
 	// ErrModelBusy marks a transient model failure (rate limit, quota,
 	// overload, timeout): the request waits in the queue and retries.
 	ErrModelBusy = errs.New("ASSISTANT_MODEL_BUSY", "the AI model is busy or out of quota")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	appassistant "github.com/adirkuhn/commerceos/application/assistant"
 	"github.com/adirkuhn/commerceos/domain/assistant"
 	"github.com/adirkuhn/commerceos/internal/tenant"
 )
@@ -201,4 +203,91 @@ func (t *stubTool) Call(ctx context.Context, args json.RawMessage) (string, erro
 func queuedRequest(id string) *assistant.Request {
 	return &assistant.Request{ID: id, TenantID: "t-1", UserID: "u-1", UserRole: "customer_admin", Title: "hi",
 		Status: assistant.StatusQueued, NextAttemptAt: now, CreatedAt: now, UpdatedAt: now}
+}
+
+type stubProposals struct {
+	byID  map[string]*assistant.Proposal
+	order []string
+	err   error
+}
+
+func newStubProposals(ps ...*assistant.Proposal) *stubProposals {
+	s := &stubProposals{byID: map[string]*assistant.Proposal{}}
+	for _, p := range ps {
+		cp := *p
+		s.byID[p.ID] = &cp
+		s.order = append(s.order, p.ID)
+	}
+	return s
+}
+
+func (s *stubProposals) Create(_ context.Context, p *assistant.Proposal) error {
+	if s.err != nil {
+		return s.err
+	}
+	p.ID = fmt.Sprintf("p-%d", len(s.order)+1)
+	cp := *p
+	s.byID[p.ID] = &cp
+	s.order = append(s.order, p.ID)
+	return nil
+}
+
+func (s *stubProposals) GetForUpdate(_ context.Context, id string) (*assistant.Proposal, error) {
+	p, ok := s.byID[id]
+	if !ok {
+		return nil, assistant.ErrProposalNotFound
+	}
+	cp := *p
+	return &cp, nil
+}
+
+func (s *stubProposals) ListByRequest(_ context.Context, requestID string) ([]assistant.Proposal, error) {
+	var out []assistant.Proposal
+	for _, id := range s.order {
+		if s.byID[id].RequestID == requestID {
+			out = append(out, *s.byID[id])
+		}
+	}
+	return out, s.err
+}
+
+func (s *stubProposals) Update(_ context.Context, p *assistant.Proposal) error {
+	if s.err != nil {
+		return s.err
+	}
+	cp := *p
+	s.byID[p.ID] = &cp
+	return nil
+}
+
+// stubAction is a ProposalAction recording what it was asked.
+type stubAction struct {
+	kind       assistant.ProposalKind
+	tool       string
+	prepareErr error
+	execErr    error
+	result     appassistant.ActionResult
+	gotArgs    []string
+	gotPayload string
+	gotChoices appassistant.ConfirmChoices
+	gotUser    string
+}
+
+func (a *stubAction) Kind() assistant.ProposalKind { return a.kind }
+
+func (a *stubAction) Tool() assistant.ToolDefinition {
+	return assistant.ToolDefinition{Name: a.tool, Description: "propose", Parameters: map[string]any{"type": "object"}}
+}
+
+func (a *stubAction) Prepare(_ context.Context, args json.RawMessage) (json.RawMessage, json.RawMessage, error) {
+	a.gotArgs = append(a.gotArgs, string(args))
+	if a.prepareErr != nil {
+		return nil, nil, a.prepareErr
+	}
+	return json.RawMessage(`{"input":` + string(args) + `}`), json.RawMessage(`{"shown":true}`), nil
+}
+
+func (a *stubAction) Execute(ctx context.Context, payload json.RawMessage, choices appassistant.ConfirmChoices) (appassistant.ActionResult, error) {
+	a.gotPayload, a.gotChoices, a.gotUser = string(payload), choices, tenant.UserIDFromContext(ctx)
+	return a.result, a.execErr
 }
