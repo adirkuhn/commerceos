@@ -9,14 +9,14 @@ export const PROVIDERS_WITH_FALLBACK: ReadonlySet<AIProvider> = new Set<AIProvid
 
 export const FALLBACK_PLACEHOLDER: Partial<Record<AIProvider, string>> = {
   gemini: 'gemini-3.5-flash-lite, gemini-3.1-flash-lite',
-  nvidia: 'qwen/qwen3-next-80b-a3b-instruct',
+  nvidia: 'minimaxai/minimax-m3.1-flash, nvidia/nemotron-3.5-super-vl-120b-a12b',
 }
 
 export const API_KEY_PLACEHOLDER: Partial<Record<AIProvider, string>> = { nvidia: 'nvapi-...' }
 
 // The adapter's built-in default model, shown when it's worth knowing
 // which model an empty field means.
-export const DEFAULT_MODEL: Partial<Record<AIProvider, string>> = { nvidia: 'openai/gpt-oss-120b' }
+export const DEFAULT_MODEL: Partial<Record<AIProvider, string>> = { nvidia: 'mistralai/mistral-large-4-1t-a52b' }
 
 // Self-hosted: a server URL instead of an API key.
 export const SELF_HOSTED: ReadonlySet<AIProvider> = new Set<AIProvider>(['ollama'])

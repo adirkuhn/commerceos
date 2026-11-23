@@ -15,12 +15,13 @@ import (
 
 const (
 	defaultNVIDIABaseURL = "https://integrate.api.nvidia.com/v1"
-	// defaultNVIDIAModel: strong multi-step tool calling on the free
-	// catalog (late 2026); qwen3-next is the fast fallback.
-	defaultNVIDIAModel = "openai/gpt-oss-120b"
+	// defaultNVIDIAModel: tool calling, strict JSON and 160+ languages,
+	// live on the catalog (checked 2026-11-23 against /v1/models -- the
+	// catalog retires models often, so check there before changing this).
+	defaultNVIDIAModel = "mistralai/mistral-large-4-1t-a52b"
 )
 
-var defaultNVIDIAFallbacks = []string{"qwen/qwen3-next-80b-a3b-instruct"}
+var defaultNVIDIAFallbacks = []string{"minimaxai/minimax-m3.1-flash", "nvidia/nemotron-3.5-super-vl-120b-a12b"}
 
 // chatCompletionsClient is the shared transport for OpenAI-compatible Chat
 // Completions: every NVIDIA adapter and the OpenAI assistant model. NVIDIA's
@@ -54,12 +55,12 @@ func newNVIDIAChat(apiKey string) chatCompletionsClient {
 	}
 }
 
-// nvidiaReasoningEffort keeps gpt-oss's thinking short, so the answer (or
-// tool call) fits the token budget; other models get no field, since some
-// reject unknown fields.
+// nvidiaReasoningEffort turns Mistral Large 4's thinking off: faster, and
+// the answer (or tool call) always fits the token budget. Other models get
+// no field, since some reject unknown fields.
 func nvidiaReasoningEffort(model string) string {
-	if strings.HasPrefix(model, "openai/gpt-oss") {
-		return "low"
+	if strings.HasPrefix(model, "mistralai/mistral-large-4") {
+		return "none"
 	}
 	return ""
 }
@@ -134,7 +135,8 @@ func (c chatCompletionsClient) newClient() openai.Client {
 }
 
 // withFallback runs call with the primary model, then each fallback model
-// -- moving on only after HTTP 429, since any other failure (auth, bad
+// -- moving on when the model is rate-limited (429) or unavailable (404,
+// 410: the catalog retires models), since any other failure (auth, bad
 // request, malformed output) would repeat on every model.
 func (c chatCompletionsClient) withFallback(call func(model string) error) error {
 	models := []string{c.model}
@@ -153,14 +155,19 @@ func (c chatCompletionsClient) withFallback(call func(model string) error) error
 			err = fmt.Errorf("model %s: %w", model, err)
 		}
 		lastErr = err
-		if httpStatus(err) != http.StatusTooManyRequests {
+		if !modelUnavailable(httpStatus(err)) {
 			return lastErr
 		}
 		if i < len(models)-1 {
-			log.Printf("%s: %s rate-limited, falling back to %s", c.label, model, models[i+1])
+			log.Printf("%s: %s unavailable (%v), falling back to %s", c.label, model, err, models[i+1])
 		}
 	}
 	return lastErr
+}
+
+// modelUnavailable: worth trying the next model.
+func modelUnavailable(status int) bool {
+	return status == http.StatusTooManyRequests || status == http.StatusNotFound || status == http.StatusGone
 }
 
 // httpStatus is the HTTP status of an API error in err's chain, 0 if none.

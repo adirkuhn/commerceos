@@ -22,7 +22,7 @@ func (m *NVIDIAChatModel) WithBaseURL(url string) *NVIDIAChatModel {
 	return m
 }
 
-// WithModel overrides the default openai/gpt-oss-120b.
+// WithModel overrides the default mistralai/mistral-large-4-1t-a52b.
 func (m *NVIDIAChatModel) WithModel(model string) *NVIDIAChatModel {
 	m.core.chat.setModel(model)
 	return m

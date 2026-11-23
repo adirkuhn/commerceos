@@ -49,7 +49,7 @@ func TestNVIDIAWhatsAppIntentParser_ParseIntent_success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, whatsappDomain.IntentCommandPrice, intent.Command)
 	assert.Equal(t, "doce de leite", intent.ProductQuery)
-	assert.Equal(t, "openai/gpt-oss-120b", body["model"], "default model")
+	assert.Equal(t, "mistralai/mistral-large-4-1t-a52b", body["model"], "default model")
 	assert.EqualValues(t, 0, body["temperature"])
 	assert.EqualValues(t, 200, body["max_tokens"])
 
@@ -97,7 +97,7 @@ func TestNVIDIAWhatsAppIntentParser_ParseIntent_fallsBackOnRateLimit(t *testing.
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 		model := body["model"].(string)
 		models = append(models, model)
-		if model == "openai/gpt-oss-120b" {
+		if model == "mistralai/mistral-large-4-1t-a52b" {
 			writeJSON(w, http.StatusTooManyRequests, map[string]any{"error": map[string]any{"message": "rate limited"}})
 			return
 		}
@@ -106,12 +106,12 @@ func TestNVIDIAWhatsAppIntentParser_ParseIntent_fallsBackOnRateLimit(t *testing.
 	defer server.Close()
 
 	intent, err := ai.NewNVIDIAWhatsAppIntentParser("k").WithBaseURL(server.URL).
-		WithFallbackModels(" , openai/gpt-oss-120b, meta/llama-3.1-8b-instruct").
+		WithFallbackModels(" , mistralai/mistral-large-4-1t-a52b, meta/llama-3.1-8b-instruct").
 		ParseIntent(context.Background(), "me fala do cafe")
 
 	require.NoError(t, err)
 	assert.Equal(t, whatsappDomain.IntentCommandInfo, intent.Command)
-	assert.Equal(t, []string{"openai/gpt-oss-120b", "meta/llama-3.1-8b-instruct"}, models,
+	assert.Equal(t, []string{"mistralai/mistral-large-4-1t-a52b", "meta/llama-3.1-8b-instruct"}, models,
 		"blank and primary-duplicate fallback entries are dropped")
 }
 

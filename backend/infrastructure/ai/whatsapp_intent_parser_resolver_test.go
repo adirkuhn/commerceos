@@ -141,5 +141,5 @@ func TestWhatsAppIntentParserResolver_wiresNVIDIAFallbackModels(t *testing.T) {
 	_, err = parser.ParseIntent(context.Background(), "tem x?")
 
 	require.NoError(t, err)
-	assert.Equal(t, []string{"openai/gpt-oss-120b", "meta/llama-3.1-8b-instruct"}, models)
+	assert.Equal(t, []string{"mistralai/mistral-large-4-1t-a52b", "meta/llama-3.1-8b-instruct"}, models)
 }

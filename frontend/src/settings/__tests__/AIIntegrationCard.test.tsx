@@ -76,7 +76,7 @@ describe('AIIntegrationCard', () => {
     await user.click(await screen.findByRole('button', { name: /Add AI provider/ }))
     await user.selectOptions(screen.getByLabelText('Provider'), 'nvidia')
     expect(screen.getByLabelText('API key')).toHaveAttribute('placeholder', 'nvapi-...')
-    expect(screen.getByLabelText(/Model/)).toHaveAttribute('placeholder', 'openai/gpt-oss-120b')
+    expect(screen.getByLabelText(/Model/)).toHaveAttribute('placeholder', 'mistralai/mistral-large-4-1t-a52b')
     await user.type(screen.getByLabelText(/Label/), 'key 2')
     await user.type(screen.getByLabelText('API key'), 'nvapi-x')
     await user.type(screen.getByLabelText(/Fallback models/), 'meta/llama-3.1-8b-instruct')
@@ -95,7 +95,7 @@ describe('AIIntegrationCard', () => {
     render(<AIIntegrationCard />)
     await user.click(await screen.findByRole('button', { name: /Add AI provider/ }))
     await user.selectOptions(screen.getByLabelText('Provider'), 'nvidia')
-    expect(screen.getByLabelText(/Fallback models/)).toHaveAttribute('placeholder', 'qwen/qwen3-next-80b-a3b-instruct')
+    expect(screen.getByLabelText(/Fallback models/)).toHaveAttribute('placeholder', 'minimaxai/minimax-m3.1-flash, nvidia/nemotron-3.5-super-vl-120b-a12b')
   })
 
   it('asks for a server URL instead of a key for Ollama', async () => {

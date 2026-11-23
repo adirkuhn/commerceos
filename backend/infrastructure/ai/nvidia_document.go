@@ -28,7 +28,7 @@ func (p *NVIDIADocumentParser) WithBaseURL(url string) *NVIDIADocumentParser {
 	return p
 }
 
-// WithModel overrides the default openai/gpt-oss-120b.
+// WithModel overrides the default mistralai/mistral-large-4-1t-a52b.
 func (p *NVIDIADocumentParser) WithModel(model string) *NVIDIADocumentParser {
 	p.chat.setModel(model)
 	return p
