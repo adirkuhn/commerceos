@@ -16,7 +16,7 @@ the same transaction as the change, published to NATS JetStream by the relay
   `created`, `updated`, `deleted`, `status_changed`, `item_scanned` -- not `create`, `update_status`.
 - All lowercase, exactly three dot-separated parts. Enforced by `domain/events/naming_test.go`.
 
-Domains: `apikeys`, `channels`, `collections`, `coupons`, `customers`, `deadletters`, `fx`, `iam`, `integrations`, `inventory`, `messagecenter`, `newsletter`, `notifications`, `oms`, `payments`, `pms`, `procurement`, `promotions`, `quotes`, `reviews`, `scheduler`, `settings`, `shipping`, `storefront`, `suppliers`, `tax`, `theme`, `webhook_forwarding`, `whatsapp`.
+Domains: `apikeys`, `assistant`, `channels`, `collections`, `coupons`, `customers`, `deadletters`, `fx`, `iam`, `integrations`, `inventory`, `messagecenter`, `newsletter`, `notifications`, `oms`, `payments`, `pms`, `procurement`, `promotions`, `quotes`, `reviews`, `scheduler`, `settings`, `shipping`, `storefront`, `suppliers`, `tax`, `theme`, `webhook_forwarding`, `whatsapp`.
 
 ## Standard action event
 
@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-245 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+250 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -58,6 +58,16 @@ Payload (`events.EntityAction`):
 |---|---|---|---|
 | `apikeys.api_key.created` | action | An API key was created (e.g. for the WooCommerce plugin). data: name, sales_channel_id. | envelope |
 | `apikeys.api_key.revoked` | action | An API key was revoked and stops working. | envelope |
+
+### assistant
+
+| Subject | Kind | Description | Payload |
+|---|---|---|---|
+| `assistant.request.answered` | action | The assistant's model answered a request. data: attempts, tool_calls. | envelope |
+| `assistant.request.cancelled` | action | An admin cancelled an assistant request. data: previous_status. | envelope |
+| `assistant.request.created` | action | An admin asked the AI assistant something; the request is queued for the model. | envelope |
+| `assistant.request.question_asked` | action | The assistant's model asked the admin to clarify a request. data: attempts, tool_calls, notice. | envelope |
+| `assistant.request.replied` | action | An admin answered the assistant's question or asked a follow-up; the request is queued again. | envelope |
 
 ### channels
 

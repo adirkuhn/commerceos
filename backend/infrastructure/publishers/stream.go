@@ -25,7 +25,7 @@ const StreamName = "COMMERCEOS_EVENTS"
 // require dropping the stream in a live deployment.
 var subjects = []string{"integrations.>", "pms.>", "inventory.>", "oms.>", "shipping.>", "settings.>", "notifications.>", "payments.>", "procurement.>", "storefront.>", "collections.>", "newsletter.>", "suppliers.>",
 	"apikeys.>", "channels.>", "coupons.>", "customers.>", "fx.>", "iam.>", "messagecenter.>", "promotions.>",
-	"reviews.>", "scheduler.>", "tax.>", "theme.>", "webhook_forwarding.>", "whatsapp.>", "quotes.>", "deadletters.>"}
+	"reviews.>", "scheduler.>", "tax.>", "theme.>", "webhook_forwarding.>", "whatsapp.>", "quotes.>", "deadletters.>", "assistant.>"}
 
 // EnsureStream creates the stream if it doesn't exist yet, or widens its
 // subject list if it exists but is missing one of `subjects` (e.g. a new
