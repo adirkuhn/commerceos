@@ -1,5 +1,7 @@
 {
   "AI_API_KEY_REQUIRED": "Este provedor precisa de uma chave de API.",
+  "AI_INVALID_ORDER": "A nova ordem precisa listar cada provedor de IA exatamente uma vez. Recarregue e tente de novo.",
+  "AI_LABEL_TOO_LONG": "Um rótulo pode ter no máximo 80 caracteres.",
   "AI_BASE_URL_REQUIRED": "Este provedor precisa de uma URL base.",
   "AI_CONNECTION_NOT_FOUND": "Conexão de IA não encontrada.",
   "AI_PARSING_NOT_CONFIGURED": "A leitura de documentos por IA não está configurada.",

@@ -87,8 +87,8 @@ export function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, ini
     // extract anything, so the user knows manual entry is the fallback.
     const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
     if (isPDF) {
-      const aiConnection = await integrationsApi.getAIConnection(token ?? '').catch(() => null)
-      if (!aiConnection && !(await confirm({
+      const aiConnections = await integrationsApi.listAIConnections(token ?? '').catch(() => [])
+      if (!aiConnections.some(c => c.enabled) && !(await confirm({
         title: t('lines.noAiTitle'),
         message: t('lines.noAiMessage'),
         confirmLabel: t('lines.uploadAnyway'),

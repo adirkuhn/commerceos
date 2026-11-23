@@ -1,5 +1,7 @@
 {
   "AI_API_KEY_REQUIRED": "This provider needs an API key.",
+  "AI_INVALID_ORDER": "The new order must list every AI provider exactly once. Reload and try again.",
+  "AI_LABEL_TOO_LONG": "A label can be at most 80 characters.",
   "AI_BASE_URL_REQUIRED": "This provider needs a base URL.",
   "AI_CONNECTION_NOT_FOUND": "AI connection not found.",
   "AI_PARSING_NOT_CONFIGURED": "AI document reading isn’t set up.",

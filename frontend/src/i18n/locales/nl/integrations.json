@@ -3,7 +3,7 @@
   "aiParsing": {
     "enable": "AI-analyse inschakelen",
     "intro": "Als een bericht niet overeenkomt met een vast commando (bijv. \"hebben jullie citroenthee op voorraad?\"), deelt de gekoppelde AI-provider het in als voorraad/prijs/houdbaarheid/info en haalt het product eruit — nooit een vrij chatantwoord, alleen strikte classificatie.",
-    "noProvider": "Nog geen AI-provider gekoppeld. Koppel er eerst een via Instellingen → Integraties → AI.",
+    "noProvider": "Nog geen ingeschakelde AI-provider. Voeg er eerst een toe (of zet er een aan) onder Instellingen → Integraties → AI.",
     "title": "WhatsApp-analyse met AI"
   },
   "bol": {

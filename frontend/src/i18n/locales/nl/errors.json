@@ -1,5 +1,7 @@
 {
   "AI_API_KEY_REQUIRED": "Deze provider heeft een API-sleutel nodig.",
+  "AI_INVALID_ORDER": "De nieuwe volgorde moet elke AI-provider precies één keer bevatten. Herlaad en probeer opnieuw.",
+  "AI_LABEL_TOO_LONG": "Een label mag hoogstens 80 tekens lang zijn.",
   "AI_BASE_URL_REQUIRED": "Deze provider heeft een basis-URL nodig.",
   "AI_CONNECTION_NOT_FOUND": "AI-koppeling niet gevonden.",
   "AI_PARSING_NOT_CONFIGURED": "AI-documentverwerking is niet ingesteld.",

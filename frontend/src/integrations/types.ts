@@ -284,9 +284,15 @@ export interface SyncLogEntry {
 
 export type AIProvider = 'openai' | 'anthropic' | 'gemini' | 'ollama' | 'nvidia'
 
+// One of the tenant's ordered AI connections; the key itself never comes
+// back, has_api_key says whether one is stored.
 export interface AIConnection {
   id: string
   provider: AIProvider
+  position: number
+  label: string
+  enabled: boolean
+  has_api_key: boolean
   base_url?: string | null
   model?: string | null
   fallback_models?: string | null

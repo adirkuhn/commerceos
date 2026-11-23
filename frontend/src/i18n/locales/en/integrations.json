@@ -3,7 +3,7 @@
   "aiParsing": {
     "enable": "Enable AI-assisted parsing",
     "intro": "When a message doesn't match a strict command (e.g. \"voce tem estoque do cha de limao?\"), the connected AI provider classifies it into stock/price/expiry/info and extracts the product — never a free-form chat reply, only strict classification.",
-    "noProvider": "No AI provider connected yet. Connect one under Settings → Integrations → AI first.",
+    "noProvider": "No enabled AI provider yet. Add one (or switch one on) under Settings → Integrations → AI first.",
     "title": "WhatsApp AI-assisted parsing"
   },
   "bol": {

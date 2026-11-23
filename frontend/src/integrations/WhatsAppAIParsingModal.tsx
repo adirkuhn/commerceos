@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
-import { useAIConnection } from './hooks/useAIConnection'
+import { useAIConnections } from './hooks/useAIConnections'
 import * as api from './api'
 import type { Connection } from './types'
 import { Dialog } from '../components/common/Dialog'
@@ -20,12 +20,13 @@ export function WhatsAppAIParsingModal({ connection, onClose, onSaved }: {
 }) {
   const { token } = useAuth()
   const { t } = useTranslation(['integrations', 'common'])
-  const { connection: aiConnection, loading: loadingAIConnection } = useAIConnection(token ?? '')
+  const { connections: aiConnections, loading: loadingAIConnection } = useAIConnections(token ?? '')
   const [enabled, setEnabled] = useState(connection.whatsapp_ai_parsing_enabled ?? false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const aiConfigured = !!aiConnection
+  // Any enabled AI connection will do: the router tries them in order.
+  const aiConfigured = aiConnections.some(c => c.enabled)
 
   async function handleSave() {
     setSaving(true)

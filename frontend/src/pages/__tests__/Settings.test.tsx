@@ -18,9 +18,11 @@ vi.mock('../../integrations/api', () => ({
   upsertSyncSchedules: vi.fn(),
   deleteAllImportedProducts: vi.fn(),
   updateConnectionSettings: vi.fn(),
-  getAIConnection: vi.fn(),
-  connectAIProvider: vi.fn(),
-  disconnectAIProvider: vi.fn(),
+  listAIConnections: vi.fn(),
+  createAIConnection: vi.fn(),
+  updateAIConnection: vi.fn(),
+  deleteAIConnection: vi.fn(),
+  reorderAIConnections: vi.fn(),
   listWooTaxes: vi.fn(),
   listWooCategories: vi.fn(),
   listExternalCategoryLinks: vi.fn(),
@@ -102,7 +104,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(integrationsApi.listSyncSchedules).mockResolvedValue([])
   vi.mocked(integrationsApi.listSalesChannels).mockResolvedValue([])
-  vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
+  vi.mocked(integrationsApi.listAIConnections).mockResolvedValue([])
   vi.mocked(integrationsApi.listWooTaxes).mockResolvedValue([])
   vi.mocked(inventoryApi.listWarehouses).mockResolvedValue([])
   vi.mocked(tenantSettingsApi.getTenantSettings).mockResolvedValue({
@@ -473,147 +475,14 @@ describe('Settings > Integrations > WooCommerce > Categories tab', () => {
 })
 
 describe('Settings > Integrations > AI', () => {
-  it('shows not configured and a Connect button when no AI provider is set up', async () => {
+  it('shows the AI provider list in the integrations section', async () => {
     vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
 
     renderAt(<Settings />, '/settings')
     await openIntegrationsSection()
 
-    expect(await screen.findByText(/Not configured/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Connect' })).toBeInTheDocument()
-  })
-
-  it('shows the configured provider and status', async () => {
-    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
-    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue({
-      id: 'ai-conn-1', provider: 'anthropic', status: 'connected', created_at: '',
-    })
-
-    renderAt(<Settings />, '/settings')
-    await openIntegrationsSection()
-
-    expect(await screen.findByText('Anthropic (Claude)')).toBeInTheDocument()
-    expect(screen.getByText('connected')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Configure' })).toBeInTheDocument()
-  })
-
-  it('connects a hosted provider with an API key', async () => {
-    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
-    vi.mocked(integrationsApi.connectAIProvider).mockResolvedValue({
-      id: 'ai-conn-1', provider: 'openai', status: 'connected', created_at: '',
-    })
-
-    renderAt(<Settings />, '/settings')
-    await openIntegrationsSection()
-    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
-    await userEvent.type(await screen.findByLabelText('API key'), 'sk-test-key')
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-
-    await waitFor(() => expect(integrationsApi.connectAIProvider).toHaveBeenCalledWith('test-token', {
-      provider: 'openai', apiKey: 'sk-test-key', baseUrl: '', model: '', fallbackModels: '',
-    }))
-  })
-
-  it('shows fallback models only for Gemini, and sends it on save', async () => {
-    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
-    vi.mocked(integrationsApi.connectAIProvider).mockResolvedValue({
-      id: 'ai-conn-1', provider: 'gemini', status: 'connected', created_at: '',
-    })
-
-    renderAt(<Settings />, '/settings')
-    await openIntegrationsSection()
-    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
-
-    expect(screen.queryByLabelText(/Fallback models/)).not.toBeInTheDocument()
-
-    await userEvent.selectOptions(screen.getByLabelText('Provider'), 'gemini')
-    expect(screen.getByLabelText(/Fallback models/)).toBeInTheDocument()
-
-    await userEvent.type(screen.getByLabelText('API key'), 'gm-test-key')
-    await userEvent.type(screen.getByLabelText(/Fallback models/), 'gemini-3.5-flash-lite,gemini-3.1-flash-lite')
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-
-    await waitFor(() => expect(integrationsApi.connectAIProvider).toHaveBeenCalledWith('test-token', {
-      provider: 'gemini', apiKey: 'gm-test-key', baseUrl: '', model: '', fallbackModels: 'gemini-3.5-flash-lite,gemini-3.1-flash-lite',
-    }))
-  })
-
-  it('connects NVIDIA with an nvapi key and fallback models', async () => {
-    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
-    vi.mocked(integrationsApi.connectAIProvider).mockResolvedValue({
-      id: 'ai-conn-1', provider: 'nvidia', status: 'connected', created_at: '',
-    })
-
-    renderAt(<Settings />, '/settings')
-    await openIntegrationsSection()
-    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
-    await userEvent.selectOptions(screen.getByLabelText('Provider'), 'nvidia')
-
-    expect(screen.getByRole('option', { name: 'NVIDIA (free models)' })).toBeInTheDocument()
-    expect(screen.getByLabelText('API key')).toHaveAttribute('placeholder', 'nvapi-...')
-    expect(screen.getByLabelText(/Model/)).toHaveAttribute('placeholder', 'meta/llama-3.3-70b-instruct')
-
-    await userEvent.type(screen.getByLabelText('API key'), 'nvapi-test')
-    await userEvent.type(screen.getByLabelText(/Fallback models/), 'meta/llama-3.1-8b-instruct')
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-
-    await waitFor(() => expect(integrationsApi.connectAIProvider).toHaveBeenCalledWith('test-token', {
-      provider: 'nvidia', apiKey: 'nvapi-test', baseUrl: '', model: '', fallbackModels: 'meta/llama-3.1-8b-instruct',
-    }))
-  })
-
-  it('prefills fallback models from the existing connection', async () => {
-    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
-    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue({
-      id: 'ai-conn-1', provider: 'gemini', status: 'connected', created_at: '',
-      model: 'gemini-3.6-flash', fallback_models: 'gemini-3.5-flash-lite',
-    })
-
-    renderAt(<Settings />, '/settings')
-    await openIntegrationsSection()
-    await userEvent.click(await screen.findByRole('button', { name: 'Configure' }))
-
-    expect(await screen.findByLabelText(/Fallback models/)).toHaveValue('gemini-3.5-flash-lite')
-  })
-
-  it('requires a server URL instead of an API key for Ollama', async () => {
-    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
-
-    renderAt(<Settings />, '/settings')
-    await openIntegrationsSection()
-    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
-    await userEvent.selectOptions(await screen.findByLabelText('Provider'), 'ollama')
-
-    expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Server URL')).toBeInTheDocument()
-  })
-
-  it('shows an error if connecting fails', async () => {
-    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
-    vi.mocked(integrationsApi.connectAIProvider).mockRejectedValue(new Error('an API key is required for this provider'))
-
-    renderAt(<Settings />, '/settings')
-    await openIntegrationsSection()
-    await userEvent.click(await screen.findByRole('button', { name: 'Connect' }))
-    await userEvent.type(await screen.findByLabelText('API key'), 'sk-test')
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-
-    expect(await screen.findByText('an API key is required for this provider')).toBeInTheDocument()
-  })
-
-  it('disconnects after confirming', async () => {
-    vi.mocked(integrationsApi.listConnections).mockResolvedValue([])
-    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue({
-      id: 'ai-conn-1', provider: 'gemini', status: 'connected', created_at: '',
-    })
-    vi.mocked(integrationsApi.disconnectAIProvider).mockResolvedValue(null)
-
-    renderAt(<Settings />, '/settings')
-    await openIntegrationsSection()
-    await userEvent.click(await screen.findByRole('button', { name: 'Disconnect' }))
-
-    await acceptConfirm()
-    await waitFor(() => expect(integrationsApi.disconnectAIProvider).toHaveBeenCalledWith('test-token'))
+    expect(await screen.findByText(/No AI provider yet/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Add AI provider/ })).toBeInTheDocument()
   })
 })
 

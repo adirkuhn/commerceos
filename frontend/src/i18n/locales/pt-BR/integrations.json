@@ -3,7 +3,7 @@
   "aiParsing": {
     "enable": "Ativar análise assistida por IA",
     "intro": "Quando uma mensagem não corresponde a um comando exato (ex.: \"você tem estoque do chá de limão?\"), o provedor de IA conectado a classifica em estoque/preço/validade/info e extrai o produto — nunca uma resposta livre de chat, apenas classificação estrita.",
-    "noProvider": "Nenhum provedor de IA conectado ainda. Conecte um em Configurações → Integrações → IA primeiro.",
+    "noProvider": "Ainda não há um provedor de IA ativo. Adicione um (ou ative um) em Configurações → Integrações → IA primeiro.",
     "title": "Análise do WhatsApp assistida por IA"
   },
   "bol": {

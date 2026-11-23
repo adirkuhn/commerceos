@@ -1,235 +1,117 @@
 import { useState } from 'react'
-import { Bot, X } from 'lucide-react'
-import clsx from 'clsx'
+import { Bot, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { TFunction } from 'i18next'
-import { connectionStatusLabel } from '../integrations/connectionStatus'
+import {
+  DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useAuth } from '../auth/AuthContext'
-import { useAIConnection } from '../integrations/hooks/useAIConnection'
-import type { AIProvider } from '../integrations/types'
-import { Dialog } from '../components/common/Dialog'
+import { useAIConnections } from '../integrations/hooks/useAIConnections'
+import type { AIConnection } from '../integrations/types'
+import type { AIConnectionPatch } from '../integrations/api'
 import { useConfirm } from '../components/common/useConfirm'
-import { STATUS_STYLES } from './IntegrationsSettingsSection'
 import { apiErrorText } from '../api/apiErrorText'
+import { AIConnectionForm, type AIConnectionFormValues } from './AIConnectionForm'
+import { AIConnectionRow } from './AIConnectionRow'
+import { connectionName } from './aiProviders'
 
-const AI_PROVIDERS: AIProvider[] = ['openai', 'anthropic', 'gemini', 'ollama', 'nvidia']
-
-// Providers whose free tiers rate-limit hard enough that the adapter
-// retries a list of fallback models on HTTP 429.
-const PROVIDERS_WITH_FALLBACK: ReadonlySet<AIProvider> = new Set<AIProvider>(['gemini', 'nvidia'])
-
-const FALLBACK_PLACEHOLDER: Partial<Record<AIProvider, string>> = {
-  gemini: 'gemini-3.5-flash-lite, gemini-3.1-flash-lite',
-  nvidia: 'meta/llama-3.1-8b-instruct',
+/** The fields an edit changed; the key only when a new one was typed. */
+export function changedFields(initial: AIConnection, v: AIConnectionFormValues): AIConnectionPatch {
+  const patch: AIConnectionPatch = {}
+  if (v.provider !== initial.provider) patch.provider = v.provider
+  if (v.apiKey) patch.apiKey = v.apiKey
+  if (v.baseUrl !== (initial.base_url ?? '')) patch.baseUrl = v.baseUrl
+  if (v.model !== (initial.model ?? '')) patch.model = v.model
+  if (v.fallbackModels !== (initial.fallback_models ?? '')) patch.fallbackModels = v.fallbackModels
+  if (v.label !== initial.label) patch.label = v.label
+  return patch
 }
 
-const API_KEY_PLACEHOLDER: Partial<Record<AIProvider, string>> = { nvidia: 'nvapi-...' }
-
-// The adapter's built-in default model, shown when it's worth knowing
-// which model an empty field means.
-const DEFAULT_MODEL: Partial<Record<AIProvider, string>> = { nvidia: 'meta/llama-3.3-70b-instruct' }
-
-function providerLabel(t: TFunction<['settings', 'common']>, provider: AIProvider): string {
-  switch (provider) {
-    case 'openai': return 'OpenAI'
-    case 'anthropic': return 'Anthropic (Claude)'
-    case 'gemini': return 'Google Gemini'
-    case 'ollama': return t('ai.ollama')
-    case 'nvidia': return t('ai.nvidia')
-  }
-}
-
-// AI is a separate integration shape from Connection (WooCommerce etc.) --
-// one row per tenant, no store URL/OAuth, just a provider + credential --
-// so it gets its own card and configure flow rather than joining the
-// Connection list above.
+// The tenant's AI connections, in the order every AI feature tries them
+// (like a router: the first enabled one, then the next on any failure).
+// Dragging a row saves the new order right away.
 export function AIIntegrationCard() {
   const { confirm, confirmDialog } = useConfirm()
   const { t } = useTranslation(['settings', 'common'])
   const { token } = useAuth()
-  const { connection, loading, error, connect, disconnect } = useAIConnection(token ?? '')
-  const [configuring, setConfiguring] = useState(false)
-  const [provider, setProvider] = useState<AIProvider>('openai')
-  const [apiKey, setApiKey] = useState('')
-  const [baseUrl, setBaseUrl] = useState('')
-  const [model, setModel] = useState('')
-  const [fallbackModels, setFallbackModels] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [formError, setFormError] = useState('')
+  const { connections, loading, error, create, update, remove, reorder } = useAIConnections(token ?? '')
+  const [editing, setEditing] = useState<AIConnection | 'new' | null>(null)
+  const [actionError, setActionError] = useState('')
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
-  const openConfigure = () => {
-    setProvider(connection?.provider ?? 'openai')
-    setApiKey('')
-    setBaseUrl(connection?.base_url ?? '')
-    setModel(connection?.model ?? '')
-    setFallbackModels(connection?.fallback_models ?? '')
-    setFormError('')
-    setConfiguring(true)
-  }
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
-    setFormError('')
+  const run = async (action: () => Promise<unknown>) => {
+    setActionError('')
     try {
-      await connect({ provider, apiKey, baseUrl, model, fallbackModels })
-      setConfiguring(false)
+      await action()
     } catch (err) {
-      setFormError(apiErrorText(err) ?? t('ai.connectFailed'))
-    } finally {
-      setSaving(false)
+      setActionError(apiErrorText(err) ?? t('ai.saveFailed'))
     }
   }
 
-  const handleDisconnect = async () => {
-    if (!(await confirm({ title: t('ai.disconnectTitle'), message: t('ai.disconnectMessage'), confirmLabel: t('ai.disconnect'), destructive: true }))) return
-    await disconnect()
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return
+    const ids = connections.map(c => c.id)
+    void reorder(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))))
+  }
+
+  const handleSave = async (values: AIConnectionFormValues) => {
+    if (editing === 'new') {
+      await create({ ...values })
+    } else if (editing) {
+      await update(editing.id, changedFields(editing, values))
+    }
+    setEditing(null)
+  }
+
+  const handleDelete = async (c: AIConnection) => {
+    if (!(await confirm({
+      title: t('ai.deleteTitle', { name: connectionName(t, c) }), message: t('ai.deleteMessage'),
+      confirmLabel: t('ai.delete'), destructive: true,
+    }))) return
+    await run(() => remove(c.id))
   }
 
   return (
     <div className="bg-raised rounded-xl border border-line p-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white shrink-0">
-            <Bot size={14} />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-medium text-ink">{t('ai.title')}</p>
-              {connection && (
-                <span className={clsx('px-1.5 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLES[connection.status])}>
-                  {connectionStatusLabel(connection.status)}
-                </span>
-              )}
-            </div>
-            <p className="text-2xs text-ink-4 mt-0.5">
-              {loading ? t('common:status.loading') : connection
-                ? providerLabel(t, connection.provider)
-                : t('ai.notConfigured')}
-            </p>
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white shrink-0">
+          <Bot size={14} />
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={openConfigure}
-            className="px-3 py-1.5 rounded-lg bg-fill text-ink-2 text-xs font-medium hover:bg-hover transition-colors"
-          >
-            {connection ? t('integrations.configure') : t('ai.connect')}
-          </button>
-          {connection && (
-            <button
-              onClick={handleDisconnect}
-              className="px-3 py-1.5 rounded-lg bg-fill text-xs font-medium text-ink-3 hover:text-danger transition-colors"
-            >
-              {t('ai.disconnect')}
-            </button>
-          )}
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-ink">{t('ai.title')}</p>
+          <p className="text-2xs text-ink-4 mt-0.5">
+            {loading ? t('common:status.loading') : connections.length ? t('ai.routingHelp') : t('ai.notConfigured')}
+          </p>
         </div>
       </div>
-      {error && <p className="mt-2 text-2xs text-danger">{error}</p>}
 
-      {configuring && (
-        <Dialog onClose={() => setConfiguring(false)} className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 dark:bg-black/60 bg-black/30" onClick={() => setConfiguring(false)} />
-          <div className="relative w-full max-w-sm bg-raised rounded-xl shadow-2xl border border-line p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-ink">{t('ai.configureTitle')}</h3>
-              <button onClick={() => setConfiguring(false)} aria-label={t('common:actions.close')}>
-                <X size={14} className="text-ink-4" />
-              </button>
-            </div>
-            <form onSubmit={handleSave} className="space-y-3">
-              <div>
-                <label htmlFor="ai-provider" className="block text-2xs text-ink-4 caps-label mb-1.5">
-                  {t('ai.provider')}
-                </label>
-                <select
-                  id="ai-provider"
-                  value={provider}
-                  onChange={e => setProvider(e.target.value as AIProvider)}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
-                >
-                  {AI_PROVIDERS.map(p => (
-                    <option key={p} value={p}>{providerLabel(t, p)}</option>
-                  ))}
-                </select>
-              </div>
-              {provider !== 'ollama' && (
-                <div>
-                  <label htmlFor="ai-api-key" className="block text-2xs text-ink-4 caps-label mb-1.5">
-                    {t('ai.apiKey')}
-                  </label>
-                  <input
-                    id="ai-api-key"
-                    type="password"
-                    required
-                    autoFocus
-                    value={apiKey}
-                    onChange={e => setApiKey(e.target.value)}
-                    placeholder={API_KEY_PLACEHOLDER[provider] ?? 'sk-...'}
-                    className="w-full px-3 py-2 text-xs font-mono rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
-                  />
-                </div>
-              )}
-              <div>
-                <label htmlFor="ai-base-url" className="block text-2xs text-ink-4 caps-label mb-1.5">
-                  {provider === 'ollama' ? t('ai.serverUrl') : t('ai.baseUrl')}
-                </label>
-                <input
-                  id="ai-base-url"
-                  type="url"
-                  required={provider === 'ollama'}
-                  autoFocus={provider === 'ollama'}
-                  value={baseUrl}
-                  onChange={e => setBaseUrl(e.target.value)}
-                  placeholder={provider === 'ollama' ? 'http://localhost:11434' : 'https://...'}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
-                />
-              </div>
-              <div>
-                <label htmlFor="ai-model" className="block text-2xs text-ink-4 caps-label mb-1.5">
-                  {t('ai.model')}
-                </label>
-                <input
-                  id="ai-model"
-                  type="text"
-                  value={model}
-                  onChange={e => setModel(e.target.value)}
-                  placeholder={DEFAULT_MODEL[provider] ?? t('ai.modelPlaceholder')}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
-                />
-              </div>
-              {PROVIDERS_WITH_FALLBACK.has(provider) && (
-                <div>
-                  <label htmlFor="ai-fallback-models" className="block text-2xs text-ink-4 caps-label mb-1.5">
-                    {t('ai.fallbackModels')}
-                  </label>
-                  <input
-                    id="ai-fallback-models"
-                    type="text"
-                    value={fallbackModels}
-                    onChange={e => setFallbackModels(e.target.value)}
-                    placeholder={FALLBACK_PLACEHOLDER[provider]}
-                    className="w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus"
-                  />
-                  <p className="mt-1.5 text-2xs text-ink-4">
-                    {t('ai.fallbackHelp')}
-                  </p>
-                </div>
-              )}
-              {formError && (
-                <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>
-              )}
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full py-2 rounded-lg bg-accent-solid text-white text-xs font-medium hover:bg-accent-solid-hover disabled:opacity-50 transition-colors"
-              >
-                {saving ? t('common:actions.saving') : t('common:actions.save')}
-              </button>
-            </form>
-          </div>
-        </Dialog>
+      {connections.length > 0 && (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={connections.map(c => c.id)} strategy={verticalListSortingStrategy}>
+            <ol className="mt-3 space-y-1.5" aria-label={t('ai.listLabel')}>
+              {connections.map((c, i) => (
+                <AIConnectionRow key={c.id} connection={c} place={i + 1}
+                  onToggle={enabled => run(() => update(c.id, { enabled }))}
+                  onEdit={() => setEditing(c)}
+                  onDelete={() => handleDelete(c)} />
+              ))}
+            </ol>
+          </SortableContext>
+        </DndContext>
+      )}
+
+      <button type="button" onClick={() => setEditing('new')}
+        className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-fill text-ink-2 text-xs font-medium hover:bg-hover transition-colors">
+        <Plus size={13} /> {t('ai.add')}
+      </button>
+      {(error || actionError) && <p className="mt-2 text-2xs text-danger">{actionError || error}</p>}
+
+      {editing && (
+        <AIConnectionForm initial={editing === 'new' ? null : editing} onSave={handleSave} onClose={() => setEditing(null)} />
       )}
       {confirmDialog}
     </div>

@@ -1,4 +1,4 @@
-import type { Connection, CatalogEntry, StartWooConnectResponse, AIConnection, AIProvider, WebhookSecretResult } from '../types'
+import type { Connection, CatalogEntry, StartWooConnectResponse, WebhookSecretResult } from '../types'
 import { base, request } from './client'
 
 export function listCatalog(token: string): Promise<CatalogEntry[]> {
@@ -42,41 +42,6 @@ export function updateConnectionSettings(
     },
     token,
   )
-}
-
-// Returns null (not an error) when the tenant hasn't configured an AI
-// provider yet -- that's the common/default state, not a failure.
-export function getAIConnection(token: string): Promise<AIConnection | null> {
-  return request<AIConnection | null>(`${base()}/ai`, { method: 'GET' }, token)
-}
-
-export interface ConnectAIProviderPayload {
-  provider: AIProvider
-  apiKey?: string
-  baseUrl?: string
-  model?: string
-  fallbackModels?: string
-}
-
-export function connectAIProvider(token: string, payload: ConnectAIProviderPayload): Promise<AIConnection> {
-  return request<AIConnection>(
-    `${base()}/ai`,
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        provider: payload.provider,
-        api_key: payload.apiKey || undefined,
-        base_url: payload.baseUrl || undefined,
-        model: payload.model || undefined,
-        fallback_models: payload.fallbackModels || undefined,
-      }),
-    },
-    token,
-  )
-}
-
-export function disconnectAIProvider(token: string): Promise<null> {
-  return request<null>(`${base()}/ai`, { method: 'DELETE' }, token)
 }
 
 // (Re)generates this connection's webhook-signature secret, or stores one

@@ -83,7 +83,7 @@ vi.mock('../../pms/api', () => ({
 }))
 
 vi.mock('../../integrations/api', () => ({
-  getAIConnection: vi.fn(),
+  listAIConnections: vi.fn(),
 }))
 
 import * as procurementApi from '../../procurement/api'
@@ -176,9 +176,9 @@ beforeEach(() => {
   // Configured by default so existing PDF-upload tests aren't interrupted
   // by the "no AI configured" confirm prompt -- tests for that prompt
   // specifically override this to null.
-  vi.mocked(integrationsApi.getAIConnection).mockResolvedValue({
-    id: 'ai-conn-1', provider: 'openai', status: 'connected', created_at: '',
-  })
+  vi.mocked(integrationsApi.listAIConnections).mockResolvedValue([{
+    id: 'ai-conn-1', position: 0, label: '', enabled: true, has_api_key: true, provider: 'openai', status: 'connected', created_at: '',
+  }])
 })
 
 describe('Purchase orders list', () => {
@@ -742,7 +742,7 @@ describe('Purchase order edit with line items', () => {
   })
 
   it('warns before uploading a PDF when no AI provider is configured, and still uploads if confirmed', async () => {
-    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
+    vi.mocked(integrationsApi.listAIConnections).mockResolvedValue([])
     vi.mocked(procurementApi.attachDocumentToPurchaseOrder).mockResolvedValue({
       id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1',
       status: 'pending', error_message: '', created_at: '',
@@ -765,7 +765,7 @@ describe('Purchase order edit with line items', () => {
   })
 
   it('does not upload a PDF when the no-AI warning is dismissed', async () => {
-    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
+    vi.mocked(integrationsApi.listAIConnections).mockResolvedValue([])
 
     renderAt(<Procurement />, '/procurement')
     await userEvent.click(await screen.findByText('Acme Foods'))
@@ -780,7 +780,7 @@ describe('Purchase order edit with line items', () => {
   })
 
   it('does not warn before uploading a CSV, since it never needs AI', async () => {
-    vi.mocked(integrationsApi.getAIConnection).mockResolvedValue(null)
+    vi.mocked(integrationsApi.listAIConnections).mockResolvedValue([])
     vi.mocked(procurementApi.attachDocumentToPurchaseOrder).mockResolvedValue({
       id: 'job-1', tenant_id: 'tenant-1', purchase_order_id: 'po-1', document_id: 'document-1',
       status: 'pending', error_message: '', created_at: '',
