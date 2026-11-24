@@ -57,6 +57,7 @@ type customerModel struct {
 	ShippingPostcode  string
 	ShippingCountry   string
 	ShippingPhone     string
+	ShipToBilling     bool `gorm:"column:ship_to_billing"`
 
 	// IsPayingCustomer is read-only, worked out by every read from the
 	// customer's orders (see withPaying); the old is_paying_customer
@@ -84,7 +85,7 @@ func customerModelFromDomain(c *customersDomain.Customer) customerModel {
 		BillingPostcode: bPostcode, BillingCountry: bCountry, BillingEmail: bEmail, BillingPhone: bPhone,
 		ShippingFirstName: sFirst, ShippingLastName: sLast, ShippingCompany: sCompany,
 		ShippingAddress1: sAddr1, ShippingAddress2: sAddr2, ShippingCity: sCity, ShippingState: sState,
-		ShippingPostcode: sPostcode, ShippingCountry: sCountry, ShippingPhone: sPhone,
+		ShippingPostcode: sPostcode, ShippingCountry: sCountry, ShippingPhone: sPhone, ShipToBilling: c.ShipToBilling,
 		AvatarURL: c.AvatarURL, CustomerNote: c.CustomerNote,
 		DateCreated: c.DateCreated, DateModified: c.DateModified,
 	}
@@ -110,6 +111,7 @@ func toCustomerDomain(m customerModel) *customersDomain.Customer {
 			Address1: m.ShippingAddress1, Address2: m.ShippingAddress2, City: m.ShippingCity, State: m.ShippingState,
 			Postcode: m.ShippingPostcode, Country: m.ShippingCountry, Phone: m.ShippingPhone,
 		},
+		ShipToBilling:    m.ShipToBilling,
 		IsPayingCustomer: m.IsPayingCustomer, AvatarURL: m.AvatarURL, CustomerNote: m.CustomerNote,
 		DateCreated: m.DateCreated, DateModified: m.DateModified,
 	}
@@ -169,6 +171,27 @@ func (r *CustomerRepo) Create(ctx context.Context, c *customersDomain.Customer) 
 		return fmt.Errorf("customerRepo.Create: %w", err)
 	}
 	c.ID = m.ID
+	return r.seedDefaultShipping(ctx, c)
+}
+
+// seedDefaultShipping stores a new customer's shipping address as the
+// first, default one of their book -- unless they ship to billing, whose
+// copy isn't an address of its own.
+func (r *CustomerRepo) seedDefaultShipping(ctx context.Context, c *customersDomain.Customer) error {
+	if c.ShipToBilling || c.Shipping.IsEmpty() {
+		return nil
+	}
+	first, err := customersDomain.ShippingBook{}.Add(customersDomain.ShippingAddress{
+		TenantID: c.TenantID, CustomerID: c.ID, Address: c.Shipping, CreatedAt: c.DateCreated, UpdatedAt: c.DateCreated,
+	}, true)
+	if err != nil {
+		// Not a valid address line (e.g. only a name): kept on the
+		// customer, not in the book.
+		return nil
+	}
+	if err := NewCustomerShippingAddressRepo(r.db).Create(ctx, &first); err != nil {
+		return fmt.Errorf("customerRepo.Create: %w", err)
+	}
 	return nil
 }
 
@@ -348,8 +371,8 @@ func (r *CustomerRepo) Update(ctx context.Context, c *customersDomain.Customer) 
 		"shipping_first_name": m.ShippingFirstName, "shipping_last_name": m.ShippingLastName, "shipping_company": m.ShippingCompany,
 		"shipping_address_1": m.ShippingAddress1, "shipping_address_2": m.ShippingAddress2, "shipping_city": m.ShippingCity,
 		"shipping_state": m.ShippingState, "shipping_postcode": m.ShippingPostcode, "shipping_country": m.ShippingCountry,
-		"shipping_phone": m.ShippingPhone,
-		"avatar_url":     m.AvatarURL, "customer_note": m.CustomerNote, "date_modified": m.DateModified,
+		"shipping_phone": m.ShippingPhone, "ship_to_billing": m.ShipToBilling,
+		"avatar_url": m.AvatarURL, "customer_note": m.CustomerNote, "date_modified": m.DateModified,
 	}
 	if err := tx.Model(&customerModel{}).Where("id = ?", c.ID).Updates(values).Error; err != nil {
 		if mapped := customerConstraintError(err); mapped != nil {

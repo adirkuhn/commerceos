@@ -119,16 +119,21 @@ type CreateCustomerRequest struct {
 	CustomerNote   *string                 `json:"customer_note,omitempty"`
 
 	// CustomerType A company is named by its company name and has contact persons; a private customer by the person.
-	CustomerType  *CustomerType `json:"customer_type,omitempty"`
-	Email         *string       `json:"email,omitempty"`
-	FirstName     *string       `json:"first_name,omitempty"`
-	KvkNumber     *string       `json:"kvk_number,omitempty"`
-	LastName      *string       `json:"last_name,omitempty"`
-	Role          *string       `json:"role,omitempty"`
-	Shipping      *Address      `json:"shipping,omitempty"`
-	Username      *string       `json:"username,omitempty"`
-	VatNumber     *string       `json:"vat_number,omitempty"`
-	WooCustomerId *int64        `json:"woo_customer_id,omitempty"`
+	CustomerType *CustomerType `json:"customer_type,omitempty"`
+	Email        *string       `json:"email,omitempty"`
+	FirstName    *string       `json:"first_name,omitempty"`
+	KvkNumber    *string       `json:"kvk_number,omitempty"`
+	LastName     *string       `json:"last_name,omitempty"`
+	Role         *string       `json:"role,omitempty"`
+
+	// ShipToBilling Ship to the billing address. Left out: unchanged (create: false).
+	ShipToBilling *bool `json:"ship_to_billing,omitempty"`
+
+	// Shipping Saved as the customer's default shipping address (edited, or added when they have none); left out, the addresses stay as they are. Ignored while ship_to_billing.
+	Shipping      *Address `json:"shipping,omitempty"`
+	Username      *string  `json:"username,omitempty"`
+	VatNumber     *string  `json:"vat_number,omitempty"`
+	WooCustomerId *int64   `json:"woo_customer_id,omitempty"`
 }
 
 // Customer defines model for Customer.
@@ -158,12 +163,17 @@ type Customer struct {
 	IsPayingCustomer bool `json:"is_paying_customer"`
 
 	// KvkNumber Dutch Chamber of Commerce (KVK) number.
-	KvkNumber string   `json:"kvk_number"`
-	LastName  string   `json:"last_name"`
-	Role      *string  `json:"role,omitempty"`
-	Shipping  *Address `json:"shipping,omitempty"`
-	TenantId  string   `json:"tenant_id"`
-	Username  *string  `json:"username,omitempty"`
+	KvkNumber string  `json:"kvk_number"`
+	LastName  string  `json:"last_name"`
+	Role      *string `json:"role,omitempty"`
+
+	// ShipToBilling Goods go to the billing address.
+	ShipToBilling bool `json:"ship_to_billing"`
+
+	// Shipping Where goods go: the default shipping address, or the billing address when ship_to_billing. The addresses themselves are at /customers/{id}/shipping-addresses.
+	Shipping *Address `json:"shipping,omitempty"`
+	TenantId string   `json:"tenant_id"`
+	Username *string  `json:"username,omitempty"`
 
 	// VatNumber VAT ID.
 	VatNumber     string `json:"vat_number"`
@@ -200,6 +210,56 @@ type ErrorResponse struct {
 	} `json:"error,omitempty"`
 }
 
+// ShippingAddress defines model for ShippingAddress.
+type ShippingAddress struct {
+	Address1   string `json:"address_1"`
+	Address2   string `json:"address_2"`
+	City       string `json:"city"`
+	Company    string `json:"company"`
+	Country    string `json:"country"`
+	CustomerId string `json:"customer_id"`
+	FirstName  string `json:"first_name"`
+	Id         string `json:"id"`
+	IsDefault  bool   `json:"is_default"`
+
+	// Label Tells the addresses apart, e.g. Warehouse.
+	Label    string `json:"label"`
+	LastName string `json:"last_name"`
+	Phone    string `json:"phone"`
+	Postcode string `json:"postcode"`
+	State    string `json:"state"`
+}
+
+// ShippingAddressListResponse defines model for ShippingAddressListResponse.
+type ShippingAddressListResponse struct {
+	Data  *[]ShippingAddress `json:"data,omitempty"`
+	Error interface{}        `json:"error,omitempty"`
+}
+
+// ShippingAddressRequest Needs address_1 (else 422 CUSTOMER_SHIPPING_ADDRESS_LINE_REQUIRED); label is at most 60 characters (else 422 CUSTOMER_SHIPPING_ADDRESS_LABEL_TOO_LONG).
+type ShippingAddressRequest struct {
+	Address1  string  `json:"address_1"`
+	Address2  *string `json:"address_2,omitempty"`
+	City      *string `json:"city,omitempty"`
+	Company   *string `json:"company,omitempty"`
+	Country   *string `json:"country,omitempty"`
+	FirstName *string `json:"first_name,omitempty"`
+
+	// IsDefault Make it the default (add only).
+	IsDefault *bool   `json:"is_default,omitempty"`
+	Label     *string `json:"label,omitempty"`
+	LastName  *string `json:"last_name,omitempty"`
+	Phone     *string `json:"phone,omitempty"`
+	Postcode  *string `json:"postcode,omitempty"`
+	State     *string `json:"state,omitempty"`
+}
+
+// ShippingAddressResponse defines model for ShippingAddressResponse.
+type ShippingAddressResponse struct {
+	Data  *ShippingAddress `json:"data,omitempty"`
+	Error interface{}      `json:"error,omitempty"`
+}
+
 // UpdateCustomerRequest Same rules as CreateCustomerRequest. customer_type, company_name, client_number, kvk_number and vat_number keep their value when left out.
 type UpdateCustomerRequest struct {
 	AvatarUrl    *string  `json:"avatar_url,omitempty"`
@@ -211,16 +271,21 @@ type UpdateCustomerRequest struct {
 	CustomerNote *string `json:"customer_note,omitempty"`
 
 	// CustomerType A company is named by its company name and has contact persons; a private customer by the person.
-	CustomerType  *CustomerType `json:"customer_type,omitempty"`
-	Email         *string       `json:"email,omitempty"`
-	FirstName     *string       `json:"first_name,omitempty"`
-	KvkNumber     *string       `json:"kvk_number,omitempty"`
-	LastName      *string       `json:"last_name,omitempty"`
-	Role          *string       `json:"role,omitempty"`
-	Shipping      *Address      `json:"shipping,omitempty"`
-	Username      *string       `json:"username,omitempty"`
-	VatNumber     *string       `json:"vat_number,omitempty"`
-	WooCustomerId *int64        `json:"woo_customer_id,omitempty"`
+	CustomerType *CustomerType `json:"customer_type,omitempty"`
+	Email        *string       `json:"email,omitempty"`
+	FirstName    *string       `json:"first_name,omitempty"`
+	KvkNumber    *string       `json:"kvk_number,omitempty"`
+	LastName     *string       `json:"last_name,omitempty"`
+	Role         *string       `json:"role,omitempty"`
+
+	// ShipToBilling Ship to the billing address. Left out: unchanged (create: false).
+	ShipToBilling *bool `json:"ship_to_billing,omitempty"`
+
+	// Shipping Saved as the customer's default shipping address (edited, or added when they have none); left out, the addresses stay as they are. Ignored while ship_to_billing.
+	Shipping      *Address `json:"shipping,omitempty"`
+	Username      *string  `json:"username,omitempty"`
+	VatNumber     *string  `json:"vat_number,omitempty"`
+	WooCustomerId *int64   `json:"woo_customer_id,omitempty"`
 }
 
 // WhatsAppMessage defines model for WhatsAppMessage.
@@ -240,6 +305,9 @@ type WhatsAppMessageListResponse struct {
 	Data  *[]WhatsAppMessage `json:"data,omitempty"`
 	Error interface{}        `json:"error,omitempty"`
 }
+
+// AddressId defines model for addressId.
+type AddressId = string
 
 // Id defines model for id.
 type Id = string
@@ -261,6 +329,12 @@ type AddContactPersonJSONRequestBody = ContactPersonRequest
 
 // UpdateContactPersonJSONRequestBody defines body for UpdateContactPerson for application/json ContentType.
 type UpdateContactPersonJSONRequestBody = ContactPersonRequest
+
+// AddShippingAddressJSONRequestBody defines body for AddShippingAddress for application/json ContentType.
+type AddShippingAddressJSONRequestBody = ShippingAddressRequest
+
+// UpdateShippingAddressJSONRequestBody defines body for UpdateShippingAddress for application/json ContentType.
+type UpdateShippingAddressJSONRequestBody = ShippingAddressRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -291,6 +365,21 @@ type ServerInterface interface {
 	// UpdateContactPerson Edit a contact person
 	// (PATCH /customers/{id}/contact-persons/{personId})
 	UpdateContactPerson(c *gin.Context, id Id, personId PersonId)
+	// ListShippingAddresses A customer's shipping addresses, oldest first; one is the default
+	// (GET /customers/{id}/shipping-addresses)
+	ListShippingAddresses(c *gin.Context, id Id)
+	// AddShippingAddress Add a shipping address to a customer
+	// (POST /customers/{id}/shipping-addresses)
+	AddShippingAddress(c *gin.Context, id Id)
+	// RemoveShippingAddress Remove a shipping address; removing the default makes the next one the default
+	// (DELETE /customers/{id}/shipping-addresses/{addressId})
+	RemoveShippingAddress(c *gin.Context, id Id, addressId AddressId)
+	// UpdateShippingAddress Edit a shipping address
+	// (PATCH /customers/{id}/shipping-addresses/{addressId})
+	UpdateShippingAddress(c *gin.Context, id Id, addressId AddressId)
+	// SetDefaultShippingAddress Make a shipping address the default; returns the customer's addresses
+	// (PUT /customers/{id}/shipping-addresses/{addressId}/default)
+	SetDefaultShippingAddress(c *gin.Context, id Id, addressId AddressId)
 	// ListCustomerWhatsAppMessages List every WhatsApp message (inbound and outbound reply) linked to this customer, newest first
 	// (GET /customers/{id}/whatsapp-messages)
 	ListCustomerWhatsAppMessages(c *gin.Context, id Id)
@@ -524,6 +613,158 @@ func (siw *ServerInterfaceWrapper) UpdateContactPerson(c *gin.Context) {
 	siw.Handler.UpdateContactPerson(c, id, personId)
 }
 
+// ListShippingAddresses operation middleware
+func (siw *ServerInterfaceWrapper) ListShippingAddresses(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListShippingAddresses(c, id)
+}
+
+// AddShippingAddress operation middleware
+func (siw *ServerInterfaceWrapper) AddShippingAddress(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.AddShippingAddress(c, id)
+}
+
+// RemoveShippingAddress operation middleware
+func (siw *ServerInterfaceWrapper) RemoveShippingAddress(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "addressId" -------------
+	var addressId AddressId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "addressId", c.Param("addressId"), &addressId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter addressId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RemoveShippingAddress(c, id, addressId)
+}
+
+// UpdateShippingAddress operation middleware
+func (siw *ServerInterfaceWrapper) UpdateShippingAddress(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "addressId" -------------
+	var addressId AddressId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "addressId", c.Param("addressId"), &addressId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter addressId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateShippingAddress(c, id, addressId)
+}
+
+// SetDefaultShippingAddress operation middleware
+func (siw *ServerInterfaceWrapper) SetDefaultShippingAddress(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "addressId" -------------
+	var addressId AddressId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "addressId", c.Param("addressId"), &addressId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter addressId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SetDefaultShippingAddress(c, id, addressId)
+}
+
 // ListCustomerWhatsAppMessages operation middleware
 func (siw *ServerInterfaceWrapper) ListCustomerWhatsAppMessages(c *gin.Context) {
 
@@ -585,6 +826,11 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/customers/:id/contact-persons", wrapper.AddContactPerson)
 	router.DELETE(options.BaseURL+"/customers/:id/contact-persons/:personId", wrapper.RemoveContactPerson)
 	router.PATCH(options.BaseURL+"/customers/:id/contact-persons/:personId", wrapper.UpdateContactPerson)
+	router.GET(options.BaseURL+"/customers/:id/shipping-addresses", wrapper.ListShippingAddresses)
+	router.POST(options.BaseURL+"/customers/:id/shipping-addresses", wrapper.AddShippingAddress)
+	router.DELETE(options.BaseURL+"/customers/:id/shipping-addresses/:addressId", wrapper.RemoveShippingAddress)
+	router.PATCH(options.BaseURL+"/customers/:id/shipping-addresses/:addressId", wrapper.UpdateShippingAddress)
+	router.PUT(options.BaseURL+"/customers/:id/shipping-addresses/:addressId/default", wrapper.SetDefaultShippingAddress)
 	router.GET(options.BaseURL+"/customers/:id/whatsapp-messages", wrapper.ListCustomerWhatsAppMessages)
 }
 
@@ -593,41 +839,52 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"/wYAAP//",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

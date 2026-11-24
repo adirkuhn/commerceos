@@ -227,3 +227,31 @@ func TestGetCustomer_notFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, doRequest(r, "GET", "/api/v1/customers/missing", nil).Code)
 }
 func ptr(s string) *string { return &s }
+
+func TestUpdateCustomer_shipToBillingAndShippingPassThrough(t *testing.T) {
+	update := &stubUpdateCustomer{}
+	r := newTestRouter(&stubListCustomers{}, &stubCreateCustomer{}, update, &stubDeleteCustomer{})
+
+	w := doRequest(r, "PATCH", "/api/v1/customers/c1", map[string]any{"email": "a@x.nl", "ship_to_billing": true})
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	require.NotNil(t, update.gotInput.ShipToBilling)
+	assert.True(t, *update.gotInput.ShipToBilling)
+	assert.Nil(t, update.gotInput.Shipping, "left out: the addresses stay as they are")
+
+	w = doRequest(r, "PATCH", "/api/v1/customers/c1", map[string]any{"email": "a@x.nl", "shipping": map[string]any{"address_1": "Dock 2"}})
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	assert.Nil(t, update.gotInput.ShipToBilling)
+	require.NotNil(t, update.gotInput.Shipping)
+	assert.Equal(t, "Dock 2", update.gotInput.Shipping.Address1)
+}
+
+func TestGetCustomer_showsShipToBilling(t *testing.T) {
+	get := &stubGetCustomer{out: &customersDomain.Customer{ID: "c1", Email: "a@x.nl", ShipToBilling: true}}
+	h := customerhandler.NewHandler(&stubListCustomers{}, &stubCreateCustomer{}, &stubUpdateCustomer{}, &stubDeleteCustomer{}, &stubListCustomerWhatsAppMessages{}, get)
+	r := gin.New()
+	gencustomers.RegisterHandlers(r.Group("/api/v1"), h)
+
+	w := doRequest(r, "GET", "/api/v1/customers/c1", nil)
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"ship_to_billing":true`)
+}

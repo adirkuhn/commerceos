@@ -488,5 +488,9 @@
   "EXTERNAL_ORDER_ALREADY_IMPORTED": "Este pedido externo já foi importado.",
   "ASSISTANT_PROPOSAL_NOT_FOUND": "Esta proposta não existe (mais).",
   "ASSISTANT_PROPOSAL_NOT_PENDING": "Esta proposta já foi decidida. Atualize para ver o que aconteceu.",
-  "ASSISTANT_UNKNOWN_PROPOSAL_KIND": "O assistente propôs algo que não sabe fazer."
+  "ASSISTANT_UNKNOWN_PROPOSAL_KIND": "O assistente propôs algo que não sabe fazer.",
+  "CUSTOMER_SHIPPING_ADDRESS_NOT_FOUND": "Endereço de entrega não encontrado.",
+  "CUSTOMER_SHIPPING_ADDRESS_LINE_REQUIRED": "O endereço de entrega precisa de uma linha de endereço.",
+  "CUSTOMER_SHIPPING_ADDRESS_LABEL_TOO_LONG": "O rótulo pode ter no máximo 60 caracteres.",
+  "CUSTOMER_SHIPPING_ADDRESS_LIMIT": "Um cliente pode ter no máximo 20 endereços de entrega."
 }

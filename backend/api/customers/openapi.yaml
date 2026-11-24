@@ -172,6 +172,107 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /customers/{id}/shipping-addresses:
+    get:
+      operationId: listShippingAddresses
+      summary: A customer's shipping addresses, oldest first; one is the default
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingAddressListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: addShippingAddress
+      summary: Add a shipping address to a customer
+      description: >-
+        The customer's first address, or one sent with is_default, becomes
+        the default -- and the customer's shipping address (unless they
+        ship to billing). At most 20 per customer (else 422
+        CUSTOMER_SHIPPING_ADDRESS_LIMIT).
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShippingAddressRequest'
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingAddressResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /customers/{id}/shipping-addresses/{addressId}:
+    patch:
+      operationId: updateShippingAddress
+      summary: Edit a shipping address
+      description: is_default is ignored here; use PUT .../default.
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/addressId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShippingAddressRequest'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingAddressResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+    delete:
+      operationId: removeShippingAddress
+      summary: Remove a shipping address; removing the default makes the next one the default
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/addressId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmptyResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /customers/{id}/shipping-addresses/{addressId}/default:
+    put:
+      operationId: setDefaultShippingAddress
+      summary: Make a shipping address the default; returns the customer's addresses
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/addressId'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingAddressListResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /customers/{id}/whatsapp-messages:
     get:
       operationId: listCustomerWhatsAppMessages
@@ -196,6 +297,12 @@ components:
         type: string
     personId:
       name: personId
+      in: path
+      required: true
+      schema:
+        type: string
+    addressId:
+      name: addressId
       in: path
       required: true
       schema:
@@ -232,7 +339,7 @@ components:
 
     Customer:
       type: object
-      required: [id, tenant_id, customer_type, display_name, company_name, client_number, kvk_number, vat_number, email, first_name, last_name, is_paying_customer, date_created, date_modified]
+      required: [id, tenant_id, customer_type, display_name, company_name, client_number, kvk_number, vat_number, email, first_name, last_name, is_paying_customer, ship_to_billing, date_created, date_modified]
       properties:
         id: { type: string }
         tenant_id: { type: string }
@@ -249,7 +356,13 @@ components:
         username: { type: string }
         role: { type: string }
         billing: { $ref: '#/components/schemas/Address' }
-        shipping: { $ref: '#/components/schemas/Address' }
+        shipping:
+          allOf: [{ $ref: '#/components/schemas/Address' }]
+          description: >-
+            Where goods go: the default shipping address, or the billing
+            address when ship_to_billing. The addresses themselves are at
+            /customers/{id}/shipping-addresses.
+        ship_to_billing: { type: boolean, description: Goods go to the billing address. }
         is_paying_customer:
           type: boolean
           description: >-
@@ -287,7 +400,13 @@ components:
         username: { type: string }
         role: { type: string }
         billing: { $ref: '#/components/schemas/Address' }
-        shipping: { $ref: '#/components/schemas/Address' }
+        shipping:
+          allOf: [{ $ref: '#/components/schemas/Address' }]
+          description: >-
+            Saved as the customer's default shipping address (edited, or
+            added when they have none); left out, the addresses stay as they
+            are. Ignored while ship_to_billing.
+        ship_to_billing: { type: boolean, description: 'Ship to the billing address. Left out: unchanged (create: false).' }
         avatar_url: { type: string }
         customer_note: { type: string }
 
@@ -310,7 +429,13 @@ components:
         username: { type: string }
         role: { type: string }
         billing: { $ref: '#/components/schemas/Address' }
-        shipping: { $ref: '#/components/schemas/Address' }
+        shipping:
+          allOf: [{ $ref: '#/components/schemas/Address' }]
+          description: >-
+            Saved as the customer's default shipping address (edited, or
+            added when they have none); left out, the addresses stay as they
+            are. Ignored while ship_to_billing.
+        ship_to_billing: { type: boolean, description: 'Ship to the billing address. Left out: unchanged (create: false).' }
         avatar_url: { type: string }
         customer_note: { type: string }
 
@@ -350,6 +475,61 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ContactPerson'
+        error: { nullable: true }
+
+    ShippingAddress:
+      type: object
+      required: [id, customer_id, label, first_name, last_name, company, address_1, address_2, city, state, postcode, country, phone, is_default]
+      properties:
+        id: { type: string }
+        customer_id: { type: string }
+        label: { type: string, description: 'Tells the addresses apart, e.g. Warehouse.' }
+        first_name: { type: string }
+        last_name: { type: string }
+        company: { type: string }
+        address_1: { type: string }
+        address_2: { type: string }
+        city: { type: string }
+        state: { type: string }
+        postcode: { type: string }
+        country: { type: string }
+        phone: { type: string }
+        is_default: { type: boolean }
+
+    ShippingAddressRequest:
+      type: object
+      description: >-
+        Needs address_1 (else 422 CUSTOMER_SHIPPING_ADDRESS_LINE_REQUIRED);
+        label is at most 60 characters (else 422
+        CUSTOMER_SHIPPING_ADDRESS_LABEL_TOO_LONG).
+      required: [address_1]
+      properties:
+        label: { type: string, maxLength: 60 }
+        first_name: { type: string }
+        last_name: { type: string }
+        company: { type: string }
+        address_1: { type: string }
+        address_2: { type: string }
+        city: { type: string }
+        state: { type: string }
+        postcode: { type: string }
+        country: { type: string }
+        phone: { type: string }
+        is_default: { type: boolean, description: Make it the default (add only). }
+
+    ShippingAddressResponse:
+      type: object
+      properties:
+        data: { $ref: '#/components/schemas/ShippingAddress' }
+        error: { nullable: true }
+
+    ShippingAddressListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShippingAddress'
         error: { nullable: true }
 
     CustomerResponse:

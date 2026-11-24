@@ -28,13 +28,16 @@ type CreateCustomerInput struct {
 	// PhoneE164 is optional -- set by application/whatsapp's new-customer
 	// capture flow (the inbound sender's own number), blank for every
 	// other caller today.
-	PhoneE164    string
-	Username     string
-	Role         string
-	Billing      customersDomain.Address
-	Shipping     customersDomain.Address
-	AvatarURL    string
-	CustomerNote string
+	PhoneE164 string
+	Username  string
+	Role      string
+	Billing   customersDomain.Address
+	// Shipping becomes the customer's first, default shipping address.
+	Shipping customersDomain.Address
+	// ShipToBilling ships to the billing address; Shipping is then unused.
+	ShipToBilling bool
+	AvatarURL     string
+	CustomerNote  string
 	// ContactPersons are added with the customer, in the same
 	// transaction; the first is the main one. Needs WithContactPersons.
 	ContactPersons []ContactPersonInput
@@ -74,9 +77,12 @@ func (uc *CreateCustomerUseCase) Execute(ctx context.Context, in CreateCustomerI
 			TenantID: tenant.IDFromContext(ctx), WooCustomerID: in.WooCustomerID,
 			Type: probe.TypeOrPrivate(), CompanyName: in.CompanyName, ClientNumber: in.ClientNumber, KVKNumber: in.KVKNumber, VATNumber: in.VATNumber,
 			Email: in.Email, FirstName: in.FirstName, LastName: in.LastName, PhoneE164: in.PhoneE164,
-			Username: in.Username, Role: in.Role, Billing: in.Billing, Shipping: in.Shipping,
+			Username: in.Username, Role: in.Role, Billing: in.Billing, Shipping: in.Shipping, ShipToBilling: in.ShipToBilling,
 			AvatarURL: in.AvatarURL, CustomerNote: in.CustomerNote,
 			DateCreated: now, DateModified: now,
+		}
+		if customer.ShipToBilling {
+			customer.Shipping = customer.EffectiveShipping(nil)
 		}
 		if err := uc.customerRepo.Create(ctx, &customer); err != nil {
 			return err

@@ -50,7 +50,7 @@ Payload (`events.EntityAction`):
 
 ## Catalog
 
-256 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
+260 events. **action** = standard `EntityAction` envelope above; **typed** = its own payload (fields listed).
 
 ### apikeys
 
@@ -135,7 +135,11 @@ Payload (`events.EntityAction`):
 | `customers.contact_person.updated` | action | A contact person changed. data: customer_id, changed_fields (names only). | envelope |
 | `customers.customer.created` | action | A customer was created. data: woo_customer_id, role, customer_type, client_number. | envelope |
 | `customers.customer.deleted` | action | A customer was deleted. data: woo_customer_id. | envelope |
-| `customers.customer.updated` | action | A customer changed (changes: woo_customer_id, role, customer_type, company_name, client_number, kvk_number, vat_number). data.changed_fields: personal fields that changed (email, first_name, last_name, username, billing, shipping, avatar_url, customer_note), names only. | envelope |
+| `customers.customer.updated` | action | A customer changed (changes: woo_customer_id, role, ship_to_billing, customer_type, company_name, client_number, kvk_number, vat_number). data.changed_fields: personal fields that changed (email, first_name, last_name, username, billing, shipping, avatar_url, customer_note), names only. | envelope |
+| `customers.shipping_address.added` | action | A shipping address was added to a customer. data: customer_id, default (whether it is the default now). | envelope |
+| `customers.shipping_address.default_changed` | action | Another of a customer's shipping addresses became the default (entity_id). data: customer_id. | envelope |
+| `customers.shipping_address.removed` | action | A shipping address was removed. data: customer_id. | envelope |
+| `customers.shipping_address.updated` | action | A shipping address changed. data: customer_id, changed_fields (names only). | envelope |
 
 ### deadletters
 

@@ -59,11 +59,18 @@ type Customer struct {
 	Username string
 	Role     string
 
-	Billing  Address
+	Billing Address
+	// Shipping is a copy of where goods go (EffectiveShipping): the
+	// default of the customer's shipping addresses, or Billing when
+	// ShipToBilling. Kept for everything that reads a single address
+	// (orders, quotes, Woo); the addresses themselves are a ShippingBook.
 	Shipping Address
+	// ShipToBilling ships to the billing address, whatever the book holds.
+	ShipToBilling bool
 
-	// IsPayingCustomer mirrors Woo's field of the same name -- true once
-	// this customer has completed at least one paid order.
+	// IsPayingCustomer is read-only, worked out from the customer's orders
+	// on every read: true once one of them makes them a paying customer
+	// (oms.SalesOrder.MakesPayingCustomer).
 	IsPayingCustomer bool
 	AvatarURL        string
 	// CustomerNote is a freeform staff note, editable from the customer

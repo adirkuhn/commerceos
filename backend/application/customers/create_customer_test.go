@@ -91,3 +91,19 @@ func TestCreateCustomer_aCompanyWithoutCompanyNameIsRejected(t *testing.T) {
 
 	assert.ErrorIs(t, err, customersDomain.ErrCompanyNameRequired)
 }
+
+func TestCreateCustomer_shipToBillingCopiesBilling(t *testing.T) {
+	repo := &stubCustomerRepo{}
+
+	c, err := appcustomers.NewCreateCustomerUseCase(newMockGormDB(t), repo, &eventrecordtest.Outbox{}).
+		Execute(context.Background(), appcustomers.CreateCustomerInput{
+			FirstName: "Ana", ShipToBilling: true,
+			Billing:  customersDomain.Address{Address1: "Bill 1", Email: "a@x.nl"},
+			Shipping: customersDomain.Address{Address1: "Ignored 9"},
+		})
+
+	require.NoError(t, err)
+	assert.True(t, c.ShipToBilling)
+	assert.Equal(t, "Bill 1", c.Shipping.Address1)
+	assert.Empty(t, c.Shipping.Email)
+}

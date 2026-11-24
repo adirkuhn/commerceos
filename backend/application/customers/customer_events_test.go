@@ -45,7 +45,7 @@ func TestUpdateCustomer_RecordsChangesAndPersonalFieldNamesOnly(t *testing.T) {
 		ID: "customer-1", Email: "ana@example.com", FirstName: "Ana", Role: "customer",
 		Billing: customersDomain.Address{City: "Utrecht"},
 	}}
-	uc := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo, outbox)
+	uc := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo, &memShippingRepo{}, outbox)
 
 	_, err := uc.Execute(context.Background(), appcustomers.UpdateCustomerInput{
 		ID: "customer-1", Email: "ana@new.example", FirstName: "Ana", Role: "wholesale",
@@ -63,7 +63,7 @@ func TestUpdateCustomer_RecordsChangesAndPersonalFieldNamesOnly(t *testing.T) {
 func TestUpdateCustomer_NoPersonalChangesNoChangedFields(t *testing.T) {
 	outbox := &eventrecordtest.Outbox{}
 	repo := &stubCustomerRepo{findResult: &customersDomain.Customer{ID: "customer-1", FirstName: "Ana", Role: "customer"}}
-	uc := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo, outbox)
+	uc := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo, &memShippingRepo{}, outbox)
 
 	_, err := uc.Execute(context.Background(), appcustomers.UpdateCustomerInput{ID: "customer-1", FirstName: "Ana", Role: "subscriber"})
 
@@ -95,7 +95,7 @@ func TestCustomerUseCases_FailWhenTheEventCantBeRecorded(t *testing.T) {
 
 	_, err := appcustomers.NewCreateCustomerUseCase(newMockGormDB(t), &stubCustomerRepo{}, failing).Execute(ctx, appcustomers.CreateCustomerInput{Email: "a@x.nl"})
 	assert.ErrorIs(t, err, boom, "create")
-	_, err = appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), found(), failing).Execute(ctx, appcustomers.UpdateCustomerInput{ID: "customer-1", Email: "a@x.nl"})
+	_, err = appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), found(), &memShippingRepo{}, failing).Execute(ctx, appcustomers.UpdateCustomerInput{ID: "customer-1", Email: "a@x.nl"})
 	assert.ErrorIs(t, err, boom, "update")
 	assert.ErrorIs(t, appcustomers.NewDeleteCustomerUseCase(newMockGormDB(t), found(), failing).Execute(ctx, "customer-1"), boom, "delete")
 }

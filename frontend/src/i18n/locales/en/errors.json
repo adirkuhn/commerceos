@@ -488,5 +488,9 @@
   "EXTERNAL_ORDER_ALREADY_IMPORTED": "This external order was already imported.",
   "ASSISTANT_PROPOSAL_NOT_FOUND": "This proposal doesn’t exist (any more).",
   "ASSISTANT_PROPOSAL_NOT_PENDING": "This proposal was already decided. Refresh to see what happened.",
-  "ASSISTANT_UNKNOWN_PROPOSAL_KIND": "The assistant proposed something it can’t do."
+  "ASSISTANT_UNKNOWN_PROPOSAL_KIND": "The assistant proposed something it can’t do.",
+  "CUSTOMER_SHIPPING_ADDRESS_NOT_FOUND": "Shipping address not found.",
+  "CUSTOMER_SHIPPING_ADDRESS_LINE_REQUIRED": "A shipping address needs an address line.",
+  "CUSTOMER_SHIPPING_ADDRESS_LABEL_TOO_LONG": "The label can be at most 60 characters.",
+  "CUSTOMER_SHIPPING_ADDRESS_LIMIT": "A customer can have at most 20 shipping addresses."
 }

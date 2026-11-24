@@ -48,6 +48,7 @@ type Handler struct {
 	listCustomerWhatsAppMessages listCustomerWhatsAppMessagesUC
 	getCustomer                  getCustomerUC
 	contactPersons               ContactPersonUseCases
+	shippingAddresses            ShippingAddressUseCases
 }
 
 func NewHandler(
@@ -68,12 +69,13 @@ var _ gencustomers.ServerInterface = (*Handler)(nil)
 func Register(rg gin.IRouter, db *gorm.DB) {
 	customerRepo := repositories.NewCustomerRepo(db)
 	personRepo := repositories.NewCustomerContactPersonRepo(db)
+	addressRepo := repositories.NewCustomerShippingAddressRepo(db)
 	outboxRepo := repositories.NewOutboxRepository(db)
 
 	h := NewHandler(
 		appcustomers.NewListCustomersUseCase(db, customerRepo),
 		appcustomers.NewCreateCustomerUseCase(db, customerRepo, outboxRepo).WithContactPersons(personRepo),
-		appcustomers.NewUpdateCustomerUseCase(db, customerRepo, outboxRepo),
+		appcustomers.NewUpdateCustomerUseCase(db, customerRepo, addressRepo, outboxRepo),
 		appcustomers.NewDeleteCustomerUseCase(db, customerRepo, outboxRepo),
 		appcustomers.NewListCustomerWhatsAppMessagesUseCase(db, repositories.NewWhatsAppMessageRepo(db)),
 		appcustomers.NewGetCustomerUseCase(db, customerRepo),
@@ -82,6 +84,14 @@ func Register(rg gin.IRouter, db *gorm.DB) {
 		Add:    appcustomers.NewAddContactPersonUseCase(db, customerRepo, personRepo, outboxRepo).Execute,
 		Update: appcustomers.NewUpdateContactPersonUseCase(db, personRepo, outboxRepo).Execute,
 		Remove: appcustomers.NewRemoveContactPersonUseCase(db, personRepo, outboxRepo).Execute,
+	})
+	addresses := appcustomers.ShippingAddressDeps{DB: db, Customers: customerRepo, Addresses: addressRepo, Outbox: outboxRepo}
+	h.WithShippingAddresses(ShippingAddressUseCases{
+		List:       appcustomers.NewListShippingAddressesUseCase(addresses).Execute,
+		Add:        appcustomers.NewAddShippingAddressUseCase(addresses).Execute,
+		Update:     appcustomers.NewUpdateShippingAddressUseCase(addresses).Execute,
+		Remove:     appcustomers.NewRemoveShippingAddressUseCase(addresses).Execute,
+		SetDefault: appcustomers.NewSetDefaultShippingAddressUseCase(addresses).Execute,
 	})
 	gencustomers.RegisterHandlers(rg, h)
 }
@@ -116,7 +126,7 @@ func (h *Handler) CreateCustomer(c *gin.Context) {
 		KVKNumber: strPtrOr(req.KvkNumber), VATNumber: strPtrOr(req.VatNumber), Type: valueOr(customerType),
 		ContactPersons: toContactPersonInputs(req.ContactPersons), Email: strPtrOr(req.Email), FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
 		Username: strPtrOr(req.Username), Role: strPtrOr(req.Role), Billing: toDomainAddress(req.Billing), Shipping: toDomainAddress(req.Shipping),
-		AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
+		ShipToBilling: boolPtrOr(req.ShipToBilling), AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -139,8 +149,8 @@ func (h *Handler) UpdateCustomer(c *gin.Context, id gencustomers.Id) {
 	cust, err := h.updateCustomer.Execute(c.Request.Context(), appcustomers.UpdateCustomerInput{
 		ID: id, WooCustomerID: req.WooCustomerId, Type: customerType, CompanyName: req.CompanyName, ClientNumber: req.ClientNumber,
 		KVKNumber: req.KvkNumber, VATNumber: req.VatNumber, Email: strPtrOr(req.Email), FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
-		Username: strPtrOr(req.Username), Role: strPtrOr(req.Role), Billing: toDomainAddress(req.Billing), Shipping: toDomainAddress(req.Shipping),
-		AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
+		Username: strPtrOr(req.Username), Role: strPtrOr(req.Role), Billing: toDomainAddress(req.Billing), Shipping: toDomainAddressPtr(req.Shipping),
+		ShipToBilling: req.ShipToBilling, AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -209,6 +219,15 @@ func toDomainAddress(a *gencustomers.Address) customersDomain.Address {
 	}
 }
 
+// toDomainAddressPtr keeps a left-out address nil.
+func toDomainAddressPtr(a *gencustomers.Address) *customersDomain.Address {
+	if a == nil {
+		return nil
+	}
+	out := toDomainAddress(a)
+	return &out
+}
+
 func toGenAddress(a customersDomain.Address) gencustomers.Address {
 	return gencustomers.Address{
 		FirstName: &a.FirstName, LastName: &a.LastName, Company: &a.Company,
@@ -227,7 +246,7 @@ func toGenCustomer(cust customersDomain.Customer) gencustomers.Customer {
 		CompanyName: cust.CompanyName, ClientNumber: cust.ClientNumber, KvkNumber: cust.KVKNumber, VatNumber: cust.VATNumber,
 		Email: cust.Email, FirstName: cust.FirstName, LastName: cust.LastName,
 		Username: &cust.Username, Role: &cust.Role, Billing: &billing, Shipping: &shipping,
-		IsPayingCustomer: cust.IsPayingCustomer, AvatarUrl: &cust.AvatarURL, CustomerNote: &cust.CustomerNote,
+		ShipToBilling: cust.ShipToBilling, IsPayingCustomer: cust.IsPayingCustomer, AvatarUrl: &cust.AvatarURL, CustomerNote: &cust.CustomerNote,
 		DateCreated: cust.DateCreated, DateModified: cust.DateModified,
 	}
 }
@@ -237,10 +256,13 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, customersDomain.ErrCustomerNotFound), errors.Is(err, customersDomain.ErrContactPersonNotFound):
+	case errors.Is(err, customersDomain.ErrCustomerNotFound), errors.Is(err, customersDomain.ErrContactPersonNotFound),
+		errors.Is(err, customersDomain.ErrShippingAddressNotFound):
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, customersDomain.ErrCustomerUnidentified), errors.Is(err, customersDomain.ErrCompanyNameRequired),
-		errors.Is(err, customersDomain.ErrInvalidCustomerType), errors.Is(err, customersDomain.ErrContactPersonNameRequired):
+		errors.Is(err, customersDomain.ErrInvalidCustomerType), errors.Is(err, customersDomain.ErrContactPersonNameRequired),
+		errors.Is(err, customersDomain.ErrShippingAddressLineRequired), errors.Is(err, customersDomain.ErrShippingLabelTooLong),
+		errors.Is(err, customersDomain.ErrTooManyShippingAddresses):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)
 	case errors.Is(err, customersDomain.ErrDuplicateWooCustomerID), errors.Is(err, customersDomain.ErrDuplicateClientNumber):
 		middleware.FailErr(c, http.StatusConflict, "CONFLICT", err)

@@ -488,5 +488,9 @@
   "EXTERNAL_ORDER_ALREADY_IMPORTED": "Deze externe bestelling is al geïmporteerd.",
   "ASSISTANT_PROPOSAL_NOT_FOUND": "Dit voorstel bestaat niet (meer).",
   "ASSISTANT_PROPOSAL_NOT_PENDING": "Over dit voorstel is al beslist. Vernieuw om te zien wat er gebeurde.",
-  "ASSISTANT_UNKNOWN_PROPOSAL_KIND": "De assistent stelde iets voor dat hij niet kan uitvoeren."
+  "ASSISTANT_UNKNOWN_PROPOSAL_KIND": "De assistent stelde iets voor dat hij niet kan uitvoeren.",
+  "CUSTOMER_SHIPPING_ADDRESS_NOT_FOUND": "Verzendadres niet gevonden.",
+  "CUSTOMER_SHIPPING_ADDRESS_LINE_REQUIRED": "Een verzendadres heeft een adresregel nodig.",
+  "CUSTOMER_SHIPPING_ADDRESS_LABEL_TOO_LONG": "Het label mag maximaal 60 tekens zijn.",
+  "CUSTOMER_SHIPPING_ADDRESS_LIMIT": "Een klant kan maximaal 20 verzendadressen hebben."
 }
