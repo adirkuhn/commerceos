@@ -53,7 +53,9 @@
       "postcode": "Postcode (aflevering)",
       "state": "Provincie (aflevering)",
       "title": "Afleveradres"
-    }
+    },
+    "sameAsBilling": "Zelfde als factuuradres",
+    "shipsToBilling": "Goederen gaan naar het factuuradres."
   },
   "errors": {
     "unknown": "Onbekende fout"
@@ -131,5 +133,34 @@
   "company": {
     "title": "Bedrijf",
     "openMap": "Adres openen in Google Maps"
+  },
+  "shippingAddresses": {
+    "title": "Verzendadressen",
+    "empty": "Nog geen verzendadressen.",
+    "add": "Verzendadres toevoegen",
+    "edit": "{{name}} bewerken",
+    "remove": "Verwijderen",
+    "removeTitle": "{{name}} verwijderen?",
+    "removeMessage": "Het adres wordt bij deze klant verwijderd. Geplaatste bestellingen houden hun adres.",
+    "failed": "Het verzendadres kon niet worden opgeslagen.",
+    "default": "Standaard",
+    "makeDefault": "Standaard maken",
+    "makeDefaultLabel": "{{name}} standaard maken",
+    "asDefault": "Maak het standaard",
+    "untitled": "Adres",
+    "pick": "Verzenden naar",
+    "fields": {
+      "label": "Label",
+      "first_name": "Voornaam",
+      "last_name": "Achternaam",
+      "company": "Bedrijf",
+      "address_1": "Adresregel 1",
+      "address_2": "Adresregel 2",
+      "postcode": "Postcode",
+      "city": "Plaats",
+      "state": "Provincie",
+      "country": "Land",
+      "phone": "Telefoon"
+    }
   }
 }

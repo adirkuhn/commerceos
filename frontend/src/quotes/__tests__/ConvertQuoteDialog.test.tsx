@@ -3,7 +3,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 
 vi.mock('../quotesApi', () => ({ checkQuoteStock: vi.fn(), convertQuote: vi.fn() }))
+vi.mock('../../customers/api', () => ({ listShippingAddresses: vi.fn() }))
 import * as api from '../quotesApi'
+import * as customersApi from '../../customers/api'
+import type { ShippingAddress } from '../../customers/types'
 import { ConvertQuoteDialog } from '../ConvertQuoteDialog'
 import type { SalesOrder } from '../../oms/types'
 
@@ -16,15 +19,43 @@ beforeEach(() => {
   vi.mocked(api.convertQuote).mockResolvedValue(created)
 })
 
-function renderDialog(existing: Pick<SalesOrder, 'id' | 'number' | 'external_order_id'>[] = []) {
+function renderDialog(existing: Pick<SalesOrder, 'id' | 'number' | 'external_order_id'>[] = [], customerId: string | null = null) {
   const onCreated = vi.fn()
   const onClose = vi.fn()
-  render(<ConvertQuoteDialog token="tok" quoteId="q-1" warehouses={warehouses} existingOrders={existing}
+  render(<ConvertQuoteDialog token="tok" quoteId="q-1" customerId={customerId} warehouses={warehouses} existingOrders={existing}
     productName={sku => names.get(sku) ?? sku} onClose={onClose} onCreated={onCreated} />)
   return { onCreated, onClose }
 }
 
+const book = (id: string, label: string, isDefault: boolean): ShippingAddress => ({
+  id, customer_id: 'c-1', label, first_name: '', last_name: '', company: '', address_1: `${label} 1`, address_2: '',
+  city: 'Utrecht', state: '', postcode: '', country: 'NL', phone: '', is_default: isDefault,
+})
+
 describe('ConvertQuoteDialog', () => {
+  it("ships to the chosen one of the customer's addresses, the default preselected", async () => {
+    vi.mocked(customersApi.listShippingAddresses).mockResolvedValue([book('sa-1', 'Home', true), book('sa-2', 'Warehouse', false)])
+    vi.mocked(api.checkQuoteStock).mockResolvedValue({ has_shortfall: false, lines: [] })
+    const { onCreated } = renderDialog([], 'c-1')
+
+    const shipTo = await screen.findByRole('combobox', { name: 'Ship to' })
+    expect(shipTo).toHaveValue('sa-1')
+    fireEvent.change(shipTo, { target: { value: 'sa-2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create sales order' }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalled())
+    expect(customersApi.listShippingAddresses).toHaveBeenCalledWith('tok', 'c-1')
+    expect(api.convertQuote).toHaveBeenCalledWith('tok', 'q-1', { warehouse_id: 'wh-1', shipping_address_id: 'sa-2' })
+  })
+
+  it('has no address choice for a customer with one address', async () => {
+    vi.mocked(customersApi.listShippingAddresses).mockResolvedValue([book('sa-1', 'Home', true)])
+    renderDialog([], 'c-1')
+
+    await waitFor(() => expect(customersApi.listShippingAddresses).toHaveBeenCalled())
+    expect(screen.queryByRole('combobox', { name: 'Ship to' })).not.toBeInTheDocument()
+  })
+
   it('creates the order straight away when the warehouse has everything', async () => {
     vi.mocked(api.checkQuoteStock).mockResolvedValue({ has_shortfall: false, lines: [{ product_id: 'p', sku_id: 's-1', quantity: 2, available: 2, short: 0 }] })
     const { onCreated } = renderDialog()

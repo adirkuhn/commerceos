@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import type { Customer, CustomerInput, Address } from './types'
 import { apiErrorText } from '../api/apiErrorText'
 import { CustomerIdentityFields } from './identity/CustomerIdentityFields'
+import { CustomerShippingAddresses } from './shippingAddresses/CustomerShippingAddresses'
 import { customerName, emptyIdentity, identityComplete, identityFromCustomer, identityToInput, type IdentityDraft } from './identity/customerIdentity'
 
 // ── Customer Edit Page ───────────────────────────────────────────────────────
@@ -25,6 +26,7 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
   const [identity, setIdentity] = useState<IdentityDraft>(() => customer ? identityFromCustomer(customer) : emptyIdentity('private'))
   const [billing, setBilling] = useState<Address>({ ...emptyAddress(), ...customer?.billing })
   const [shipping, setShipping] = useState<Address>({ ...emptyAddress(), ...customer?.shipping })
+  const [shipToBilling, setShipToBilling] = useState(customer?.ship_to_billing ?? false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
@@ -38,6 +40,7 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
     setIdentity(identityFromCustomer(customer))
     setBilling({ ...emptyAddress(), ...customer.billing })
     setShipping({ ...emptyAddress(), ...customer.shipping })
+    setShipToBilling(customer.ship_to_billing ?? false)
     setHydrated(true)
   }
 
@@ -49,9 +52,12 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
       // A new company's person becomes its first contact person; the
       // billing address names the company unless it already names one.
       const billingCompany = identity.type === 'company' && !billing.company?.trim() ? { company: identity.company_name.trim() } : {}
+      // A saved customer's shipping addresses live in their book (saved on
+      // their own); only a new one sends its first address.
       const input: CustomerInput = {
         ...identityToInput(identity, { withContactPerson: !customer }),
-        billing: { ...billing, ...billingCompany }, shipping,
+        billing: { ...billing, ...billingCompany }, ship_to_billing: shipToBilling,
+        ...(!customer && !shipToBilling ? { shipping } : {}),
       }
       if (customer) {
         await onUpdate(customer.id, input)
@@ -109,8 +115,19 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
             </div>
 
             <AddressFields kind="billing" prefix="billing" value={billing} onChange={setBilling} showEmailPhone />
-            <AddressFields kind="shipping" prefix="shipping" value={shipping} onChange={setShipping} />
+            <div className="rounded-xl border border-line p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-semibold text-ink">{t('edit.shipping.title')}</h3>
+                <label className="flex items-center gap-1.5 text-2xs text-ink-3">
+                  <input type="checkbox" checked={shipToBilling} onChange={e => setShipToBilling(e.target.checked)} />
+                  {t('edit.sameAsBilling')}
+                </label>
+              </div>
+              {shipToBilling && <p className="text-2xs text-ink-4">{t('edit.shipsToBilling')}</p>}
+              {!shipToBilling && !customer && <AddressFields kind="shipping" prefix="shipping" value={shipping} onChange={setShipping} bare />}
+            </div>
           </form>
+          {customer && !shipToBilling && <CustomerShippingAddresses customerId={customer.id} />}
         </div>
       </div>
     </div>
@@ -125,7 +142,8 @@ function addressLabels(kind: 'billing' | 'shipping'): AddressLabels {
     : { title: i18next.t('customers:edit.shipping.title'), address1: i18next.t('customers:edit.shipping.address1'), address2: i18next.t('customers:edit.shipping.address2'), city: i18next.t('customers:edit.shipping.city'), state: i18next.t('customers:edit.shipping.state'), postcode: i18next.t('customers:edit.shipping.postcode'), country: i18next.t('customers:edit.shipping.country'), phone: i18next.t('customers:edit.shipping.phone') }
 }
 
-function AddressFields({ kind, prefix, value, onChange, showEmailPhone }: { kind: 'billing' | 'shipping'; prefix: string; value: Address; onChange: (a: Address) => void; showEmailPhone?: boolean }) {
+// bare: just the fields, for a section that has its own frame and title.
+function AddressFields({ kind, prefix, value, onChange, showEmailPhone, bare }: { kind: 'billing' | 'shipping'; prefix: string; value: Address; onChange: (a: Address) => void; showEmailPhone?: boolean; bare?: boolean }) {
   useTranslation('customers') // re-render when the language changes
   const labels = addressLabels(kind)
   const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1.5'
@@ -133,9 +151,7 @@ function AddressFields({ kind, prefix, value, onChange, showEmailPhone }: { kind
   const set = (field: keyof Address) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [field]: e.target.value })
   const id = (field: string) => `${prefix}-${field}`
 
-  return (
-    <div className="rounded-xl border border-line p-4 space-y-3">
-      <h3 className="text-xs font-semibold text-ink">{labels.title}</h3>
+  const fields = (
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor={id('address-1')} className={labelClass}>{labels.address1}</label>
@@ -168,6 +184,12 @@ function AddressFields({ kind, prefix, value, onChange, showEmailPhone }: { kind
           </div>
         )}
       </div>
+  )
+  if (bare) return fields
+  return (
+    <div className="rounded-xl border border-line p-4 space-y-3">
+      <h3 className="text-xs font-semibold text-ink">{labels.title}</h3>
+      {fields}
     </div>
   )
 }

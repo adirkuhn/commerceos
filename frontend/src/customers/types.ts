@@ -38,7 +38,11 @@ export interface Customer {
   username?: string
   role?: string
   billing?: Address
+  // Where goods go: the default shipping address, or billing when
+  // ship_to_billing. The addresses themselves: listShippingAddresses.
   shipping?: Address
+  // Goods go to the billing address. Optional: older fixtures omit it.
+  ship_to_billing?: boolean
   /** Read-only: worked out from the orders (a paid, not cancelled or refunded one). */
   is_paying_customer: boolean
   avatar_url?: string
@@ -65,9 +69,49 @@ export interface CustomerInput {
   username?: string
   role?: string
   billing?: Address
+  // Sent: saved as the default shipping address. Left out: the
+  // addresses stay as they are.
   shipping?: Address
+  // Left out: unchanged (create: false).
+  ship_to_billing?: boolean
   avatar_url?: string
   customer_note?: string
+}
+
+// One of a customer's shipping addresses; exactly one is the default.
+export interface ShippingAddress {
+  id: string
+  customer_id: string
+  // Tells the addresses apart, e.g. "Warehouse".
+  label: string
+  first_name: string
+  last_name: string
+  company: string
+  address_1: string
+  address_2: string
+  city: string
+  state: string
+  postcode: string
+  country: string
+  phone: string
+  is_default: boolean
+}
+
+// address_1 is required; label at most 60 characters. is_default only
+// applies when adding.
+export interface ShippingAddressInput {
+  label?: string
+  first_name?: string
+  last_name?: string
+  company?: string
+  address_1: string
+  address_2?: string
+  city?: string
+  state?: string
+  postcode?: string
+  country?: string
+  phone?: string
+  is_default?: boolean
 }
 
 // Someone to deal with at a company customer.

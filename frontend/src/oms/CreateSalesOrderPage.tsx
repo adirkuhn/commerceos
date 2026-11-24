@@ -14,6 +14,7 @@ import { AddressFields } from './create/AddressFields'
 import { OrderCustomerCard } from './create/OrderCustomerCard'
 import { OrderItemsCard } from './create/OrderItemsCard'
 import { OrderSummaryCard } from './create/OrderSummaryCard'
+import { ShippingAddressPicker } from './create/ShippingAddressPicker'
 import { taxSetupGap } from '../tax/taxSetupGap'
 import { MissingVatWarning } from '../tax/MissingVatWarning'
 import { toEditInput } from './create/editDraft'
@@ -179,6 +180,9 @@ export function CreateSalesOrderPage({ onCreate, onClose, edit }: {
                       {t('form.sameAsBilling')}
                     </label>
                   </div>
+                  <ShippingAddressPicker token={token ?? ''} customerId={customer?.id ?? null}
+                    value={draft.shippingSameAsBilling ? draft.billing : draft.shipping}
+                    onPick={a => setDraft(d => ({ ...d, shipping: a, shippingSameAsBilling: false }))} />
                   {!draft.shippingSameAsBilling && <AddressFields prefix="shipping" value={draft.shipping} onChange={a => set('shipping', a)} />}
                 </div>
               </div>

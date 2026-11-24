@@ -53,7 +53,9 @@
       "postcode": "Shipping postcode",
       "state": "Shipping state",
       "title": "Shipping address"
-    }
+    },
+    "sameAsBilling": "Same as billing",
+    "shipsToBilling": "Goods go to the billing address."
   },
   "errors": {
     "unknown": "Unknown error"
@@ -131,5 +133,34 @@
   "company": {
     "title": "Company",
     "openMap": "Open address in Google Maps"
+  },
+  "shippingAddresses": {
+    "title": "Shipping addresses",
+    "empty": "No shipping addresses yet.",
+    "add": "Add shipping address",
+    "edit": "Edit {{name}}",
+    "remove": "Remove",
+    "removeTitle": "Remove {{name}}?",
+    "removeMessage": "The address is removed from this customer. Orders already placed keep their address.",
+    "failed": "The shipping address couldn't be saved.",
+    "default": "Default",
+    "makeDefault": "Make default",
+    "makeDefaultLabel": "Make {{name}} the default",
+    "asDefault": "Make it the default",
+    "untitled": "Address",
+    "pick": "Ship to",
+    "fields": {
+      "label": "Label",
+      "first_name": "First name",
+      "last_name": "Last name",
+      "company": "Company",
+      "address_1": "Address line 1",
+      "address_2": "Address line 2",
+      "postcode": "Postcode",
+      "city": "City",
+      "state": "State",
+      "country": "Country",
+      "phone": "Phone"
+    }
   }
 }

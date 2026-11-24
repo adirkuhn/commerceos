@@ -53,7 +53,9 @@
       "postcode": "CEP / código postal (entrega)",
       "state": "Estado (entrega)",
       "title": "Endereço de entrega"
-    }
+    },
+    "sameAsBilling": "Igual ao de cobrança",
+    "shipsToBilling": "As mercadorias vão para o endereço de cobrança."
   },
   "errors": {
     "unknown": "Erro desconhecido"
@@ -137,5 +139,34 @@
   "company": {
     "title": "Empresa",
     "openMap": "Abrir endereço no Google Maps"
+  },
+  "shippingAddresses": {
+    "title": "Endereços de entrega",
+    "empty": "Nenhum endereço de entrega ainda.",
+    "add": "Adicionar endereço de entrega",
+    "edit": "Editar {{name}}",
+    "remove": "Remover",
+    "removeTitle": "Remover {{name}}?",
+    "removeMessage": "O endereço é removido deste cliente. Pedidos já feitos mantêm o endereço.",
+    "failed": "Não foi possível salvar o endereço de entrega.",
+    "default": "Padrão",
+    "makeDefault": "Tornar padrão",
+    "makeDefaultLabel": "Tornar {{name}} o padrão",
+    "asDefault": "Tornar o padrão",
+    "untitled": "Endereço",
+    "pick": "Entregar em",
+    "fields": {
+      "label": "Rótulo",
+      "first_name": "Nome",
+      "last_name": "Sobrenome",
+      "company": "Empresa",
+      "address_1": "Endereço linha 1",
+      "address_2": "Endereço linha 2",
+      "postcode": "CEP",
+      "city": "Cidade",
+      "state": "Estado",
+      "country": "País",
+      "phone": "Telefone"
+    }
   }
 }

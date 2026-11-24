@@ -53,6 +53,6 @@ export async function checkQuoteStock(token: string, id: string, warehouseId: st
 }
 
 /** A processing sales order from the quote; short lines send it to Stock issues. */
-export async function convertQuote(token: string, id: string, input: { warehouse_id: string; number?: string }): Promise<ConvertQuoteResult> {
+export async function convertQuote(token: string, id: string, input: { warehouse_id: string; number?: string; shipping_address_id?: string }): Promise<ConvertQuoteResult> {
   return (await call<ConvertQuoteResult>(token, `/quotes/${id}/sales-orders`, { method: 'POST', body: JSON.stringify(input) })).data as ConvertQuoteResult
 }

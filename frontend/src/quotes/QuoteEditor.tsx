@@ -131,7 +131,7 @@ export function QuoteEditor({ token, quoteId, onClose }: { token: string; quoteI
   return (
     <>
       {converting && quoteId && (
-        <ConvertQuoteDialog token={token} quoteId={quoteId} warehouses={warehouses} existingOrders={orders.data ?? []}
+        <ConvertQuoteDialog token={token} quoteId={quoteId} customerId={saved.data?.customer?.id ?? null} warehouses={warehouses} existingOrders={orders.data ?? []}
           productName={skuId => { const row = rowBySku.get(skuId); return row ? productName(row) : skuId }}
           onClose={() => setConverting(false)}
           onCreated={r => navigate(r.needs_stock_review ? '/stock-issues' : `/sales-orders/${r.sales_order_id}`)} />

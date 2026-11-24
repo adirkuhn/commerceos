@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertTriangle, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { apiErrorText } from '../api/apiErrorText'
 import { Dialog } from '../components/common/Dialog'
 import type { SalesOrder } from '../oms/types'
+import { useShippingAddresses } from '../customers/hooks/useShippingAddresses'
+import { oneLineAddress } from '../customers/shippingAddresses/addressLine'
 import { checkQuoteStock, convertQuote } from './quotesApi'
 import type { ConvertQuoteResult, QuoteStockCheckLine } from './types'
 
@@ -16,30 +18,41 @@ export function orderLabel(o: QuoteOrder): string {
 }
 
 // Quote -> sales order: pick the warehouse (and optionally the order's
-// number), confirm twice when the quote already became an order, check the
+// number, and which of the customer's shipping addresses), confirm twice when the quote already became an order, check the
 // stock, and on a shortfall either go back to fix the quote or create the
 // order anyway (it then lands in Stock issues).
-export function ConvertQuoteDialog({ token, quoteId, warehouses, existingOrders, productName, onClose, onCreated }: {
+export function ConvertQuoteDialog({ token, quoteId, customerId = null, warehouses, existingOrders, productName, onClose, onCreated }: {
   token: string
   quoteId: string
+  // The saved quote's customer: with more than one shipping address, the
+  // order's one is picked here (their default preselected).
+  customerId?: string | null
   warehouses: { id: string; name: string }[]
   existingOrders: QuoteOrder[]
   productName: (skuId: string) => string
   onClose: () => void
   onCreated: (result: ConvertQuoteResult) => void
 }) {
-  const { t } = useTranslation(['quotes', 'common'])
+  const { t } = useTranslation(['quotes', 'common', 'customers'])
   const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? '')
   const [number, setNumber] = useState('')
   const [step, setStep] = useState<Step>('form')
   const [short, setShort] = useState<QuoteStockCheckLine[]>([])
   const [error, setError] = useState('')
+  const { addresses } = useShippingAddresses(token, customerId)
+  const [addressId, setAddressId] = useState('')
+  const choosesAddress = addresses.length > 1
+  const defaultAddressId = addresses.find(a => a.is_default)?.id ?? ''
+  useEffect(() => { setAddressId(defaultAddressId) }, [defaultAddressId])
 
   async function create() {
     setStep('busy')
     setError('')
     try {
-      onCreated(await convertQuote(token, quoteId, { warehouse_id: warehouseId, number: number.trim() || undefined }))
+      onCreated(await convertQuote(token, quoteId, {
+        warehouse_id: warehouseId, number: number.trim() || undefined,
+        ...(choosesAddress && addressId ? { shipping_address_id: addressId } : {}),
+      }))
     } catch (e) {
       setError(apiErrorText(e) ?? t('convert.failed'))
       setStep('form')
@@ -92,6 +105,15 @@ export function ConvertQuoteDialog({ token, quoteId, warehouses, existingOrders,
                 {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
               </select>
             </label>
+            {choosesAddress && (
+              <label className="block text-2xs text-ink-4 caps-label">
+                {t('customers:shippingAddresses.pick')}
+                <select value={addressId} onChange={e => setAddressId(e.target.value)} aria-label={t('customers:shippingAddresses.pick')}
+                  className="mt-1.5 w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 normal-case">
+                  {addresses.map(a => <option key={a.id} value={a.id}>{[a.label, oneLineAddress(a)].filter(Boolean).join(' — ')}</option>)}
+                </select>
+              </label>
+            )}
             <label className="block text-2xs text-ink-4 caps-label">
               {t('convert.number')}
               <input value={number} onChange={e => setNumber(e.target.value)} maxLength={64} aria-label={t('convert.number')}

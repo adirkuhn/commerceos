@@ -1,4 +1,4 @@
-import type { ContactPerson, ContactPersonInput, Customer, CustomerInput, WhatsAppMessage, APIResponse } from './types'
+import type { ContactPerson, ContactPersonInput, Customer, CustomerInput, ShippingAddress, ShippingAddressInput, WhatsAppMessage, APIResponse } from './types'
 import { CodedApiError } from '../api/codedApiError'
 import { appEnv } from '../config/appEnv'
 
@@ -64,4 +64,25 @@ export function updateContactPerson(token: string, customerId: string, id: strin
 
 export function removeContactPerson(token: string, customerId: string, id: string): Promise<null> {
   return request<null>(`${base()}/${customerId}/contact-persons/${id}`, { method: 'DELETE' }, token)
+}
+
+export function listShippingAddresses(token: string, customerId: string): Promise<ShippingAddress[]> {
+  return request<ShippingAddress[]>(`${base()}/${customerId}/shipping-addresses`, { method: 'GET' }, token)
+}
+
+export function addShippingAddress(token: string, customerId: string, input: ShippingAddressInput): Promise<ShippingAddress> {
+  return request<ShippingAddress>(`${base()}/${customerId}/shipping-addresses`, { method: 'POST', body: JSON.stringify(input) }, token)
+}
+
+export function updateShippingAddress(token: string, customerId: string, id: string, input: ShippingAddressInput): Promise<ShippingAddress> {
+  return request<ShippingAddress>(`${base()}/${customerId}/shipping-addresses/${id}`, { method: 'PATCH', body: JSON.stringify(input) }, token)
+}
+
+export function removeShippingAddress(token: string, customerId: string, id: string): Promise<null> {
+  return request<null>(`${base()}/${customerId}/shipping-addresses/${id}`, { method: 'DELETE' }, token)
+}
+
+// Returns the customer's addresses with the new default.
+export function setDefaultShippingAddress(token: string, customerId: string, id: string): Promise<ShippingAddress[]> {
+  return request<ShippingAddress[]>(`${base()}/${customerId}/shipping-addresses/${id}/default`, { method: 'PUT' }, token)
 }

@@ -23,10 +23,12 @@ const PAGE_SIZE = 20
 // The Notes editor on the detail view only changes customer_note, but
 // update() is a full replace (see UpdateCustomerUseCase) -- round-trip every
 // other field unchanged rather than adding a second, note-only update path.
+// Shipping stays out: sent, it would overwrite the default shipping address
+// (left out, the address book is kept).
 function customerToInput(c: Customer): CustomerInput {
   return {
     email: c.email, first_name: c.first_name, last_name: c.last_name, username: c.username, role: c.role,
-    billing: c.billing, shipping: c.shipping, avatar_url: c.avatar_url,
+    billing: c.billing, avatar_url: c.avatar_url,
     customer_note: c.customer_note,
   }
 }
