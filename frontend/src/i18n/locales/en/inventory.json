@@ -49,7 +49,9 @@
     "tabExpired": "Expired",
     "tabExpiredCount": "Expired ({{n}})",
     "tabExpiring": "Expiring soon",
-    "title": "Expiry & discards"
+    "title": "Expiry & discards",
+    "stampExpired": "Expired",
+    "stampSoon": "Expires soon"
   },
   "history": {
     "backToInventory": "Inventory",

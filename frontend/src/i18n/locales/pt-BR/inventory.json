@@ -49,7 +49,9 @@
     "tabExpired": "Vencidos",
     "tabExpiredCount": "Vencidos ({{n}})",
     "tabExpiring": "Vencendo em breve",
-    "title": "Validade e descartes"
+    "title": "Validade e descartes",
+    "stampExpired": "Vencido",
+    "stampSoon": "Vence em breve"
   },
   "history": {
     "backToInventory": "Estoque",

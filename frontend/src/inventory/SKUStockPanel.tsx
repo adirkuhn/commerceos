@@ -14,10 +14,10 @@ import { SplitIntoPackagesModal } from '../pms/SplitIntoPackagesModal'
 import { isScaleSoldWeightPool } from '../pms/weightPackages'
 import { stockUnitFor } from './stockUnit'
 import { AdjustStockModal, BatchFormModal, BatchScope, RecountModal } from './BatchStockModals'
-import { formatSKUQuantity, isExpired, isExpiringSoon, parseOptionalPriceToMinorUnits, parsePriceToMinorUnits } from './inventoryFormat'
+import { formatSKUQuantity, parseOptionalPriceToMinorUnits, parsePriceToMinorUnits } from './inventoryFormat'
+import { ExpiryStamp } from './ExpiryStamp'
 import { BatchRowActionModal, NewBatchModal, PriceModal } from './BatchActionModals'
 import { DamagedLostModal, SplitCaseModal, TransferModal } from './TransferStockModals'
-import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
 
 export function SKUStockPanel({ token, productId, sku, variantName, warehouses, onSKUUpdated, onStockChanged, onViewHistory, onViewBatchHistory }: {
@@ -33,7 +33,6 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
   onStockChanged: () => void
   onViewHistory: (sku: SKU) => void; onViewBatchHistory: (sku: SKU, batch: Batch) => void
 }) {
-  const { formatDate } = useDateFormat()
   const { t } = useTranslation(['inventory', 'common'])
   const { level, batches, loading, error, addBatch, editBatch, removeBatch, adjust, recount, transfer, splitCase, portionFromBulk, markDamagedOrLost } =
     useSKUStock(token, sku.id)
@@ -153,31 +152,31 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
           {loading && <span className="text-2xs text-ink-4">{t('common:status.loading')}</span>}
         </div>
         <div className="flex items-center gap-1.5">
-          <button type="button" onClick={() => setModal('adjust')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
+          <button type="button" onClick={() => setModal('adjust')} className="flex items-center gap-1 px-2 py-1 whitespace-nowrap rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
             <Plus size={11} /> {t('sku.adjust')}
           </button>
-          <button type="button" onClick={() => setModal('recount')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
+          <button type="button" onClick={() => setModal('recount')} className="flex items-center gap-1 px-2 py-1 whitespace-nowrap rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
             <ClipboardList size={11} /> {t('sku.recount')}
           </button>
-          <button type="button" onClick={() => setModal('transfer')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
+          <button type="button" onClick={() => setModal('transfer')} className="flex items-center gap-1 px-2 py-1 whitespace-nowrap rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
             <ArrowRightLeft size={11} /> {t('sku.transfer')}
           </button>
           {sku.case_of_sku_id && (
-            <button type="button" onClick={() => setModal('split-case')} title={t('sku.splitCaseTitle')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
+            <button type="button" onClick={() => setModal('split-case')} title={t('sku.splitCaseTitle')} className="flex items-center gap-1 px-2 py-1 whitespace-nowrap rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
               <Boxes size={11} /> {t('sku.splitCase')}
             </button>
           )}
           {sku.portioned_from_sku_id && (
-            <button type="button" onClick={() => setModal('portion')} title={t('sku.portionTitle')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
+            <button type="button" onClick={() => setModal('portion')} title={t('sku.portionTitle')} className="flex items-center gap-1 px-2 py-1 whitespace-nowrap rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
               <Scale size={11} /> {t('sku.portion')}
             </button>
           )}
           {canSplitPackages && (
-            <button type="button" onClick={() => setModal('split-packages')} title={t('sku.splitPackagesTitle')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
+            <button type="button" onClick={() => setModal('split-packages')} title={t('sku.splitPackagesTitle')} className="flex items-center gap-1 px-2 py-1 whitespace-nowrap rounded-md text-2xs bg-raised border border-line text-ink-2 hover:bg-hover">
               <Scale size={11} /> {t('sku.splitPackages')}
             </button>
           )}
-          <button type="button" onClick={() => setModal('damaged-lost')} className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs bg-raised border border-line text-danger hover:bg-hover">
+          <button type="button" onClick={() => setModal('damaged-lost')} className="flex items-center gap-1 px-2 py-1 whitespace-nowrap rounded-md text-2xs bg-raised border border-line text-danger hover:bg-hover">
             <PackageMinus size={11} /> {t('sku.damagedLost')}
           </button>
         </div>
@@ -206,20 +205,17 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
                   b.is_general_ledger && 'bg-fill',
                 )}
               >
-                <td className="px-2.5 py-1.5 font-mono text-ink-2">
-                  {b.is_general_ledger ? t('history.generalLedger') : (b.lot_number || '—')}
+                <td className="px-2.5 py-1.5">
+                  {b.is_general_ledger
+                    ? <span className="text-ink-2">{t('history.generalLedger')}</span>
+                    : b.lot_number
+                      ? <span className="inline-block rounded-sm border border-line bg-surface px-1.5 py-px font-mono text-2xs text-ink-2">{b.lot_number}</span>
+                      : <span className="text-ink-4">—</span>}
                 </td>
                 <td className="px-2.5 py-1.5 text-ink-3">{warehouses.find(w => w.id === b.warehouse_id)?.name ?? b.warehouse_id}</td>
-                <td className="px-2.5 py-1.5 font-mono text-ink-2">{b.quantity}</td>
+                <td className="px-2.5 py-1.5 font-semibold tabular-nums text-figure">{b.quantity}</td>
                 <td className="px-2.5 py-1.5">
-                  {!b.is_general_ledger && (
-                    <span className={clsx(
-                      'font-mono',
-                      isExpired(b.expiry_date) ? 'text-danger' : isExpiringSoon(b.expiry_date) ? 'text-warning' : 'text-ink-3',
-                    )}>
-                      {formatDate(b.expiry_date)}
-                    </span>
-                  )}
+                  {!b.is_general_ledger && <ExpiryStamp date={b.expiry_date} />}
                 </td>
                 <td className="px-2.5 py-1.5" onClick={e => e.stopPropagation()}>
                   {!b.is_general_ledger && (

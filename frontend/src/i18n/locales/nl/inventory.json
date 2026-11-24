@@ -49,7 +49,9 @@
     "tabExpired": "Verlopen",
     "tabExpiredCount": "Verlopen ({{n}})",
     "tabExpiring": "Verloopt binnenkort",
-    "title": "Houdbaarheid en afboekingen"
+    "title": "Houdbaarheid en afboekingen",
+    "stampExpired": "Verlopen",
+    "stampSoon": "Verloopt binnenkort"
   },
   "history": {
     "backToInventory": "Voorraad",
