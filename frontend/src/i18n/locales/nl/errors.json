@@ -425,7 +425,7 @@
   "SENT_EMAIL_NOT_FOUND": "Die e-mail staat niet meer in de geschiedenis.",
   "SENT_EMAIL_INVALID_FILTER": "Onbekend status- of bronfilter.",
   "SENT_EMAIL_IDS_REQUIRED": "Kies minstens één e-mail om te verwijderen.",
-  "APPEARANCE_INVALID_LOOK": "De standaardstijl moet wallet of graphite zijn",
+  "APPEARANCE_INVALID_LOOK": "Kies Ticket Wallet of Graphite als standaardstijl.",
   "APPEARANCE_INVALID_CORNERS": "Kies scherpe, normale of ronde hoeken.",
   "APPEARANCE_INVALID_TEXT_SIZE": "Kies normale, grote of grotere tekst.",
   "APPEARANCE_INVALID_DENSITY": "Kies compacte of ruime weergave.",

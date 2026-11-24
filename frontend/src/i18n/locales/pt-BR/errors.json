@@ -425,7 +425,7 @@
   "SENT_EMAIL_NOT_FOUND": "Esse e-mail não está mais no histórico.",
   "SENT_EMAIL_INVALID_FILTER": "Filtro de status ou origem desconhecido.",
   "SENT_EMAIL_IDS_REQUIRED": "Escolha pelo menos um e-mail para excluir.",
-  "APPEARANCE_INVALID_LOOK": "O estilo padrão deve ser wallet ou graphite",
+  "APPEARANCE_INVALID_LOOK": "Escolha Ticket Wallet ou Graphite como estilo padrão.",
   "APPEARANCE_INVALID_CORNERS": "Escolha cantos retos, normais ou arredondados.",
   "APPEARANCE_INVALID_TEXT_SIZE": "Escolha texto normal, grande ou maior.",
   "APPEARANCE_INVALID_DENSITY": "Escolha espaçamento compacto ou confortável.",
