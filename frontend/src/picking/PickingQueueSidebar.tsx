@@ -3,7 +3,8 @@ import { Search, Lock } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import type { QueueEntry } from '../oms/types'
-import { customerName } from '../oms/salesOrderDisplay'
+import { customerName, salesOrderSourceLabel } from '../oms/salesOrderDisplay'
+import { MiniLegs } from '../oms/FulfilmentLegs'
 import { Money } from '../format/amountVisibility'
 import { lockLabel } from '../packing/lockDisplay'
 import { filterPickingQueue } from './pickingQueueFilter'
@@ -31,8 +32,8 @@ export function PickingQueueSidebar({ entries, loading, error, activeOrderId, ac
   return (
     <div className="w-64 border-r border-line bg-sunken flex flex-col overflow-hidden shrink-0">
       <div className="px-4 py-3 border-b border-line">
-        <p className="text-xs font-semibold text-ink">{t('queue.title')}</p>
-        <p className="text-2xs text-ink-4 mt-0.5">{t('queue.count', { count: entries.length })}</p>
+        <h2 className="caps-label-widest text-2xs font-bold text-ink">{t('queue.title')}</h2>
+        <p className="text-xs font-semibold text-figure tabular-nums mt-1">{t('queue.count', { count: entries.length })}</p>
       </div>
       <div className="px-3 py-2 border-b border-line">
         <div className="relative">
@@ -41,7 +42,7 @@ export function PickingQueueSidebar({ entries, loading, error, activeOrderId, ac
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={t('queue.search')}
-            className="w-full pl-7 pr-2 py-1.5 text-2xs rounded-lg bg-raised border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
+            className="w-full pl-7 pr-2 h-8 text-xs rounded-md bg-surface border border-line text-ink placeholder-ink-4 outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
       </div>
@@ -60,17 +61,17 @@ export function PickingQueueSidebar({ entries, loading, error, activeOrderId, ac
               className={clsx(
                 'w-full text-left px-4 py-3 border-b border-line transition-colors',
                 activeOrderId === o.id
-                  ? ' bg-accent/10 border-l-2 border-l-accent'
+                  ? 'bg-accent/10 ring-1 ring-inset ring-accent'
                   : 'hover:bg-raised',
               )}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-ink">#{o.number || o.external_order_id}</span>
-                {activeOrderId === o.id && activeInProgress && (
-                  <span className="text-2xs font-medium text-accent">{t('queue.inProgress')}</span>
-                )}
+                <span className="text-xs font-semibold text-ink tabular-nums truncate">#{o.number || o.external_order_id}</span>
+                {activeOrderId === o.id && activeInProgress
+                  ? <span className="text-2xs font-semibold text-accent">{t('queue.inProgress')}</span>
+                  : <MiniLegs order={o} />}
               </div>
-              <p className="text-2xs text-ink-3 truncate">{customerName(o)}</p>
+              <p className="text-2xs text-ink-3 truncate">{customerName(o)} · {salesOrderSourceLabel(o.source)}</p>
               <p className="text-2xs text-ink-4 mt-0.5"><Money minor={o.total_minor_units} currency={o.currency_code} /></p>
               {(lock || in_packing) && (
                 <p className="flex items-center gap-1 mt-1 text-2xs text-ink-4">
