@@ -107,3 +107,37 @@ describe('AppShell keyboard shortcuts', () => {
     expect(await screen.findByText('SALES_ORDERS_PAGE')).toBeInTheDocument()
   })
 })
+
+describe('AppShell navigation drawer (small screens)', () => {
+  it('opens the sidebar from the topbar and closes it after navigating', async () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+    const menu = screen.getByRole('button', { name: 'Menu' })
+    expect(menu).toHaveAttribute('aria-expanded', 'false')
+    expect(menu).toHaveAttribute('aria-controls', 'main-sidebar')
+
+    await userEvent.click(menu)
+    expect(menu).toHaveAttribute('aria-expanded', 'true')
+    expect(document.getElementById('main-sidebar')).toHaveAttribute('data-open', 'true')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sales Orders' }))
+
+    expect(await screen.findByText('SALES_ORDERS_PAGE')).toBeInTheDocument()
+    expect(menu).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('closes the open drawer with Escape', async () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+    const menu = screen.getByRole('button', { name: 'Menu' })
+    await userEvent.click(menu)
+    await userEvent.keyboard('{Escape}')
+    expect(menu).toHaveAttribute('aria-expanded', 'false')
+  })
+})

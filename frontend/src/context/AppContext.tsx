@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { NavItem } from '../types'
 import { useTheme } from '../theme/useTheme'
@@ -21,6 +21,9 @@ interface AppContextValue {
   cycleThemePreference: () => void
   commandOpen: boolean
   setCommandOpen: (open: boolean) => void
+  // The sidebar as a drawer on small screens (always shown from lg up).
+  navOpen: boolean
+  setNavOpen: (open: boolean) => void
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -31,13 +34,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const activeNav = pathToNavItem(location.pathname)
   const { theme, preference: themePreference, cyclePreference: cycleThemePreference } = useTheme()
   const [commandOpen, setCommandOpen] = useState(false)
+  const [navOpen, setNavOpen] = useState(false)
+
+  // Any navigation (a link, Back, the palette) closes the drawer.
+  useEffect(() => { setNavOpen(false) }, [location.key])
 
   const setActiveNav = useCallback((nav: NavItem) => {
     navigate(navItemToPath(nav))
   }, [navigate])
 
   return (
-    <AppContext.Provider value={{ activeNav, setActiveNav, navSignal: location.key, theme, themePreference, cycleThemePreference, commandOpen, setCommandOpen }}>
+    <AppContext.Provider value={{ activeNav, setActiveNav, navSignal: location.key, theme, themePreference, cycleThemePreference, commandOpen, setCommandOpen, navOpen, setNavOpen }}>
       {children}
     </AppContext.Provider>
   )

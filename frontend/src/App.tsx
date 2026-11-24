@@ -47,7 +47,7 @@ function AppContent() {
   return (
     <div className="flex h-screen bg-canvas overflow-hidden">
       <Sidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <Topbar />
         <main className="flex-1 overflow-y-auto bg-canvas">
           <Routes>

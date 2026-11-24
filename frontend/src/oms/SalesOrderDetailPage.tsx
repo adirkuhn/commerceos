@@ -234,11 +234,11 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
           </h1>
         </div>
         {detail && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {canEditOrder(detail.sales_order) && (
               <Link
                 to={`/sales-orders/${encodeURIComponent(detail.sales_order.id)}/edit`}
-                className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover hover:text-ink transition-colors"
+                className="flex items-center gap-1.5 h-8 px-3 whitespace-nowrap rounded-md border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover hover:text-ink transition-colors"
               >
                 <Pencil size={13} /> {t('detail.edit')}
               </Link>
@@ -246,14 +246,14 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
             <button
               onClick={() => setPrintMode('picking-list')}
               title={t('detail.printPickingList')}
-              className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover hover:text-ink transition-colors"
+              className="flex items-center gap-1.5 h-8 px-3 whitespace-nowrap rounded-md border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover hover:text-ink transition-colors"
             >
               <Printer size={13} /> {t('detail.pickingList')}
             </button>
             <button
               onClick={() => setPrintMode('invoice')}
               title={t('detail.printInvoice')}
-              className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover hover:text-ink transition-colors"
+              className="flex items-center gap-1.5 h-8 px-3 whitespace-nowrap rounded-md border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover hover:text-ink transition-colors"
             >
               <Printer size={13} /> {t('detail.invoice')}
             </button>
@@ -270,7 +270,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
               <button
                 onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
                 title={t('detail.printLabelTitle')}
-                className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover hover:text-ink transition-colors"
+                className="flex items-center gap-1.5 h-8 px-3 whitespace-nowrap rounded-md border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover hover:text-ink transition-colors"
               >
                 {/* auto_print_enabled already opened the print view once on
                     creation -- this button is then for re-printing (paper

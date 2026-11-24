@@ -24,7 +24,7 @@ function initiallyOpen(groups: NavGroup[], active: NavItem): Set<string> {
 }
 
 export default function Sidebar() {
-  const { activeNav, setActiveNav } = useApp()
+  const { activeNav, setActiveNav, navOpen, setNavOpen } = useApp()
   // Re-renders the menu when the language changes (labels come from i18next).
   const { t } = useTranslation('layout')
   const { user, token } = useAuth()
@@ -35,6 +35,16 @@ export default function Sidebar() {
   const groups = navGroupsForRole(user?.role)
   const activeId = sidebarActiveId(activeNav)
   const [open, setOpen] = useState(() => initiallyOpen(groups, activeId))
+
+  // The open drawer takes focus and closes on Escape, wherever focus is.
+  const asideRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (!navOpen) return
+    asideRef.current?.querySelector<HTMLElement>('nav button')?.focus()
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setNavOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [navOpen, setNavOpen])
 
   // Navigating into a closed group (URL, search, Back) opens it, so the
   // current page is always visible in the sidebar.
@@ -102,7 +112,20 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-60 shrink-0 flex flex-col h-full bg-rail text-rail-ink">
+    <>
+    {/* Below lg the sidebar is a drawer over the page; from lg up it is
+        always there. */}
+    {navOpen && <div className="lg:hidden fixed inset-0 z-40 bg-black/40" onClick={() => setNavOpen(false)} aria-hidden />}
+    <aside
+      id="main-sidebar"
+      ref={asideRef}
+      data-open={navOpen}
+      className={clsx(
+        'w-60 shrink-0 flex flex-col h-full bg-rail text-rail-ink',
+        'max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-50 max-lg:transition-transform max-lg:duration-200 max-lg:ease-out',
+        navOpen ? 'max-lg:translate-x-0 max-lg:shadow-popover' : 'max-lg:-translate-x-full max-lg:invisible',
+      )}
+    >
       <div className="h-14 flex items-center gap-2.5 px-5 shrink-0">
         <BrandMark size={20} className="text-rail-ink" />
         <span className="font-bold text-sm tracking-tight text-rail-ink">CommerceOS</span>
@@ -122,6 +145,7 @@ export default function Sidebar() {
 
       <AccountMenu role={user?.role} />
     </aside>
+    </>
   )
 }
 
