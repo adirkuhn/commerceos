@@ -73,7 +73,11 @@ var _ genquotes.ServerInterface = (*Handler)(nil)
 // authenticated role may work quotes (owner's call, 2026-10-23).
 func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 	repo := repositories.NewQuoteRepo(db)
-	customers := appcustomers.NewGetCustomerUseCase(db, repositories.NewCustomerRepo(db))
+	customerRepo := repositories.NewCustomerRepo(db)
+	customers := appcustomers.NewGetCustomerUseCase(db, customerRepo)
+	shippingAddresses := appcustomers.NewListShippingAddressesUseCase(appcustomers.ShippingAddressDeps{
+		DB: db, Customers: customerRepo, Addresses: repositories.NewCustomerShippingAddressRepo(db), Outbox: outboxRepo,
+	})
 	genquotes.RegisterHandlers(rg, NewHandler(UseCases{
 		Create: appquotes.NewCreateQuoteUseCase(db, repo, customers, outboxRepo),
 		Update: appquotes.NewUpdateQuoteUseCase(db, repo, customers, outboxRepo),
@@ -83,7 +87,7 @@ func Register(rg gin.IRouter, db *gorm.DB, outboxRepo outbox.Repository) {
 		CheckStock: appquotes.NewCheckQuoteStockUseCase(db, repo,
 			appinventory.NewAllocateSaleStockUseCase(db, repositories.NewStockMovementRepo(db), repositories.NewBatchRepo(db), outboxRepo)),
 		Convert: appquotes.NewConvertQuoteToSalesOrderUseCase(db, appquotes.ConvertQuoteDeps{
-			Quotes: repo, Catalog: pmshandler.NewListPriceListUseCase(db), Customers: customers,
+			Quotes: repo, Catalog: pmshandler.NewListPriceListUseCase(db), Customers: customers, ShippingAddresses: shippingAddresses,
 			Orders: omshandler.NewCreateSalesOrderUseCase(db, outboxRepo), Outbox: outboxRepo, Now: time.Now,
 		}),
 	}))
@@ -182,6 +186,9 @@ func (h *Handler) ConvertQuoteToSalesOrder(c *gin.Context, id genquotes.Id) {
 	if req.Number != nil {
 		in.Number = *req.Number
 	}
+	if req.ShippingAddressId != nil {
+		in.ShippingAddressID = req.ShippingAddressId.String()
+	}
 	result, err := h.uc.Convert.Execute(c.Request.Context(), in)
 	if err := mapError(c, err); err != nil {
 		return
@@ -252,7 +259,7 @@ func mapError(c *gin.Context, err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, quotes.ErrQuoteNotFound):
+	case errors.Is(err, quotes.ErrQuoteNotFound), errors.Is(err, customersDomain.ErrShippingAddressNotFound):
 		middleware.FailErr(c, http.StatusNotFound, "NOT_FOUND", err)
 	case errors.Is(err, customersDomain.ErrCustomerNotFound):
 		middleware.FailErr(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err)

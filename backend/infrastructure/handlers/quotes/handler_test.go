@@ -340,11 +340,22 @@ func TestConvertQuote_contract(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, do(t, r, http.MethodPost, "/api/v1/quotes/"+quoteID+"/sales-orders", `{"warehouse_id":"`+warehouseID+`"}`, false).Code)
 }
 
+func TestConvertQuote_toAChosenShippingAddress(t *testing.T) {
+	s := &stubs{convertOut: &appquotes.ConvertQuoteResult{SalesOrderID: "so-1"}}
+	addressID := "5b0c1f9e-6b1a-4c55-9d43-1c2b3a4d5e6f"
+
+	w := do(t, newRouter(t, s), http.MethodPost, "/api/v1/quotes/"+quoteID+"/sales-orders", `{"warehouse_id":"`+warehouseID+`","shipping_address_id":"`+addressID+`"}`, true)
+
+	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	assert.Equal(t, addressID, s.gotConvert.ShippingAddressID)
+}
+
 func TestConvertQuote_domainErrors(t *testing.T) {
 	for err, status := range map[error]int{
-		quotes.ErrQuoteNotFound:   http.StatusNotFound,
-		quotes.ErrLineUnavailable: http.StatusUnprocessableEntity,
-		quotes.ErrNothingToOrder:  http.StatusUnprocessableEntity,
+		customersDomain.ErrShippingAddressNotFound: http.StatusNotFound,
+		quotes.ErrQuoteNotFound:                    http.StatusNotFound,
+		quotes.ErrLineUnavailable:                  http.StatusUnprocessableEntity,
+		quotes.ErrNothingToOrder:                   http.StatusUnprocessableEntity,
 	} {
 		w := do(t, newRouter(t, &stubs{err: err}), http.MethodPost, "/api/v1/quotes/"+quoteID+"/sales-orders", `{"warehouse_id":"`+warehouseID+`"}`, true)
 		assert.Equal(t, status, w.Code, err.Error())

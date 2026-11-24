@@ -8,6 +8,7 @@ import (
 	"github.com/adirkuhn/commerceos/application/eventrecord"
 	appoms "github.com/adirkuhn/commerceos/application/oms"
 	apppms "github.com/adirkuhn/commerceos/application/pms"
+	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
 	"github.com/adirkuhn/commerceos/domain/events"
 	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/domain/quotes"
@@ -27,13 +28,21 @@ type orderCreator interface {
 	Execute(ctx context.Context, in appoms.CreateSalesOrderInput) (*appoms.CreateSalesOrderResult, error)
 }
 
+// shippingBookReader is customers' ListShippingAddressesUseCase.
+type shippingBookReader interface {
+	Execute(ctx context.Context, customerID string) (customersDomain.ShippingBook, error)
+}
+
 type ConvertQuoteDeps struct {
 	Quotes    quotes.Repository
 	Catalog   quoteCatalog
 	Customers customerReader
-	Orders    orderCreator
-	Outbox    eventrecord.Enqueuer
-	Now       func() time.Time
+	// ShippingAddresses reads the customer's book when the order ships to
+	// a chosen one (ConvertQuoteInput.ShippingAddressID).
+	ShippingAddresses shippingBookReader
+	Orders            orderCreator
+	Outbox            eventrecord.Enqueuer
+	Now               func() time.Time
 }
 
 type ConvertQuoteInput struct {
@@ -41,6 +50,9 @@ type ConvertQuoteInput struct {
 	WarehouseID string
 	// Number is the order's own number; "" leaves it to the order's default.
 	Number string
+	// ShippingAddressID ships to one of the quote customer's shipping
+	// addresses; "" ships to the customer's default one.
+	ShippingAddressID string
 }
 
 type ConvertQuoteResult struct {
@@ -135,6 +147,9 @@ func (uc *ConvertQuoteToSalesOrderUseCase) buildOrder(ctx context.Context, in Co
 
 	reference := quotes.Reference(q.Number)
 	if q.Customer == nil {
+		if in.ShippingAddressID != "" {
+			return appoms.CreateSalesOrderInput{}, nil, customersDomain.ErrShippingAddressNotFound
+		}
 		// No customer to name the order: the quote's name says who it's for.
 		order.CustomerNote = fmt.Sprintf("Quote %s — %s", reference, q.Name)
 		return order, q, nil
@@ -144,9 +159,30 @@ func (uc *ConvertQuoteToSalesOrderUseCase) buildOrder(ctx context.Context, in Co
 		return appoms.CreateSalesOrderInput{}, nil, err
 	}
 	order.CustomerID = &customer.ID
-	order.Billing, order.Shipping = omsDomain.Address(customer.Billing), omsDomain.Address(customer.Shipping)
+	shipping, err := uc.shipTo(ctx, customer, in.ShippingAddressID)
+	if err != nil {
+		return appoms.CreateSalesOrderInput{}, nil, err
+	}
+	order.Billing, order.Shipping = omsDomain.Address(customer.Billing), omsDomain.Address(shipping)
 	order.CustomerNote = "Quote " + reference
 	return order, q, nil
+}
+
+// shipTo is the chosen shipping address of the customer, or where their
+// goods go by default (Customer.Shipping).
+func (uc *ConvertQuoteToSalesOrderUseCase) shipTo(ctx context.Context, customer *customersDomain.Customer, addressID string) (customersDomain.Address, error) {
+	if addressID == "" {
+		return customer.Shipping, nil
+	}
+	book, err := uc.deps.ShippingAddresses.Execute(ctx, customer.ID)
+	if err != nil {
+		return customersDomain.Address{}, err
+	}
+	chosen, err := book.Find(addressID)
+	if err != nil {
+		return customersDomain.Address{}, err
+	}
+	return chosen.Address, nil
 }
 
 // lineName is the product name, plus the variant when it adds something.

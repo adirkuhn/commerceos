@@ -153,6 +153,52 @@ func TestConvertQuote_forACustomerCopiesItsAddresses(t *testing.T) {
 	assert.Equal(t, "Quote Q-0007", orders.in.CustomerNote)
 }
 
+type stubShippingBook struct{ book customersDomain.ShippingBook }
+
+func (s stubShippingBook) Execute(_ context.Context, _ string) (customersDomain.ShippingBook, error) {
+	return s.book, nil
+}
+
+func TestConvertQuote_shipsToTheChosenShippingAddress(t *testing.T) {
+	q := quoteForOrder()
+	q.Customer = &quotes.CustomerRef{ID: "c-1"}
+	deps, orders, _ := convertDeps(t, q)
+	deps.Customers.(*stubCustomers).byID["c-1"].Shipping = customersDomain.Address{City: "Amsterdam"}
+	deps.ShippingAddresses = stubShippingBook{book: customersDomain.ShippingBook{
+		{ID: "sa-1", IsDefault: true, Address: customersDomain.Address{City: "Amsterdam"}},
+		{ID: "sa-2", Label: "Warehouse", Address: customersDomain.Address{Address1: "Dock 2", City: "Utrecht"}},
+	}}
+
+	_, err := appquotes.NewConvertQuoteToSalesOrderUseCase(newMockGormDBN(t, 2), deps).
+		Execute(ctxFor(), appquotes.ConvertQuoteInput{QuoteID: "q-1", WarehouseID: "wh-1", ShippingAddressID: "sa-2"})
+
+	require.NoError(t, err)
+	assert.Equal(t, omsDomain.Address{Address1: "Dock 2", City: "Utrecht"}, orders.in.Shipping)
+}
+
+func TestConvertQuote_unknownShippingAddressStopsIt(t *testing.T) {
+	q := quoteForOrder()
+	q.Customer = &quotes.CustomerRef{ID: "c-1"}
+	deps, orders, _ := convertDeps(t, q)
+	deps.ShippingAddresses = stubShippingBook{}
+
+	_, err := appquotes.NewConvertQuoteToSalesOrderUseCase(newMockGormDBN(t, 1), deps).
+		Execute(ctxFor(), appquotes.ConvertQuoteInput{QuoteID: "q-1", WarehouseID: "wh-1", ShippingAddressID: "nope"})
+
+	assert.ErrorIs(t, err, customersDomain.ErrShippingAddressNotFound)
+	assert.Nil(t, orders.in.LineItems, "no order")
+}
+
+func TestConvertQuote_shippingAddressNeedsACustomer(t *testing.T) {
+	deps, _, _ := convertDeps(t, quoteForOrder())
+	deps.ShippingAddresses = stubShippingBook{}
+
+	_, err := appquotes.NewConvertQuoteToSalesOrderUseCase(newMockGormDBN(t, 1), deps).
+		Execute(ctxFor(), appquotes.ConvertQuoteInput{QuoteID: "q-1", WarehouseID: "wh-1", ShippingAddressID: "sa-1"})
+
+	assert.ErrorIs(t, err, customersDomain.ErrShippingAddressNotFound)
+}
+
 func TestConvertQuote_aLineNoLongerInTheCatalogStopsIt(t *testing.T) {
 	q := quoteForOrder()
 	q.Lines = append(q.Lines, quotes.Line{ProductID: "p-gone", SKUID: "s-gone", Quantity: 1, UnitPriceMinorUnits: 100})

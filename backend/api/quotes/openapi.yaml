@@ -306,6 +306,13 @@ components:
           type: string
           maxLength: 64
           description: The order's own number; omitted or empty for none.
+        shipping_address_id:
+          type: string
+          format: uuid
+          description: >-
+            Ship to this one of the quote customer's shipping addresses;
+            omitted for their default one. Unknown, or a quote without a
+            customer: 404 CUSTOMER_SHIPPING_ADDRESS_NOT_FOUND.
 
     ConvertQuoteResponse:
       type: object
