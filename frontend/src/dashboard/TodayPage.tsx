@@ -13,7 +13,7 @@ import type { TodayQueue } from './types'
 import { SalesPeriodCard } from './SalesPeriodCard'
 import { StockFlowPanel, TopProductsPanel } from './widgets'
 
-// The depot design's home: what the shop has to do now. A dispatch board
+// Home ("/"): what the shop has to do now. A dispatch board
 // with the three daily queues (pick, pack, ship today), then only the problems that exist right now
 // -- each with the action that clears it -- then sales (today, this week or
 // this month against the previous one) and this month's figures.
@@ -31,14 +31,14 @@ function QueueCounter({ count, label, action, icon: Icon, onStart }: QueueCounte
   return (
     <div className="flex items-end justify-between gap-4 px-6 py-5">
       <div>
-        <p className="font-data text-6xl font-semibold leading-none tabular-nums text-depot-ink">{count ?? '–'}</p>
-        <p className="mt-2 text-sm text-depot-ink-2">{label}</p>
+        <p className="font-data text-6xl font-semibold leading-none tabular-nums text-rail-ink">{count ?? '–'}</p>
+        <p className="mt-2 text-sm text-rail-ink-2">{label}</p>
       </div>
       <button
         onClick={onStart}
         className={clsx(
-          'shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-depot-mark',
-          idle ? 'text-depot-ink-2 hover:bg-depot-hover/10' : 'bg-white text-depot hover:bg-depot-ink',
+          'shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-rail-mark',
+          idle ? 'text-rail-ink-2 hover:bg-rail-hover/10' : 'bg-white text-rail hover:bg-rail-ink',
         )}
       >
         <Icon size={16} aria-hidden />
@@ -95,7 +95,7 @@ export default function TodayPage() {
 
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
-      <section aria-label={t('today.workQueue')} className="rounded-xl bg-depot grid grid-cols-1 md:grid-cols-3 md:divide-x divide-depot-hover/10">
+      <section aria-label={t('today.workQueue')} className="rounded-xl bg-rail grid grid-cols-1 md:grid-cols-3 md:divide-x divide-rail-hover/10">
         <QueueCounter
           count={queue?.to_pick}
           label={t('today.toPick', { count: queue?.to_pick ?? 0 })}

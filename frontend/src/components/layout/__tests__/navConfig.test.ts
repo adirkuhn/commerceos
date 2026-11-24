@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { PAGE_ROUTES } from '../../../routes'
-import { navGroupsForRole, navTitle, roleLabel, HOME_LINK, GO_TO_SHORTCUTS, homeLink, sidebarActiveId, REPORT_SECTIONS } from '../navConfig'
+import { navGroupsForRole, navTitle, roleLabel, HOME_LINK, GO_TO_SHORTCUTS, sidebarActiveId, REPORT_SECTIONS } from '../navConfig'
 
 function ids(role?: string) {
   return navGroupsForRole(role).flatMap(g => g.items.map(i => i.id))
@@ -23,6 +23,11 @@ describe('navTitle', () => {
     expect(navTitle('sales-orders')).toBe('Sales Orders')
     expect(navTitle('dashboard')).toBe(HOME_LINK.label)
   })
+
+  it('calls the home page Today', () => {
+    expect(HOME_LINK.label).toBe('Today')
+    expect(navTitle('dashboard')).toBe('Today')
+  })
 })
 
 describe('navGroupsForRole', () => {
@@ -42,14 +47,44 @@ describe('navGroupsForRole', () => {
     expect(ids('super_admin')).toContain('scheduled-jobs')
   })
 
-  it('shows the assistant only to admin roles, in both designs', () => {
+  it('shows the assistant only to admin roles', () => {
     expect(ids('customer_user')).not.toContain('assistant')
     for (const role of ['customer_owner', 'customer_admin', 'super_admin']) {
       expect(ids(role), role).toContain('assistant')
-      expect(navGroupsForRole(role, 'depot').flatMap(g => g.items.map(i => i.id)), role).toContain('assistant')
     }
-    expect(navGroupsForRole('customer_user', 'depot').flatMap(g => g.items.map(i => i.id))).not.toContain('assistant')
     expect(navTitle('assistant')).toBe('Assistant')
+  })
+
+  it('reaches every routed page from the sidebar or the reports list', () => {
+    const reachable = new Set([HOME_LINK.id, ...ids('super_admin'), ...REPORT_SECTIONS.flatMap(s => s.items.map(i => i.id))])
+    const unlisted = ['orders', 'shipping']
+    for (const { nav } of PAGE_ROUTES) {
+      if (unlisted.includes(nav)) continue
+      expect(reachable.has(nav), nav).toBe(true)
+    }
+  })
+
+  it('keeps the sidebar short: one reports link for every report', () => {
+    expect(ids('super_admin').filter(id => id.startsWith('reports-'))).toEqual(['reports-overview'])
+  })
+
+  it('puts setup pages in their own group, collapsed until needed', () => {
+    const setup = navGroupsForRole('super_admin').find(g => g.id === 'setup')
+    expect(setup?.collapsedByDefault).toBe(true)
+    expect(setup?.pinned).toBe(true)
+    expect(setup?.items.map(i => i.id)).toEqual(
+      expect.arrayContaining(['sales-channels', 'integrations', 'webhooks', 'sync-log', 'users', 'scheduled-jobs', 'settings']),
+    )
+  })
+
+  it('groups daily warehouse work together', () => {
+    const warehouse = navGroupsForRole('customer_user').find(g => g.id === 'warehouse')
+    expect(warehouse?.items.map(i => i.id)).toEqual(['picking', 'packing', 'stock-issues', 'inventory', 'warehouses'])
+  })
+
+  it('highlights the one reports link on every report page', () => {
+    expect(sidebarActiveId('reports-customer-rfm')).toBe('reports-overview')
+    expect(sidebarActiveId('products')).toBe('products')
   })
 
   it('names list pages with plural nouns', () => {
@@ -84,60 +119,9 @@ describe('GO_TO_SHORTCUTS', () => {
   })
 })
 
-describe('depot navigation', () => {
-  const depotIds = (role: string) => navGroupsForRole(role, 'depot').flatMap(g => g.items.map(i => i.id))
-
-  it('reaches every page the classic sidebar reaches, reports through one link', () => {
-    for (const role of ['customer_user', 'customer_owner', 'super_admin']) {
-      const depot = new Set(depotIds(role))
-      for (const id of ids(role)) {
-        if (id.startsWith('reports-')) continue
-        expect(depot.has(id), `${role}: ${id}`).toBe(true)
-      }
-      expect(depot.has('reports-overview')).toBe(true)
-    }
-  })
-
-  it('lists each page once', () => {
-    const all = depotIds('super_admin')
-    expect(new Set(all).size).toBe(all.length)
-  })
-
-  it('keeps the sidebar short: one reports link instead of thirteen', () => {
-    expect(depotIds('super_admin').filter(id => id.startsWith('reports-'))).toEqual(['reports-overview'])
-    expect(depotIds('super_admin').length).toBeLessThan(ids('super_admin').length - 10)
-  })
-
-  it('puts setup pages in their own group, collapsed until needed', () => {
-    const setup = navGroupsForRole('super_admin', 'depot').find(g => g.id === 'setup')
-    expect(setup?.collapsedByDefault).toBe(true)
-    expect(setup?.pinned).toBe(true)
-    expect(setup?.items.map(i => i.id)).toEqual(
-      expect.arrayContaining(['sales-channels', 'integrations', 'webhooks', 'sync-log', 'users', 'scheduled-jobs', 'settings']),
-    )
-  })
-
-  it('groups daily warehouse work together', () => {
-    const warehouse = navGroupsForRole('customer_user', 'depot').find(g => g.id === 'warehouse')
-    expect(warehouse?.items.map(i => i.id)).toEqual(['picking', 'packing', 'stock-issues', 'inventory', 'warehouses'])
-  })
-
-  it('calls the home page Today', () => {
-    expect(homeLink('depot').label).toBe('Today')
-    expect(homeLink('classic')).toBe(HOME_LINK)
-    expect(navTitle('dashboard', 'depot')).toBe('Today')
-  })
-
-  it('highlights the one reports link on every report page', () => {
-    expect(sidebarActiveId('reports-customer-rfm', 'depot')).toBe('reports-overview')
-    expect(sidebarActiveId('reports-customer-rfm', 'classic')).toBe('reports-customer-rfm')
-    expect(sidebarActiveId('products', 'depot')).toBe('products')
-  })
-})
-
 describe('REPORT_SECTIONS', () => {
   it('lists every report exactly once', () => {
-    const reportIds = ids('super_admin').filter(id => id.startsWith('reports-'))
+    const reportIds = PAGE_ROUTES.map(r => r.nav).filter(id => id.startsWith('reports-'))
     const listed = REPORT_SECTIONS.flatMap(s => s.items.map(i => i.id))
     expect([...listed].sort()).toEqual([...reportIds].sort())
   })

@@ -18,9 +18,6 @@ const look = vi.hoisted(() => ({
 }))
 vi.mock('../../../theme/AppearanceProvider', () => ({ useAppearance: () => look }))
 
-const design = vi.hoisted(() => ({ design: 'depot' as 'depot' | 'classic', setDesign: vi.fn() }))
-vi.mock('../../../theme/useDesign', () => ({ useDesign: () => design }))
-
 import { AppearanceSection } from '../AppearanceSection'
 
 const saved: Appearance = { ...DEFAULT_APPEARANCE, updated_at: '2026-10-12T10:00:00Z' }
@@ -28,7 +25,6 @@ const saved: Appearance = { ...DEFAULT_APPEARANCE, updated_at: '2026-10-12T10:00
 beforeEach(() => {
   vi.clearAllMocks()
   auth.role = 'customer_owner'
-  design.design = 'depot'
   look.appearance = saved
   look.error = ''
   look.save.mockImplementation(async (a: typeof DEFAULT_APPEARANCE) => ({ ...a, updated_at: '2026-10-12T11:00:00Z' }))
@@ -125,15 +121,6 @@ describe('AppearanceSection', () => {
 
     expect(screen.getByRole('radio', { name: 'Inter' })).toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Save appearance' })).not.toBeInTheDocument()
-  })
-
-  it('explains that the classic design ignores it, with a way to switch', async () => {
-    design.design = 'classic'
-    render(<AppearanceSection />)
-
-    await userEvent.click(screen.getByRole('button', { name: 'Use the new design' }))
-
-    expect(design.setDesign).toHaveBeenCalledWith('depot')
   })
 
   it('shows a load error', async () => {

@@ -17,7 +17,6 @@ const KEYS = [
   'VITE_LM2_LOGIN_URL',
   'VITE_LM2_CALLBACK_PATH',
   'VITE_STOREFRONT_URL',
-  'VITE_DESIGN_DEFAULT',
   'COMMERCEOS_VERSION',
 ] as const satisfies readonly (keyof ImportMetaEnv)[]
 

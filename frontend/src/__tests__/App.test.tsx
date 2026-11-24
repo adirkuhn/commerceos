@@ -35,8 +35,8 @@ vi.mock('../pms/hooks/useProducts', () => ({
   useProducts: () => ({ products: [], total: 0, loading: false, error: null, refresh: vi.fn() }),
 }))
 
-vi.mock('../pages/Dashboard', () => ({
-  default: () => <div>DASHBOARD_PAGE</div>,
+vi.mock('../dashboard/TodayPage', () => ({
+  default: () => <div>TODAY_PAGE</div>,
 }))
 
 vi.mock('../pages/SalesOrders', () => ({
@@ -57,17 +57,17 @@ describe('AppShell routing', () => {
     )
 
     expect(screen.getByText('SALES_ORDERS_PAGE')).toBeInTheDocument()
-    expect(screen.queryByText('DASHBOARD_PAGE')).not.toBeInTheDocument()
+    expect(screen.queryByText('TODAY_PAGE')).not.toBeInTheDocument()
   })
 
-  it('shows Dashboard at the root path', () => {
+  it('shows Today at the root path', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <AppShell />
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('DASHBOARD_PAGE')).toBeInTheDocument()
+    expect(screen.getByText('TODAY_PAGE')).toBeInTheDocument()
   })
 
   it('updates the URL when a sidebar nav item is clicked', async () => {
@@ -80,7 +80,7 @@ describe('AppShell routing', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sales Orders' }))
 
     expect(await screen.findByText('SALES_ORDERS_PAGE')).toBeInTheDocument()
-    expect(screen.queryByText('DASHBOARD_PAGE')).not.toBeInTheDocument()
+    expect(screen.queryByText('TODAY_PAGE')).not.toBeInTheDocument()
   })
 
   it('shows a not-found page instead of crashing on an unknown path', () => {

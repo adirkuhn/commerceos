@@ -59,7 +59,7 @@ export interface PageRoute {
 // this into <Route> elements, AppContext derives the active nav item from
 // the current URL instead of tracking it as separate state (that separate
 // state is what used to get lost on refresh).
-// Report pages share one frame (the depot design's grouped report list).
+// Report pages share one frame (the grouped report list).
 // Wrapped once per page at module load, so the component identity is
 // stable across renders.
 function inReportsShell(Page: ComponentType): ComponentType {

@@ -81,25 +81,14 @@ describe('Sidebar groups', () => {
   it('groups pages under disclosure headers', async () => {
     renderSidebar()
 
-    const sell = screen.getByRole('button', { name: 'Sell' })
-    expect(sell).toHaveAttribute('aria-expanded', 'true')
+    const orders = screen.getByRole('button', { name: 'Orders' })
+    expect(orders).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('button', { name: 'Sales Orders' })).toBeInTheDocument()
 
-    await userEvent.click(sell)
+    await userEvent.click(orders)
 
-    expect(sell).toHaveAttribute('aria-expanded', 'false')
+    expect(orders).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByRole('button', { name: 'Sales Orders' })).not.toBeInTheDocument()
-  })
-
-  it('keeps Reports closed until opened, and open when a report is the current page', async () => {
-    const { unmount } = renderSidebar()
-    expect(screen.getByRole('button', { name: 'Reports' })).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByRole('button', { name: 'Sales Trends' })).not.toBeInTheDocument()
-    unmount()
-
-    renderSidebar('/reports/sales-trends')
-    expect(screen.getByRole('button', { name: 'Reports' })).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByRole('button', { name: 'Sales Trends' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('marks the current page', () => {
@@ -108,14 +97,16 @@ describe('Sidebar groups', () => {
     expect(screen.getByRole('button', { name: 'Suppliers' })).not.toHaveAttribute('aria-current')
   })
 
-  it('shows no made-up status badges', () => {
+  it('shows no made-up status badges', async () => {
     renderSidebar()
+    await userEvent.click(screen.getByRole('button', { name: 'Setup' }))
     expect(screen.getByRole('button', { name: 'Integrations' })).toBeInTheDocument()
   })
 
-  it('hides team management from non-owners', () => {
+  it('hides team management from non-owners', async () => {
     auth.role = 'customer_user'
     renderSidebar()
+    await userEvent.click(screen.getByRole('button', { name: 'Setup' }))
     expect(screen.queryByRole('button', { name: 'Users & Roles' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument()
   })
@@ -157,40 +148,38 @@ describe('Sidebar account menu', () => {
   })
 })
 
-describe('Sidebar design switch', () => {
+describe('Sidebar look switch', () => {
   beforeEach(() => {
     vi.mocked(listProducts).mockResolvedValue({ products: [], total: 0 })
     auth.role = 'customer_owner'
     localStorage.clear()
-    document.documentElement.classList.remove('design-depot')
+    document.documentElement.classList.remove('look-wallet', 'look-graphite')
   })
 
-  it('switches between the depot and classic designs from the account menu', async () => {
-    document.documentElement.classList.add('design-depot')
+  it('switches between the Ticket Wallet and Graphite looks from the account menu', async () => {
     renderSidebar()
-    expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Account: Owner' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Use the classic design' }))
+    expect(screen.getByRole('menuitemradio', { name: 'Ticket Wallet' })).toHaveAttribute('aria-checked', 'true')
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Graphite' }))
 
-    expect(document.documentElement.classList.contains('design-depot')).toBe(false)
-    expect(localStorage.getItem('commerceos.design')).toBe('classic')
-    expect(screen.getByRole('button', { name: 'Dashboard' })).toBeInTheDocument()
+    expect(document.documentElement.classList.contains('look-graphite')).toBe(true)
+    expect(localStorage.getItem('commerceos.look')).toBe('graphite')
 
     await userEvent.click(screen.getByRole('button', { name: 'Account: Owner' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Use the new design' }))
+    expect(screen.getByRole('menuitemradio', { name: 'Graphite' })).toHaveAttribute('aria-checked', 'true')
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Ticket Wallet' }))
 
-    expect(document.documentElement.classList.contains('design-depot')).toBe(true)
+    expect(document.documentElement.classList.contains('look-wallet')).toBe(true)
+    expect(document.documentElement.classList.contains('look-graphite')).toBe(false)
   })
 })
 
-describe('Sidebar depot navigation', () => {
+describe('Sidebar navigation', () => {
   beforeEach(() => {
     vi.mocked(listProducts).mockResolvedValue({ products: [], total: 0 })
     auth.role = 'customer_owner'
-    document.documentElement.classList.add('design-depot')
   })
-  afterEach(() => document.documentElement.classList.remove('design-depot'))
 
   it('shows one Reports link, marked current on any report page', () => {
     renderSidebar('/reports/customer-rfm')

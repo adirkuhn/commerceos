@@ -315,8 +315,6 @@
   "appearance": {
     "title": "Aparência",
     "intro": "Como o painel aparece para todos desta loja. As mudanças aparecem na hora para você testar; nada muda para os outros até você salvar.",
-    "classicNote": "Você está usando o design clássico, que mantém a aparência própria. Estas configurações valem para o novo design.",
-    "useNewDesign": "Usar o novo design",
     "readOnly": "Só o dono da loja ou um administrador pode mudar a aparência.",
     "font": "Fonte",
     "fontSample": "Pedido 1042 · 3 itens · Il1 0O",

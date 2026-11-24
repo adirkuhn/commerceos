@@ -2,7 +2,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { AppProvider } from '../../context/AppContext'
 import { ReportsShell } from '../ReportsShell'
 
@@ -22,17 +22,8 @@ function renderShell(url: string) {
   )
 }
 
-afterEach(() => document.documentElement.classList.remove('design-depot'))
-
 describe('ReportsShell', () => {
-  it('renders the report alone in the classic design', () => {
-    renderShell('/reports/customer-rfm')
-    expect(screen.getByText('report body')).toBeInTheDocument()
-    expect(screen.queryByRole('navigation', { name: 'Reports' })).not.toBeInTheDocument()
-  })
-
-  it('lists every report grouped by subject in the depot design, current one marked', () => {
-    document.documentElement.classList.add('design-depot')
+  it('lists every report grouped by subject, current one marked', () => {
     renderShell('/reports/customer-rfm')
 
     const nav = screen.getByRole('navigation', { name: 'Reports' })
@@ -43,7 +34,6 @@ describe('ReportsShell', () => {
   })
 
   it('opens another report from the list', async () => {
-    document.documentElement.classList.add('design-depot')
     renderShell('/reports/customer-rfm')
 
     await userEvent.click(screen.getByRole('button', { name: 'Stockout Risk' }))

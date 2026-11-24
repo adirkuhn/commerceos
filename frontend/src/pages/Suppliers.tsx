@@ -74,7 +74,7 @@ export default function Suppliers() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Toolbar -- two rows in classic, one band in depot */}
+      {/* Toolbar -- rows that flow into one band (common/listToolbar) */}
       <div className={LIST_TOOLBAR}>
         <div className={clsx('flex items-center gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0', LIST_TOOLBAR_ROW)}>
           <div className="relative flex-1 max-w-sm">

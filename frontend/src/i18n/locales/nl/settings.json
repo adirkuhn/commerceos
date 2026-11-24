@@ -313,8 +313,6 @@
   "appearance": {
     "title": "Uiterlijk",
     "intro": "Hoe de beheeromgeving eruitziet voor iedereen in deze winkel. Wijzigingen zie je meteen, zodat je ze kunt uitproberen; voor anderen verandert niets tot je opslaat.",
-    "classicNote": "Je gebruikt het klassieke ontwerp, dat zijn eigen uiterlijk houdt. Deze instellingen gelden voor het nieuwe ontwerp.",
-    "useNewDesign": "Nieuw ontwerp gebruiken",
     "readOnly": "Alleen de eigenaar of een beheerder kan het uiterlijk wijzigen.",
     "font": "Lettertype",
     "fontSample": "Bestelling 1042 · 3 artikelen · Il1 0O",

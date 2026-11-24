@@ -5,7 +5,7 @@ import { test, expect } from './fixtures'
 // Screenshots land in e2e-screenshots/.
 for (const appearance of ['light', 'dark'] as const) {
   test.describe(`appearance settings, ${appearance}`, () => {
-    test.use({ appearance, design: 'depot' })
+    test.use({ appearance, look: 'wallet' })
 
     test('restyles the admin for the whole shop', async ({ page }) => {
       // Until the backend image with /settings/appearance is deployed the
@@ -25,7 +25,7 @@ for (const appearance of ['light', 'dark'] as const) {
       await page.goto('/settings/appearance')
       await expect(page.getByRole('radio', { name: 'Atkinson Hyperlegible Next' })).toBeChecked()
       expect(await cssVar('--font-sans')).toContain('Atkinson Hyperlegible Next')
-      await page.screenshot({ path: `e2e-screenshots/depot-${appearance}-appearance-default.png` })
+      await page.screenshot({ path: `e2e-screenshots/wallet-${appearance}-appearance-default.png` })
 
       await page.getByRole('radio', { name: 'IBM Plex Sans' }).check()
       await page.getByLabel('Accent colour hex').fill('#0B6E4F')
@@ -36,14 +36,14 @@ for (const appearance of ['light', 'dark'] as const) {
       expect(await cssVar('--font-sans')).toContain('IBM Plex Sans')
       expect(await cssVar('--radius-lg')).toBe('10px')
       expect(await cssVar('--density')).toBe('0.8')
-      expect(await cssVar('--depot')).toBe('244 241 232')
-      await page.screenshot({ path: `e2e-screenshots/depot-${appearance}-appearance-custom.png` })
+      expect(await cssVar('--rail')).toBe('244 241 232')
+      await page.screenshot({ path: `e2e-screenshots/wallet-${appearance}-appearance-custom.png` })
 
       // Too light for white button text: blocked, with a darker shade offered.
       await page.getByLabel('Accent colour hex').fill('#FFB000')
       await expect(page.getByText('too light for white button text')).toBeVisible()
       await expect(page.getByRole('button', { name: 'Save appearance' })).toBeDisabled()
-      await page.screenshot({ path: `e2e-screenshots/depot-${appearance}-appearance-contrast.png` })
+      await page.screenshot({ path: `e2e-screenshots/wallet-${appearance}-appearance-contrast.png` })
       await page.getByRole('button', { name: /^Use #/ }).click()
       await expect(page.getByText('too light for white button text')).toBeHidden()
 
@@ -52,11 +52,11 @@ for (const appearance of ['light', 'dark'] as const) {
 
       await page.reload()
       await expect(page.getByRole('radio', { name: 'IBM Plex Sans' })).toBeChecked()
-      expect(await cssVar('--depot')).toBe('244 241 232')
+      expect(await cssVar('--rail')).toBe('244 241 232')
       expect(await cssVar('--font-sans')).toContain('IBM Plex Sans')
       await page.goto('/sales-orders')
       await page.waitForLoadState('networkidle')
-      await page.screenshot({ path: `e2e-screenshots/depot-${appearance}-appearance-applied-sales-orders.png` })
+      await page.screenshot({ path: `e2e-screenshots/wallet-${appearance}-appearance-applied-sales-orders.png` })
     })
   })
 }

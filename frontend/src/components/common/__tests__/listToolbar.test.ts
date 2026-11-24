@@ -1,14 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import * as toolbar from '../listToolbar'
 
-// Classic is the rollback design and must stay pixel-identical: everything
-// these classes do outside depot is make the wrapper invisible
-// (display:contents), so a page lays out exactly as before it was wrapped.
 describe('list toolbar classes', () => {
-  it('only style the depot design, apart from the invisible wrapper', () => {
+  it('apply unconditionally -- there is one layout, no variant prefix', () => {
     for (const [name, classes] of Object.entries(toolbar)) {
-      const classicOnly = classes.split(/\s+/).filter(c => !c.startsWith('depot:'))
-      expect(classicOnly, name).toEqual(name === 'LIST_TOOLBAR' ? ['contents'] : [])
+      expect(classes, name).not.toMatch(/(^|\s)[a-z-]+:/)
     }
+  })
+
+  it('dissolve rows into the band and keep its overrides winning', () => {
+    expect(toolbar.LIST_TOOLBAR_ROW).toBe('!contents')
+    expect(toolbar.LIST_TOOLBAR_ACTION).toContain('!ml-auto')
+    expect(toolbar.LIST_TOOLBAR_TITLE).toBe('!hidden')
   })
 })

@@ -47,9 +47,9 @@ describe('appearanceCss', () => {
     expect(appearanceCss(DEFAULT_APPEARANCE)).toBe('')
   })
 
-  it('only restyles the new design, outranking index.css whatever the order', () => {
+  it('restyles every look, outranking the look blocks in index.css whatever the order', () => {
     const css = appearanceCss(withAppearance({ corners: 'round' }))
-    expect(css).toMatch(/^html\.design-depot \{/)
+    expect(css).toMatch(/^html\[class\]\[class\] \{/)
     expect(css).not.toMatch(/(^|\})\s*\.dark \{/)
   })
 
@@ -64,7 +64,7 @@ describe('appearanceCss', () => {
     const css = appearanceCss(withAppearance({ accent_color: '#0B6E4F' }))
     expect(css).toContain('--accent: 11 110 79;')
     expect(css).toContain('--accent-solid: 11 110 79;')
-    const dark = css.slice(css.indexOf('html.design-depot.dark'))
+    const dark = css.slice(css.indexOf('html[class][class].dark'))
     const tint = /--accent: (\d+) (\d+) (\d+);/.exec(dark)
     expect(tint).not.toBeNull()
     const hex = '#' + tint!.slice(1).map(n => Number(n).toString(16).padStart(2, '0')).join('')
@@ -74,7 +74,7 @@ describe('appearanceCss', () => {
   it('gives a light sidebar dark text and a dark sidebar light text', () => {
     const light = appearanceCss(withAppearance({ sidebar_color: '#F4F1E8' }))
     const dark = appearanceCss(withAppearance({ sidebar_color: '#3A0D12' }))
-    const ink = (css: string) => /--depot-ink: (\d+) (\d+) (\d+);/.exec(css)!.slice(1).map(Number)
+    const ink = (css: string) => /--rail-ink: (\d+) (\d+) (\d+);/.exec(css)!.slice(1).map(Number)
     expect(ink(light)[0]).toBeLessThan(80)
     expect(ink(dark)[0]).toBeGreaterThan(200)
   })
@@ -82,7 +82,7 @@ describe('appearanceCss', () => {
   it('keeps the sidebar secondary text readable on the chosen colour', () => {
     for (const sidebar of ['#F4F1E8', '#3A0D12', '#7A7A7A', '#0B6E4F']) {
       const css = appearanceCss(withAppearance({ sidebar_color: sidebar }))
-      const [r, g, b] = /--depot-ink-2: (\d+) (\d+) (\d+);/.exec(css)!.slice(1).map(Number)
+      const [r, g, b] = /--rail-ink-2: (\d+) (\d+) (\d+);/.exec(css)!.slice(1).map(Number)
       const hex = '#' + [r, g, b].map(n => n.toString(16).padStart(2, '0')).join('')
       expect(contrastRatio(hex, sidebar)).toBeGreaterThanOrEqual(4.5)
     }

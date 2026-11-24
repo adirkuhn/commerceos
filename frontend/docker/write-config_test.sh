@@ -10,10 +10,10 @@ check() { if [[ "$2" == "$3" ]]; then echo "ok   $1"; else echo "FAIL $1: expect
 run() { env -i PATH="$PATH" "$@" sh "$HERE/write-config.sh" "$T/config.js" >"$T/out" 2>&1; }
 
 run VITE_API_BASE_URL=https://api.example/api/v1 VITE_LM2_LOGIN_URL=https://lm2.example/app-login \
-	VITE_LM2_CALLBACK_PATH=/auth/callback VITE_STOREFRONT_URL=https://shop.example VITE_DESIGN_DEFAULT=classic
+	VITE_LM2_CALLBACK_PATH=/auth/callback VITE_STOREFRONT_URL=https://shop.example
 check "succeeds"                0 $?
 check "writes every setting" \
-	'window.__COMMERCEOS_CONFIG__ = {"VITE_API_BASE_URL":"https://api.example/api/v1","VITE_LM2_LOGIN_URL":"https://lm2.example/app-login","VITE_LM2_CALLBACK_PATH":"/auth/callback","VITE_STOREFRONT_URL":"https://shop.example","VITE_DESIGN_DEFAULT":"classic"}' \
+	'window.__COMMERCEOS_CONFIG__ = {"VITE_API_BASE_URL":"https://api.example/api/v1","VITE_LM2_LOGIN_URL":"https://lm2.example/app-login","VITE_LM2_CALLBACK_PATH":"/auth/callback","VITE_STOREFRONT_URL":"https://shop.example"}' \
 	"$(cat "$T/config.js")"
 
 run VITE_API_BASE_URL=https://api.example/api/v1 JWT_SECRET=s3cret S3_SECRET_ACCESS_KEY=k3y APP_DB_PASSWORD=pw

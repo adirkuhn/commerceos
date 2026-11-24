@@ -29,9 +29,9 @@ const PAGES: [string, string][] = [
   ['newsletter', '/newsletter'],
 ]
 
-for (const design of ['depot', 'classic'] as const) for (const appearance of ['light', 'dark'] as const) {
-  test.describe(`${design} design, ${appearance} appearance`, () => {
-    test.use({ appearance, design })
+for (const look of ['wallet', 'graphite'] as const) for (const appearance of ['light', 'dark'] as const) {
+  test.describe(`${look} look, ${appearance} appearance`, () => {
+    test.use({ appearance, look })
 
     for (const [name, path] of PAGES) {
       test(`${name}`, async ({ page }) => {
@@ -58,7 +58,7 @@ for (const design of ['depot', 'classic'] as const) for (const appearance of ['l
         await page.setViewportSize({ width: 1440, height: 900 })
         await page.goto(path)
         await page.waitForLoadState('networkidle')
-        await page.screenshot({ path: `e2e-screenshots/${design}-${appearance}-${name}.png` })
+        await page.screenshot({ path: `e2e-screenshots/${look}-${appearance}-${name}.png` })
         expect(pageErrors(), pageErrors().join('\n')).toEqual([])
       })
     }
@@ -69,7 +69,7 @@ for (const design of ['depot', 'classic'] as const) for (const appearance of ['l
       await page.keyboard.press('ControlOrMeta+k')
       await page.getByRole('combobox', { name: 'Search' }).fill('pro')
       await page.waitForLoadState('networkidle')
-      await page.screenshot({ path: `e2e-screenshots/${design}-${appearance}-palette.png` })
+      await page.screenshot({ path: `e2e-screenshots/${look}-${appearance}-palette.png` })
     })
   })
 }

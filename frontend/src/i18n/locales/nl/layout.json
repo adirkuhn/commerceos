@@ -106,7 +106,8 @@
     "signOut": "Uitloggen",
     "showAmounts": "Bedragen tonen",
     "hideAmounts": "Bedragen verbergen",
-    "useClassicDesign": "Klassiek ontwerp gebruiken",
-    "useNewDesign": "Nieuw ontwerp gebruiken"
+    "look": "Stijl",
+    "lookWallet": "Ticket Wallet",
+    "lookGraphite": "Graphite"
   }
 }

@@ -2,13 +2,11 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { App } from './App'
 import { initI18n } from './i18n/i18n'
-import { defaultDesign } from './theme/designPreference'
-import { initDesign } from './theme/useDesign'
+import { initLook } from './theme/useLook'
 import './index.css'
-import { appEnv } from './config/appEnv'
 
 initI18n()
-initDesign(defaultDesign(appEnv().VITE_DESIGN_DEFAULT))
+initLook()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

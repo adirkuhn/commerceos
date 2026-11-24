@@ -1,7 +1,7 @@
 // A shop's admin appearance (GET/PUT /settings/appearance): font, colours,
-// corners, text size and spacing for the new ("depot") design. It is
-// applied as CSS custom properties layered over index.css, so the classic
-// design never changes and the defaults add nothing at all.
+// corners, text size and spacing, layered over whichever look is active.
+// It is applied as CSS custom properties over index.css, and the defaults
+// add nothing at all -- so an untouched shop wears each look as designed.
 
 // Mirrors backend/api/settings/openapi.yaml (AppearanceInput / Appearance).
 export type AppearanceFont = 'atkinson' | 'inter' | 'ibm_plex_sans' | 'source_sans' | 'barlow'
@@ -27,7 +27,7 @@ export const APPEARANCE_CORNERS: readonly AppearanceCorners[] = ['sharp', 'norma
 export const APPEARANCE_TEXT_SIZES: readonly AppearanceTextSize[] = ['normal', 'large', 'larger']
 export const APPEARANCE_DENSITIES: readonly AppearanceDensity[] = ['compact', 'comfortable']
 
-// Same values as the backend defaults and the .design-depot block in index.css.
+// Same values as the backend defaults. Values equal to these emit nothing.
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   font: 'atkinson',
   accent_color: '#2F33B8',
@@ -41,7 +41,7 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
 export const MIN_CONTRAST = 4.5
 const WHITE = '#FFFFFF'
 const BLACK = '#000000'
-// The depot dark "raised" surface (index.css), where dark-mode accent text sits.
+// The darkest "raised" surface of the looks (index.css), where dark-mode accent text sits.
 const DARK_RAISED = '#1B1F36'
 
 interface FontSpec {
@@ -146,11 +146,12 @@ function sidebarVars(sidebar: string, accent: string): Record<string, string> {
   const ink2 = towardsContrast(mix(ink, sidebar, 0.35), ink, sidebar, MIN_CONTRAST)
   const mark = towardsContrast(accent, dark ? WHITE : BLACK, sidebar, 3)
   return {
-    '--depot': channels(sidebar),
-    '--depot-ink': channels(ink),
-    '--depot-ink-2': channels(ink2),
-    '--depot-hover': dark ? '255 255 255' : '0 0 0',
-    '--depot-mark': channels(mark),
+    '--rail': channels(sidebar),
+    '--rail-active': channels(mix(sidebar, dark ? WHITE : BLACK, 0.12)),
+    '--rail-ink': channels(ink),
+    '--rail-ink-2': channels(ink2),
+    '--rail-hover': dark ? '255 255 255' : '0 0 0',
+    '--rail-mark': channels(mark),
   }
 }
 
@@ -160,11 +161,12 @@ function block(selector: string, vars: Record<string, string>): string {
   return `${selector} {\n${entries.map(([k, v]) => `  ${k}: ${v};`).join('\n')}\n}\n`
 }
 
-// appearanceCss is the stylesheet that turns the default depot look into
-// the shop's: only what differs from DEFAULT_APPEARANCE, scoped to the
-// depot design. The html.* selectors outrank index.css's .design-depot
-// blocks whatever the stylesheet order (the pre-paint copy in index.html
-// sits before the app's CSS).
+// appearanceCss is the stylesheet that turns the look's defaults into the
+// shop's: only what differs from DEFAULT_APPEARANCE. html[class][class]
+// (0,2,1) outranks index.css's look blocks (html.look-*, at most 0,2,1 for
+// light tokens the dark block does not repeat) and html[class][class].dark
+// (0,3,1) outranks every dark block, whatever the stylesheet order (the pre-paint copy in index.html sits before the app's
+// CSS).
 export function appearanceCss(a: AppearanceSettings): string {
   const d = DEFAULT_APPEARANCE
   const light: Record<string, string> = {}
@@ -206,7 +208,7 @@ export function appearanceCss(a: AppearanceSettings): string {
   }
   if (a.density !== d.density) light['--density'] = String(DENSITY[a.density])
 
-  return block('html.design-depot', light) + block('html.design-depot.dark', dark)
+  return block('html[class][class]', light) + block('html[class][class].dark', dark)
 }
 
 // fontStylesheetHref is the Google Fonts stylesheet a font needs, or null

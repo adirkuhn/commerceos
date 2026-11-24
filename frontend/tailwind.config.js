@@ -1,8 +1,6 @@
-import plugin from 'tailwindcss/plugin'
-
 // Padding and gaps follow the shop's spacing choice (--density, set by the
-// appearance setting on the depot design only). Unset it is 1, so the
-// computed sizes -- and classic -- stay exactly Tailwind's.
+// appearance setting). Unset it is 1, so the computed sizes stay exactly
+// Tailwind's.
 function densityScaled(spacing) {
   return Object.fromEntries(Object.entries(spacing).map(([k, v]) => [
     k, typeof v === 'string' && v.endsWith('rem') ? `calc(${v} * var(--density, 1))` : v,
@@ -34,25 +32,29 @@ export default {
           3: 'rgb(var(--ink-3) / <alpha-value>)',
           4: 'rgb(var(--ink-4) / <alpha-value>)',
         },
-        // Brand accent: "postmark ultramarine" -- the ink of parcel stamps
-        // and carrier labels. accent = text/icons/tints, accent-solid =
+        // The look's action colour (carrier navy in Ticket Wallet, console
+        // blue in Graphite). accent = text/icons/tints, accent-solid =
         // filled primary buttons (white text).
         accent: {
           DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
           solid: 'rgb(var(--accent-solid) / <alpha-value>)',
           'solid-hover': 'rgb(var(--accent-solid-hover) / <alpha-value>)',
         },
+        // Filled figures: quantities, counts and totals (carbon purple in
+        // Ticket Wallet, plain ink in Graphite).
+        figure: 'rgb(var(--figure) / <alpha-value>)',
         danger: 'rgb(var(--danger) / <alpha-value>)',
         success: 'rgb(var(--success) / <alpha-value>)',
         warning: 'rgb(var(--warning) / <alpha-value>)',
         focus: 'rgb(var(--focus) / <alpha-value>)',
-        // The depot sidebar (depot design only; classic resolves to surface).
-        depot: {
-          DEFAULT: 'rgb(var(--depot) / <alpha-value>)',
-          ink: 'rgb(var(--depot-ink) / <alpha-value>)',
-          'ink-2': 'rgb(var(--depot-ink-2) / <alpha-value>)',
-          hover: 'rgb(var(--depot-hover) / <alpha-value>)',
-          mark: 'rgb(var(--depot-mark) / <alpha-value>)',
+        // The sidebar rail: the look's own colour in both appearances.
+        rail: {
+          DEFAULT: 'rgb(var(--rail) / <alpha-value>)',
+          active: 'rgb(var(--rail-active) / <alpha-value>)',
+          ink: 'rgb(var(--rail-ink) / <alpha-value>)',
+          'ink-2': 'rgb(var(--rail-ink-2) / <alpha-value>)',
+          hover: 'rgb(var(--rail-hover) / <alpha-value>)',
+          mark: 'rgb(var(--rail-mark) / <alpha-value>)',
         },
         // Fixed dark palette for surfaces that are dark in both
         // appearances (the handheld scanner app) or one-off dark-only shades.
@@ -72,19 +74,24 @@ export default {
         body: ['0.8125rem', { lineHeight: '1.25rem' }],
       },
       fontFamily: {
-        // Variables so the design (classic Inter / depot Atkinson Hyperlegible) and the shop's appearance can switch
-        // at runtime -- values in src/index.css.
+        // Variables so the look (Archivo / Atkinson Hyperlegible) and the
+        // shop's appearance can switch at runtime -- values in src/index.css.
         sans: ['var(--font-sans)'],
         data: ['var(--font-data)'],
         mono: ['var(--font-mono)'],
       },
       borderRadius: {
-        // Classic keeps Tailwind's defaults; depot uses two radii (6px
-        // controls, 10px panels) -- values in src/index.css.
+        // Per look -- values in src/index.css.
         md: 'var(--radius-md)',
         lg: 'var(--radius-lg)',
         xl: 'var(--radius-xl)',
         '2xl': 'var(--radius-2xl)',
+      },
+      boxShadow: {
+        // Panels lift a hair in Ticket Wallet light and sit flat on their
+        // seams everywhere else; popovers always float.
+        panel: 'var(--shadow-panel)',
+        popover: 'var(--shadow-popover)',
       },
       keyframes: {
         'scan-line': {
@@ -104,10 +111,5 @@ export default {
       },
     },
   },
-  plugins: [
-    // depot:x applies x only in the depot design (html.design-depot), so a
-    // screen can be restyled for depot while classic stays exactly as it
-    // was -- e.g. "depot:flex-row depot:border-0".
-    plugin(({ addVariant }) => { addVariant('depot', '.design-depot &') }),
-  ],
+  plugins: [],
 }

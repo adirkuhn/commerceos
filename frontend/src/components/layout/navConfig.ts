@@ -7,7 +7,6 @@ import {
 } from 'lucide-react'
 import { canUseAssistant } from '../../assistant/format'
 import type { NavItem } from '../../types'
-import type { Design } from '../../theme/designPreference'
 
 export interface NavLink {
   id: NavItem
@@ -33,8 +32,8 @@ export interface NavGroup {
 // Single source for navigation: the Sidebar renders it, the Topbar takes
 // page titles from it and the command palette lists it -- so a page's name
 // is the same everywhere.
-export const HOME_LINK: NavLink = { id: 'dashboard', get label() { return i18next.t('layout:nav.dashboard') }, icon: LayoutDashboard }
-const TODAY_LINK: NavLink = { id: 'dashboard', get label() { return i18next.t('layout:nav.today') }, icon: LayoutDashboard }
+// Home ("/") is Today: the work queue first.
+export const HOME_LINK: NavLink = { id: 'dashboard', get label() { return i18next.t('layout:nav.today') }, icon: LayoutDashboard }
 
 // Labels are getters so they follow a language switch.
 function link(id: NavItem, label: () => string, icon: ElementType): NavLink {
@@ -45,7 +44,7 @@ function group(id: string, label: () => string, items: NavLink[], extra: Partial
   return { id, get label() { return label() }, items, ...extra }
 }
 
-// Every sidebar page, once -- both designs arrange these same links.
+// Every sidebar page, once.
 const L = {
   salesOrders: link('sales-orders', () => i18next.t('layout:nav.salesOrders'), ShoppingCart),
   quotes: link('quotes', () => i18next.t('layout:nav.quotes'), FileText),
@@ -90,26 +89,12 @@ const R = {
   shipments: link('reports-shipments', () => i18next.t('layout:nav.reportsShipments'), BarChart3),
 }
 
-const CLASSIC_GROUPS: NavGroup[] = [
-  group('sell', () => i18next.t('layout:group.sell'), [L.salesOrders, L.quotes, L.customers, L.salesChannels]),
-  group('fulfill', () => i18next.t('layout:group.fulfill'), [L.picking, L.packing, L.stockIssues]),
-  group('catalog', () => i18next.t('layout:group.catalog'), [L.products, L.priceList, L.collections, L.inventory, L.warehouses, L.unmatchedSkus]),
-  group('buy', () => i18next.t('layout:group.buy'), [L.suppliers, L.procurement, L.purchasePlanner]),
-  group('marketing', () => i18next.t('layout:group.marketing'), [L.promotions, L.coupons, L.reviews, L.messageCenter, L.newsletter]),
-  group('reports', () => i18next.t('layout:group.reports'), [
-    R.overview, R.salesTrends, R.productPerformance, R.performanceMatrix, R.productLifecycle,
-    R.categoryPerformance, R.slowMoving, R.stockoutRisk, R.inventorySales, R.customerPerformance,
-    R.customerCohorts, R.customerRfm, R.frequentlyBoughtTogether, R.shipments,
-  ], { collapsedByDefault: true, qualifyTitles: true }),
-  group('connect', () => i18next.t('layout:group.connect'), [L.integrations, L.webhooks, L.syncLog]),
-]
-
-// Depot: grouped by the work, daily work first. Reports are one link (the
-// report pages carry their own grouped list, see REPORT_SECTIONS) and
-// pages you set up once sit in a collapsed Setup group at the bottom.
+// Grouped by the work, daily work first. Reports are one link (the report
+// pages carry their own grouped list, see REPORT_SECTIONS) and pages you
+// set up once sit in a collapsed Setup group at the bottom.
 const REPORTS_LINK: NavLink = { id: 'reports-overview', get label() { return i18next.t('layout:group.reports') }, icon: BarChart3 }
 
-const DEPOT_GROUPS: NavGroup[] = [
+const WORK_GROUPS: NavGroup[] = [
   group('orders', () => i18next.t('layout:group.orders'), [L.salesOrders, L.quotes, L.customers]),
   group('warehouse', () => i18next.t('layout:group.warehouse'), [L.picking, L.packing, L.stockIssues, L.inventory, L.warehouses]),
   group('catalog', () => i18next.t('layout:group.catalog'), [L.products, L.priceList, L.collections, L.unmatchedSkus]),
@@ -118,7 +103,7 @@ const DEPOT_GROUPS: NavGroup[] = [
   group('insight', () => i18next.t('layout:group.insight'), [REPORTS_LINK], { flat: true }),
 ]
 
-// The reports' own navigation in the depot design, grouped by what they
+// The reports' own navigation (reports/ReportsShell), grouped by what they
 // are about.
 export const REPORT_SECTIONS: NavGroup[] = [
   group('reportsSales', () => i18next.t('layout:group.reportsSales'), [R.overview, R.salesTrends]),
@@ -143,34 +128,33 @@ const UNLISTED_TITLES: Partial<Record<NavItem, () => string>> = {
   shipping: () => i18next.t('layout:nav.shipping'),
 }
 
-export function navGroupsForRole(role?: string, design: Design = 'classic'): NavGroup[] {
+export function navGroupsForRole(role?: string): NavGroup[] {
   const admin: NavLink[] = [
     ...(role === 'customer_owner' || role === 'super_admin' ? [USERS_LINK] : []),
     ...(role === 'super_admin' ? [SCHEDULED_JOBS_LINK, DEAD_LETTERS_LINK] : []),
     SETTINGS_LINK,
   ]
   const assistant = canUseAssistant(role) ? [group('assistant', () => i18next.t('layout:nav.assistant'), [ASSISTANT_LINK], { flat: true })] : []
-  if (design === 'depot') {
-    return [...assistant, ...DEPOT_GROUPS, group('setup', () => i18next.t('layout:group.setup'), [L.salesChannels, L.integrations, L.webhooks, L.syncLog, ...admin], { collapsedByDefault: true, pinned: true })]
-  }
-  return [...assistant, ...CLASSIC_GROUPS, group('admin', () => i18next.t('layout:group.admin'), admin)]
+  const setup = group('setup', () => i18next.t('layout:group.setup'), [L.salesChannels, L.integrations, L.webhooks, L.syncLog, ...admin], { collapsedByDefault: true, pinned: true })
+  return [...assistant, ...WORK_GROUPS, setup]
 }
 
-export function homeLink(design: Design): NavLink {
-  return design === 'depot' ? TODAY_LINK : HOME_LINK
+// The sidebar link to highlight for the current page -- every report page
+// lights up the one Reports link.
+export function sidebarActiveId(nav: NavItem): NavItem {
+  return nav.startsWith('reports-') ? REPORTS_LINK.id : nav
 }
 
-// The sidebar link to highlight for the current page -- in the depot
-// design every report page lights up the one Reports link.
-export function sidebarActiveId(nav: NavItem, design: Design): NavItem {
-  return design === 'depot' && nav.startsWith('reports-') ? REPORTS_LINK.id : nav
-}
+// Report titles are qualified ("Reports: Overview"); the rest use their
+// sidebar label.
+const TITLE_GROUPS: NavGroup[] = [
+  group('reports', () => i18next.t('layout:group.reports'), REPORT_SECTIONS.flatMap(s => s.items), { qualifyTitles: true }),
+  ...navGroupsForRole('super_admin').filter(g => g.id !== 'insight'),
+]
 
-const ALL_GROUPS = navGroupsForRole('super_admin')
-
-export function navTitle(nav: NavItem, design: Design = 'classic'): string {
-  if (nav === HOME_LINK.id) return homeLink(design).label
-  for (const g of ALL_GROUPS) {
+export function navTitle(nav: NavItem): string {
+  if (nav === HOME_LINK.id) return HOME_LINK.label
+  for (const g of TITLE_GROUPS) {
     const found = g.items.find(i => i.id === nav)
     if (found) return g.qualifyTitles ? i18next.t('layout:ui.qualifiedTitle', { group: g.label, page: found.label }) : found.label
   }

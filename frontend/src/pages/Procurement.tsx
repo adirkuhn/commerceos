@@ -108,18 +108,18 @@ export default function Procurement() {
             <button
               onClick={() => open(`${PROCUREMENT_PATH}/${DISCREPANCIES_SEGMENT}`)}
               title={t('list.discrepancies')}
-              className="flex items-center gap-1.5 px-3 py-1.5 depot:px-2 rounded-lg border border-line bg-raised text-xs text-ink-2 hover:bg-hover transition-colors font-medium"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-line bg-raised text-xs text-ink-2 hover:bg-hover transition-colors font-medium"
             >
-              {/* Icon-only in the depot band, which has no room for three labels. */}
-              <AlertTriangle size={13} aria-hidden /> <span className="depot:sr-only">{t('list.discrepancies')}</span>
+              {/* Icon-only in the toolbar band, which has no room for three labels. */}
+              <AlertTriangle size={13} aria-hidden /> <span className="sr-only">{t('list.discrepancies')}</span>
             </button>
             <button
               onClick={() => setUploadModalOpen(true)}
               title={t('list.uploadDocument')}
-              className="flex items-center gap-1.5 px-3 py-1.5 depot:px-2 rounded-lg border border-line bg-raised text-xs text-ink-2 hover:bg-hover transition-colors font-medium"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-line bg-raised text-xs text-ink-2 hover:bg-hover transition-colors font-medium"
             >
-              {/* Icon-only in the depot band, which has no room for three labels. */}
-              <Upload size={13} aria-hidden /> <span className="depot:sr-only">{t('list.uploadDocument')}</span>
+              {/* Icon-only in the toolbar band, which has no room for three labels. */}
+              <Upload size={13} aria-hidden /> <span className="sr-only">{t('list.uploadDocument')}</span>
             </button>
             <button
               onClick={openNew}

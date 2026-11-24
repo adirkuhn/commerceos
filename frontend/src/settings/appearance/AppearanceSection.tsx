@@ -5,7 +5,6 @@ import { AlertTriangle, RotateCcw } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext'
 import { apiErrorText } from '../../api/apiErrorText'
 import { useAppearance } from '../../theme/AppearanceProvider'
-import { useDesign } from '../../theme/useDesign'
 import {
   APPEARANCE_CORNERS, APPEARANCE_DENSITIES, APPEARANCE_FONTS, APPEARANCE_TEXT_SIZES, DEFAULT_APPEARANCE, FONT_SPECS,
   darkenToContrast, fontStylesheetHref, meetsAccentContrast, type AppearanceSettings,
@@ -39,13 +38,12 @@ function useFontSamples() {
 }
 
 // Settings > Appearance: how the admin looks for everyone in this shop
-// (new design only). Every change previews live on the whole app; leaving
+// (both looks). Every change previews live on the whole app; leaving
 // without saving puts the saved look back.
 export function AppearanceSection() {
   const { t } = useTranslation(['settings', 'common'])
   const { user } = useAuth()
   const { appearance, error: loadError, preview, save } = useAppearance()
-  const { design, setDesign } = useDesign()
   const canEdit = EDITOR_ROLES.includes(user?.role ?? '')
   useFontSamples()
 
@@ -93,14 +91,6 @@ export function AppearanceSection() {
         <h2 className="text-lg font-semibold text-ink">{t('appearance.title')}</h2>
         <p className="mt-1 text-sm text-ink-3">{t('appearance.intro')}</p>
         {loadError && <p role="alert" className="mt-2 text-sm text-danger">{loadError}</p>}
-        {design === 'classic' && (
-          <div className="mt-3 flex items-center gap-3 rounded-lg border border-line bg-sunken px-4 py-3">
-            <p className="flex-1 text-sm text-ink-2">{t('appearance.classicNote')}</p>
-            <button type="button" onClick={() => setDesign('depot')} className="shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium text-accent hover:bg-accent/10">
-              {t('appearance.useNewDesign')}
-            </button>
-          </div>
-        )}
         {!canEdit && <p className="mt-2 text-xs text-ink-3">{t('appearance.readOnly')}</p>}
       </div>
 

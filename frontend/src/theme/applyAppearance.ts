@@ -30,7 +30,7 @@ function upsert<K extends 'style' | 'link'>(doc: Document, tag: K, id: string): 
 }
 
 // applyAppearance puts the shop's look on the page: one unlayered <style>
-// overriding the depot tokens, plus the font's stylesheet when the page
+// overriding the look tokens, plus the font's stylesheet when the page
 // doesn't load it already. The defaults leave no trace.
 export function applyAppearance(doc: Document, applied: AppliedAppearance): void {
   if (applied.css) upsert(doc, 'style', STYLE_ID).textContent = applied.css

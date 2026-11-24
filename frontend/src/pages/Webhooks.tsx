@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 
-import { Webhook, ShieldAlert } from 'lucide-react'
+import { ShieldAlert } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useApp } from '../context/AppContext'
 import { useWebhookForwardRules } from '../integrations/hooks/useWebhookForwardRules'
@@ -69,14 +69,6 @@ export default function Webhooks() {
 
   return (
     <div className="flex flex-col p-5 gap-4">
-      {/* The depot Topbar already names the page. */}
-      <div className="flex items-center gap-2.5 depot:hidden">
-        <div className="w-8 h-8 rounded-lg dark:bg-accent/15 bg-accent/10 flex items-center justify-center shrink-0">
-          <Webhook size={15} className="text-accent" />
-        </div>
-        <h1 className="text-sm font-semibold text-ink">{t('title')}</h1>
-      </div>
-
       <div className="flex gap-1 border-b border-line">
         <button aria-pressed={tab === 'fanout'}
           onClick={() => setTab('fanout')}

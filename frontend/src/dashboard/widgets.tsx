@@ -1,4 +1,3 @@
-import { Calendar } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
@@ -7,14 +6,11 @@ import clsx from 'clsx'
 import i18next from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { seriesColor, useChartTheme } from '../charts/chartTheme'
-import { useAuth } from '../auth/AuthContext'
-import { useExpiringBatches } from '../inventory/hooks/useExpiringBatches'
-import { useDateFormat } from '../format/DateFormatProvider'
 import { Money } from '../format/amountVisibility'
 import type { SalesOrderSource } from '../oms/types'
 import type { DailyStockFlow, TopProduct } from './types'
 
-// Panels shared by the classic Dashboard and the depot Today page.
+// Panels on the Today page.
 
 // Typed over SalesOrderSource so a new source can't ship without a label.
 function channelLabels(): Record<SalesOrderSource, string> {
@@ -100,53 +96,6 @@ export function TopProductsPanel({ products, currency, className }: { products: 
             ))}
           </tbody>
         </table>
-      )}
-    </div>
-  )
-}
-
-export function ExpiringSoonWidget() {
-  const { formatDate } = useDateFormat()
-  const { t } = useTranslation(['dashboard', 'common'])
-  const { token } = useAuth()
-  const { batches, loading, error } = useExpiringBatches(token ?? '', 30)
-
-  return (
-    <div className="bg-raised rounded-xl border border-line overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-        <h3 className="text-sm font-semibold text-ink">{t('expiring.title')}</h3>
-        <span className={clsx('text-2xs px-2 py-0.5 rounded-full font-medium', batches.length > 0 ? 'bg-amber-500/20 text-warning' : 'bg-fill text-ink-3')}>
-          {t('expiring.within', { n: batches.length })}
-        </span>
-      </div>
-      {loading && <p className="px-4 py-4 text-xs text-ink-4">{t('common:status.loading')}</p>}
-      {error && <p className="px-4 py-4 text-xs text-danger">{error}</p>}
-      {!loading && !error && batches.length === 0 && (
-        <p className="px-4 py-4 text-xs text-ink-4">{t('expiring.empty')}</p>
-      )}
-      {!loading && !error && batches.length > 0 && (
-        <div className="divide-y divide-line max-h-64 overflow-auto">
-          {batches.map(b => {
-            const expired = new Date(b.expiry_date).getTime() < Date.now()
-            return (
-              <div key={b.batch_id} className="flex items-start gap-3 px-4 py-3 hover:bg-hover/30 transition-colors">
-                <Calendar size={13} className={clsx('mt-0.5 shrink-0', expired ? 'text-danger' : 'text-warning')} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-ink-2 truncate">{b.product_name}</p>
-                  <p className="text-2xs text-ink-4 font-mono">
-                    {t('expiring.lot', { sku: b.sku_code, lot: b.lot_number || '—', warehouse: b.warehouse_name })}
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs font-medium text-ink">{t('expiring.units', { count: b.quantity })}</p>
-                  <p className={clsx('text-2xs font-mono', expired ? 'text-danger' : 'text-warning')}>
-                    {formatDate(b.expiry_date)}
-                  </p>
-                </div>
-              </div>
-            )
-          })}
-        </div>
       )}
     </div>
   )

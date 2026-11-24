@@ -26,14 +26,14 @@ export function mintToken(role = 'customer_owner'): string {
   return `${header}.${payload}.${signature}`
 }
 
-async function signIn(page: Page, token: string, appearance: 'light' | 'dark' | 'system', design: 'depot' | 'classic') {
+async function signIn(page: Page, token: string, appearance: 'light' | 'dark' | 'system', look: Look) {
   await page.addInitScript(([jwt, theme, look]) => {
     localStorage.setItem('commerceos_jwt', jwt)
     localStorage.setItem('commerceos_scanner_jwt', jwt)
     // Initial appearance only -- a choice made during the test must survive reloads.
     if (localStorage.getItem('commerceos.theme') === null) localStorage.setItem('commerceos.theme', theme)
-    if (localStorage.getItem('commerceos.design') === null) localStorage.setItem('commerceos.design', look)
-  }, [token, appearance, design] as const)
+    if (localStorage.getItem('commerceos.look') === null) localStorage.setItem('commerceos.look', look)
+  }, [token, appearance, look] as const)
 
   const apiOrigin = new URL(API_BASE_URL).origin
   await page.route(`${apiOrigin}/**`, async route => {
@@ -63,19 +63,21 @@ const DEFAULT_APPEARANCE_RESPONSE = {
   corners: 'normal', text_size: 'normal', density: 'comfortable', updated_at: null,
 }
 
+export type Look = 'wallet' | 'graphite'
+
 interface Fixtures {
   token: string
   appearance: 'light' | 'dark' | 'system'
-  design: 'depot' | 'classic'
+  look: Look
 }
 
 export const test = base.extend<Fixtures>({
   appearance: ['light', { option: true }],
-  design: ['depot', { option: true }],
+  look: ['wallet', { option: true }],
   token: async ({}, use) => { await use(CONFIGURED ? mintToken() : '') },
-  page: async ({ page, token, appearance, design }, use) => {
+  page: async ({ page, token, appearance, look }, use) => {
     test.skip(!CONFIGURED, NOT_CONFIGURED_REASON)
-    await signIn(page, token, appearance, design)
+    await signIn(page, token, appearance, look)
     await use(page)
   },
 })

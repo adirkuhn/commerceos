@@ -3,18 +3,13 @@ import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { useApp } from '../context/AppContext'
 import { REPORT_SECTIONS } from '../components/layout/navConfig'
-import { useDesign } from '../theme/useDesign'
 
-// Frame around every report page. In the depot design the sidebar has a
-// single Reports link, so the reports list themselves here, grouped by
-// subject -- the same two-column pattern as Settings. The classic design
-// lists reports in the sidebar and renders the page alone.
+// Frame around every report page. The sidebar has a single Reports link,
+// so the reports list themselves here, grouped by subject -- the same
+// two-column pattern as Settings.
 export function ReportsShell({ children }: { children: ReactNode }) {
-  const { design } = useDesign()
   const { activeNav, setActiveNav } = useApp()
   const { t } = useTranslation('layout')
-
-  if (design !== 'depot') return <>{children}</>
 
   return (
     <div className="flex h-full overflow-hidden">

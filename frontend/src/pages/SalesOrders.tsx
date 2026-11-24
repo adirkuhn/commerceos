@@ -258,7 +258,7 @@ export default function SalesOrders() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Toolbar -- three rows in classic, one band in depot */}
+      {/* Toolbar -- rows that flow into one band (common/listToolbar) */}
       <div className={LIST_TOOLBAR}>
         <div className={clsx('flex items-center justify-end gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0', LIST_TOOLBAR_ROW)}>
           <button
@@ -282,7 +282,7 @@ export default function SalesOrders() {
                   'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
                   sourceFilter.includes(value)
                     ? 'bg-accent-solid text-white'
-                    : 'bg-raised text-ink-3 hover:bg-hover depot:bg-fill depot:hover:bg-hover',
+                    : 'bg-fill text-ink-3 hover:bg-hover',
                 )}
               >
                 {label}
@@ -304,7 +304,7 @@ export default function SalesOrders() {
                   'px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors',
                   statusFilter.includes(s)
                     ? 'bg-accent-solid text-white'
-                    : 'dark:bg-night-800 bg-gray-50 text-ink-3 hover:bg-hover depot:bg-fill depot:hover:bg-hover',
+                    : 'bg-fill text-ink-3 hover:bg-hover',
                 )}
               >
                 {salesOrderStatusLabel(s)}

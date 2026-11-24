@@ -107,7 +107,8 @@
     "signOut": "Sair",
     "showAmounts": "Mostrar valores",
     "hideAmounts": "Ocultar valores",
-    "useClassicDesign": "Usar o design clássico",
-    "useNewDesign": "Usar o novo design"
+    "look": "Estilo",
+    "lookWallet": "Ticket Wallet",
+    "lookGraphite": "Graphite"
   }
 }
