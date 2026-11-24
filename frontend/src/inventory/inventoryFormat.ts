@@ -17,7 +17,7 @@ export function parseOptionalPriceToMinorUnits(price: string): number | null {
 
 // formatSKUQuantity shows a kilo SKU's stock (stored in grams) as kg for
 // readability -- every other SKU's stock is a plain unit count.
-export function formatSKUQuantity(sku: SKU, quantity: number): string {
+export function formatSKUQuantity(sku: Pick<SKU, 'unit_type'>, quantity: number): string {
   if (sku.unit_type === 'kilo') return `${(quantity / 1000).toFixed(2)}kg`
   return String(quantity)
 }

@@ -14,6 +14,7 @@ import type { Batch } from './types'
 import { effectiveLowStockThreshold, stockTone } from './lowStock'
 import { Money } from '../format/amountVisibility'
 import { SKUStockPanel } from './SKUStockPanel'
+import { formatProductStock } from './productStock'
 import { useOnStockInvalidated } from './stockInvalidation'
 import { useDateFormat } from '../format/DateFormatProvider'
 
@@ -144,7 +145,7 @@ export function ProductStockRow({ token, productId, productName, productImageUrl
               'text-xs font-medium tabular-nums',
               tone === 'out' ? 'text-danger' : tone === 'low' ? 'text-warning' : 'text-ink-2',
             )}>
-              {totalStock}
+              {formatProductStock(skus, stockBySKU)}
             </span>
           )}
         </td>
