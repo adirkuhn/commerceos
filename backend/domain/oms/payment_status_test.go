@@ -71,3 +71,30 @@ func TestSalesOrderStatus_ExpectsPaymentRecord(t *testing.T) {
 	}
 	assert.Len(t, omsDomain.PaymentRecordExpectedStatuses(), 6)
 }
+
+func TestSalesOrder_MakesPayingCustomer(t *testing.T) {
+	paidAt := time.Date(2026, 10, 2, 14, 31, 0, 0, time.UTC)
+	cases := []struct {
+		name     string
+		status   omsDomain.SalesOrderStatus
+		datePaid *time.Time
+		want     bool
+	}{
+		{"pending, not paid", omsDomain.SalesOrderStatusPending, nil, false},
+		{"pending with a paid date", omsDomain.SalesOrderStatusPending, &paidAt, true},
+		{"on-hold awaiting confirmation", omsDomain.SalesOrderStatusOnHold, nil, false},
+		{"processing", omsDomain.SalesOrderStatusProcessing, nil, true},
+		{"shipped", omsDomain.SalesOrderStatusShipped, nil, true},
+		{"completed", omsDomain.SalesOrderStatusCompleted, nil, true},
+		{"partially refunded still bought something", omsDomain.SalesOrderStatusPartiallyRefunded, &paidAt, true},
+		{"refunded", omsDomain.SalesOrderStatusRefunded, &paidAt, false},
+		{"failed", omsDomain.SalesOrderStatusFailed, &paidAt, false},
+		{"cancelled, even after paying", omsDomain.SalesOrderStatusCancelled, &paidAt, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			o := omsDomain.SalesOrder{Status: tc.status, DatePaid: tc.datePaid}
+			assert.Equal(t, tc.want, o.MakesPayingCustomer())
+		})
+	}
+}

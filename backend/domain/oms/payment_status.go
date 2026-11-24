@@ -53,6 +53,22 @@ func (o SalesOrder) PaymentStatus() PaymentStatus {
 	}
 }
 
+// MakesPayingCustomer reports whether this order makes its customer a
+// paying customer: it was paid (a partial refund still counts) and was
+// neither cancelled nor fully refunded. The customer repository computes
+// the same rule in SQL (see PayingCustomerSQL); keep the two together.
+func (o SalesOrder) MakesPayingCustomer() bool {
+	if o.Status == SalesOrderStatusCancelled {
+		return false
+	}
+	switch o.PaymentStatus() {
+	case PaymentStatusPaid, PaymentStatusPartiallyRefunded:
+		return true
+	default:
+		return false
+	}
+}
+
 // PaymentReference is the id to look the payment up by: the channel's own
 // TransactionID (e.g. Woo's gateway charge id) when known, else the
 // provider id CommerceOS itself recorded (PaymentExternalID, e.g. a

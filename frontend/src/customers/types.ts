@@ -39,6 +39,7 @@ export interface Customer {
   role?: string
   billing?: Address
   shipping?: Address
+  /** Read-only: worked out from the orders (a paid, not cancelled or refunded one). */
   is_paying_customer: boolean
   avatar_url?: string
   customer_note?: string
@@ -65,7 +66,6 @@ export interface CustomerInput {
   role?: string
   billing?: Address
   shipping?: Address
-  is_paying_customer?: boolean
   avatar_url?: string
   customer_note?: string
 }

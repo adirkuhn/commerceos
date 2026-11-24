@@ -16,7 +16,6 @@ func recordCustomerUpdated(ctx context.Context, outbox eventrecord.Enqueuer, bef
 	changes := eventrecord.NewChanges().
 		Set("woo_customer_id", before.WooCustomerID, after.WooCustomerID).
 		Set("role", before.Role, after.Role).
-		Set("is_paying_customer", before.IsPayingCustomer, after.IsPayingCustomer).
 		Set("customer_type", before.Type, after.Type).
 		Set("company_name", before.CompanyName, after.CompanyName).
 		Set("client_number", before.ClientNumber, after.ClientNumber).

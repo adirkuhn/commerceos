@@ -34,7 +34,7 @@ func TestCreateCustomer_RecordsCreatedWithoutPersonalData(t *testing.T) {
 	e := onlyEvent(t, outbox)
 	assert.Equal(t, "customers.customer.created", e.Subject)
 	assert.Equal(t, "customer-1", e.Payload["entity_id"])
-	assert.Equal(t, map[string]any{"woo_customer_id": float64(7), "role": "customer", "is_paying_customer": false, "customer_type": "private", "client_number": ""}, e.Data())
+	assert.Equal(t, map[string]any{"woo_customer_id": float64(7), "role": "customer", "customer_type": "private", "client_number": ""}, e.Data())
 	assert.NotContains(t, e.Payload, "changes")
 }
 
@@ -48,14 +48,14 @@ func TestUpdateCustomer_RecordsChangesAndPersonalFieldNamesOnly(t *testing.T) {
 	uc := appcustomers.NewUpdateCustomerUseCase(newMockGormDB(t), repo, outbox)
 
 	_, err := uc.Execute(context.Background(), appcustomers.UpdateCustomerInput{
-		ID: "customer-1", Email: "ana@new.example", FirstName: "Ana", Role: "customer", IsPayingCustomer: true,
+		ID: "customer-1", Email: "ana@new.example", FirstName: "Ana", Role: "wholesale",
 		Billing: customersDomain.Address{City: "Amsterdam"},
 	})
 
 	require.NoError(t, err)
 	e := onlyEvent(t, outbox)
 	assert.Equal(t, "customers.customer.updated", e.Subject)
-	assert.Equal(t, map[string][2]any{"is_paying_customer": {false, true}}, e.Changes())
+	assert.Equal(t, map[string][2]any{"role": {"customer", "wholesale"}}, e.Changes())
 	assert.Equal(t, map[string]any{"changed_fields": []any{"billing", "email"}}, e.Data())
 	assert.NotContains(t, e.Payload, "ana@new.example")
 }

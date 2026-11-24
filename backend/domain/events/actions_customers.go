@@ -6,9 +6,9 @@ package events
 // data.changed_fields, without values -- read the customer by entity_id.
 var (
 	CustomerCreated = defineAction("customers.customer.created",
-		"A customer was created. data: woo_customer_id, role, is_paying_customer, customer_type, client_number.")
+		"A customer was created. data: woo_customer_id, role, customer_type, client_number.")
 	CustomerUpdated = defineAction("customers.customer.updated",
-		"A customer changed (changes: woo_customer_id, role, is_paying_customer, customer_type, company_name, client_number, kvk_number, vat_number). data.changed_fields: personal fields that changed (email, first_name, last_name, username, billing, shipping, avatar_url, customer_note), names only.")
+		"A customer changed (changes: woo_customer_id, role, customer_type, company_name, client_number, kvk_number, vat_number). data.changed_fields: personal fields that changed (email, first_name, last_name, username, billing, shipping, avatar_url, customer_note), names only.")
 	CustomerDeleted = defineAction("customers.customer.deleted",
 		"A customer was deleted. data: woo_customer_id.")
 

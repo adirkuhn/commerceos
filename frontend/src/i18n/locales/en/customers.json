@@ -44,7 +44,6 @@
     "general": "General",
     "lastName": "Last name",
     "newTitle": "New customer",
-    "paying": "Paying customer",
     "shipping": {
       "address1": "Shipping address line 1",
       "address2": "Shipping address line 2",

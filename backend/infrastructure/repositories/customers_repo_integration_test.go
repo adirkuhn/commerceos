@@ -104,7 +104,7 @@ func TestCustomerRepo_Integration_CreateFindListUpdateDelete(t *testing.T) {
 			Shipping: customersDomain.Address{
 				FirstName: "Jane", LastName: "Doe", Address1: "456 Oak Ave", City: "Springfield", Country: "US",
 			},
-			IsPayingCustomer: true, AvatarURL: "https://example.com/avatar.png", CustomerNote: "VIP customer",
+			AvatarURL: "https://example.com/avatar.png", CustomerNote: "VIP customer",
 			DateCreated: now, DateModified: now,
 		}
 		if err := customerRepo.Create(ctx, &c); err != nil {
@@ -127,7 +127,7 @@ func TestCustomerRepo_Integration_CreateFindListUpdateDelete(t *testing.T) {
 	require.Equal(t, "123 Main St", found.Billing.Address1)
 	require.Equal(t, "Apt 4", found.Billing.Address2)
 	require.Equal(t, "456 Oak Ave", found.Shipping.Address1)
-	require.True(t, found.IsPayingCustomer)
+	require.False(t, found.IsPayingCustomer, "no orders yet")
 	require.Equal(t, "VIP customer", found.CustomerNote)
 
 	var listed []customersDomain.Customer
@@ -141,7 +141,6 @@ func TestCustomerRepo_Integration_CreateFindListUpdateDelete(t *testing.T) {
 
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {
 		found.FirstName = "Janet"
-		found.IsPayingCustomer = false
 		found.CustomerNote = "Call before delivery"
 		return customerRepo.Update(ctx, found)
 	})
@@ -154,7 +153,6 @@ func TestCustomerRepo_Integration_CreateFindListUpdateDelete(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, "Janet", found.FirstName)
-	require.False(t, found.IsPayingCustomer, "Update via a map must be able to clear a bool back to false")
 	require.Equal(t, "Call before delivery", found.CustomerNote)
 
 	err = tenant.WithTenant(ctx, db, func(ctx context.Context) error {

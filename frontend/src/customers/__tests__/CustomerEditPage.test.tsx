@@ -54,6 +54,17 @@ describe('CustomerEditPage', () => {
     expect(onUpdate.mock.calls[0][1].contact_persons).toBeUndefined()
   })
 
+  it('has no paying-customer switch: it comes from the orders', async () => {
+    const onUpdate = vi.fn().mockResolvedValue(company)
+    render(<CustomerEditPage customer={{ ...company, is_paying_customer: true }} onCreate={vi.fn()} onUpdate={onUpdate} onClose={vi.fn()} />)
+
+    expect(screen.queryByRole('checkbox', { name: 'Paying customer' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(onUpdate).toHaveBeenCalled())
+    expect(onUpdate.mock.calls[0][1]).not.toHaveProperty('is_paying_customer')
+  })
+
   it('a company cannot be saved without its company name', () => {
     render(<CustomerEditPage customer={null} onCreate={vi.fn()} onUpdate={vi.fn()} onClose={vi.fn()} />)
     fireEvent.click(screen.getByRole('radio', { name: 'Company' }))

@@ -133,9 +133,9 @@ Payload (`events.EntityAction`):
 | `customers.contact_person.added` | action | A contact person was added to a company customer. data: customer_id. | envelope |
 | `customers.contact_person.removed` | action | A contact person was removed. data: customer_id. | envelope |
 | `customers.contact_person.updated` | action | A contact person changed. data: customer_id, changed_fields (names only). | envelope |
-| `customers.customer.created` | action | A customer was created. data: woo_customer_id, role, is_paying_customer, customer_type, client_number. | envelope |
+| `customers.customer.created` | action | A customer was created. data: woo_customer_id, role, customer_type, client_number. | envelope |
 | `customers.customer.deleted` | action | A customer was deleted. data: woo_customer_id. | envelope |
-| `customers.customer.updated` | action | A customer changed (changes: woo_customer_id, role, is_paying_customer, customer_type, company_name, client_number, kvk_number, vat_number). data.changed_fields: personal fields that changed (email, first_name, last_name, username, billing, shipping, avatar_url, customer_note), names only. | envelope |
+| `customers.customer.updated` | action | A customer changed (changes: woo_customer_id, role, customer_type, company_name, client_number, kvk_number, vat_number). data.changed_fields: personal fields that changed (email, first_name, last_name, username, billing, shipping, avatar_url, customer_note), names only. | envelope |
 
 ### deadletters
 

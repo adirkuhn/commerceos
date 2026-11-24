@@ -44,7 +44,6 @@
     "general": "Geral",
     "lastName": "Sobrenome",
     "newTitle": "Novo cliente",
-    "paying": "Cliente pagante",
     "shipping": {
       "address1": "Endereço, linha 1 (entrega)",
       "address2": "Endereço, linha 2 (entrega)",

@@ -116,7 +116,7 @@ func (h *Handler) CreateCustomer(c *gin.Context) {
 		KVKNumber: strPtrOr(req.KvkNumber), VATNumber: strPtrOr(req.VatNumber), Type: valueOr(customerType),
 		ContactPersons: toContactPersonInputs(req.ContactPersons), Email: strPtrOr(req.Email), FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
 		Username: strPtrOr(req.Username), Role: strPtrOr(req.Role), Billing: toDomainAddress(req.Billing), Shipping: toDomainAddress(req.Shipping),
-		IsPayingCustomer: boolPtrOr(req.IsPayingCustomer), AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
+		AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
 	})
 	if err := mapError(c, err); err != nil {
 		return
@@ -140,7 +140,7 @@ func (h *Handler) UpdateCustomer(c *gin.Context, id gencustomers.Id) {
 		ID: id, WooCustomerID: req.WooCustomerId, Type: customerType, CompanyName: req.CompanyName, ClientNumber: req.ClientNumber,
 		KVKNumber: req.KvkNumber, VATNumber: req.VatNumber, Email: strPtrOr(req.Email), FirstName: strPtrOr(req.FirstName), LastName: strPtrOr(req.LastName),
 		Username: strPtrOr(req.Username), Role: strPtrOr(req.Role), Billing: toDomainAddress(req.Billing), Shipping: toDomainAddress(req.Shipping),
-		IsPayingCustomer: boolPtrOr(req.IsPayingCustomer), AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
+		AvatarURL: strPtrOr(req.AvatarUrl), CustomerNote: strPtrOr(req.CustomerNote),
 	})
 	if err := mapError(c, err); err != nil {
 		return

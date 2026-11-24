@@ -250,7 +250,12 @@ components:
         role: { type: string }
         billing: { $ref: '#/components/schemas/Address' }
         shipping: { $ref: '#/components/schemas/Address' }
-        is_paying_customer: { type: boolean }
+        is_paying_customer:
+          type: boolean
+          description: >-
+            Read-only. Worked out from the customer's orders, never set: true once an
+            order was paid (a partial refund still counts) and was neither
+            cancelled nor fully refunded.
         avatar_url: { type: string }
         customer_note: { type: string, description: Freeform staff note, editable from the customer detail page. }
         date_created: { type: string, format: date-time }
@@ -283,7 +288,6 @@ components:
         role: { type: string }
         billing: { $ref: '#/components/schemas/Address' }
         shipping: { $ref: '#/components/schemas/Address' }
-        is_paying_customer: { type: boolean }
         avatar_url: { type: string }
         customer_note: { type: string }
 
@@ -307,7 +311,6 @@ components:
         role: { type: string }
         billing: { $ref: '#/components/schemas/Address' }
         shipping: { $ref: '#/components/schemas/Address' }
-        is_paying_customer: { type: boolean }
         avatar_url: { type: string }
         customer_note: { type: string }
 

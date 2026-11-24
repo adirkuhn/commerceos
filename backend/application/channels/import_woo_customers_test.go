@@ -71,7 +71,7 @@ func TestImportWooCustomers_createsANewCustomer(t *testing.T) {
 	assert.Equal(t, "jane@example.com", created.Email)
 	assert.Equal(t, "Jane", created.FirstName)
 	assert.Equal(t, "janedoe", created.Username)
-	assert.True(t, created.IsPayingCustomer)
+	assert.False(t, created.IsPayingCustomer, "worked out from the orders, Woo's flag is not copied")
 	assert.Equal(t, "123 Main St", created.Billing.Address1)
 	assert.Equal(t, "jane@example.com", created.Billing.Email)
 	assert.Equal(t, "456 Oak Ave", created.Shipping.Address1)

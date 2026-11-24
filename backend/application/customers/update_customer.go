@@ -16,21 +16,20 @@ type UpdateCustomerInput struct {
 	WooCustomerID *int64
 	// Type/CompanyName/ClientNumber/KVKNumber/VATNumber: nil keeps the
 	// current value.
-	Type             *customersDomain.Type
-	CompanyName      *string
-	ClientNumber     *string
-	KVKNumber        *string
-	VATNumber        *string
-	Email            string
-	FirstName        string
-	LastName         string
-	Username         string
-	Role             string
-	Billing          customersDomain.Address
-	Shipping         customersDomain.Address
-	IsPayingCustomer bool
-	AvatarURL        string
-	CustomerNote     string
+	Type         *customersDomain.Type
+	CompanyName  *string
+	ClientNumber *string
+	KVKNumber    *string
+	VATNumber    *string
+	Email        string
+	FirstName    string
+	LastName     string
+	Username     string
+	Role         string
+	Billing      customersDomain.Address
+	Shipping     customersDomain.Address
+	AvatarURL    string
+	CustomerNote string
 }
 
 type UpdateCustomerUseCase struct {
@@ -59,7 +58,6 @@ func (uc *UpdateCustomerUseCase) Execute(ctx context.Context, in UpdateCustomerI
 		existing.Role = in.Role
 		existing.Billing = in.Billing
 		existing.Shipping = in.Shipping
-		existing.IsPayingCustomer = in.IsPayingCustomer
 		existing.AvatarURL = in.AvatarURL
 		existing.CustomerNote = in.CustomerNote
 		applyCompanyFields(existing, in)

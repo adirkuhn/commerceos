@@ -28,14 +28,13 @@ type CreateCustomerInput struct {
 	// PhoneE164 is optional -- set by application/whatsapp's new-customer
 	// capture flow (the inbound sender's own number), blank for every
 	// other caller today.
-	PhoneE164        string
-	Username         string
-	Role             string
-	Billing          customersDomain.Address
-	Shipping         customersDomain.Address
-	IsPayingCustomer bool
-	AvatarURL        string
-	CustomerNote     string
+	PhoneE164    string
+	Username     string
+	Role         string
+	Billing      customersDomain.Address
+	Shipping     customersDomain.Address
+	AvatarURL    string
+	CustomerNote string
 	// ContactPersons are added with the customer, in the same
 	// transaction; the first is the main one. Needs WithContactPersons.
 	ContactPersons []ContactPersonInput
@@ -76,14 +75,14 @@ func (uc *CreateCustomerUseCase) Execute(ctx context.Context, in CreateCustomerI
 			Type: probe.TypeOrPrivate(), CompanyName: in.CompanyName, ClientNumber: in.ClientNumber, KVKNumber: in.KVKNumber, VATNumber: in.VATNumber,
 			Email: in.Email, FirstName: in.FirstName, LastName: in.LastName, PhoneE164: in.PhoneE164,
 			Username: in.Username, Role: in.Role, Billing: in.Billing, Shipping: in.Shipping,
-			IsPayingCustomer: in.IsPayingCustomer, AvatarURL: in.AvatarURL, CustomerNote: in.CustomerNote,
+			AvatarURL: in.AvatarURL, CustomerNote: in.CustomerNote,
 			DateCreated: now, DateModified: now,
 		}
 		if err := uc.customerRepo.Create(ctx, &customer); err != nil {
 			return err
 		}
 		if err := eventrecord.Record(ctx, uc.outbox, events.CustomerCreated, customer.ID, eventrecord.Data{
-			"woo_customer_id": customer.WooCustomerID, "role": customer.Role, "is_paying_customer": customer.IsPayingCustomer,
+			"woo_customer_id": customer.WooCustomerID, "role": customer.Role,
 			"customer_type": customer.Type, "client_number": customer.ClientNumber,
 		}); err != nil {
 			return err

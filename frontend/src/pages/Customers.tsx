@@ -26,7 +26,7 @@ const PAGE_SIZE = 20
 function customerToInput(c: Customer): CustomerInput {
   return {
     email: c.email, first_name: c.first_name, last_name: c.last_name, username: c.username, role: c.role,
-    billing: c.billing, shipping: c.shipping, is_paying_customer: c.is_paying_customer, avatar_url: c.avatar_url,
+    billing: c.billing, shipping: c.shipping, avatar_url: c.avatar_url,
     customer_note: c.customer_note,
   }
 }

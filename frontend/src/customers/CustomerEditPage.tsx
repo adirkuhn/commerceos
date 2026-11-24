@@ -25,7 +25,6 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
   const [identity, setIdentity] = useState<IdentityDraft>(() => customer ? identityFromCustomer(customer) : emptyIdentity('private'))
   const [billing, setBilling] = useState<Address>({ ...emptyAddress(), ...customer?.billing })
   const [shipping, setShipping] = useState<Address>({ ...emptyAddress(), ...customer?.shipping })
-  const [isPayingCustomer, setIsPayingCustomer] = useState(customer?.is_paying_customer ?? false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
@@ -39,7 +38,6 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
     setIdentity(identityFromCustomer(customer))
     setBilling({ ...emptyAddress(), ...customer.billing })
     setShipping({ ...emptyAddress(), ...customer.shipping })
-    setIsPayingCustomer(customer.is_paying_customer ?? false)
     setHydrated(true)
   }
 
@@ -53,7 +51,7 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
       const billingCompany = identity.type === 'company' && !billing.company?.trim() ? { company: identity.company_name.trim() } : {}
       const input: CustomerInput = {
         ...identityToInput(identity, { withContactPerson: !customer }),
-        billing: { ...billing, ...billingCompany }, shipping, is_paying_customer: isPayingCustomer,
+        billing: { ...billing, ...billingCompany }, shipping,
       }
       if (customer) {
         await onUpdate(customer.id, input)
@@ -103,13 +101,7 @@ export function CustomerEditPage({ customer, onCreate, onUpdate, onClose }: Cust
         <div className="max-w-2xl mx-auto p-6 space-y-5">
           <form id="customer-form" onSubmit={handleSave} className="space-y-5">
             <div className="rounded-xl border border-line p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-ink">{t('edit.general')}</h3>
-                <label className="flex items-center gap-1.5 text-2xs text-ink-3">
-                  <input type="checkbox" checked={isPayingCustomer} onChange={e => setIsPayingCustomer(e.target.checked)} />
-                  {t('edit.paying')}
-                </label>
-              </div>
+              <h3 className="text-xs font-semibold text-ink">{t('edit.general')}</h3>
               <CustomerIdentityFields idPrefix="customer" value={identity} onChange={setIdentity} showContactPerson={!customer} />
               {formError && (
                 <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{formError}</p>

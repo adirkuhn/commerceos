@@ -137,7 +137,7 @@ func (uc *ImportWooCustomersUseCase) importOne(ctx context.Context, woo integrat
 			Email: woo.Email, FirstName: woo.FirstName, LastName: woo.LastName,
 			Username: woo.Username, Role: woo.Role,
 			Billing: wooAddressToCustomerAddress(woo.Billing), Shipping: wooAddressToCustomerAddress(woo.Shipping),
-			IsPayingCustomer: woo.IsPayingCustomer, AvatarURL: woo.AvatarURL,
+			AvatarURL:   woo.AvatarURL,
 			DateCreated: dateCreated, DateModified: dateModified,
 		}
 		if err := uc.customerRepo.Create(ctx, &customer); err != nil {

@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	customersDomain "github.com/adirkuhn/commerceos/domain/customers"
+	omsDomain "github.com/adirkuhn/commerceos/domain/oms"
 	"github.com/adirkuhn/commerceos/internal/txctx"
 )
 
@@ -57,7 +58,10 @@ type customerModel struct {
 	ShippingCountry   string
 	ShippingPhone     string
 
-	IsPayingCustomer bool
+	// IsPayingCustomer is read-only, worked out by every read from the
+	// customer's orders (see withPaying); the old is_paying_customer
+	// column is no longer read or written.
+	IsPayingCustomer bool   `gorm:"column:has_paid_order;->"`
 	AvatarURL        string `gorm:"column:avatar_url"`
 	CustomerNote     string `gorm:"column:customer_note"`
 
@@ -81,7 +85,7 @@ func customerModelFromDomain(c *customersDomain.Customer) customerModel {
 		ShippingFirstName: sFirst, ShippingLastName: sLast, ShippingCompany: sCompany,
 		ShippingAddress1: sAddr1, ShippingAddress2: sAddr2, ShippingCity: sCity, ShippingState: sState,
 		ShippingPostcode: sPostcode, ShippingCountry: sCountry, ShippingPhone: sPhone,
-		IsPayingCustomer: c.IsPayingCustomer, AvatarURL: c.AvatarURL, CustomerNote: c.CustomerNote,
+		AvatarURL: c.AvatarURL, CustomerNote: c.CustomerNote,
 		DateCreated: c.DateCreated, DateModified: c.DateModified,
 	}
 }
@@ -123,6 +127,28 @@ func (r *CustomerRepo) tx(ctx context.Context) (*gorm.DB, error) {
 		return nil, errors.New("customerRepo: operation called outside a transaction")
 	}
 	return tx.WithContext(ctx), nil
+}
+
+// PayingCustomerSQL is omsDomain.SalesOrder.MakesPayingCustomer in SQL, for
+// an order row aliased o: paid (a partial refund still counts), neither
+// cancelled nor fully refunded nor failed.
+var PayingCustomerSQL = fmt.Sprintf(
+	"o.status <> '%s' AND (o.status IN ('%s','%s','%s','%s') OR (o.date_paid IS NOT NULL AND o.status NOT IN ('%s','%s')))",
+	omsDomain.SalesOrderStatusCancelled,
+	omsDomain.SalesOrderStatusProcessing, omsDomain.SalesOrderStatusShipped, omsDomain.SalesOrderStatusCompleted,
+	omsDomain.SalesOrderStatusPartiallyRefunded,
+	omsDomain.SalesOrderStatusFailed, omsDomain.SalesOrderStatusRefunded,
+)
+
+// reads selects the customer columns plus has_paid_order, the
+// customer's paying status worked out from their orders.
+func (r *CustomerRepo) reads(ctx context.Context) (*gorm.DB, error) {
+	tx, err := r.tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return tx.Model(&customerModel{}).Select("customers.*, EXISTS (SELECT 1 FROM sales_orders o WHERE o.customer_id = customers.id AND " +
+		PayingCustomerSQL + ") AS has_paid_order"), nil
 }
 
 func (r *CustomerRepo) Create(ctx context.Context, c *customersDomain.Customer) error {
@@ -178,7 +204,7 @@ func customerConstraintError(err error) error {
 }
 
 func (r *CustomerRepo) FindByID(ctx context.Context, id string) (*customersDomain.Customer, error) {
-	tx, err := r.tx(ctx)
+	tx, err := r.reads(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +219,7 @@ func (r *CustomerRepo) FindByID(ctx context.Context, id string) (*customersDomai
 }
 
 func (r *CustomerRepo) FindByWooCustomerID(ctx context.Context, wooCustomerID int64) (*customersDomain.Customer, error) {
-	tx, err := r.tx(ctx)
+	tx, err := r.reads(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +235,7 @@ func (r *CustomerRepo) FindByWooCustomerID(ctx context.Context, wooCustomerID in
 }
 
 func (r *CustomerRepo) FindByEmail(ctx context.Context, email string) (*customersDomain.Customer, error) {
-	tx, err := r.tx(ctx)
+	tx, err := r.reads(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +254,7 @@ func (r *CustomerRepo) FindByPhoneE164(ctx context.Context, phoneE164 string) (*
 	if phoneE164 == "" {
 		return nil, nil
 	}
-	tx, err := r.tx(ctx)
+	tx, err := r.reads(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +270,7 @@ func (r *CustomerRepo) FindByPhoneE164(ctx context.Context, phoneE164 string) (*
 }
 
 func (r *CustomerRepo) List(ctx context.Context) ([]customersDomain.Customer, error) {
-	tx, err := r.tx(ctx)
+	tx, err := r.reads(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +289,7 @@ func (r *CustomerRepo) Search(ctx context.Context, query string, limit int) ([]c
 	if query == "" {
 		return nil, nil
 	}
-	tx, err := r.tx(ctx)
+	tx, err := r.reads(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -309,8 +335,7 @@ func (r *CustomerRepo) Update(ctx context.Context, c *customersDomain.Customer) 
 	m := customerModelFromDomain(c)
 	// A map, not the struct itself -- GORM's struct-based Updates silently
 	// skips zero-value fields (false, "", nil), which would make it
-	// impossible to e.g. clear IsPayingCustomer back to false or blank out
-	// an address field.
+	// impossible to e.g. blank out an address field.
 	values := map[string]any{
 		"customer_type": m.CustomerType, "company_name": m.CompanyName, "client_number": m.ClientNumber,
 		"kvk_number": m.KVKNumber, "vat_number": m.VATNumber,
@@ -323,8 +348,8 @@ func (r *CustomerRepo) Update(ctx context.Context, c *customersDomain.Customer) 
 		"shipping_first_name": m.ShippingFirstName, "shipping_last_name": m.ShippingLastName, "shipping_company": m.ShippingCompany,
 		"shipping_address_1": m.ShippingAddress1, "shipping_address_2": m.ShippingAddress2, "shipping_city": m.ShippingCity,
 		"shipping_state": m.ShippingState, "shipping_postcode": m.ShippingPostcode, "shipping_country": m.ShippingCountry,
-		"shipping_phone":     m.ShippingPhone,
-		"is_paying_customer": m.IsPayingCustomer, "avatar_url": m.AvatarURL, "customer_note": m.CustomerNote, "date_modified": m.DateModified,
+		"shipping_phone": m.ShippingPhone,
+		"avatar_url":     m.AvatarURL, "customer_note": m.CustomerNote, "date_modified": m.DateModified,
 	}
 	if err := tx.Model(&customerModel{}).Where("id = ?", c.ID).Updates(values).Error; err != nil {
 		if mapped := customerConstraintError(err); mapped != nil {

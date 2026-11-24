@@ -119,17 +119,16 @@ type CreateCustomerRequest struct {
 	CustomerNote   *string                 `json:"customer_note,omitempty"`
 
 	// CustomerType A company is named by its company name and has contact persons; a private customer by the person.
-	CustomerType     *CustomerType `json:"customer_type,omitempty"`
-	Email            *string       `json:"email,omitempty"`
-	FirstName        *string       `json:"first_name,omitempty"`
-	IsPayingCustomer *bool         `json:"is_paying_customer,omitempty"`
-	KvkNumber        *string       `json:"kvk_number,omitempty"`
-	LastName         *string       `json:"last_name,omitempty"`
-	Role             *string       `json:"role,omitempty"`
-	Shipping         *Address      `json:"shipping,omitempty"`
-	Username         *string       `json:"username,omitempty"`
-	VatNumber        *string       `json:"vat_number,omitempty"`
-	WooCustomerId    *int64        `json:"woo_customer_id,omitempty"`
+	CustomerType  *CustomerType `json:"customer_type,omitempty"`
+	Email         *string       `json:"email,omitempty"`
+	FirstName     *string       `json:"first_name,omitempty"`
+	KvkNumber     *string       `json:"kvk_number,omitempty"`
+	LastName      *string       `json:"last_name,omitempty"`
+	Role          *string       `json:"role,omitempty"`
+	Shipping      *Address      `json:"shipping,omitempty"`
+	Username      *string       `json:"username,omitempty"`
+	VatNumber     *string       `json:"vat_number,omitempty"`
+	WooCustomerId *int64        `json:"woo_customer_id,omitempty"`
 }
 
 // Customer defines model for Customer.
@@ -150,11 +149,13 @@ type Customer struct {
 	DateModified time.Time    `json:"date_modified"`
 
 	// DisplayName The company name for a company; else the person, billing company or email.
-	DisplayName      string `json:"display_name"`
-	Email            string `json:"email"`
-	FirstName        string `json:"first_name"`
-	Id               string `json:"id"`
-	IsPayingCustomer bool   `json:"is_paying_customer"`
+	DisplayName string `json:"display_name"`
+	Email       string `json:"email"`
+	FirstName   string `json:"first_name"`
+	Id          string `json:"id"`
+
+	// IsPayingCustomer Read-only. Worked out from the customer's orders, never set: true once an order was paid (a partial refund still counts) and was neither cancelled nor fully refunded.
+	IsPayingCustomer bool `json:"is_paying_customer"`
 
 	// KvkNumber Dutch Chamber of Commerce (KVK) number.
 	KvkNumber string   `json:"kvk_number"`
@@ -210,17 +211,16 @@ type UpdateCustomerRequest struct {
 	CustomerNote *string `json:"customer_note,omitempty"`
 
 	// CustomerType A company is named by its company name and has contact persons; a private customer by the person.
-	CustomerType     *CustomerType `json:"customer_type,omitempty"`
-	Email            *string       `json:"email,omitempty"`
-	FirstName        *string       `json:"first_name,omitempty"`
-	IsPayingCustomer *bool         `json:"is_paying_customer,omitempty"`
-	KvkNumber        *string       `json:"kvk_number,omitempty"`
-	LastName         *string       `json:"last_name,omitempty"`
-	Role             *string       `json:"role,omitempty"`
-	Shipping         *Address      `json:"shipping,omitempty"`
-	Username         *string       `json:"username,omitempty"`
-	VatNumber        *string       `json:"vat_number,omitempty"`
-	WooCustomerId    *int64        `json:"woo_customer_id,omitempty"`
+	CustomerType  *CustomerType `json:"customer_type,omitempty"`
+	Email         *string       `json:"email,omitempty"`
+	FirstName     *string       `json:"first_name,omitempty"`
+	KvkNumber     *string       `json:"kvk_number,omitempty"`
+	LastName      *string       `json:"last_name,omitempty"`
+	Role          *string       `json:"role,omitempty"`
+	Shipping      *Address      `json:"shipping,omitempty"`
+	Username      *string       `json:"username,omitempty"`
+	VatNumber     *string       `json:"vat_number,omitempty"`
+	WooCustomerId *int64        `json:"woo_customer_id,omitempty"`
 }
 
 // WhatsAppMessage defines model for WhatsAppMessage.
@@ -593,39 +593,41 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"/wYAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
