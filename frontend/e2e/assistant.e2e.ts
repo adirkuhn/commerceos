@@ -14,7 +14,8 @@ test('assistant: ask, land on the queued request, refresh, cancel', async ({ pag
   await expect(page).toHaveURL(/\/assistant\/[0-9a-f-]{36}$/)
   await expect(page.getByRole('heading', { name: question })).toBeVisible()
   await expect(page.getByText(question).last()).toBeVisible()
-  await expect(page.getByText(/Waiting in the queue|Assistant is thinking|No AI provider is connected/)).toBeVisible()
+  // The thread's waiting status (the chat history repeats the reason).
+  await expect(page.getByText(/Waiting in the queue|Assistant is thinking/).first()).toBeVisible()
 
   // Own URL: a refresh shows the same chat.
   await page.reload()
