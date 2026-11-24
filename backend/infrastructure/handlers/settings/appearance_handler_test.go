@@ -51,20 +51,17 @@ func (s *stubUpdateAppearance) Execute(_ context.Context, in settingsDomain.Appe
 
 func appearanceBody() map[string]any {
 	return map[string]any{
-		"font": "inter", "accent_color": "#2f33b8", "sidebar_color": "#14163F",
-		"corners": "round", "text_size": "large", "density": "compact",
+		"default_look": "graphite", "corners": "round", "text_size": "large", "density": "compact",
 	}
 }
 
 type appearanceEnvelope struct {
 	Data *struct {
-		Font         string  `json:"font"`
-		AccentColor  string  `json:"accent_color"`
-		SidebarColor string  `json:"sidebar_color"`
-		Corners      string  `json:"corners"`
-		TextSize     string  `json:"text_size"`
-		Density      string  `json:"density"`
-		UpdatedAt    *string `json:"updated_at"`
+		DefaultLook string  `json:"default_look"`
+		Corners     string  `json:"corners"`
+		TextSize    string  `json:"text_size"`
+		Density     string  `json:"density"`
+		UpdatedAt   *string `json:"updated_at"`
 	} `json:"data"`
 	Error *struct {
 		Code    string `json:"code"`
@@ -88,9 +85,10 @@ func TestGetAppearance_neverSavedReturnsDefaultsWithNullUpdatedAt(t *testing.T) 
 	assert.Contains(t, w.Body.String(), `"updated_at":null`)
 	body := decodeAppearance(t, w.Body.Bytes())
 	require.NotNil(t, body.Data)
-	assert.Equal(t, "atkinson", body.Data.Font)
-	assert.Equal(t, "#2F33B8", body.Data.AccentColor)
-	assert.Equal(t, "#14163F", body.Data.SidebarColor)
+	assert.Equal(t, "wallet", body.Data.DefaultLook)
+	for _, retired := range []string{"font", "accent_color", "sidebar_color"} {
+		assert.NotContains(t, w.Body.String(), `"`+retired+`"`, "retired field")
+	}
 	assert.Equal(t, "normal", body.Data.Corners)
 	assert.Equal(t, "normal", body.Data.TextSize)
 	assert.Equal(t, "comfortable", body.Data.Density)
@@ -99,7 +97,7 @@ func TestGetAppearance_neverSavedReturnsDefaultsWithNullUpdatedAt(t *testing.T) 
 
 func TestGetAppearance_returnsSaved(t *testing.T) {
 	saved := settingsDomain.Appearance{
-		TenantID: "tenant-1", Font: settingsDomain.FontBarlow, AccentColor: "#767676", SidebarColor: "#FFFFFF",
+		TenantID: "tenant-1", DefaultLook: settingsDomain.LookGraphite,
 		Corners: settingsDomain.CornersSharp, TextSize: settingsDomain.TextSizeLarger, Density: settingsDomain.DensityCompact,
 		UpdatedAt: time.Date(2026, 10, 1, 8, 0, 0, 0, time.UTC),
 	}
@@ -109,7 +107,7 @@ func TestGetAppearance_returnsSaved(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code)
 	body := decodeAppearance(t, w.Body.Bytes())
-	assert.Equal(t, "barlow", body.Data.Font)
+	assert.Equal(t, "graphite", body.Data.DefaultLook)
 	assert.Equal(t, "larger", body.Data.TextSize)
 	require.NotNil(t, body.Data.UpdatedAt)
 	assert.Equal(t, "2026-10-01T08:00:00Z", *body.Data.UpdatedAt)
@@ -133,10 +131,10 @@ func TestUpdateAppearance_passesInputAndReturnsSaved(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Equal(t, settingsDomain.AppearanceInput{
-		Font: "inter", AccentColor: "#2f33b8", SidebarColor: "#14163F", Corners: "round", TextSize: "large", Density: "compact",
+		DefaultLook: "graphite", Corners: "round", TextSize: "large", Density: "compact",
 	}, update.gotInput)
 	body := decodeAppearance(t, w.Body.Bytes())
-	assert.Equal(t, "#2F33B8", body.Data.AccentColor, "normalised to upper case")
+	assert.Equal(t, "graphite", body.Data.DefaultLook)
 	assert.Equal(t, "compact", body.Data.Density)
 	require.NotNil(t, body.Data.UpdatedAt)
 	assert.Equal(t, "2026-10-12T09:00:00Z", *body.Data.UpdatedAt)
@@ -154,13 +152,10 @@ func TestUpdateAppearance_eachInvalidFieldIs422WithItsCode(t *testing.T) {
 	cases := map[string]struct {
 		field, value, code string
 	}{
-		"font":            {"font", "comic_sans", "APPEARANCE_INVALID_FONT"},
-		"accent not hex":  {"accent_color", "blue", "APPEARANCE_INVALID_COLOR"},
-		"sidebar not hex": {"sidebar_color", "#12345", "APPEARANCE_INVALID_COLOR"},
-		"low contrast":    {"accent_color", "#FFFF00", "APPEARANCE_ACCENT_LOW_CONTRAST"},
-		"corners":         {"corners", "pill", "APPEARANCE_INVALID_CORNERS"},
-		"text size":       {"text_size", "huge", "APPEARANCE_INVALID_TEXT_SIZE"},
-		"density":         {"density", "cosy", "APPEARANCE_INVALID_DENSITY"},
+		"default look": {"default_look", "classic", "APPEARANCE_INVALID_LOOK"},
+		"corners":      {"corners", "pill", "APPEARANCE_INVALID_CORNERS"},
+		"text size":    {"text_size", "huge", "APPEARANCE_INVALID_TEXT_SIZE"},
+		"density":      {"density", "cosy", "APPEARANCE_INVALID_DENSITY"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

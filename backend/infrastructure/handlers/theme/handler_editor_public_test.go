@@ -40,10 +40,12 @@ func TestEditor_openDraftRunsAsTheSessionTenant(t *testing.T) {
 	assert.Equal(t, "tenant-1", tenant.IDFromContext(s.gotCtx))
 }
 
-// The editor's own controls wear the shop's admin appearance.
+// The editor's own controls wear the shop's admin appearance. Font and
+// colours are no longer shop settings: the editor gets the fixed former
+// defaults so its contract stays stable.
 func TestEditor_openDraftIncludesTheSavedAppearance(t *testing.T) {
 	s := &stub{session: editSession(), appearance: &settingsDomain.Appearance{
-		TenantID: "tenant-1", Font: settingsDomain.FontBarlow, AccentColor: "#8A1C1C", SidebarColor: "#102030",
+		TenantID: "tenant-1", DefaultLook: settingsDomain.LookGraphite,
 		Corners: settingsDomain.CornersRound, TextSize: settingsDomain.TextSizeLarger, Density: settingsDomain.DensityCompact,
 		UpdatedAt: testNow,
 	}}
@@ -51,7 +53,7 @@ func TestEditor_openDraftIncludesTheSavedAppearance(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Equal(t, map[string]any{
-		"font": "barlow", "accent_color": "#8A1C1C", "sidebar_color": "#102030",
+		"font": "atkinson", "accent_color": "#2F33B8", "sidebar_color": "#14163F",
 		"corners": "round", "text_size": "larger", "density": "compact",
 	}, decode(t, w)["data"].(map[string]any)["appearance"])
 	assert.Equal(t, "tenant-1", tenant.IDFromContext(s.gotAppearCtx), "read as the session's tenant")

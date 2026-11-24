@@ -125,8 +125,7 @@ paths:
         '422':
           description: >
             Validation failed. error.code is one of
-            APPEARANCE_INVALID_FONT, APPEARANCE_INVALID_COLOR,
-            APPEARANCE_ACCENT_LOW_CONTRAST, APPEARANCE_INVALID_CORNERS,
+            APPEARANCE_INVALID_LOOK, APPEARANCE_INVALID_CORNERS,
             APPEARANCE_INVALID_TEXT_SIZE, APPEARANCE_INVALID_DENSITY.
           content:
             application/json:
@@ -454,13 +453,12 @@ components:
         data: { $ref: '#/components/schemas/CompanyProfile' }
         error: { nullable: true }
 
-    AppearanceFont:
+    AppearanceLook:
       type: string
-      enum: [atkinson, inter, ibm_plex_sans, source_sans, barlow]
+      enum: [wallet, graphite]
       description: >
-        Admin typeface. atkinson = Atkinson Hyperlegible Next (default,
-        built for legibility), ibm_plex_sans = IBM Plex Sans,
-        source_sans = Source Sans 3.
+        Admin look, each with a light and a dark variant. wallet = Ticket
+        Wallet (default).
     AppearanceCorners:
       type: string
       enum: [sharp, normal, round]
@@ -470,24 +468,15 @@ components:
     AppearanceDensity:
       type: string
       enum: [compact, comfortable]
-    HexColor:
-      type: string
-      pattern: '^#[0-9a-fA-F]{6}$'
-      example: '#2F33B8'
     AppearanceInput:
       type: object
-      required: [font, accent_color, sidebar_color, corners, text_size, density]
+      required: [default_look, corners, text_size, density]
       properties:
-        font: { $ref: '#/components/schemas/AppearanceFont' }
-        accent_color:
-          allOf: [{ $ref: '#/components/schemas/HexColor' }]
+        default_look:
+          allOf: [{ $ref: '#/components/schemas/AppearanceLook' }]
           description: >
-            Buttons, links and active states. Filled buttons put white text
-            on it, so it must reach a 4.5:1 contrast ratio with white
-            (WCAG AA) -- APPEARANCE_ACCENT_LOW_CONTRAST otherwise.
-        sidebar_color:
-          allOf: [{ $ref: '#/components/schemas/HexColor' }]
-          description: Sidebar background; its text colour is derived from it.
+            The look everyone in the shop sees unless they pick another one
+            for themselves in their own browser.
         corners: { $ref: '#/components/schemas/AppearanceCorners' }
         text_size: { $ref: '#/components/schemas/AppearanceTextSize' }
         density: { $ref: '#/components/schemas/AppearanceDensity' }

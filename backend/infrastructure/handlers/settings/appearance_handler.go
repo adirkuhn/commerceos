@@ -49,8 +49,7 @@ func (h *AppearanceHandler) UpdateAppearance(c *gin.Context) {
 		return
 	}
 	a, err := h.update.Execute(c.Request.Context(), settingsDomain.AppearanceInput{
-		Font: string(req.Font), AccentColor: req.AccentColor, SidebarColor: req.SidebarColor,
-		Corners: string(req.Corners), TextSize: string(req.TextSize), Density: string(req.Density),
+		DefaultLook: string(req.DefaultLook), Corners: string(req.Corners), TextSize: string(req.TextSize), Density: string(req.Density),
 	})
 	if err != nil {
 		failAppearance(c, err)
@@ -61,11 +60,9 @@ func (h *AppearanceHandler) UpdateAppearance(c *gin.Context) {
 }
 
 // appearanceValidationErrors answer 422 with their own code (domain/errs),
-// e.g. APPEARANCE_ACCENT_LOW_CONTRAST.
+// e.g. APPEARANCE_INVALID_LOOK.
 var appearanceValidationErrors = []error{
-	settingsDomain.ErrInvalidAppearanceFont,
-	settingsDomain.ErrInvalidAppearanceColor,
-	settingsDomain.ErrAppearanceAccentLowContrast,
+	settingsDomain.ErrInvalidAppearanceLook,
 	settingsDomain.ErrInvalidAppearanceCorners,
 	settingsDomain.ErrInvalidAppearanceTextSize,
 	settingsDomain.ErrInvalidAppearanceDensity,
@@ -84,8 +81,7 @@ func failAppearance(c *gin.Context, err error) {
 
 func toGenAppearance(a settingsDomain.Appearance) gensettings.Appearance {
 	out := gensettings.Appearance{
-		Font: gensettings.AppearanceFont(a.Font), AccentColor: string(a.AccentColor), SidebarColor: string(a.SidebarColor),
-		Corners: gensettings.AppearanceCorners(a.Corners), TextSize: gensettings.AppearanceTextSize(a.TextSize),
+		DefaultLook: gensettings.AppearanceLook(a.DefaultLook), Corners: gensettings.AppearanceCorners(a.Corners), TextSize: gensettings.AppearanceTextSize(a.TextSize),
 		Density: gensettings.AppearanceDensity(a.Density),
 	}
 	if !a.UpdatedAt.IsZero() { // zero: never saved, still the defaults

@@ -50,9 +50,7 @@ func (uc *UpdateAppearanceUseCase) Execute(ctx context.Context, in settingsDomai
 
 func appearanceChanges(before, after settingsDomain.Appearance) eventrecord.Changes {
 	return eventrecord.NewChanges().
-		Set("font", string(before.Font), string(after.Font)).
-		Set("accent_color", string(before.AccentColor), string(after.AccentColor)).
-		Set("sidebar_color", string(before.SidebarColor), string(after.SidebarColor)).
+		Set("default_look", string(before.DefaultLook), string(after.DefaultLook)).
 		Set("corners", string(before.Corners), string(after.Corners)).
 		Set("text_size", string(before.TextSize), string(after.TextSize)).
 		Set("density", string(before.Density), string(after.Density))

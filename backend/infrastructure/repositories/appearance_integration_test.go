@@ -38,7 +38,7 @@ func TestAppearanceRepo_UpsertThenGet(t *testing.T) {
 	first := settingsDomain.DefaultAppearance(tenantID)
 	first.UpdatedAt = now
 	second := settingsDomain.Appearance{
-		TenantID: tenantID, Font: settingsDomain.FontBarlow, AccentColor: "#767676", SidebarColor: "#FFFFFF",
+		TenantID: tenantID, DefaultLook: settingsDomain.LookGraphite,
 		Corners: settingsDomain.CornersSharp, TextSize: settingsDomain.TextSizeLarger, Density: settingsDomain.DensityCompact,
 		UpdatedAt: now.Add(time.Minute),
 	}

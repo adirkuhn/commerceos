@@ -14,16 +14,16 @@ import (
 )
 
 type appearanceModel struct {
-	TenantID     string    `gorm:"column:tenant_id;primaryKey;type:uuid"`
-	Font         string    `gorm:"column:font"`
-	AccentColor  string    `gorm:"column:accent_color"`
-	SidebarColor string    `gorm:"column:sidebar_color"`
-	Corners      string    `gorm:"column:corners"`
-	TextSize     string    `gorm:"column:text_size"`
-	Density      string    `gorm:"column:density"`
-	UpdatedAt    time.Time `gorm:"column:updated_at"`
+	TenantID    string    `gorm:"column:tenant_id;primaryKey;type:uuid"`
+	DefaultLook string    `gorm:"column:default_look"`
+	Corners     string    `gorm:"column:corners"`
+	TextSize    string    `gorm:"column:text_size"`
+	Density     string    `gorm:"column:density"`
+	UpdatedAt   time.Time `gorm:"column:updated_at"`
 }
 
+// The retired font/accent_color/sidebar_color columns are left to their
+// defaults (migration 254) until a later migration drops them.
 func (appearanceModel) TableName() string { return "tenant_appearance" }
 
 // AppearanceRepo implements settings.AppearanceRepository.
@@ -55,8 +55,7 @@ func (r *AppearanceRepo) Get(ctx context.Context) (*settingsDomain.Appearance, e
 	}
 	m := rows[0]
 	return &settingsDomain.Appearance{
-		TenantID: m.TenantID, Font: settingsDomain.AppearanceFont(m.Font),
-		AccentColor: settingsDomain.HexColor(m.AccentColor), SidebarColor: settingsDomain.HexColor(m.SidebarColor),
+		TenantID: m.TenantID, DefaultLook: settingsDomain.AppearanceLook(m.DefaultLook),
 		Corners: settingsDomain.AppearanceCorners(m.Corners), TextSize: settingsDomain.AppearanceTextSize(m.TextSize),
 		Density: settingsDomain.AppearanceDensity(m.Density), UpdatedAt: m.UpdatedAt,
 	}, nil
@@ -68,12 +67,12 @@ func (r *AppearanceRepo) Upsert(ctx context.Context, a *settingsDomain.Appearanc
 		return err
 	}
 	m := appearanceModel{
-		TenantID: a.TenantID, Font: string(a.Font), AccentColor: string(a.AccentColor), SidebarColor: string(a.SidebarColor),
+		TenantID: a.TenantID, DefaultLook: string(a.DefaultLook),
 		Corners: string(a.Corners), TextSize: string(a.TextSize), Density: string(a.Density), UpdatedAt: a.UpdatedAt,
 	}
 	err = tx.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "tenant_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"font", "accent_color", "sidebar_color", "corners", "text_size", "density", "updated_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"default_look", "corners", "text_size", "density", "updated_at"}),
 	}).Create(&m).Error
 	if err != nil {
 		return fmt.Errorf("appearanceRepo.Upsert: %w", err)

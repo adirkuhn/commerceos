@@ -273,9 +273,18 @@ func styleOr(s *gentheme.ThemeSettingsStyle) string {
 	return string(*s)
 }
 
+// The shop no longer picks the admin font and colours (Settings >
+// Appearance now picks a look); the storefront editor still reads them, so
+// it gets the former defaults.
+const (
+	editorFont         = gentheme.Atkinson
+	editorAccentColor  = "#2F33B8"
+	editorSidebarColor = "#14163F"
+)
+
 func toGenEditorAppearance(a settingsDomain.Appearance) gentheme.EditorAppearance {
 	return gentheme.EditorAppearance{
-		Font: gentheme.EditorAppearanceFont(a.Font), AccentColor: string(a.AccentColor), SidebarColor: string(a.SidebarColor),
+		Font: editorFont, AccentColor: editorAccentColor, SidebarColor: editorSidebarColor,
 		Corners: gentheme.EditorAppearanceCorners(a.Corners), TextSize: gentheme.EditorAppearanceTextSize(a.TextSize),
 		Density: gentheme.EditorAppearanceDensity(a.Density),
 	}
