@@ -110,17 +110,22 @@ interface MoneyProps {
   currency: string
   fallbackCurrency?: string
   className?: string
+  // Inside a button or link (a queue row): a hidden amount is plain masked
+  // text instead of its own reveal button -- a button may not contain
+  // another. The topbar eye still reveals it.
+  static?: boolean
 }
 
 // An amount on screen. Hidden amounts render as a small button that
-// reveals just this one.
-export function Money({ minor, currency, fallbackCurrency, className }: MoneyProps) {
+// reveals just this one (or as plain masked text when static).
+export function Money({ minor, currency, fallbackCurrency, className, static: isStatic = false }: MoneyProps) {
   const { visible } = useAmountVisibility()
   const [revealed, setRevealed] = useState(false)
   const { t } = useTranslation('ui')
   const text = formatMoney(minor, currency, fallbackCurrency)
 
   if (visible) return <span className={className}>{text}</span>
+  if (isStatic) return <span className={clsx('text-ink-4 tracking-wider tabular-nums', className)}>{maskMoney(currency, fallbackCurrency)}</span>
 
   function toggle(e: MouseEvent) {
     // Amounts sit inside clickable rows and cards -- revealing one must

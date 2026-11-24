@@ -126,7 +126,7 @@ export function PackingOrderQueue({
                   <span className="truncate">{shippingMethod}</span>
                 </p>
               )}
-              <p className="text-2xs text-ink-4 mt-0.5"><Money minor={o.total_minor_units} currency={o.currency_code} /></p>
+              <p className="text-2xs text-ink-4 mt-0.5"><Money minor={o.total_minor_units} currency={o.currency_code} static /></p>
             </>
           )
           return (

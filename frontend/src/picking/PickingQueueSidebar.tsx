@@ -72,7 +72,7 @@ export function PickingQueueSidebar({ entries, loading, error, activeOrderId, ac
                   : <MiniLegs order={o} />}
               </div>
               <p className="text-2xs text-ink-3 truncate">{customerName(o)} · {salesOrderSourceLabel(o.source)}</p>
-              <p className="text-2xs text-ink-4 mt-0.5"><Money minor={o.total_minor_units} currency={o.currency_code} /></p>
+              <p className="text-2xs text-ink-4 mt-0.5"><Money minor={o.total_minor_units} currency={o.currency_code} static /></p>
               {(lock || in_packing) && (
                 <p className="flex items-center gap-1 mt-1 text-2xs text-ink-4">
                   <Lock size={10} className="shrink-0" />

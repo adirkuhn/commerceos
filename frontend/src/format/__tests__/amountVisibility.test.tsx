@@ -71,6 +71,20 @@ describe('Money', () => {
   })
 })
 
+describe('Money static', () => {
+  it('shows a hidden amount as plain masked text, for use inside clickable rows', () => {
+    render(<button type="button"><Money minor={1250} currency="EUR" static /></button>, { wrapper: hidden })
+    expect(screen.getAllByRole('button')).toHaveLength(1)
+    expect(screen.getByRole('button').textContent).toBe(maskMoney('EUR'))
+  })
+
+  it('shows the amount once amounts are revealed', () => {
+    localStorage.setItem(AMOUNTS_STORAGE_KEY, 'visible')
+    render(<Money minor={1250} currency="EUR" static />, { wrapper: hidden })
+    expect(screen.getByText(formatMoney(1250, 'EUR'))).toBeTruthy()
+  })
+})
+
 describe('useMoneyFormat', () => {
   it('masks text amounts (chart tooltips, labels) while hidden', async () => {
     const { result } = renderHook(() => ({ fmt: useMoneyFormat(), vis: useAmountVisibility() }), { wrapper: hidden })

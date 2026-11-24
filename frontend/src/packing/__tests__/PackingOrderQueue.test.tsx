@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { PackingOrderQueue } from '../PackingOrderQueue'
+import { AmountVisibilityProvider } from '../../format/amountVisibility'
 import type { QueueEntry, SalesOrder } from '../../oms/types'
 
 function order(overrides: Partial<SalesOrder>): SalesOrder {
@@ -151,5 +152,22 @@ describe('PackingOrderQueue', () => {
 
     rerender(<PackingOrderQueue {...props} entries={[]} />)
     expect(screen.getByText('No orders to pack')).toBeInTheDocument()
+  })
+})
+
+describe('PackingOrderQueue with amounts hidden', () => {
+  it('never nests a button inside another (the hidden total is plain text)', () => {
+    render(
+      <AmountVisibilityProvider>
+        <PackingOrderQueue
+          entries={entries} loading={false} error="" activeOrderId={null} activeInProgress={false}
+          currentUserId="me" isAdmin={false} nameFor={nameFor}
+          onSelect={vi.fn()} onOpenPickList={vi.fn()}
+        />
+      </AmountVisibilityProvider>,
+    )
+    for (const button of screen.getAllByRole('button')) {
+      expect(button.querySelector('button')).toBeNull()
+    }
   })
 })
