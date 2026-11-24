@@ -499,3 +499,63 @@ func TestToWooOrder_mapsShippingTaxAndFeeLines(t *testing.T) {
 	require.Equal(t, "0.66", result.ShippingTax)
 	require.Equal(t, []integrationsDomain.WooFeeLine{{Name: "Ice pack", Total: "1.00", TotalTax: "0.09"}}, result.FeeLines)
 }
+
+// TestUpdateProduct_alwaysSendsSaleEndDateExplicitly is a regression test
+// for a live bug: date_on_sale_to was dropped when empty, so a promotion
+// (which sets no end date) left an old, already-passed end date on Woo --
+// and Woo keeps a sale with a passed end date inactive, charging the
+// regular price, while every push reported success.
+func TestUpdateProduct_alwaysSendsSaleEndDateExplicitly(t *testing.T) {
+	var raw map[string]json.RawMessage
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&raw))
+		json.NewEncoder(w).Encode(wc.Product{ID: 20})
+	})
+
+	_, err := c.UpdateProduct(context.Background(), "20", integrationsDomain.WooProduct{RegularPrice: "11.99", SalePrice: "10.99", SaleEndDate: ""})
+
+	require.NoError(t, err)
+	v, present := raw["date_on_sale_to"]
+	require.True(t, present, "product-fields sync must always convey the sale end date, including none")
+	require.Equal(t, `""`, string(v))
+}
+
+func TestUpdateProduct_sendsTheSaleEndDate(t *testing.T) {
+	var raw map[string]json.RawMessage
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&raw))
+		json.NewEncoder(w).Encode(wc.Product{ID: 20})
+	})
+
+	_, err := c.UpdateProduct(context.Background(), "20", integrationsDomain.WooProduct{SalePrice: "10.99", SaleEndDate: "2026-12-31"})
+
+	require.NoError(t, err)
+	require.Equal(t, `"2026-12-31"`, string(raw["date_on_sale_to"]))
+}
+
+func TestUpdateVariation_alwaysSendsSaleEndDateExplicitly(t *testing.T) {
+	var raw map[string]json.RawMessage
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&raw))
+		json.NewEncoder(w).Encode(wc.ProductVariation{ID: 901})
+	})
+
+	_, err := c.UpdateVariation(context.Background(), "900", "901", integrationsDomain.WooVariation{RegularPrice: "11.99", SalePrice: "10.99"})
+
+	require.NoError(t, err)
+	v, present := raw["date_on_sale_to"]
+	require.True(t, present, "variation sync must always convey the sale end date, including none")
+	require.Equal(t, `""`, string(v))
+}
+
+func TestUpdateProductStock_neverTouchesSaleEndDate(t *testing.T) {
+	var raw map[string]json.RawMessage
+	c := newTestWooClient(t, func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&raw))
+		json.NewEncoder(w).Encode(wc.Product{ID: 555})
+	})
+
+	require.NoError(t, c.UpdateProductStock(context.Background(), "", "555", 0, nil))
+	_, present := raw["date_on_sale_to"]
+	require.False(t, present, "stock-only push must never touch the sale end date")
+}

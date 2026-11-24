@@ -69,7 +69,7 @@ func (c *wooClient) CreateVariation(ctx context.Context, parentExternalID string
 		GlobalUniqueID: v.GTIN,
 		RegularPrice:   wc.FlexibleString(v.RegularPrice),
 		SalePrice:      salePricePtr(v.SalePrice),
-		DateOnSaleTo:   v.SaleEndDate,
+		DateOnSaleTo:   saleEndDatePtr(v.SaleEndDate),
 		ManageStock:    v.ManageStock,
 		StockQuantity:  v.StockQuantity,
 		Weight:         v.Weight,
@@ -92,7 +92,7 @@ func (c *wooClient) UpdateVariation(ctx context.Context, parentExternalID, varia
 		GlobalUniqueID: v.GTIN,
 		RegularPrice:   wc.FlexibleString(v.RegularPrice),
 		SalePrice:      salePricePtr(v.SalePrice),
-		DateOnSaleTo:   v.SaleEndDate,
+		DateOnSaleTo:   saleEndDatePtr(v.SaleEndDate),
 		ManageStock:    v.ManageStock,
 		StockQuantity:  v.StockQuantity,
 		Weight:         v.Weight,
@@ -135,6 +135,21 @@ func salePriceFromWire(fs *wc.FlexibleString) string {
 		return ""
 	}
 	return string(*fs)
+}
+
+// saleEndDatePtr is salePricePtr for date_on_sale_to: always non-nil on
+// the product-fields sync path, so "" clears an old end date on Woo. A
+// stale end date that has passed keeps a new sale inactive.
+func saleEndDatePtr(s string) *string {
+	return &s
+}
+
+// fromWire reads an optional string Woo sent back; nil reads as "".
+func fromWire(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func wooVariationDimensions(d integrationsDomain.WooProductDimensions) *wc.ProductDimensions {
