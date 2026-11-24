@@ -216,7 +216,7 @@ export default function SalesChannels() {
                     {enrollmentLabel(channel.enrollment_mode)}
                   </span>
                   {!!channel.price_adjustment_basis_points && (
-                    <span className="inline-block text-2xs px-2 py-0.5 rounded-full bg-amber-500/10 text-warning">
+                    <span className="inline-block text-2xs px-2 py-0.5 rounded-full bg-warning/10 text-warning">
                       {t('card.percentOff', { percent: (channel.price_adjustment_basis_points / 100).toString() })}
                     </span>
                   )}
@@ -492,7 +492,7 @@ export default function SalesChannels() {
                       onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
                       className="sr-only peer"
                     />
-                    <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-accent-solid transition-colors" />
+                    <div className="w-8 h-4 bg-line rounded-full peer peer-checked:bg-accent-solid transition-colors" />
                     <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                   </label>
                 </div>
@@ -579,9 +579,9 @@ export default function SalesChannels() {
                     className={clsx(
                       'shrink-0 w-14 text-center text-2xs font-bold caps-label-wide rounded px-1 py-0.5',
                       ep.method === 'GET' && 'bg-accent/10 text-accent',
-                      ep.method === 'POST' && 'bg-green-500/10 text-success',
-                      ep.method === 'PUT' && 'bg-amber-500/10 text-warning',
-                      ep.method === 'DELETE' && 'bg-red-500/10 text-danger',
+                      ep.method === 'POST' && 'bg-success/10 text-success',
+                      ep.method === 'PUT' && 'bg-warning/10 text-warning',
+                      ep.method === 'DELETE' && 'bg-danger/10 text-danger',
                     )}
                   >
                     {ep.method}

@@ -202,9 +202,9 @@ export default function Products() {
               >
                 <td className="px-2 py-2.5">
                   {p.image_url ? (
-                    <img src={p.image_url} alt="" className="w-6 h-6 rounded object-cover dark:bg-night-700 bg-gray-200" />
+                    <img src={p.image_url} alt="" className="w-6 h-6 rounded object-cover bg-fill" />
                   ) : (
-                    <div className="w-6 h-6 rounded dark:bg-night-700 bg-gray-200 flex items-center justify-center">
+                    <div className="w-6 h-6 rounded bg-fill flex items-center justify-center">
                       <Package size={12} className="text-ink-4" />
                     </div>
                   )}
@@ -225,7 +225,7 @@ export default function Products() {
                   )}
                 </td>
                 <td className="px-3 py-2.5">
-                  <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLES[p.status])}>
+                  <span className={clsx('px-2 py-0.5 rounded-sm text-2xs font-semibold capitalize', STATUS_STYLES[p.status])}>
                     {{ draft: t('statusTag.draft'), active: t('statusTag.active'), archived: t('statusTag.archived') }[p.status] ?? p.status}
                   </span>
                 </td>

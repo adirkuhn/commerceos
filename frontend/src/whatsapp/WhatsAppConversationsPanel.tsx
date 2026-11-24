@@ -80,7 +80,7 @@ export default function WhatsAppConversationsPanel() {
                 className={clsx(
                   'w-full text-left px-4 py-2.5 border-b border-line transition-colors',
                   conv.phone_e164 === selectedPhone
-                    ? 'dark:bg-night-800 bg-gray-100'
+                    ? 'bg-fill'
                     : 'hover:bg-hover/60',
                 )}
               >
@@ -134,7 +134,7 @@ export default function WhatsAppConversationsPanel() {
                       className={
                         m.direction === 'outbound'
                           ? 'max-w-[70%] rounded-lg px-3 py-2 bg-accent-solid text-white'
-                          : 'max-w-[70%] rounded-lg px-3 py-2 dark:bg-night-800 bg-gray-100 text-ink'
+                          : 'max-w-[70%] rounded-lg px-3 py-2 bg-fill text-ink'
                       }
                     >
                       <p className="text-xs whitespace-pre-wrap">{m.body}</p>

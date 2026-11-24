@@ -19,7 +19,7 @@ export function RecordNotFound({ label, onBack }: { label: string; onBack: () =>
       <p className="text-xs text-ink-4">{t('record.notFoundHint')}</p>
       <button
         type="button" onClick={onBack}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium dark:bg-night-800 bg-gray-100 text-ink-2"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-fill text-ink-2"
       >
         <ArrowLeft size={13} /> {t('record.backToList')}
       </button>

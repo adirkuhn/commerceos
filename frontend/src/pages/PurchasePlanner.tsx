@@ -27,7 +27,7 @@ export default function PurchasePlanner() {
             onClick={() => setTab(id)}
             className={clsx(
               'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-              tab === id ? 'dark:bg-night-800 bg-gray-100 text-ink' : 'text-ink-4 hover:text-ink-2',
+              tab === id ? 'bg-fill text-ink' : 'text-ink-4 hover:text-ink-2',
             )}
           >
             {labels[id]}

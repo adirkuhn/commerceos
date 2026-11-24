@@ -35,23 +35,23 @@ const ORDERS: Order[] = [
 ]
 
 const CHANNEL_COLORS: Record<string, string> = {
-  shopify: 'bg-green-500/15 text-success',
-  woocommerce: 'bg-purple-500/15 text-purple-400',
+  shopify: 'bg-success/10 text-success',
+  woocommerce: 'bg-figure/10 text-figure',
   bol: 'bg-accent/15 text-accent',
-  lightspeed: 'bg-orange-500/15 text-orange-400',
-  manual: 'bg-gray-500/15 text-ink-4',
+  lightspeed: 'bg-warning/10 text-warning',
+  manual: 'bg-fill text-ink-4',
 }
 
 const ORDER_STATUS_FLOW = ['new', 'reserved', 'picking', 'packed', 'shipped', 'delivered', 'cancelled'] as const
 
 const STATUS_COLORS: Record<string, string> = {
   new: 'bg-accent/15 text-accent',
-  reserved: 'bg-indigo-500/15 text-indigo-400',
-  picking: 'bg-amber-500/15 text-warning',
-  packed: 'bg-purple-500/15 text-purple-400',
+  reserved: 'bg-accent/10 text-accent',
+  picking: 'bg-warning/10 text-warning',
+  packed: 'bg-figure/10 text-figure',
   shipped: 'bg-cyan-500/15 text-cyan-400',
-  delivered: 'bg-green-500/15 text-success',
-  cancelled: 'bg-red-500/15 text-danger',
+  delivered: 'bg-success/10 text-success',
+  cancelled: 'bg-danger/10 text-danger',
 }
 
 const PAYMENT_COLORS: Record<string, string> = {
@@ -157,7 +157,7 @@ export default function Orders() {
               className={clsx(
                 'px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors',
                 activeTab === tab
-                  ? 'dark:bg-night-800 bg-gray-100 text-ink'
+                  ? 'bg-fill text-ink'
                   : 'text-ink-4 hover:text-ink-2',
               )}
             >
@@ -204,7 +204,7 @@ export default function Orders() {
                     <span className="font-mono font-medium text-ink">{o.id}</span>
                   </td>
                   <td className="px-3 py-2.5">
-                    <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', CHANNEL_COLORS[o.channel])}>
+                    <span className={clsx('px-2 py-0.5 rounded-sm text-2xs font-semibold capitalize', CHANNEL_COLORS[o.channel])}>
                       {o.channel}
                     </span>
                   </td>
@@ -217,7 +217,7 @@ export default function Orders() {
                     </span>
                   </td>
                   <td className="px-3 py-2.5">
-                    <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_COLORS[o.status])}>
+                    <span className={clsx('px-2 py-0.5 rounded-sm text-2xs font-semibold capitalize', STATUS_COLORS[o.status])}>
                       {statusLabel(o.status)}
                     </span>
                   </td>
@@ -254,12 +254,12 @@ export default function Orders() {
                   <div key={s} className="flex items-center gap-1">
                     <div className={clsx(
                       'w-5 h-5 rounded-full text-2xs font-bold flex items-center justify-center',
-                      done ? 'bg-accent-solid text-white' : 'dark:bg-night-700 bg-gray-200 text-ink-4',
+                      done ? 'bg-accent-solid text-white' : 'bg-fill text-ink-4',
                     )}>
                       {i + 1}
                     </div>
                     {i < steps.length - 1 && (
-                      <div className={clsx('h-0.5 w-3', done ? 'bg-accent-solid' : 'dark:bg-night-700 bg-gray-200')} />
+                      <div className={clsx('h-0.5 w-3', done ? 'bg-accent-solid' : 'bg-fill')} />
                     )}
                   </div>
                 )

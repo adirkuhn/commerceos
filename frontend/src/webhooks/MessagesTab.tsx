@@ -193,14 +193,14 @@ function MessageStatusBadge({ status, dispatchError }: { status: WebhookEvent['s
     return (
       <span
         title={dispatchError || undefined}
-        className="px-1.5 py-0.5 rounded text-2xs font-medium bg-red-500/15 text-danger cursor-help"
+        className="px-1.5 py-0.5 rounded text-2xs font-medium bg-danger/10 text-danger cursor-help"
       >
         {t('messages.status.failed')}
       </span>
     )
   }
   if (status === 'processed') {
-    return <span className="px-1.5 py-0.5 rounded text-2xs font-medium bg-emerald-500/15 text-success">{t('messages.status.processed')}</span>
+    return <span className="px-1.5 py-0.5 rounded text-2xs font-medium bg-success/10 text-success">{t('messages.status.processed')}</span>
   }
   return <span className="px-1.5 py-0.5 rounded text-2xs font-medium bg-fill text-ink-3">{t('messages.status.received')}</span>
 }

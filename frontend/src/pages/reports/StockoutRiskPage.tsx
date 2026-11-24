@@ -29,7 +29,7 @@ export default function StockoutRiskPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="dark:bg-night-900/50 bg-gray-50">
+                <tr className="bg-sunken">
                   <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">{t('col.product')}</th>
                   <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">{t('stockout.stock')}</th>
                   <th className="px-4 py-2 text-right text-2xs font-medium text-ink-4 uppercase">{t('stockout.daysLeft')}</th>

@@ -9,6 +9,7 @@ const PAGES: [string, string][] = [
   ['sales-orders', '/sales-orders'],
   ['customers', '/customers'],
   ['picking', '/picking'],
+  ['packing', '/packing'],
   ['products', '/products'],
   ['inventory', '/inventory'],
   ['suppliers', '/suppliers'],

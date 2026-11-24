@@ -55,12 +55,12 @@ function DiscardModal({ target, submitting, error, onCancel, onConfirm }: {
           <label htmlFor="discard-reason" className="block text-xs text-ink-3 mb-1.5">{t('expiry.reason')}</label>
           <input
             id="discard-reason" value={reason} onChange={e => setReason(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
+            className="w-full px-3 py-2 text-sm rounded-lg bg-sunken border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <div>
           <label className="block text-xs text-ink-3 mb-1.5">{t('expiry.photoOptional')}</label>
-          <label className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink-2 cursor-pointer">
+          <label className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg bg-sunken border border-line text-ink-2 cursor-pointer">
             <ImageIcon size={14} />
             <span className="truncate">{photo ? photo.name : t('expiry.choosePhoto')}</span>
             <input
@@ -72,7 +72,7 @@ function DiscardModal({ target, submitting, error, onCancel, onConfirm }: {
         <div className="flex gap-2">
           <button
             onClick={onCancel}
-            className="flex-1 py-2 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 text-xs font-medium hover:bg-hover"
+            className="flex-1 py-2 rounded-lg bg-fill text-ink-2 text-xs font-medium hover:bg-hover"
           >
             {t('common:actions.cancel')}
           </button>
@@ -330,7 +330,7 @@ export function ExpiryDiscardPage({
                         {d.photo_url ? (
                           <img src={d.photo_url} alt={t('expiry.photoAlt', { product: d.product_name })} className="w-8 h-8 rounded object-cover" />
                         ) : (
-                          <div className="w-8 h-8 rounded dark:bg-night-800 bg-gray-100 flex items-center justify-center">
+                          <div className="w-8 h-8 rounded bg-fill flex items-center justify-center">
                             <ImageIcon size={12} className="text-ink-4" />
                           </div>
                         )}
@@ -340,7 +340,7 @@ export function ExpiryDiscardPage({
                       <td className="px-4 py-2.5">
                         <span className={clsx(
                           'px-1.5 py-0.5 rounded text-2xs font-medium capitalize',
-                          d.type === 'damaged' ? 'bg-amber-500/15 text-warning' : 'bg-red-500/15 text-danger',
+                          d.type === 'damaged' ? 'bg-warning/10 text-warning' : 'bg-danger/10 text-danger',
                         )}>
                           {d.type === 'damaged' ? t('writeOff.damaged') : d.type === 'lost' ? t('writeOff.lost') : d.type}
                         </span>

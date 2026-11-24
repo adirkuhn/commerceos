@@ -173,7 +173,7 @@ export default function StockIssues() {
                   </td>
                 </tr>
                 {expandedId === o.id && (
-                  <tr className="dark:bg-night-900 bg-gray-50/60">
+                  <tr className="bg-sunken/60">
                     <td />
                     <td colSpan={4} className="px-3 py-2.5">
                       {detailLoadingId === o.id && <p className="text-ink-4">{t('loadingLines')}</p>}

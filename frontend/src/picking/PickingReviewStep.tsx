@@ -68,7 +68,7 @@ export function PickingReviewStep({ order, session, error, completing, onConfirm
         </button>
         <button
           onClick={onBack}
-          className="w-full py-2.5 rounded-xl dark:bg-night-800 bg-gray-100 text-ink-2 text-sm font-medium"
+          className="w-full py-2.5 rounded-xl bg-fill text-ink-2 text-sm font-medium"
         >
           {t('review.backToScanning')}
         </button>

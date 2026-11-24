@@ -36,12 +36,12 @@ export function VariantRowSummary({ variant, sku, selectedImage, canPickImage, o
           type="button"
           aria-label={t('variant.imageAria', { name: variant.name })}
           onClick={onToggleImagePicker}
-          className="w-10 h-10 rounded-lg dark:bg-night-800 bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden"
+          className="w-10 h-10 rounded-lg bg-fill flex items-center justify-center shrink-0 overflow-hidden"
         >
           {thumbnailContent}
         </button>
       ) : (
-        <div className="w-10 h-10 rounded-lg dark:bg-night-800 bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+        <div className="w-10 h-10 rounded-lg bg-fill flex items-center justify-center shrink-0 overflow-hidden">
           {thumbnailContent}
         </div>
       )}
@@ -69,7 +69,7 @@ export function VariantRowSummary({ variant, sku, selectedImage, canPickImage, o
         </span>
       )}
       {sku && (
-        <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize shrink-0', SKU_STATUS_STYLES[sku.status])}>
+        <span className={clsx('px-2 py-0.5 rounded-sm text-2xs font-semibold capitalize shrink-0', SKU_STATUS_STYLES[sku.status])}>
           {skuStatusLabel[sku.status]}
         </span>
       )}

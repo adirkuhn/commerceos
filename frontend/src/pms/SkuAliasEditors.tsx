@@ -79,7 +79,7 @@ export function SKUCurrencyPricesEditor({ skuId }: { skuId: string }) {
         {open ? t('alias.hide') : '+'} {t('alias.currencyTitle')}{prices.length > 0 ? ` (${prices.length})` : ''}
       </button>
       {open && (
-        <div className="p-2 rounded-lg dark:bg-night-900/60 bg-gray-100 border border-line space-y-1.5">
+        <div className="p-2 rounded-lg bg-fill border border-line space-y-1.5">
           <p className="text-2xs text-ink-4">
             {t('alias.currencyHint')}
           </p>
@@ -186,7 +186,7 @@ export function BarcodeAliasesEditor({ skuId }: { skuId: string }) {
         {open ? t('alias.hide') : '+'} {t('alias.barcodesTitle')}{aliases.length > 0 ? ` (${aliases.length})` : ''}
       </button>
       {open && (
-        <div className="p-2 rounded-lg dark:bg-night-900/60 bg-gray-100 border border-line space-y-1.5">
+        <div className="p-2 rounded-lg bg-fill border border-line space-y-1.5">
           <p className="text-2xs text-ink-4">
             {t('alias.barcodesHint')}
           </p>
@@ -277,7 +277,7 @@ export function ScaleCodeAliasesEditor({ skuId }: { skuId: string }) {
         {open ? t('alias.hide') : '+'} {t('alias.scaleTitle')}{aliases.length > 0 ? ` (${aliases.length})` : ''}
       </button>
       {open && (
-        <div className="p-2 rounded-lg dark:bg-night-900/60 bg-gray-100 border border-line space-y-1.5">
+        <div className="p-2 rounded-lg bg-fill border border-line space-y-1.5">
           <p className="text-2xs text-ink-4">
             {t('alias.scaleHint')}
           </p>

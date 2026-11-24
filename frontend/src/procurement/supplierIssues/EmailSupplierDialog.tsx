@@ -43,7 +43,7 @@ export function EmailSupplierDialog({ initialTo, initialSubject, initialBody, is
 
   return (
     <Dialog onClose={onClose} dismissible={!sending} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-xl max-h-[90vh] flex flex-col rounded-xl dark:bg-night-900 bg-white border border-line shadow-xl">
+      <form onSubmit={handleSubmit} className="w-full max-w-xl max-h-[90vh] flex flex-col rounded-xl bg-raised border border-line shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <h2 className="text-sm font-semibold text-ink">{t('supplierIssues.email.title')}</h2>
           <button type="button" onClick={onClose} disabled={sending} aria-label={t('common:actions.close')} title={t('common:actions.close')}>

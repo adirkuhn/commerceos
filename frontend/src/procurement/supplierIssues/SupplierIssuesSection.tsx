@@ -98,7 +98,7 @@ export function SupplierIssuesSection({ purchaseOrderId, orderDate, hasCompleted
 
   return (
     <div className="relative rounded-xl border border-line overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 dark:bg-night-900/50 bg-gray-50 border-b border-line">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-sunken border-b border-line">
         <div className="min-w-0">
           <h3 className="text-xs font-semibold text-ink">{t('supplierIssues.title')}</h3>
           <p className="text-2xs text-ink-4">{t('supplierIssues.subtitle')}</p>

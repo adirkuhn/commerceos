@@ -140,7 +140,7 @@ export default function OverviewPage() {
               className={clsx(
                 'flex items-start gap-2 rounded-lg px-3 py-2 text-xs',
                 insight.severity === 'warning'
-                  ? 'bg-amber-50 dark:bg-amber-500/10 text-warning'
+                  ? 'bg-amber-50 dark:bg-warning/10 text-warning'
                   : 'bg-accent/10 text-accent',
               )}
             >
@@ -275,7 +275,7 @@ export default function OverviewPage() {
             </div>
             <table className="w-full text-xs border-t border-line">
               <thead>
-                <tr className="dark:bg-night-900/50 bg-gray-50">
+                <tr className="bg-sunken">
                   {[t('overview.channel'), t('overview.revenue')].map(h => (
                     <th key={h} className="px-3 py-2 text-left text-2xs font-medium text-ink-4 uppercase">{h}</th>
                   ))}

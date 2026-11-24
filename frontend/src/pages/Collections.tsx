@@ -82,7 +82,7 @@ export default function Collections() {
                 <td className="px-3 py-2.5 text-ink-3">{describe(t, c)}</td>
                 <td className="px-3 py-2.5 text-ink-3 font-mono">{`/collections/${c.slug}`}</td>
                 <td className="px-3 py-2.5">
-                  <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium', c.published ? 'bg-green-500/15 text-success' : 'bg-gray-500/15 text-ink-4')}>
+                  <span className={clsx('px-2 py-0.5 rounded-sm text-2xs font-semibold', c.published ? 'bg-success/10 text-success' : 'bg-fill text-ink-4')}>
                     {c.published ? t('list.visible') : t('list.hidden')}
                   </span>
                 </td>

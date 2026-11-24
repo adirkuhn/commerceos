@@ -64,7 +64,7 @@ export function ProductSidebar({ status, onStatusChange, categoryId, onCategoryC
               placeholder={t('sidebar.newCategory')}
               className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
             />
-            <button type="button" onClick={handleAddCategory} className="px-3 py-1.5 rounded-lg dark:bg-night-800 bg-gray-100 text-2xs font-medium text-ink-2 hover:bg-hover transition-colors">
+            <button type="button" onClick={handleAddCategory} className="px-3 py-1.5 rounded-lg bg-fill text-2xs font-medium text-ink-2 hover:bg-hover transition-colors">
               {t('sidebar.add')}
             </button>
           </div>

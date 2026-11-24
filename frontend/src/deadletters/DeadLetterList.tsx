@@ -82,7 +82,7 @@ export function DeadLetterList() {
             {totals.data && (
               <span
                 data-testid={`count-${s}`}
-                className={`px-1.5 rounded-full text-2xs tabular-nums ${totals.data[s] > 0 ? 'bg-red-500/15 text-danger' : 'bg-fill text-ink-4'}`}
+                className={`px-1.5 rounded-full text-2xs tabular-nums ${totals.data[s] > 0 ? 'bg-danger/10 text-danger' : 'bg-fill text-ink-4'}`}
               >
                 {totals.data[s]}
               </span>

@@ -54,7 +54,7 @@ export function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSe
 
   return (
     <div className="rounded-xl border border-line overflow-hidden">
-      <div className="px-4 py-3 dark:bg-night-900/50 bg-gray-50 border-b border-line">
+      <div className="px-4 py-3 bg-sunken border-b border-line">
         <h3 className="text-xs font-semibold text-ink">{t('docs.title')}</h3>
       </div>
       <div className="divide-y divide-line">
@@ -66,7 +66,7 @@ export function DocumentsSection({ documents, onDelete, onRefresh }: DocumentsSe
                 {doc.file_name}
               </a>
               {doc.is_potential_duplicate && (
-                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-2xs font-medium text-warning bg-amber-500/10 shrink-0">
+                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-2xs font-semibold text-warning bg-amber-500/10 shrink-0">
                   <AlertTriangle size={10} /> {t('docs.possibleDuplicate')}
                 </span>
               )}

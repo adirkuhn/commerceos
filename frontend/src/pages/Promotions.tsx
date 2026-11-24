@@ -17,9 +17,9 @@ import { LIST_TOOLBAR, LIST_TOOLBAR_ACTION, LIST_TOOLBAR_INLINE, LIST_TOOLBAR_LE
 const PAGE_SIZE = 20
 
 const STATUS_STYLE: Record<PromotionStatus, string> = {
-  draft: 'bg-gray-500/15 text-ink-4',
-  active: 'bg-green-500/15 text-success',
-  ended: 'bg-gray-500/15 text-ink-4',
+  draft: 'bg-fill text-ink-4',
+  active: 'bg-success/10 text-success',
+  ended: 'bg-fill text-ink-4',
 }
 
 export default function Promotions() {
@@ -123,7 +123,7 @@ export default function Promotions() {
                 className="group hover:bg-hover/60 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">
-                  <div className="w-6 h-6 rounded dark:bg-night-700 bg-gray-200 flex items-center justify-center">
+                  <div className="w-6 h-6 rounded bg-fill flex items-center justify-center">
                     <Tag size={12} className="text-ink-4" />
                   </div>
                 </td>
@@ -134,7 +134,7 @@ export default function Promotions() {
                 <td className="px-3 py-2.5 text-ink-3">{formatDate(p.starts_at)}</td>
                 <td className="px-3 py-2.5 text-ink-3">{formatDate(p.ends_at)}</td>
                 <td className="px-3 py-2.5">
-                  <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLE[p.status])}>
+                  <span className={clsx('px-2 py-0.5 rounded-sm text-2xs font-semibold capitalize', STATUS_STYLE[p.status])}>
                     {{ draft: t('status.draft'), active: t('status.active'), ended: t('status.ended') }[p.status] ?? p.status}
                   </span>
                 </td>

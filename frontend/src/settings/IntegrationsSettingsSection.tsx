@@ -11,8 +11,8 @@ import { RecommendationsSettingsCard } from './RecommendationsSettingsCard'
 // ── Integrations settings section ─────────────────────────────────────────────
 
 export const STATUS_STYLES: Record<Connection['status'], string> = {
-  connected: 'bg-green-500/15 text-success',
-  error: 'bg-red-500/15 text-danger',
+  connected: 'bg-success/10 text-success',
+  error: 'bg-danger/10 text-danger',
 }
 
 export function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (connection: Connection) => void }) {
@@ -48,7 +48,7 @@ export function IntegrationsSettingsSection({ onConfigure }: { onConfigure: (con
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-xs font-medium text-ink capitalize">{conn.provider}</p>
-                <span className={clsx('px-1.5 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLES[conn.status])}>
+                <span className={clsx('px-1.5 py-0.5 rounded-sm text-2xs font-semibold capitalize', STATUS_STYLES[conn.status])}>
                   {connectionStatusLabel(conn.status)}
                 </span>
               </div>

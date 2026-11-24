@@ -15,7 +15,7 @@ interface PickScanInputProps {
 export function PickScanInput({ inputRef, code, onCodeChange, onSubmit, disabled, error }: PickScanInputProps) {
   const { t } = useTranslation('picking')
   return (
-    <div className="px-6 py-4 border-b border-line shrink-0 dark:bg-night-900/80 bg-gray-50">
+    <div className="px-6 py-4 border-b border-line shrink-0 bg-sunken">
       <div className="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border-2  border-accent bg-raised">
         <ScanBarcode size={20} className="text-accent" />
         <input

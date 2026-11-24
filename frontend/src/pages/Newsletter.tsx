@@ -20,9 +20,9 @@ const ALL = 'all'
 type StatusFilter = SubscriberStatus | typeof ALL
 
 const STATUS_STYLE: Record<SubscriberStatus, string> = {
-  pending: 'bg-amber-500/15 text-warning',
-  confirmed: 'bg-green-500/15 text-success',
-  unsubscribed: 'bg-gray-500/15 text-ink-4',
+  pending: 'bg-warning/10 text-warning',
+  confirmed: 'bg-success/10 text-success',
+  unsubscribed: 'bg-fill text-ink-4',
 }
 
 export default function Newsletter() {
@@ -116,7 +116,7 @@ export default function Newsletter() {
               <tr key={s.id} className="group hover:bg-hover/60">
                 <td className="px-5 py-2.5 font-medium text-ink">{s.email}</td>
                 <td className="px-3 py-2.5">
-                  <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium', STATUS_STYLE[s.status])}>{statusLabel[s.status]}</span>
+                  <span className={clsx('px-2 py-0.5 rounded-sm text-2xs font-semibold', STATUS_STYLE[s.status])}>{statusLabel[s.status]}</span>
                 </td>
                 <td className="px-3 py-2.5 text-ink-3">{formatDate(s.created_at)}</td>
                 <td className="px-3 py-2.5 text-ink-3">{s.confirmed_at ? formatDate(s.confirmed_at) : '—'}</td>

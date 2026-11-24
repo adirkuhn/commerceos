@@ -34,7 +34,7 @@ export default function CustomerCohortsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="dark:bg-night-900/50 bg-gray-50">
+                <tr className="bg-sunken">
                   <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">{t('cohorts.cohort')}</th>
                   <th className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">{t('cohorts.size')}</th>
                   {cohortMonthColumns.map(m => (

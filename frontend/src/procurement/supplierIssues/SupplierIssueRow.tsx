@@ -9,8 +9,8 @@ import { issueItemName } from './supplierIssueText'
 export const SUPPLIER_ISSUE_STATUSES: SupplierIssueStatus[] = ['open', 'claimed', 'resolved']
 
 const KIND_STYLE: Record<SupplierIssueKind, string> = {
-  missing: 'bg-amber-100 dark:bg-amber-500/10 text-warning',
-  damaged: 'bg-red-50 dark:bg-red-500/10 text-danger',
+  missing: 'bg-amber-100 dark:bg-warning/10 text-warning',
+  damaged: 'bg-red-50 dark:bg-danger/10 text-danger',
   lost: 'bg-fill text-ink-3',
 }
 
@@ -45,7 +45,7 @@ export function SupplierIssueRow({ issue, selected, onToggle, onUpdate }: Suppli
         <input type="checkbox" checked={selected} onChange={onToggle} aria-label={t('supplierIssues.selectIssue', { item: name })} />
       </td>
       <td className="px-2 py-2">
-        <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium whitespace-nowrap', KIND_STYLE[issue.kind])}>
+        <span className={clsx('px-2 py-0.5 rounded-sm text-2xs font-semibold whitespace-nowrap', KIND_STYLE[issue.kind])}>
           {t(`supplierIssues.kind.${issue.kind}`)}
         </span>
       </td>

@@ -16,7 +16,7 @@ export function SessionErrorPanel({ error, onBack }: SessionErrorPanelProps) {
       <p className="text-sm text-danger">{error}</p>
       <button
         type="button" onClick={onBack}
-        className="px-4 py-2 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 text-xs font-medium"
+        className="px-4 py-2 rounded-lg bg-fill text-ink-2 text-xs font-medium"
       >
         {t('backToOrders')}
       </button>

@@ -57,7 +57,7 @@ export function ClearanceBatchSelect({ token, skuId, value, onChange }: Clearanc
         id={`batch-${skuId}`}
         value={value ?? ''}
         onChange={e => onChange(e.target.value === '' ? null : e.target.value)}
-        className="w-full px-2 py-2 text-xs rounded-lg dark:bg-night-800 bg-white border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
+        className="w-full px-2 py-2 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
       >
         <option value="">{t('batch.wholeSku')}</option>
         {options.map(b => <option key={b.id} value={b.id}>{batchLabel(t, b, formatDate)}</option>)}

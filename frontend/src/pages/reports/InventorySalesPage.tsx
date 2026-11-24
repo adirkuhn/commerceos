@@ -23,7 +23,7 @@ export default function InventorySalesPage() {
         ) : (
           <table className="w-full text-xs">
             <thead>
-              <tr className="dark:bg-night-900/50 bg-gray-50">
+              <tr className="bg-sunken">
                 {[t('col.product'), t('col.sku'), t('col.stockOnHand'), t('col.sold'), t('col.turnover')].map(h => (
                   <th key={h} className="px-4 py-2 text-left text-2xs font-medium text-ink-4 uppercase">{h}</th>
                 ))}

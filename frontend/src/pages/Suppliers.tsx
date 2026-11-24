@@ -16,8 +16,8 @@ import { apiErrorText } from '../api/apiErrorText'
 const PAGE_SIZE = 20
 
 const STATUS_STYLE: Record<SupplierStatus, string> = {
-  active: 'bg-green-500/15 text-success',
-  inactive: 'bg-gray-500/15 text-ink-4',
+  active: 'bg-success/10 text-success',
+  inactive: 'bg-fill text-ink-4',
 }
 
 export default function Suppliers() {
@@ -130,7 +130,7 @@ export default function Suppliers() {
                 className="group hover:bg-hover/60 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">
-                  <div className="w-6 h-6 rounded dark:bg-night-700 bg-gray-200 flex items-center justify-center">
+                  <div className="w-6 h-6 rounded bg-fill flex items-center justify-center">
                     <Truck size={12} className="text-ink-4" />
                   </div>
                 </td>
@@ -141,7 +141,7 @@ export default function Suppliers() {
                 <td className="px-3 py-2.5 text-ink-3">{s.country || '—'}</td>
                 <td className="px-3 py-2.5 text-ink-3">{s.lead_time_days != null ? t('leadTimeDays', { days: s.lead_time_days }) : '—'}</td>
                 <td className="px-3 py-2.5">
-                  <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLE[s.status])}>
+                  <span className={clsx('px-2 py-0.5 rounded-sm text-2xs font-semibold capitalize', STATUS_STYLE[s.status])}>
                     {s.status === 'active' ? t('badge.active') : t('badge.inactive')}
                   </span>
                 </td>

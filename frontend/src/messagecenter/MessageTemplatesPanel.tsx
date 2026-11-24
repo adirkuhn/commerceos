@@ -374,7 +374,7 @@ export default function MessageTemplatesPanel() {
                       onChange={e => setForm(f => ({ ...f, enabled: e.target.checked }))}
                       className="sr-only peer"
                     />
-                    <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-accent-solid transition-colors" />
+                    <div className="w-8 h-4 bg-line rounded-full peer peer-checked:bg-accent-solid transition-colors" />
                     <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                   </label>
                 </div>

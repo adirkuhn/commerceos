@@ -96,7 +96,7 @@ export default function Procurement() {
                 className={clsx(
                   'px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors whitespace-nowrap',
                   statusFilter === s
-                    ? 'dark:bg-night-800 bg-gray-100 text-ink'
+                    ? 'bg-fill text-ink'
                     : 'text-ink-4 hover:text-ink-2',
                 )}
               >
@@ -177,7 +177,7 @@ export default function Procurement() {
                 className="group hover:bg-hover/60 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">
-                  <div className="w-6 h-6 rounded dark:bg-night-700 bg-gray-200 flex items-center justify-center">
+                  <div className="w-6 h-6 rounded bg-fill flex items-center justify-center">
                     <ShoppingBag size={12} className="text-ink-4" />
                   </div>
                 </td>
@@ -201,7 +201,7 @@ export default function Procurement() {
                 </td>
                 <td className="px-3 py-2.5 text-ink-3">{warehouseName(po.warehouse_id) ?? '—'}</td>
                 <td className="px-3 py-2.5">
-                  <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLE[po.status])}>
+                  <span className={clsx('px-2 py-0.5 rounded-sm text-2xs font-semibold capitalize', STATUS_STYLE[po.status])}>
                     {poStatusLabel(po.status)}
                   </span>
                 </td>

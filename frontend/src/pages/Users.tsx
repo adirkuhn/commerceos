@@ -23,8 +23,8 @@ function roleLabel(t: TFunction<['iam', 'common']>, role: MemberRole): string {
   return role === 'customer_owner' ? t('users.roleOwner') : t('users.roleUser')
 }
 const ROLE_COLORS: Record<MemberRole, string> = {
-  customer_owner: 'bg-red-500/15 text-danger',
-  customer_user: 'bg-gray-500/15 text-ink-4',
+  customer_owner: 'bg-danger/10 text-danger',
+  customer_user: 'bg-fill text-ink-4',
 }
 
 function UserActivityPanel({ token, member, onClose }: { token: string; member: CompanyMember; onClose: () => void }) {
@@ -207,7 +207,7 @@ export default function Users() {
                         aria-label={t('users.roleFor', { name: fullName(m) })}
                         value={m.role}
                         onChange={e => membersState.updateRole(m.membership_id, e.target.value as MemberRole)}
-                        className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium border-0 outline-none focus-visible:ring-2 focus-visible:ring-focus/60', ROLE_COLORS[m.role])}
+                        className={clsx('px-2 py-0.5 rounded-sm text-2xs font-semibold border-0 outline-none focus-visible:ring-2 focus-visible:ring-focus/60', ROLE_COLORS[m.role])}
                       >
                         <option value="customer_owner">{t('users.roleOwner')}</option>
                         <option value="customer_user">{t('users.roleUser')}</option>

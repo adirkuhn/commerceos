@@ -44,7 +44,7 @@ export function VersionHistory({ token, theme, onMakeLive }: Props) {
               <span className="text-2xs text-ink-4">{t('history.published', { date: formatDateTime(v.sealed_at ?? v.created_at) })}</span>
               {v.note && <span className="text-2xs text-ink-3 truncate">{v.note}</span>}
               {live
-                ? <span className="ml-auto text-2xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-700 dark:text-green-400">{t('live')}</span>
+                ? <span className="ml-auto text-2xs px-2 py-0.5 rounded-full bg-success/10 text-success dark:text-green-400">{t('live')}</span>
                 : (
                   <button onClick={() => void makeLive(v)}
                     className="ml-auto px-3 py-1 rounded-lg bg-fill text-2xs text-ink-2 hover:text-accent">

@@ -87,7 +87,7 @@ export function ProductWooCommerceTab({
     }
   }
 
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-800/60 bg-gray-100 border border-line outline-none focus-visible:ring-2 focus-visible:ring-focus/60 cursor-not-allowed'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-fill border border-line outline-none focus-visible:ring-2 focus-visible:ring-focus/60 cursor-not-allowed'
   const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1.5'
 
   return (
@@ -218,7 +218,7 @@ function WooListingRow({ label, sku, listing, syncLabel }: {
 }) {
   const { t } = useTranslation('pms')
   return (
-    <div className="flex items-center gap-3 rounded-lg px-3 py-2 dark:bg-night-800/40 bg-gray-50 text-2xs">
+    <div className="flex items-center gap-3 rounded-lg px-3 py-2 bg-sunken text-2xs">
       <div className="flex-1 min-w-0">
         <div className="font-medium truncate text-ink">{label}</div>
         {sku && <div className="text-ink-4 truncate">{sku}</div>}

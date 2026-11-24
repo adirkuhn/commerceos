@@ -81,7 +81,7 @@ export function TopProductsPanel({ products, currency, className }: { products: 
           </thead>
           <tbody>
             {products.map(p => (
-              <tr key={p.sku_id ?? p.sku_code} className="border-b dark:border-night-700/50 border-gray-50 last:border-0 hover:bg-hover/30 transition-colors">
+              <tr key={p.sku_id ?? p.sku_code} className="border-b border-line/50 last:border-0 hover:bg-hover/30 transition-colors">
                 <td className="px-4 py-2.5">
                   <p className="text-xs font-medium text-ink">{p.product_name}</p>
                   <p className="text-2xs text-ink-4 font-mono">{p.sku_code}</p>

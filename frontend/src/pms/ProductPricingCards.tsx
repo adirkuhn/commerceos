@@ -314,7 +314,7 @@ function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId:
           </span>
           <button
             type="button" onClick={handleClear} disabled={saving}
-            className="px-2 py-1 rounded-lg dark:bg-night-800 bg-gray-100 text-2xs font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50 shrink-0"
+            className="px-2 py-1 rounded-lg bg-fill text-2xs font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50 shrink-0"
           >
             {saving ? t('insight.reverting') : t('insight.revert')}
           </button>
@@ -331,7 +331,7 @@ function ManualCostPriceEditor({ skuId, insight, currency, onChanged }: { skuId:
           />
           <button
             type="button" onClick={handleSet} disabled={saving || value.trim() === ''}
-            className="px-2 py-1 rounded-lg dark:bg-night-800 bg-gray-100 text-2xs font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50"
+            className="px-2 py-1 rounded-lg bg-fill text-2xs font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50"
           >
             {saving ? t('common:actions.saving') : t('insight.set')}
           </button>
@@ -378,7 +378,7 @@ export function CategoryMarginEditor({ category, onSave }: { category: Category 
         className="w-28 px-3 py-1.5 text-xs rounded-lg bg-raised border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
       />
       <span className="text-2xs text-ink-4">{t('insight.categoryMarkup')}</span>
-      <button type="button" onClick={handleSave} disabled={saving} className="px-2 py-1 rounded-lg dark:bg-night-800 bg-gray-100 text-2xs font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50">
+      <button type="button" onClick={handleSave} disabled={saving} className="px-2 py-1 rounded-lg bg-fill text-2xs font-medium text-ink-2 hover:bg-hover transition-colors disabled:opacity-50">
         {saving ? t('common:actions.saving') : t('common:actions.save')}
       </button>
       {savedMsg && <span className="text-2xs text-success">{t('common:status.saved')}</span>}

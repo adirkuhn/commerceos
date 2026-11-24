@@ -40,7 +40,7 @@ export function PickingCompleteResult({ order, result, onContinueToPacking, onBa
 
       <button
         type="button" onClick={onBack}
-        className="mt-3 px-4 py-2 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 text-xs font-medium hover:bg-hover transition-colors"
+        className="mt-3 px-4 py-2 rounded-lg bg-fill text-ink-2 text-xs font-medium hover:bg-hover transition-colors"
       >
         {t('done.backToOrders')}
       </button>

@@ -14,8 +14,8 @@ const PAGE_SIZE = 20
 
 const KIND_STYLE: Record<SupplierCostKind, string> = {
   receipt: 'bg-fill text-ink-3',
-  reversal: 'bg-red-500/15 text-danger',
-  correction: 'bg-amber-500/15 text-warning',
+  reversal: 'bg-danger/10 text-danger',
+  correction: 'bg-warning/10 text-warning',
 }
 
 // SupplierCostsCard is a SKU's cost history by supplier (COM-11): the last

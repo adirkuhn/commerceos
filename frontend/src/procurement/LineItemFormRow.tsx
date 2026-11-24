@@ -56,7 +56,7 @@ export function LineItemFormRow({ initial, onSubmit, onCancel }: LineItemFormRow
   }
 
   const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1'
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-950 bg-white border border-line text-ink outline-none focus:ring-1 focus:ring-focus'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-focus'
   const idPrefix = initial?.id ?? 'new'
 
   return (

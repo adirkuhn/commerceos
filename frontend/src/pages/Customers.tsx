@@ -169,7 +169,7 @@ export default function Customers() {
                 className="group hover:bg-hover/60 transition-colors cursor-pointer"
               >
                 <td className="px-2 py-2.5">
-                  <div className="w-6 h-6 rounded dark:bg-night-700 bg-gray-200 flex items-center justify-center">
+                  <div className="w-6 h-6 rounded bg-fill flex items-center justify-center">
                     <User size={12} className="text-ink-4" />
                   </div>
                 </td>
@@ -188,8 +188,8 @@ export default function Customers() {
                 </td>
                 <td className="px-3 py-2.5">
                   <span className={clsx(
-                    'px-2 py-0.5 rounded-full text-2xs font-medium',
-                    c.is_paying_customer ? 'bg-green-500/15 text-success' : 'bg-gray-500/15 text-ink-4',
+                    'px-2 py-0.5 rounded-sm text-2xs font-semibold',
+                    c.is_paying_customer ? 'bg-success/10 text-success' : 'bg-fill text-ink-4',
                   )}>
                     {c.is_paying_customer ? t('list.paying') : t('list.noOrders')}
                   </span>

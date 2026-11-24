@@ -36,7 +36,7 @@ export function AIConnectionRow({ connection, place, onToggle, onEdit, onDelete 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="text-xs font-medium text-ink truncate">{name}</p>
-          <span className={clsx('px-1.5 py-0.5 rounded-full text-2xs font-medium capitalize', STATUS_STYLES[connection.status])}>
+          <span className={clsx('px-1.5 py-0.5 rounded-sm text-2xs font-semibold capitalize', STATUS_STYLES[connection.status])}>
             {connectionStatusLabel(connection.status)}
           </span>
         </div>

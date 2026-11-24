@@ -132,7 +132,7 @@ export function DiscrepancyRow({
           <select
             aria-label={t('disc.linkAria')}
             value={linkTargetId} onChange={e => setLinkTargetId(e.target.value)}
-            className="flex-1 text-2xs rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
+            className="flex-1 text-2xs rounded-md border border-line bg-surface text-ink-2 px-2 py-1"
           >
             <option value="">{t('disc.selectMatching')}</option>
             {linkCandidates.map(c => <option key={c.id} value={c.id}>{c.details}</option>)}
@@ -207,18 +207,18 @@ export function FlagDamagedItemForm({ recordId, lineItems, onDone, onCancel }: F
       <div className="flex items-center gap-2">
         <select
           value={lineItemId} onChange={e => setLineItemId(e.target.value)} required
-          className="flex-1 text-2xs rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
+          className="flex-1 text-2xs rounded-md border border-line bg-surface text-ink-2 px-2 py-1"
         >
           {lineItems.map(li => <option key={li.id} value={li.id}>{li.raw_description}</option>)}
         </select>
         <input
           type="number" min="1" value={qty} onChange={e => setQty(e.target.value)} required
-          className="w-16 text-2xs rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
+          className="w-16 text-2xs rounded-md border border-line bg-surface text-ink-2 px-2 py-1"
         />
       </div>
       <input
         type="text" placeholder={t('damaged.note')} value={note} onChange={e => setNote(e.target.value)}
-        className="w-full text-2xs rounded-md border border-line dark:bg-night-950 bg-white text-ink-2 px-2 py-1"
+        className="w-full text-2xs rounded-md border border-line bg-surface text-ink-2 px-2 py-1"
       />
       {error && <p className="text-2xs text-danger">{error}</p>}
       <div className="flex items-center gap-3">
@@ -296,7 +296,7 @@ function ReceiveDiscrepancyForm({ skuId, warehouseId, warehouses, onAssignWareho
     return <p className="text-2xs font-medium text-green-400">{t('receive.done')}</p>
   }
 
-  const inputClass = 'w-full px-2 py-1 text-2xs rounded dark:bg-night-950 bg-white border dark:border-night-700 text-ink outline-none focus:ring-1 focus:ring-focus'
+  const inputClass = 'w-full px-2 py-1 text-2xs rounded bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-focus'
 
   return (
     <form onSubmit={handleSubmit} className="flex items-end gap-2 pt-1 flex-wrap">

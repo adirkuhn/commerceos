@@ -121,7 +121,7 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
   }
 
   return (
-    <div className="pl-8 pr-4 py-3 border-t border-line/60 dark:bg-night-950/40 bg-gray-50/60">
+    <div className="pl-8 pr-4 py-3 border-t border-line/60 bg-sunken">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
           <span className="font-mono text-2xs text-ink-2">
@@ -202,8 +202,8 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
                 onClick={() => openRowAction(b)}
                 title={t('sku.rowTitle')}
                 className={clsx(
-                  'cursor-pointer dark:hover:bg-night-800 hover:bg-gray-100/80',
-                  b.is_general_ledger && 'dark:bg-night-900/40 bg-gray-100/60',
+                  'cursor-pointer hover:bg-hover',
+                  b.is_general_ledger && 'bg-fill',
                 )}
               >
                 <td className="px-2.5 py-1.5 font-mono text-ink-2">

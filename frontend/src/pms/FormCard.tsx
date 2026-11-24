@@ -24,7 +24,7 @@ export function ToggleRow({ label, checked, onChange }: { label: string; checked
         onClick={onChange}
         className={clsx(
           'relative w-9 h-5 rounded-full shrink-0 transition-colors',
-          checked ? 'bg-accent-solid' : 'dark:bg-night-700 bg-gray-300',
+          checked ? 'bg-accent-solid' : 'bg-line',
         )}
       >
         <span className={clsx(

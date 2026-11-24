@@ -30,10 +30,10 @@ const SHIPMENTS: Shipment[] = [
 ]
 
 const CARRIER_COLORS: Record<string, string> = {
-  sendcloud: 'bg-purple-500/15 text-purple-400',
+  sendcloud: 'bg-figure/10 text-figure',
   myparcel: 'bg-accent/15 text-accent',
-  packlink: 'bg-orange-500/15 text-orange-400',
-  dhl: 'bg-yellow-500/15 text-warning',
+  packlink: 'bg-warning/10 text-warning',
+  dhl: 'bg-warning/10 text-warning',
   postnl: 'bg-orange-600/15 text-orange-500',
 }
 
@@ -160,7 +160,7 @@ export default function Shipping() {
                     <td className="px-3 py-2.5 font-mono text-ink-3 text-2xs">{s.orderId}</td>
                     <td className="px-3 py-2.5 text-ink-2">{s.customer}</td>
                     <td className="px-3 py-2.5">
-                      <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', CARRIER_COLORS[s.carrier])}>
+                      <span className={clsx('px-2 py-0.5 rounded-sm text-2xs font-semibold capitalize', CARRIER_COLORS[s.carrier])}>
                         {s.carrier}
                       </span>
                     </td>
@@ -209,7 +209,7 @@ export default function Shipping() {
               </button>
             </div>
             <table className="w-full text-xs">
-              <thead className="dark:bg-night-900/50 bg-gray-50 border-b border-line">
+              <thead className="bg-sunken border-b border-line">
                 <tr>
                   {[t('page.colService'), t('page.colCarrier'), t('page.colCondition'), t('page.colCost'), t('page.colAuto'), t('page.colPriority')].map((h, i) => (
                     <th key={i} className="px-4 py-2.5 text-left font-medium text-ink-4 caps-label text-2xs">{h}</th>
@@ -221,7 +221,7 @@ export default function Shipping() {
                   <tr key={rule.name} className="hover:bg-hover/30 transition-colors">
                     <td className="px-4 py-3 text-ink font-medium">{rule.name}</td>
                     <td className="px-4 py-3">
-                      <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium', CARRIER_COLORS[rule.carrier])}>
+                      <span className={clsx('px-2 py-0.5 rounded-sm text-2xs font-semibold', CARRIER_COLORS[rule.carrier])}>
                         {rule.carrier}
                       </span>
                     </td>

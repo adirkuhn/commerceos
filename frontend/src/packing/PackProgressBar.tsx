@@ -16,7 +16,7 @@ export function PackProgressBar({ packedItems, totalItems, percent, allPacked }:
         <span className="text-xs text-ink-3">{t('progress.label')}</span>
         <span className="text-xs font-medium text-ink">{t('progress.items', { packed: packedItems, total: totalItems })}</span>
       </div>
-      <div className="h-2 dark:bg-night-700 bg-gray-200 rounded-full overflow-hidden">
+      <div className="h-2 bg-fill rounded-full overflow-hidden">
         <div
           className={clsx('h-full rounded-full transition-all duration-500', allPacked ? 'bg-green-500' : 'bg-accent-solid')}
           style={{ width: `${percent}%` }}

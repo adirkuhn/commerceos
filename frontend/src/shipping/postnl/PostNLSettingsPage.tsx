@@ -31,7 +31,7 @@ export function PostNLSettingsPage({ connectionId, onClose }: PostNLSettingsPage
         </button>
         <h2 className="text-sm font-semibold text-ink">{providerLabel(SHIPPING_PROVIDERS.postnl)}</h2>
         {account.account?.sandbox && (
-          <span data-testid="sandbox-badge" className="text-2xs px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/10 text-warning font-medium">
+          <span data-testid="sandbox-badge" className="text-2xs px-2 py-0.5 rounded-full bg-amber-50 dark:bg-warning/10 text-warning font-medium">
             {t('integrations:postnl.sandbox')}
           </span>
         )}

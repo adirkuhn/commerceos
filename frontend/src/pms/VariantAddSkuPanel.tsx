@@ -19,7 +19,7 @@ export function VariantAddSkuPanel({ addSku }: VariantAddSkuPanelProps) {
   return (
     // Plain div, not <form> — same nested-<form>-inside-the-page's-outer-
     // form bug as the Add Variant form (see VariantsSection).
-    <div className="mt-2 space-y-1.5 p-2 rounded-lg dark:bg-night-800/60 bg-gray-50 border border-line">
+    <div className="mt-2 space-y-1.5 p-2 rounded-lg bg-sunken border border-line">
       <div className="grid grid-cols-2 gap-1.5">
         <div>
           <label className={fieldLabelClass}>{t('variant.skuCode')}</label>

@@ -59,7 +59,7 @@ export function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onA
 
   return (
     <div className="rounded-xl border border-line overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 dark:bg-night-900/50 bg-gray-50 border-b border-line">
+      <div className="flex items-center justify-between px-4 py-3 bg-sunken border-b border-line">
         <h3 className="text-xs font-semibold text-ink">{t('receiving.title')}</h3>
         <div className="flex items-center gap-2">
           {uploadStatus === 'uploading' && <span className="text-2xs text-ink-4">{t('receiving.uploading')}</span>}
@@ -95,17 +95,17 @@ export function ReceivingSection({ purchaseOrderId, warehouseId, warehouses, onA
               {record.is_potential_duplicate && (
                 <span
                   title={t('receiving.duplicateTitle')}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-medium bg-amber-100 dark:bg-amber-500/10 text-warning"
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-2xs font-semibold bg-amber-100 dark:bg-warning/10 text-warning"
                 >
                   <AlertTriangle size={10} /> {t('receiving.possibleDuplicate')}
                 </span>
               )}
-              <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium capitalize', RECEIVING_STATUS_STYLE[record.status])}>
+              <span className={clsx('px-2 py-0.5 rounded-sm text-2xs font-semibold capitalize', RECEIVING_STATUS_STYLE[record.status])}>
                 {receivingStatusLabel(record.status)}
               </span>
             </button>
             {expandedId === record.id && (
-              <div className="px-4 pb-3 dark:bg-night-950/40 bg-gray-50/60">
+              <div className="px-4 pb-3 bg-sunken">
                 <ReceivingRecordCard
                   recordId={record.id}
                   lineItems={lineItems}
@@ -282,7 +282,7 @@ function ReceivingReportModal({ discrepancies, invoiceFileName, onClose }: Recei
 
   return (
     <Dialog onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl dark:bg-night-900 bg-white border border-line shadow-xl">
+      <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl bg-raised border border-line shadow-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <h2 className="text-sm font-semibold text-ink">{t('report.title')}</h2>
           <button aria-label={t('common:actions.close')} type="button" onClick={onClose} title={t('common:actions.close')}>

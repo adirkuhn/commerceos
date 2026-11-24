@@ -56,7 +56,7 @@ export function VariantsSection({ detail, productId }: VariantsSectionProps) {
         <button
           type="button"
           onClick={() => setAdding(v => !v)}
-          className="text-2xs font-medium px-2 py-1 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 hover:bg-hover transition-colors"
+          className="text-2xs font-medium px-2 py-1 rounded-lg bg-fill text-ink-2 hover:bg-hover transition-colors"
         >
           {adding ? t('common:actions.cancel') : t('variant.addVariant')}
         </button>
@@ -136,7 +136,7 @@ export function CaseOfSKUPicker({ excludeSKUID, filterSku, onSelect, onClose }: 
   }
 
   return (
-    <div className="rounded-lg border border-line dark:bg-night-950 bg-white p-3 space-y-2">
+    <div className="rounded-lg border border-line bg-surface p-3 space-y-2">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-4" />

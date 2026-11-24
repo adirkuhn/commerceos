@@ -17,8 +17,8 @@ import { LIST_TOOLBAR, LIST_TOOLBAR_ACTION, LIST_TOOLBAR_INLINE, LIST_TOOLBAR_LE
 const PAGE_SIZE = 20
 
 const STATUS_STYLES: Record<SyncLogStatus, string> = {
-  success: 'bg-green-500/15 text-success',
-  error: 'bg-red-500/15 text-danger',
+  success: 'bg-success/10 text-success',
+  error: 'bg-danger/10 text-danger',
 }
 
 
@@ -175,7 +175,7 @@ export default function SyncLog() {
                     )}
                   </td>
                   <td className="px-3 py-2.5">
-                    <span className={`px-2 py-0.5 rounded-full text-2xs font-medium whitespace-nowrap ${STATUS_STYLES[entry.status]}`}>
+                    <span className={`px-2 py-0.5 rounded-sm text-2xs font-semibold whitespace-nowrap ${STATUS_STYLES[entry.status]}`}>
                       {entry.status === 'success' ? t('schedule.statusSuccess') : t('schedule.statusError')}
                     </span>
                     {entry.status === 'error' && entry.error_message && (

@@ -14,7 +14,7 @@ interface VariantImagePickerProps {
 export function VariantImagePicker({ media, selectedId, onSelect }: VariantImagePickerProps) {
   const { t } = useTranslation('pms')
   return (
-    <div className="flex flex-wrap gap-1.5 mt-2 p-2 rounded-lg dark:bg-night-800/60 bg-gray-50 border border-line">
+    <div className="flex flex-wrap gap-1.5 mt-2 p-2 rounded-lg bg-sunken border border-line">
       <button
         type="button"
         onClick={() => onSelect(null)}

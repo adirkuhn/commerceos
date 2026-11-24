@@ -298,7 +298,7 @@ export default function BolSyncSettingsPage({
                     />
                     <button
                       type="button" onClick={handleFetchFromBol} disabled={fetchingOperators}
-                      className="px-2 py-1 text-2xs rounded dark:bg-night-700 bg-gray-200 text-ink-2 hover:opacity-80 disabled:opacity-50 transition-opacity shrink-0"
+                      className="px-2 py-1 text-2xs rounded bg-fill text-ink-2 hover:opacity-80 disabled:opacity-50 transition-opacity shrink-0"
                     >
                       {fetchingOperators ? t('bol.fetching') : t('bol.fetch')}
                     </button>
@@ -406,7 +406,7 @@ export default function BolSyncSettingsPage({
                                 onChange={e => updateCell(row.entity, direction, { enabled: e.target.checked })}
                                 className="sr-only peer"
                               />
-                              <div className="w-8 h-4 dark:bg-night-700 bg-gray-300 rounded-full peer peer-checked:bg-accent-solid transition-colors" />
+                              <div className="w-8 h-4 bg-line rounded-full peer peer-checked:bg-accent-solid transition-colors" />
                               <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-all peer-checked:translate-x-4" />
                             </label>
                           </div>

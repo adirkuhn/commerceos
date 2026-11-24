@@ -327,7 +327,7 @@ export default function SalesOrders() {
 
       {/* Bulk action bar */}
       {checkedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-5 py-2.5 border-b border-line dark:bg-night-800 bg-accent/10 shrink-0">
+        <div className="flex items-center gap-3 px-5 py-2.5 border-b border-line bg-accent/10 shrink-0">
           <span className="text-xs font-medium text-ink-2">{t('list.selected', { count: checkedIds.size })}</span>
           <select
             aria-label={t('list.bulkStatus')} value={bulkStatus} onChange={e => setBulkStatus(e.target.value)} disabled={bulkApplying}

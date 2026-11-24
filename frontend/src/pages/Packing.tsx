@@ -112,7 +112,7 @@ export default function Packing() {
         {activeOrder && completeResult && (
           <PackingDoneView
             order={activeOrder} missingItems={completeResult.missing_items} onBack={pack.backToOrders}
-            labelAction={labelButton('mt-5 px-4 py-2 rounded-lg dark:bg-night-800 bg-gray-100 text-ink-2 text-xs font-medium hover:bg-hover transition-colors')}
+            labelAction={labelButton('mt-5 px-4 py-2 rounded-lg bg-fill text-ink-2 text-xs font-medium hover:bg-hover transition-colors')}
           />
         )}
 
@@ -121,7 +121,7 @@ export default function Packing() {
         {activeOrder && session && confirmingFinish && !completeResult && (
           <PackingReviewView
             order={activeOrder} session={session} error={error} completing={finish.completing}
-            labelAction={labelButton('w-full py-2.5 rounded-xl dark:bg-night-800 bg-gray-100 text-ink-2 text-sm font-medium hover:bg-hover transition-colors')}
+            labelAction={labelButton('w-full py-2.5 rounded-xl bg-fill text-ink-2 text-sm font-medium hover:bg-hover transition-colors')}
             onConfirm={() => finish.complete()} onBack={finish.cancelFinish}
           />
         )}

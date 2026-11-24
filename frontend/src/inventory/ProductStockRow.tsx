@@ -94,9 +94,9 @@ export function ProductStockRow({ token, productId, productName, productImageUrl
         </td>
         <td className="px-2 py-2.5">
           {productImageUrl ? (
-            <img src={productImageUrl} alt="" className="w-6 h-6 rounded object-cover dark:bg-night-700 bg-gray-200" />
+            <img src={productImageUrl} alt="" className="w-6 h-6 rounded object-cover bg-fill" />
           ) : (
-            <div className="w-6 h-6 rounded dark:bg-night-700 bg-gray-200 flex items-center justify-center">
+            <div className="w-6 h-6 rounded bg-fill flex items-center justify-center">
               <ImageIcon size={12} className="text-ink-4" />
             </div>
           )}

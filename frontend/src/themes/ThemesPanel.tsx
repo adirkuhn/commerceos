@@ -155,7 +155,7 @@ export function ThemesPanel({ channel, onClose }: Props) {
                   <p className="text-2xs text-ink-4">{t('updated', { date: formatDate(theme.updated_at) })}</p>
                 </div>
                 {theme.is_live
-                  ? <span className="text-2xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-700 dark:text-green-400">{t('live')}</span>
+                  ? <span className="text-2xs px-2 py-0.5 rounded-full bg-success/10 text-success dark:text-green-400">{t('live')}</span>
                   : <span className="text-2xs px-2 py-0.5 rounded-full bg-fill text-ink-3">{theme.published_version_id ? t('notLive') : t('draftOnly')}</span>}
                 <button onClick={() => void customize(theme)} disabled={channel.storefront_mode !== 'theme'}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-fill text-2xs text-ink-2 hover:text-accent disabled:opacity-50">

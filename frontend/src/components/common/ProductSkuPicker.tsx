@@ -42,14 +42,14 @@ export function ProductSkuPicker({ onSelect, onClose }: ProductSkuPickerProps) {
   }
 
   return (
-    <div className="rounded-lg border border-line dark:bg-night-950 bg-white p-3 space-y-2">
+    <div className="rounded-lg border border-line bg-surface p-3 space-y-2">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-4" />
           <input
             autoFocus value={query} onChange={e => setQuery(e.target.value)}
             placeholder={t('ui:skuPicker.searchPlaceholder')}
-            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg dark:bg-night-800 bg-white border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
+            className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg bg-surface border border-line text-ink outline-none focus:ring-1 focus:ring-focus"
           />
         </div>
         <button aria-label={t('common:actions.close')} type="button" onClick={onClose} title={t('common:actions.close')}>

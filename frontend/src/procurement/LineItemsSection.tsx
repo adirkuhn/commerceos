@@ -123,7 +123,7 @@ export function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, ini
 
   return (
     <div className="rounded-xl border border-line overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 dark:bg-night-900/50 bg-gray-50 border-b border-line">
+      <div className="flex items-center justify-between px-4 py-3 bg-sunken border-b border-line">
         <h3 className="text-xs font-semibold text-ink">{t('lines.title')}</h3>
         <div className="flex items-center gap-2">
           {uploadStatus === 'uploading' && (
@@ -163,7 +163,7 @@ export function LineItemsSection({ purchaseOrderId, lineItems, currencyCode, ini
 
       <table className="w-full text-xs">
         <thead>
-          <tr className="dark:bg-night-900/30 bg-gray-50">
+          <tr className="bg-sunken">
             <th className="px-4 py-2 text-left font-medium text-ink-4 caps-label text-2xs">{t('lines.colDescription')}</th>
             <th className="px-4 py-2 text-left font-medium text-ink-4 caps-label text-2xs">{t('lines.colType')}</th>
             <th className="px-4 py-2 text-left font-medium text-ink-4 caps-label text-2xs">{t('lines.colLinkedSku')}</th>
@@ -381,11 +381,11 @@ function ReviewUnmatchedLineItem({ lineItem, onResolved, onCancel }: ReviewUnmat
     }
   }
 
-  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg dark:bg-night-800 bg-white border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
+  const inputClass = 'w-full px-3 py-2 text-xs rounded-lg bg-surface border border-line text-ink-2 outline-none focus:ring-1 focus:ring-focus'
   const labelClass = 'block text-2xs font-medium text-ink-4 caps-label mb-1'
 
   return (
-    <div className="rounded-lg border dark:border-amber-500/30 border-amber-300 dark:bg-night-950 bg-white p-3 space-y-2">
+    <div className="rounded-lg border dark:border-amber-500/30 border-amber-300 bg-surface p-3 space-y-2">
       <div className="text-2xs text-ink-3">
         {lineItem.raw_sku
           ? <Trans t={t} i18nKey="review.extractedWithSku" values={{ sku: lineItem.raw_sku }} components={{ code: <span className="font-mono" /> }} />

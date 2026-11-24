@@ -54,7 +54,7 @@ export function VariantEditPanel({ variant, sku, updateVariant, updateSKU, onClo
   return (
     // Plain div, not <form> -- same nested-<form>-inside-the-page's-
     // outer-form avoidance as the Add Variant/Add SKU panels.
-    <div className="mt-2 space-y-3 p-3 rounded-lg dark:bg-night-800/60 bg-gray-50 border border-line">
+    <div className="mt-2 space-y-3 p-3 rounded-lg bg-sunken border border-line">
       <div>
         <label className={fieldLabelClass}>{t('variant.name')}</label>
         <input

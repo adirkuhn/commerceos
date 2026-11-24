@@ -51,7 +51,7 @@ export function PriceModal({ sku, onSave, onClose }: {
           <div className="flex items-center justify-between">
             <label className={clsx(labelClass, 'mb-0')} htmlFor="price-edit-sale-price">{t('price.sale')}</label>
             {discountPct != null && discountPct > 0 && (
-              <span className="text-2xs px-1.5 py-px rounded bg-green-500/15 text-success font-medium">-{discountPct}%</span>
+              <span className="text-2xs px-1.5 py-px rounded bg-success/10 text-success font-medium">-{discountPct}%</span>
             )}
             {discountPct != null && discountPct <= 0 && (
               <span className="text-2xs text-danger">{t('price.mustBeBelow')}</span>

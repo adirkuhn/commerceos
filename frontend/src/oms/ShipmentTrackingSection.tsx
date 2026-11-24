@@ -93,7 +93,7 @@ export function ShipmentTrackingSection({ token, shipment, onCancelled }: { toke
             )}
           </span>
           {shipment.cancelled_at && (
-            <span className="ml-2 text-2xs px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-red-500/10 text-danger">{t('tracking.cancelled')}</span>
+            <span className="ml-2 text-2xs px-1.5 py-0.5 rounded-full bg-red-50 dark:bg-danger/10 text-danger">{t('tracking.cancelled')}</span>
           )}
         </div>
         <div className="flex items-center gap-2">

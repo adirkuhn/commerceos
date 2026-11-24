@@ -28,7 +28,7 @@ export function WhatsAppConversationPanel({ customerId }: { customerId: string }
                 className={
                   m.direction === 'outbound'
                     ? 'max-w-[80%] rounded-lg px-2.5 py-1.5 bg-accent-solid text-white'
-                    : 'max-w-[80%] rounded-lg px-2.5 py-1.5 dark:bg-night-800 bg-gray-100 text-ink'
+                    : 'max-w-[80%] rounded-lg px-2.5 py-1.5 bg-fill text-ink'
                 }
               >
                 <p className="whitespace-pre-wrap">{m.body}</p>

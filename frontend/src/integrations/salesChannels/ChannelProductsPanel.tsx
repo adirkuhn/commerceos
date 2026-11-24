@@ -169,7 +169,7 @@ export function ChannelProductsPanel({ channel, onClose, update, categories }: C
                   className={clsx(
                     'px-3 py-1 rounded-lg text-2xs font-medium transition-colors shrink-0',
                     enrolled
-                      ? 'bg-green-500/10 text-success hover:bg-red-500/10 hover:text-danger'
+                      ? 'bg-success/10 text-success hover:bg-red-500/10 hover:text-danger'
                       : 'bg-fill text-ink-3 hover:text-accent',
                   )}
                 >
