@@ -344,5 +344,18 @@
     "failed": "De order kon niet worden opgeslagen.",
     "loading": "Order laden…",
     "loadFailed": "De order kon niet worden geladen om te bewerken."
+  },
+  "legs": {
+    "label": "Orderverloop",
+    "paid": "Betaald",
+    "picked": "Gepickt",
+    "packed": "Ingepakt",
+    "shipped": "Verzonden",
+    "leg": "Stap",
+    "done": "Klaar",
+    "upNext": "Volgende",
+    "notYet": "Nog niet",
+    "void": "Vervallen",
+    "voidHint": "Deze order is geannuleerd, mislukt of terugbetaald."
   }
 }

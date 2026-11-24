@@ -347,5 +347,18 @@
     "failed": "Não foi possível salvar o pedido.",
     "loading": "Carregando o pedido…",
     "loadFailed": "Não foi possível carregar o pedido para edição."
+  },
+  "legs": {
+    "label": "Percurso do pedido",
+    "paid": "Pago",
+    "picked": "Separado",
+    "packed": "Embalado",
+    "shipped": "Enviado",
+    "leg": "Etapa",
+    "done": "Feito",
+    "upNext": "Próximo",
+    "notYet": "Ainda não",
+    "void": "Anulado",
+    "voidHint": "Este pedido foi cancelado, falhou ou foi reembolsado."
   }
 }

@@ -344,5 +344,18 @@
     "failed": "Could not save the order.",
     "loading": "Loading the order…",
     "loadFailed": "Could not load the order for editing."
+  },
+  "legs": {
+    "label": "Order journey",
+    "paid": "Paid",
+    "picked": "Picked",
+    "packed": "Packed",
+    "shipped": "Shipped",
+    "leg": "Leg",
+    "done": "Done",
+    "upNext": "Up next",
+    "notYet": "Not yet",
+    "void": "Void",
+    "voidHint": "This order is cancelled, failed or refunded."
   }
 }

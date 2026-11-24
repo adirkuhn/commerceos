@@ -38,6 +38,8 @@ import { MoneybirdDocumentCard } from '../moneybird/MoneybirdDocumentCard'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { Money } from '../format/amountVisibility'
 import { apiErrorText } from '../api/apiErrorText'
+import { channelLabel } from '../dashboard/widgets'
+import { FulfilmentLegs } from './FulfilmentLegs'
 
 // ── Sales Order Detail Page ──────────────────────────────────────────────────
 
@@ -210,7 +212,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-sunken shrink-0">
+      <div className="flex flex-wrap items-end justify-between gap-4 px-6 pt-4 pb-5 border-b border-line bg-surface shrink-0">
         <div>
           <button
             onClick={onClose}
@@ -218,13 +220,16 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
           >
             <ArrowLeft size={11} /> {t('detail.back')}
           </button>
-          <h1 className="text-xl font-semibold text-ink leading-tight flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-ink leading-tight flex flex-wrap items-center gap-2.5">
             {detail ? `#${detail.sales_order.number || detail.sales_order.external_order_id}` : t('detail.title')}
+            {detail && (
+              <span className="px-2 py-0.5 rounded-md border border-line text-2xs font-semibold caps-label-wide text-ink-3">{channelLabel(detail.sales_order.source)}</span>
+            )}
             {detail?.sales_order.needs_stock_review && (
-              <span className="px-2 py-0.5 rounded-full text-2xs font-medium bg-amber-500/15 text-warning">{t('detail.stockIssue')}</span>
+              <span className="px-2 py-0.5 rounded-md text-2xs font-semibold bg-warning/10 text-warning">{t('detail.stockIssue')}</span>
             )}
             {detail?.sales_order.needs_sku_review && (
-              <span className="px-2 py-0.5 rounded-full text-2xs font-medium bg-amber-500/15 text-warning">{t('detail.unmatchedSku')}</span>
+              <span className="px-2 py-0.5 rounded-md text-2xs font-semibold bg-warning/10 text-warning">{t('detail.unmatchedSku')}</span>
             )}
           </h1>
         </div>
@@ -233,7 +238,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
             {canEditOrder(detail.sales_order) && (
               <Link
                 to={`/sales-orders/${encodeURIComponent(detail.sales_order.id)}/edit`}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
+                className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover hover:text-ink transition-colors"
               >
                 <Pencil size={13} /> {t('detail.edit')}
               </Link>
@@ -241,14 +246,14 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
             <button
               onClick={() => setPrintMode('picking-list')}
               title={t('detail.printPickingList')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
+              className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover hover:text-ink transition-colors"
             >
               <Printer size={13} /> {t('detail.pickingList')}
             </button>
             <button
               onClick={() => setPrintMode('invoice')}
               title={t('detail.printInvoice')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
+              className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover hover:text-ink transition-colors"
             >
               <Printer size={13} /> {t('detail.invoice')}
             </button>
@@ -256,7 +261,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
               <button
                 onClick={handleCreateLabelClick}
                 title={t('detail.createLabelTitle')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
+                className="flex items-center gap-1.5 h-8 px-3 rounded-md bg-accent-solid hover:bg-accent-solid-hover text-xs font-semibold text-white transition-colors"
               >
                 {t('detail.createLabel')}
               </button>
@@ -265,7 +270,7 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
               <button
                 onClick={() => createdShipmentId && handleOpenLabel(createdShipmentId)}
                 title={t('detail.printLabelTitle')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-raised text-xs font-medium text-ink-2 hover:bg-hover transition-colors"
+                className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-line bg-raised text-xs font-semibold text-ink-2 hover:bg-hover hover:text-ink transition-colors"
               >
                 {/* auto_print_enabled already opened the print view once on
                     creation -- this button is then for re-printing (paper
@@ -278,35 +283,39 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
               disabled={savingStatus}
               onChange={e => handleStatusChange(e.target.value as SalesOrderStatus)}
               className={clsx(
-                'px-2.5 py-1.5 rounded-lg text-xs font-medium border border-line outline-none focus-visible:ring-2 focus-visible:ring-focus/60 cursor-pointer disabled:opacity-50',
+                'h-8 px-2.5 rounded-md text-xs font-semibold border border-line outline-none focus-visible:ring-2 focus-visible:ring-focus/60 cursor-pointer disabled:opacity-50',
                 'bg-raised text-ink',
               )}
             >
               {STATUS_OPTIONS.map(s => <option key={s} value={s}>{salesOrderStatusLabel(s)}</option>)}
             </select>
+            {/* Destructive, so it stands apart from the everyday actions. */}
+            <span aria-hidden className="w-px h-6 bg-line mx-2" />
             <button aria-label={t('detail.delete')}
               onClick={handleDelete}
               disabled={deleting}
               title={t('detail.delete')}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-line hover:bg-hover disabled:opacity-50 transition-colors"
+              className="group w-8 h-8 flex items-center justify-center rounded-md border border-line hover:border-danger/50 hover:bg-danger/10 disabled:opacity-50 transition-colors"
             >
-              <Trash2 size={14} className="text-ink-3" />
+              <Trash2 size={14} className="text-ink-3 group-hover:text-danger" />
             </button>
           </div>
         )}
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-5xl mx-auto p-6 space-y-5">
+        <div className="max-w-6xl mx-auto p-6 space-y-6">
           {loading && <p className="text-xs text-ink-4">{t('common:status.loading')}</p>}
           {(error || actionError) && <p className="text-xs text-danger bg-red-50 dark:bg-red-500/10 rounded-lg px-2 py-1.5">{error || actionError}</p>}
+
+          {detail && <FulfilmentLegs order={detail.sales_order} />}
 
           {detail && (
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
               {/* Main column */}
               <div className="space-y-5 min-w-0">
-                <div className="rounded-xl border border-line p-4 space-y-3">
-                  <h3 className="text-xs font-semibold text-ink">{t('detail.lineItems')}</h3>
+                <div className="rounded-lg border border-line bg-raised shadow-panel p-4 space-y-3">
+                  <h3 className="caps-label-widest text-2xs font-bold text-ink">{t('detail.lineItems')}</h3>
                   <SalesOrderLinesTable lines={detail.line_items} changesByLine={changesByLine.byLine} currency={detail.sales_order.currency_code} />
                   <NotAddedExtras changes={changesByLine.notAdded} />
                   {lineChangesError && <p className="text-2xs text-danger">{lineChangesError}</p>}
@@ -330,9 +339,9 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                       <span>{t('detail.tax')}</span>
                       <span><Money minor={detail.sales_order.tax_total_minor_units} currency={detail.sales_order.currency_code} /></span>
                     </div>
-                    <div className="flex justify-between font-semibold text-ink pt-1">
+                    <div className="flex justify-between items-baseline font-bold text-ink pt-2 mt-1 border-t border-line text-sm">
                       <span>{t('common:fields.total')}</span>
-                      <span><Money minor={detail.sales_order.total_minor_units} currency={detail.sales_order.currency_code} /></span>
+                      <span className="text-figure text-base tabular-nums"><Money minor={detail.sales_order.total_minor_units} currency={detail.sales_order.currency_code} /></span>
                     </div>
                   </div>
                 </div>
@@ -345,8 +354,8 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                   orderPaid={detail.sales_order.payment_status === 'paid'} orderPaymentMethod={detail.sales_order.payment_method ?? ''} />
 
                 {shipments.length > 0 && token && (
-                  <div className="rounded-xl border border-line p-4 space-y-3 text-xs">
-                    <p className="font-medium text-ink-2">{t('detail.shipments')}</p>
+                  <div className="rounded-lg border border-line bg-raised shadow-panel p-4 space-y-3 text-xs">
+                    <h3 className="caps-label-widest text-2xs font-bold text-ink">{t('detail.shipments')}</h3>
                     {shipments.map(s => <ShipmentTrackingSection key={s.id} token={token} shipment={s} onCancelled={loadShipments} />)}
                   </div>
                 )}
@@ -356,8 +365,8 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                 )}
 
                 {activities.length > 0 && (
-                  <div className="rounded-xl border border-line p-4 space-y-2 text-xs">
-                    <p className="font-medium text-ink-2">{t('detail.timeline')}</p>
+                  <div className="rounded-lg border border-line bg-raised shadow-panel p-4 space-y-2 text-xs">
+                    <h3 className="caps-label-widest text-2xs font-bold text-ink">{t('detail.timeline')}</h3>
                     {activities.map(a => (
                       <div key={a.id} className="flex justify-between gap-3 text-ink-3">
                         <span className="text-ink">{activityText(t, a)}</span>
@@ -370,9 +379,9 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
 
               {/* Aside column */}
               <div className="space-y-5 min-w-0">
-                <div className="rounded-xl border border-line p-4 space-y-2 text-xs">
+                <div className="rounded-lg border border-line bg-raised shadow-panel p-4 space-y-2 text-xs">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold text-ink">{t('detail.notes')}</h3>
+                    <h3 className="caps-label-widest text-2xs font-bold text-ink">{t('detail.notes')}</h3>
                     {!editingNote && (
                       <button
                         onClick={startEditingNote}
@@ -418,8 +427,8 @@ export function SalesOrderDetailPage({ salesOrderId, onClose }: { salesOrderId: 
                   )}
                 </div>
 
-                <div className="rounded-xl border border-line p-4 space-y-3 text-xs">
-                  <h3 className="text-xs font-semibold text-ink">{t('detail.customer')}</h3>
+                <div className="rounded-lg border border-line bg-raised shadow-panel p-4 space-y-3 text-xs">
+                  <h3 className="caps-label-widest text-2xs font-bold text-ink">{t('detail.customer')}</h3>
                   <OrderCustomerSection token={token ?? ''} order={detail.sales_order} onUpdate={update} />
 
                   {detail.sales_order.billing?.email && (
