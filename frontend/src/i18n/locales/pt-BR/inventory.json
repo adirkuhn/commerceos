@@ -188,7 +188,9 @@
     "transfer": "Transferir",
     "viewHistory": "Ver histórico de movimentações",
     "splitPackages": "Dividir em pacotes",
-    "splitPackagesTitle": "Pese pacotes deste pool de peso e transforme-os em variantes vendáveis"
+    "splitPackagesTitle": "Pese pacotes deste pool de peso e transforme-os em variantes vendáveis",
+    "stockPage": "Página de estoque",
+    "stockPageTitle": "Abrir a página de estoque: todos os lotes, ajustes, movimentações recentes"
   },
   "split": {
     "casesToSplit": "Caixas a desmembrar",
@@ -303,5 +305,53 @@
       "nameRequired": "Informe um nome para a promoção."
     },
     "onSaleShort": "Em promoção"
+  },
+  "adjust": {
+    "title": "Ajustar estoque",
+    "back": "Voltar ao estoque",
+    "subtitle": "{{product}} · {{sku}}",
+    "where": "Onde",
+    "noLot": "Sem lote",
+    "lot": "Lote {{lot}}",
+    "onHand": "Em estoque",
+    "total": "Total em estoque",
+    "showEmpty_one": "Mostrar {{count}} lote vazio",
+    "showEmpty_other": "Mostrar {{count}} lotes vazios",
+    "hideEmpty": "Ocultar lotes vazios",
+    "change": "Alteração",
+    "add": "Adicionar",
+    "remove": "Remover",
+    "quantity": "Quantidade",
+    "quantityKg": "Quantidade (kg)",
+    "why": "Motivo",
+    "note": "Observação (opcional)",
+    "notePlaceholder": "ex.: entrega do fornecedor 14 nov",
+    "reason": {
+      "received": "Recebido",
+      "returned": "Devolvido",
+      "found": "Encontrado",
+      "sold": "Vendido",
+      "sample": "Amostra",
+      "correction": "Correção"
+    },
+    "previewLabel": "Depois desta alteração",
+    "short": "Só há {{onHand}} em estoque aqui.",
+    "writeOffHint": "Danificado ou perdido?",
+    "writeOff": "Dar baixa",
+    "save": "Registrar alteração",
+    "saved": "Registrado: {{before}} → {{after}}",
+    "error": {
+      "quantity": "Informe uma quantidade acima de zero.",
+      "warehouse": "Escolha onde está o estoque.",
+      "reason": "Escolha um motivo para esta alteração.",
+      "failed": "Não foi possível registrar a alteração."
+    },
+    "openPage": "Abrir página completa",
+    "recent": "Movimentações recentes",
+    "recentEmpty": "Nenhuma movimentação ainda.",
+    "fullHistory": "Histórico completo",
+    "loadFailed": "Não foi possível carregar o estoque deste item.",
+    "showEmpty_many": "Mostrar {{count}} lotes vazios",
+    "lotWord": "Lote"
   }
 }

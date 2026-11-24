@@ -188,7 +188,9 @@
     "transfer": "Overboeken",
     "viewHistory": "Mutatiegeschiedenis bekijken",
     "splitPackages": "Verdelen in pakketten",
-    "splitPackagesTitle": "Weeg pakketten af van deze gewichtspool en maak er verkoopbare varianten van"
+    "splitPackagesTitle": "Weeg pakketten af van deze gewichtspool en maak er verkoopbare varianten van",
+    "stockPage": "Voorraadpagina",
+    "stockPageTitle": "Open de voorraadpagina: alle partijen, aanpassen, recente mutaties"
   },
   "split": {
     "casesToSplit": "Dozen om op te splitsen",
@@ -299,5 +301,53 @@
       "nameRequired": "Vul een naam voor de aanbieding in."
     },
     "onSaleShort": "In de aanbieding"
+  },
+  "adjust": {
+    "title": "Voorraad aanpassen",
+    "back": "Terug naar voorraad",
+    "subtitle": "{{product}} · {{sku}}",
+    "where": "Waar",
+    "noLot": "Geen partij",
+    "lot": "Partij {{lot}}",
+    "onHand": "Op voorraad",
+    "total": "Totaal op voorraad",
+    "showEmpty_one": "Toon {{count}} lege partij",
+    "showEmpty_other": "Toon {{count}} lege partijen",
+    "hideEmpty": "Verberg lege partijen",
+    "change": "Wijziging",
+    "add": "Toevoegen",
+    "remove": "Afboeken",
+    "quantity": "Aantal",
+    "quantityKg": "Aantal (kg)",
+    "why": "Waarom",
+    "note": "Notitie (optioneel)",
+    "notePlaceholder": "bijv. levering leverancier 14 nov",
+    "reason": {
+      "received": "Ontvangen",
+      "returned": "Retour",
+      "found": "Gevonden",
+      "sold": "Verkocht",
+      "sample": "Monster",
+      "correction": "Correctie"
+    },
+    "previewLabel": "Na deze wijziging",
+    "short": "Hier is maar {{onHand}} op voorraad.",
+    "writeOffHint": "Beschadigd of kwijt?",
+    "writeOff": "Afschrijven",
+    "save": "Wijziging vastleggen",
+    "saved": "Vastgelegd: {{before}} → {{after}}",
+    "error": {
+      "quantity": "Vul een aantal boven nul in.",
+      "warehouse": "Kies waar de voorraad ligt.",
+      "reason": "Kies een reden voor deze wijziging.",
+      "failed": "De wijziging kon niet worden vastgelegd."
+    },
+    "openPage": "Volledige pagina openen",
+    "recent": "Recente mutaties",
+    "recentEmpty": "Nog geen mutaties.",
+    "fullHistory": "Volledige historie",
+    "loadFailed": "De voorraad van dit artikel kon niet worden geladen.",
+    "showEmpty_many": "Toon {{count}} lege partijen",
+    "lotWord": "Partij"
   }
 }

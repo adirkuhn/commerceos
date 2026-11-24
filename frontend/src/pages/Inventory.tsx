@@ -4,7 +4,8 @@ import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { parseInventoryPath, inventoryPaths, INVENTORY_PATH } from '../inventory/inventoryRoutes'
+import { parseInventoryPath, inventoryPaths, INVENTORY_PATH, type InventoryView } from '../inventory/inventoryRoutes'
+import { AdjustStockPage } from '../inventory/adjust/AdjustStockPage'
 import { useInventoryHistoryTarget } from '../inventory/useInventoryHistoryTarget'
 import { useStackNavigation } from '../routing/useStackNavigation'
 import { useQueryEnum, useQueryPage, useQueryString } from '../routing/useQueryState'
@@ -78,6 +79,16 @@ function InventoryPage() {
 
   if (view.kind === 'productHistory' || view.kind === 'skuHistory' || view.kind === 'batchHistory') {
     return <InventoryHistoryView token={token ?? ''} view={view} warehouses={warehouses} onClose={backToList} />
+  }
+
+  if (view.kind === 'skuStock') {
+    return (
+      <InventoryStockView
+        token={token ?? ''} view={view} warehouses={warehouses} onClose={backToList}
+        onViewHistory={() => open(inventoryPaths.skuHistory(view.productId, view.skuId))}
+        onWriteOff={() => open(`${inventoryPaths.skuAction(view.productId, view.skuId, 'damaged-lost')}?open=${encodeURIComponent(view.productId)}`)}
+      />
+    )
   }
 
   if (view.kind === 'expiry') {
@@ -192,6 +203,34 @@ function InventoryPage() {
 
       <Pagination page={page} pageSize={PAGE_SIZE} totalItems={total} onPageChange={setPage} />
     </div>
+  )
+}
+
+// The SKU stock page named in the URL, reloaded from its ids like the
+// history pages; ?batch= / ?ledger= preselect the row it was opened for.
+function InventoryStockView({ token, view, warehouses, onClose, onViewHistory, onWriteOff }: {
+  token: string
+  view: Extract<InventoryView, { kind: 'skuStock' }>
+  warehouses: { id: string; name: string }[]
+  onClose: () => void
+  onViewHistory: () => void
+  onWriteOff: () => void
+}) {
+  const target = useInventoryHistoryTarget(token, view)
+  const { t } = useTranslation('inventory')
+  const [batchParam] = useQueryString('batch')
+  const [ledgerParam] = useQueryString('ledger')
+  const data = target.data
+  if (!data?.sku) {
+    if (target.loading) return <RecordLoading />
+    return <RecordNotFound label={target.error === 'SKU not found' ? t('subject.sku') : t('subject.product')} onBack={onClose} />
+  }
+  const initialRow = batchParam ? { batch: batchParam } : ledgerParam ? { ledger: ledgerParam } : null
+  return (
+    <AdjustStockPage
+      token={token} productName={data.productName} sku={data.sku} warehouses={warehouses} initialRow={initialRow}
+      onClose={onClose} onViewHistory={onViewHistory} onWriteOff={onWriteOff}
+    />
   )
 }
 

@@ -8,6 +8,8 @@ import { subPathSegments } from '../routes'
 //   /inventory/products/<p>/history                        product movement history
 //   /inventory/products/<p>/skus/<s>/history               SKU movement history
 //   /inventory/products/<p>/skus/<s>/batches/<b>/history   batch movement history
+//   /inventory/products/<p>/skus/<s>/stock                 SKU stock page: every place it
+//        is stored, adjust it, recent movements
 //   /inventory/products/<p>/skus/<s>/<action>              SKU action modal over the list,
 //        scoped to one batch row via ?batch=<id> or ?ledger=<warehouseId>
 // The list additionally keeps expanded product rows in ?open= and SKUs
@@ -21,6 +23,8 @@ export const SKU_ACTIONS = [
 ] as const
 export type SkuAction = typeof SKU_ACTIONS[number]
 
+const SKU_STOCK_SEGMENT = 'stock'
+
 export type InventoryView =
   | { kind: 'list' }
   | { kind: 'expiry' }
@@ -28,6 +32,7 @@ export type InventoryView =
   | { kind: 'skuHistory'; productId: string; skuId: string }
   | { kind: 'batchHistory'; productId: string; skuId: string; batchId: string }
   | { kind: 'skuAction'; productId: string; skuId: string; action: SkuAction }
+  | { kind: 'skuStock'; productId: string; skuId: string }
 
 // The stock list is shown for both the plain list and a SKU action (whose
 // modal opens over the list).
@@ -38,6 +43,9 @@ export function isListView(view: InventoryView): view is Extract<InventoryView, 
 export function parseInventoryPath(pathname: string): InventoryView {
   const seg = subPathSegments(pathname, INVENTORY_PATH)
   if (seg.length === 1 && seg[0] === 'expiry') return { kind: 'expiry' }
+  if (seg.length === 5 && seg[0] === 'products' && seg[2] === 'skus' && seg[4] === SKU_STOCK_SEGMENT) {
+    return { kind: 'skuStock', productId: seg[1], skuId: seg[3] }
+  }
   if (seg.length === 5 && seg[0] === 'products' && seg[2] === 'skus' && (SKU_ACTIONS as readonly string[]).includes(seg[4])) {
     return { kind: 'skuAction', productId: seg[1], skuId: seg[3], action: seg[4] as SkuAction }
   }
@@ -61,5 +69,6 @@ export const inventoryPaths = {
   skuHistory: (productId: string, skuId: string) => `${productBase(productId)}/skus/${enc(skuId)}/history`,
   batchHistory: (productId: string, skuId: string, batchId: string) =>
     `${productBase(productId)}/skus/${enc(skuId)}/batches/${enc(batchId)}/history`,
+  skuStock: (productId: string, skuId: string) => `${productBase(productId)}/skus/${enc(skuId)}/${SKU_STOCK_SEGMENT}`,
   skuAction: (productId: string, skuId: string, action: SkuAction) => `${productBase(productId)}/skus/${enc(skuId)}/${action}`,
 }

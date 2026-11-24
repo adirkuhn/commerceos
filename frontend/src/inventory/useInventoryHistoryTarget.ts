@@ -12,7 +12,7 @@ export interface InventoryHistoryTarget {
   batch: Batch | null
 }
 
-type HistoryView = Extract<InventoryView, { kind: 'productHistory' | 'skuHistory' | 'batchHistory' }>
+type HistoryView = Extract<InventoryView, { kind: 'productHistory' | 'skuHistory' | 'batchHistory' | 'skuStock' }>
 
 // Which part of a history URL pointed at nothing -- the page shows
 // "<subject> not found" rather than a generic load error.

@@ -1474,6 +1474,76 @@ describe('Inventory rows and SKU actions in the URL', () => {
     expect(screen.getByText('WIDGET-1')).toBeInTheDocument()
   })
 
+  describe('stock page', () => {
+    beforeEach(() => {
+      vi.mocked(inventoryApi.listStockMovements).mockResolvedValue([{
+        id: 'mv-9', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-1',
+        type: 'receipt', quantity_delta: 10, reason: 'Received — first delivery', occurred_at: '2026-01-02T10:00:00Z', created_at: '',
+      }])
+    })
+
+    it('the panel opens the stock page at its own URL', async () => {
+      const user = userEvent.setup()
+      const { router } = renderAt(<Inventory />, '/inventory', '/inventory?open=prod-1')
+      await screen.findByText('WIDGET-1')
+      await user.click(screen.getByRole('button', { name: 'Stock page' }))
+      expect(router.state.location.pathname).toBe('/inventory/products/prod-1/skus/sku-1/stock')
+      expect(await screen.findByRole('heading', { name: 'Adjust stock' })).toBeInTheDocument()
+    })
+
+    it('loads from its URL, shows every place as a choice and the recent movements', async () => {
+      renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/sku-1/stock')
+      expect(await screen.findByRole('radio', { name: /LOT-1/ })).toBeInTheDocument()
+      expect(screen.getByText(/Received — first delivery/)).toBeInTheDocument()
+    })
+
+    it('records a change and refreshes the recent movements', async () => {
+      vi.mocked(inventoryApi.recordStockMovement).mockResolvedValue({
+        id: 'mv-10', tenant_id: 't1', sku_id: 'sku-1', warehouse_id: 'wh-1', batch_id: 'batch-1',
+        type: 'sale', quantity_delta: -2, reason: 'Sold', occurred_at: '', created_at: '',
+      })
+      const user = userEvent.setup()
+      renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/sku-1/stock?batch=batch-1')
+      expect(await screen.findByRole('radio', { name: /LOT-1/ })).toBeChecked()
+      await user.click(screen.getByRole('button', { name: 'Remove' }))
+      await user.type(screen.getByLabelText('Quantity'), '2')
+      await user.click(screen.getByRole('button', { name: 'Record change' }))
+      await waitFor(() => expect(inventoryApi.recordStockMovement).toHaveBeenCalledWith('test-token', 'sku-1', expect.objectContaining({
+        warehouse_id: 'wh-1', batch_id: 'batch-1', type: 'sale', quantity_delta: -2,
+      })))
+      expect(await screen.findByRole('status')).toHaveTextContent('Recorded')
+      await waitFor(() => expect(inventoryApi.listStockMovements).toHaveBeenCalledTimes(2))
+    })
+
+    it('the modal hands over to the page, keeping the batch scope, and Back returns to the list', async () => {
+      const user = userEvent.setup()
+      const { router } = renderAt(<Inventory />, '/inventory', '/inventory?open=prod-1')
+      await screen.findByText('WIDGET-1')
+      await user.click(screen.getByRole('button', { name: /^Adjust$/ }))
+      await user.click(await screen.findByRole('button', { name: 'Open full page' }))
+      expect(router.state.location.pathname).toBe('/inventory/products/prod-1/skus/sku-1/stock')
+      expect(router.state.historyAction).toBe('REPLACE')
+      await screen.findByRole('heading', { name: 'Adjust stock' })
+      await act(() => router.navigate(-1))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/inventory'))
+    })
+
+    it('removing offers the write-off instead for damaged or lost stock', async () => {
+      const user = userEvent.setup()
+      const { router } = renderAt(<Inventory />, '/inventory', '/inventory?open=prod-1')
+      await screen.findByText('WIDGET-1')
+      await user.click(screen.getByRole('button', { name: /^Adjust$/ }))
+      await user.click(await screen.findByRole('button', { name: 'Remove' }))
+      await user.click(screen.getByRole('button', { name: 'Write it off' }))
+      expect(router.state.location.pathname).toBe('/inventory/products/prod-1/skus/sku-1/damaged-lost')
+    })
+
+    it('an unknown SKU says so', async () => {
+      renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/nope/stock')
+      expect(await screen.findByText(/not found/i)).toBeInTheDocument()
+    })
+  })
+
   it('loading an action URL opens the list with that product expanded and the modal on top', async () => {
     renderAt(<Inventory />, '/inventory', '/inventory/products/prod-1/skus/sku-1/recount')
     expect(await screen.findByText('Recount stock')).toBeInTheDocument()

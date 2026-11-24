@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, ArrowRightLeft, Trash2, Edit3, PackageMinus, ClipboardList, Tag, History, Boxes, Scale } from 'lucide-react'
+import { Plus, ArrowRightLeft, Trash2, Edit3, PackageMinus, ClipboardList, Tag, History, Boxes, Scale, Warehouse } from 'lucide-react'
 import clsx from 'clsx'
 import { Trans, useTranslation } from 'react-i18next'
 import { useSkuActionRoute } from './useSkuActionRoute'
@@ -143,6 +143,14 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
           >
             <History size={11} /> {t('row.history')}
           </button>
+          <button
+            type="button"
+            onClick={route.openStockPage}
+            title={t('sku.stockPageTitle')}
+            className="flex items-center gap-1 whitespace-nowrap text-2xs text-ink-4 hover:text-accent"
+          >
+            <Warehouse size={11} /> {t('sku.stockPage')}
+          </button>
           {level && (
             <span data-testid="stock-level" className="text-2xs text-ink-3">
               <Trans t={t} i18nKey="sku.levels" values={{ total: formatSKUQuantity(sku, level.total), syncable: formatSKUQuantity(sku, level.syncable) }}
@@ -265,6 +273,7 @@ export function SKUStockPanel({ token, productId, sku, variantName, warehouses, 
       )}
       {modal === 'adjust' && (
         <AdjustStockModal warehouses={warehouses} batches={batches} scope={rowScope ?? undefined} unit={unit} onClose={closeModal}
+          formatQuantity={n => formatSKUQuantity(sku, n)} onOpenPage={route.switchToStockPage} onWriteOff={() => route.switchAction('damaged-lost')}
           onSave={input => adjust(input).then(() => onStockChanged())} />
       )}
       {modal === 'recount' && (

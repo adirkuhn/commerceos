@@ -13,6 +13,7 @@ describe('parseInventoryPath', () => {
     ['/inventory/products/p1/skus/s1/adjust', { kind: 'skuAction', productId: 'p1', skuId: 's1', action: 'adjust' }],
     ['/inventory/products/p1/skus/s1/edit-batch', { kind: 'skuAction', productId: 'p1', skuId: 's1', action: 'edit-batch' }],
     ['/inventory/products/p1/skus/s1/bogus', { kind: 'list' }],
+    ['/inventory/products/p1/skus/s1/stock', { kind: 'skuStock', productId: 'p1', skuId: 's1' }],
   ])('%s -> %o', (path, view) => {
     expect(parseInventoryPath(path)).toEqual(view)
   })
@@ -24,6 +25,7 @@ describe('inventoryPaths', () => {
     expect(parseInventoryPath(inventoryPaths.skuHistory('p1', 's1'))).toEqual({ kind: 'skuHistory', productId: 'p1', skuId: 's1' })
     expect(parseInventoryPath(inventoryPaths.batchHistory('p1', 's1', 'b1'))).toEqual({ kind: 'batchHistory', productId: 'p1', skuId: 's1', batchId: 'b1' })
     expect(parseInventoryPath(inventoryPaths.expiry)).toEqual({ kind: 'expiry' })
+    expect(parseInventoryPath(inventoryPaths.skuStock('p1', 's 1'))).toEqual({ kind: 'skuStock', productId: 'p1', skuId: 's 1' })
   })
 })
 

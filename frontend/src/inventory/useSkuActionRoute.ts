@@ -44,6 +44,11 @@ export interface SkuActionRoute {
   // closes the action rather than reopening the chooser.
   switchAction: (action: SkuAction) => void
   close: () => void
+  // The SKU's stock page (inventoryPaths.skuStock), keeping the list query
+  // and any batch scope. openStockPage pushes (from the panel);
+  // switchToStockPage replaces the open modal, so Back skips it.
+  openStockPage: () => void
+  switchToStockPage: () => void
   // After creating a batch: back to the list with this SKU's zero-stock
   // batches shown (?allBatches=), since a new batch starts at zero and
   // would otherwise be hidden the moment the modal closes.
@@ -72,6 +77,14 @@ export function useSkuActionRoute(productId: string, skuId: string): SkuActionRo
     navigate(`${inventoryPaths.skuAction(productId, skuId, action)}${location.search}`, { replace: true, state: location.state })
   }, [navigate, productId, skuId, location.search, location.state])
 
+  const openStockPage = useCallback(() => {
+    open(withSearch(inventoryPaths.skuStock(productId, skuId), withoutScope(location.search)))
+  }, [open, productId, skuId, location.search])
+
+  const switchToStockPage = useCallback(() => {
+    navigate(`${inventoryPaths.skuStock(productId, skuId)}${location.search}`, { replace: true, state: location.state })
+  }, [navigate, productId, skuId, location.search, location.state])
+
   const listUrl = useCallback((showAllBatches: boolean) => {
     const list = withoutScope(location.search)
     addToSet(list, 'open', productId)
@@ -92,6 +105,8 @@ export function useSkuActionRoute(productId: string, skuId: string): SkuActionRo
     row: batch !== null ? { batch } : ledger !== null ? { ledger } : null,
     openAction,
     switchAction,
+    openStockPage,
+    switchToStockPage,
     close,
     closeShowingAllBatches,
   }

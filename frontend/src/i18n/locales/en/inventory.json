@@ -188,7 +188,9 @@
     "transfer": "Transfer",
     "viewHistory": "View movement history",
     "splitPackages": "Split into packages",
-    "splitPackagesTitle": "Weigh packages off this weight pool and turn them into sellable variants"
+    "splitPackagesTitle": "Weigh packages off this weight pool and turn them into sellable variants",
+    "stockPage": "Stock page",
+    "stockPageTitle": "Open the stock page: every lot, adjust, recent movements"
   },
   "split": {
     "casesToSplit": "Cases to split",
@@ -299,5 +301,53 @@
       "nameRequired": "Enter a name for the sale."
     },
     "onSaleShort": "On sale"
+  },
+  "adjust": {
+    "title": "Adjust stock",
+    "back": "Back to inventory",
+    "subtitle": "{{product}} · {{sku}}",
+    "where": "Where",
+    "noLot": "No lot",
+    "lot": "Lot {{lot}}",
+    "onHand": "On hand",
+    "total": "Total on hand",
+    "showEmpty_one": "Show {{count}} empty lot",
+    "showEmpty_other": "Show {{count}} empty lots",
+    "hideEmpty": "Hide empty lots",
+    "change": "Change",
+    "add": "Add",
+    "remove": "Remove",
+    "quantity": "Quantity",
+    "quantityKg": "Quantity (kg)",
+    "why": "Why",
+    "note": "Note (optional)",
+    "notePlaceholder": "e.g. supplier delivery 14 Nov",
+    "reason": {
+      "received": "Received",
+      "returned": "Returned",
+      "found": "Found",
+      "sold": "Sold",
+      "sample": "Sample",
+      "correction": "Correction"
+    },
+    "previewLabel": "After this change",
+    "short": "Only {{onHand}} on hand here.",
+    "writeOffHint": "Damaged or lost?",
+    "writeOff": "Write it off",
+    "save": "Record change",
+    "saved": "Recorded: {{before}} → {{after}}",
+    "error": {
+      "quantity": "Enter a quantity above zero.",
+      "warehouse": "Pick where the stock is.",
+      "reason": "Pick a reason for this change.",
+      "failed": "Could not record the change."
+    },
+    "openPage": "Open full page",
+    "recent": "Recent movements",
+    "recentEmpty": "No movements yet.",
+    "fullHistory": "Full history",
+    "loadFailed": "Could not load the stock for this item.",
+    "showEmpty_many": "Show {{count}} empty lots",
+    "lotWord": "Lot"
   }
 }
