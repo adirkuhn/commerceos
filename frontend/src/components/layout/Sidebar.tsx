@@ -164,7 +164,7 @@ const LOOK_LABEL_KEYS: Record<Look, 'ui.lookWallet' | 'ui.lookGraphite'> = {
 
 function AccountMenu({ role }: { role?: string }) {
   const { logout } = useAuth()
-  const { look, setLook } = useLook()
+  const { personal, setLook } = useLook()
   const { t } = useTranslation('layout')
   const [open, setOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -196,17 +196,17 @@ function AccountMenu({ role }: { role?: string }) {
             <p className="px-2.5 pb-2 text-xs font-medium text-ink">{label}</p>
             <div className="border-t border-line my-1" />
             <p className="px-2.5 pt-1 pb-1 caps-label-widest text-2xs font-semibold text-ink-4">{t('ui.look')}</p>
-            {LOOKS.map((option, i) => (
+            {([null, ...LOOKS] as (Look | null)[]).map((option, i) => (
               <button
-                key={option}
+                key={option ?? 'shop'}
                 ref={i === 0 ? itemRef : undefined}
                 role="menuitemradio"
-                aria-checked={look === option}
+                aria-checked={personal === option}
                 onClick={() => { setLook(option); setOpen(false) }}
                 className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-left text-xs text-ink-2 hover:bg-hover"
               >
-                <Check size={14} aria-hidden className={look === option ? 'text-accent' : 'invisible'} />
-                {t(LOOK_LABEL_KEYS[option])}
+                <Check size={14} aria-hidden className={personal === option ? 'text-accent' : 'invisible'} />
+                {option ? t(LOOK_LABEL_KEYS[option]) : t('ui.lookShopDefault')}
               </button>
             ))}
             <div className="border-t border-line my-1" />

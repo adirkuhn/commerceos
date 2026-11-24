@@ -2,7 +2,9 @@ import type { ThemeStorage } from './themePreference'
 
 // Which look (palette, type and material) the admin wears. Both looks share
 // one layout and one set of components; each has a light and a dark
-// appearance (see themePreference). Chosen per browser from the account menu.
+// appearance (see themePreference). The shop sets a default (Settings >
+// Appearance); a person may pick their own per browser from the account
+// menu, which wins until they go back to the shop default.
 //   wallet   -- Ticket Wallet: carrier navy, coupon white, carbon-purple figures
 //   graphite -- Graphite Console: graphite panels split by hairline seams
 export type Look = 'wallet' | 'graphite'
@@ -22,19 +24,29 @@ function isLook(value: unknown): value is Look {
   return typeof value === 'string' && (LOOKS as readonly string[]).includes(value)
 }
 
-export function loadLookPreference(storage: ThemeStorage | null): Look {
+// A storage that may also forget a key (localStorage does).
+export type LookStorage = ThemeStorage & { removeItem?: (key: string) => void }
+
+// This browser's own choice, or null to follow the shop default.
+export function loadLookPreference(storage: LookStorage | null): Look | null {
   try {
     const stored = storage?.getItem(LOOK_STORAGE_KEY)
-    return isLook(stored) ? stored : DEFAULT_LOOK
+    return isLook(stored) ? stored : null
   } catch {
-    return DEFAULT_LOOK
+    return null
   }
 }
 
-export function saveLookPreference(storage: ThemeStorage | null, look: Look): void {
+export function saveLookPreference(storage: LookStorage | null, look: Look | null): void {
   try {
-    storage?.setItem(LOOK_STORAGE_KEY, look)
+    if (look) storage?.setItem(LOOK_STORAGE_KEY, look)
+    else storage?.removeItem?.(LOOK_STORAGE_KEY)
   } catch {
     // Not persisted this time; the in-memory choice still applies.
   }
+}
+
+// The look to show: the person's, else the shop's, else Ticket Wallet.
+export function resolveLook(personal: Look | null, shopDefault: Look | null | undefined): Look {
+  return personal ?? shopDefault ?? DEFAULT_LOOK
 }

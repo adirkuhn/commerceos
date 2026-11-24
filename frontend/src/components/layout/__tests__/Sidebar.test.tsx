@@ -156,11 +156,11 @@ describe('Sidebar look switch', () => {
     document.documentElement.classList.remove('look-wallet', 'look-graphite')
   })
 
-  it('switches between the Ticket Wallet and Graphite looks from the account menu', async () => {
+  it('follows the shop default until a look is picked, and can go back to it', async () => {
     renderSidebar()
 
     await userEvent.click(screen.getByRole('button', { name: 'Account: Owner' }))
-    expect(screen.getByRole('menuitemradio', { name: 'Ticket Wallet' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('menuitemradio', { name: 'Shop default' })).toHaveAttribute('aria-checked', 'true')
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Graphite' }))
 
     expect(document.documentElement.classList.contains('look-graphite')).toBe(true)
@@ -168,10 +168,10 @@ describe('Sidebar look switch', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Account: Owner' }))
     expect(screen.getByRole('menuitemradio', { name: 'Graphite' })).toHaveAttribute('aria-checked', 'true')
-    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Ticket Wallet' }))
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Shop default' }))
 
+    expect(localStorage.getItem('commerceos.look')).toBeNull()
     expect(document.documentElement.classList.contains('look-wallet')).toBe(true)
-    expect(document.documentElement.classList.contains('look-graphite')).toBe(false)
   })
 })
 

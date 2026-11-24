@@ -5,6 +5,7 @@ import {
   LOOK_STORAGE_KEY,
   lookClass,
   loadLookPreference,
+  resolveLook,
   saveLookPreference,
 } from '../lookPreference'
 import type { ThemeStorage } from '../themePreference'
@@ -36,8 +37,8 @@ describe('looks', () => {
 })
 
 describe('loadLookPreference', () => {
-  it('uses the default when nothing is stored', () => {
-    expect(loadLookPreference(memoryStorage())).toBe('wallet')
+  it('is null when this browser never picked a look (the shop default applies)', () => {
+    expect(loadLookPreference(memoryStorage())).toBeNull()
   })
 
   it('returns a stored choice', () => {
@@ -45,12 +46,12 @@ describe('loadLookPreference', () => {
   })
 
   it('ignores an unknown stored value, such as a retired design', () => {
-    expect(loadLookPreference(memoryStorage({ [LOOK_STORAGE_KEY]: 'depot' }))).toBe('wallet')
+    expect(loadLookPreference(memoryStorage({ [LOOK_STORAGE_KEY]: 'depot' }))).toBeNull()
   })
 
-  it('falls back to the default when storage is unavailable', () => {
-    expect(loadLookPreference(throwingStorage)).toBe('wallet')
-    expect(loadLookPreference(null)).toBe('wallet')
+  it('is null when storage is unavailable', () => {
+    expect(loadLookPreference(throwingStorage)).toBeNull()
+    expect(loadLookPreference(null)).toBeNull()
   })
 })
 
@@ -61,7 +62,22 @@ describe('saveLookPreference', () => {
     expect(storage.data[LOOK_STORAGE_KEY]).toBe('graphite')
   })
 
+  it('forgets the choice for null, so the shop default applies again', () => {
+    const storage = memoryStorage({ [LOOK_STORAGE_KEY]: 'graphite' })
+    const removing = { ...storage, removeItem: (k: string) => { delete storage.data[k] } }
+    saveLookPreference(removing, null)
+    expect(storage.data[LOOK_STORAGE_KEY]).toBeUndefined()
+  })
+
   it('does not throw when storage is unavailable', () => {
     expect(() => saveLookPreference(throwingStorage, 'wallet')).not.toThrow()
+  })
+})
+
+describe('resolveLook', () => {
+  it('prefers the person, then the shop, then Ticket Wallet', () => {
+    expect(resolveLook('graphite', 'wallet')).toBe('graphite')
+    expect(resolveLook(null, 'graphite')).toBe('graphite')
+    expect(resolveLook(null, null)).toBe('wallet')
   })
 })

@@ -2,12 +2,13 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { LOOK_STORAGE_KEY } from '../lookPreference'
-import { applyLook, initLook, useLook } from '../useLook'
+import { applyLook, initLook, setShopDefaultLook, useLook } from '../useLook'
 
 const root = () => document.documentElement.classList
 
 function reset() {
   localStorage.clear()
+  setShopDefaultLook(null)
   root().remove('look-wallet', 'look-graphite')
 }
 
@@ -50,6 +51,34 @@ describe('useLook', () => {
     await act(async () => { a.result.current.setLook('graphite') })
 
     expect(b.result.current.look).toBe('graphite')
+  })
+})
+
+describe('shop default look', () => {
+  it('applies the shop default when this browser has no choice of its own', () => {
+    initLook()
+    setShopDefaultLook('graphite')
+    expect(root().contains('look-graphite')).toBe(true)
+  })
+
+  it('leaves a personal choice alone', () => {
+    localStorage.setItem(LOOK_STORAGE_KEY, 'wallet')
+    initLook()
+    setShopDefaultLook('graphite')
+    expect(root().contains('look-wallet')).toBe(true)
+  })
+
+  it('goes back to the shop default when the person clears their choice', async () => {
+    setShopDefaultLook('graphite')
+    const { result } = renderHook(() => useLook())
+    await act(async () => { result.current.setLook('wallet') })
+    expect(result.current.personal).toBe('wallet')
+
+    await act(async () => { result.current.setLook(null) })
+
+    expect(result.current.personal).toBeNull()
+    expect(result.current.look).toBe('graphite')
+    expect(localStorage.getItem(LOOK_STORAGE_KEY)).toBeNull()
   })
 })
 

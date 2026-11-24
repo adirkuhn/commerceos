@@ -1,20 +1,22 @@
-import { useCallback, useSyncExternalStore } from 'react'
+import { useCallback, useReducer, useSyncExternalStore } from 'react'
 import {
   DEFAULT_LOOK,
   LOOKS,
   loadLookPreference,
   lookClass,
+  resolveLook,
   saveLookPreference,
   type Look,
+  type LookStorage,
 } from './lookPreference'
-import type { ThemeStorage } from './themePreference'
 
-// The look class on <html> is the single source of truth: the pre-paint
-// script in index.html sets it, initLook re-applies it at boot and setLook
-// changes it. Readers subscribe to the class, so any component can read the
-// look without app context.
+// The look class on <html> is the single source of truth for what shows:
+// the pre-paint script in index.html sets it, initLook re-applies it at
+// boot, setShopDefaultLook follows the shop's setting and setLook records a
+// person's own choice. Readers subscribe to the class, so any component can
+// read the look without app context.
 
-function browserStorage(): ThemeStorage | null {
+function browserStorage(): LookStorage | null {
   try {
     return window.localStorage
   } catch {
@@ -22,13 +24,27 @@ function browserStorage(): ThemeStorage | null {
   }
 }
 
+// The shop's default look, once known (AppearanceProvider sets it).
+let shopDefault: Look | null = null
+
 export function applyLook(look: Look): void {
   const classes = document.documentElement.classList
   for (const other of LOOKS) classes.toggle(lookClass(other), other === look)
 }
 
+function applyResolved(): void {
+  applyLook(resolveLook(loadLookPreference(browserStorage()), shopDefault))
+}
+
 export function initLook(): void {
-  applyLook(loadLookPreference(browserStorage()))
+  applyResolved()
+}
+
+// The shop's setting changed or loaded: it shows unless the person picked
+// their own look. null forgets it (tests, signing out).
+export function setShopDefaultLook(look: Look | null): void {
+  shopDefault = look
+  applyResolved()
 }
 
 function subscribe(onChange: () => void): () => void {
@@ -43,15 +59,23 @@ function snapshot(): Look {
 }
 
 export interface LookState {
+  // What shows now.
   look: Look
-  setLook: (look: Look) => void
+  // This browser's own choice, or null when it follows the shop default.
+  personal: Look | null
+  // A look of one's own, or null to follow the shop default again.
+  setLook: (look: Look | null) => void
 }
 
 export function useLook(): LookState {
   const look = useSyncExternalStore(subscribe, snapshot, () => DEFAULT_LOOK)
-  const setLook = useCallback((next: Look) => {
+  // Switching between "my own" and "the shop's" can leave the class as it
+  // was (same look) -- re-render so `personal` is read fresh.
+  const [, rerender] = useReducer((n: number) => n + 1, 0)
+  const setLook = useCallback((next: Look | null) => {
     saveLookPreference(browserStorage(), next)
-    applyLook(next)
+    applyResolved()
+    rerender()
   }, [])
-  return { look, setLook }
+  return { look, personal: loadLookPreference(browserStorage()), setLook }
 }
