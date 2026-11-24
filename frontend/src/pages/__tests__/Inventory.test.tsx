@@ -219,6 +219,19 @@ describe('Inventory page', () => {
     })
   })
 
+  it('opens a product from the keyboard through its labelled toggle', async () => {
+    const user = userEvent.setup()
+    renderAt(<Inventory />, '/inventory')
+
+    const toggle = await screen.findByRole('button', { name: 'Show lots for Widget' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    toggle.focus()
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByText('LOT-1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show lots for Widget' })).toHaveAttribute('aria-expanded', 'true')
+  })
+
   it('keeps a row expanded across a remount (page refresh)', async () => {
     const user = userEvent.setup()
     const { router, unmount } = renderAt(<Inventory />, '/inventory')

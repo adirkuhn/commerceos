@@ -145,7 +145,8 @@
     "loadingSkus": "SKU’s laden…",
     "noSkus": "Dit product heeft nog geen SKU’s.",
     "saleUntil": "tot {{date}}",
-    "viewHistory": "Volledige mutatiegeschiedenis bekijken"
+    "viewHistory": "Volledige mutatiegeschiedenis bekijken",
+    "showLots": "Partijen tonen voor {{name}}"
   },
   "rowAction": {
     "adjust": "Corrigeren (toevoegen/verwijderen)",

@@ -145,7 +145,8 @@
     "loadingSkus": "Carregando SKUs…",
     "noSkus": "Este produto ainda não tem SKUs.",
     "saleUntil": "até {{date}}",
-    "viewHistory": "Ver histórico completo de movimentações"
+    "viewHistory": "Ver histórico completo de movimentações",
+    "showLots": "Mostrar lotes de {{name}}"
   },
   "rowAction": {
     "adjust": "Ajustar (adicionar/remover)",

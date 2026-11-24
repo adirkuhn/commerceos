@@ -89,8 +89,18 @@ export function ProductStockRow({ token, productId, productName, productImageUrl
   return (
     <>
       <tr className="hover:bg-hover/60 transition-colors cursor-pointer" onClick={toggleExpanded}>
-        <td className="px-4 py-2.5 w-8">
-          {expanded ? <ChevronDown size={13} className="text-ink-4" /> : <ChevronRight size={13} className="text-ink-4" />}
+        <td className="px-2 py-1.5 w-8">
+          {/* The row opens on click for the mouse; this is the real control
+              for the keyboard and screen readers. */}
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); toggleExpanded() }}
+            aria-expanded={expanded}
+            aria-label={t('row.showLots', { name: productName || detail?.product.name || '' })}
+            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-fill"
+          >
+            {expanded ? <ChevronDown size={14} className="text-ink-3" aria-hidden /> : <ChevronRight size={14} className="text-ink-3" aria-hidden />}
+          </button>
         </td>
         <td className="px-2 py-2.5">
           {productImageUrl ? (
