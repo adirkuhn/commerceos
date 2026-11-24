@@ -266,7 +266,8 @@
     "tenantDefault": "Standaard van het bedrijf",
     "title": "Kostprijs en marge",
     "units_one": "{{count}} stuk",
-    "units_other": "{{count}} stuks"
+    "units_other": "{{count}} stuks",
+    "unsaved": "Niet-opgeslagen prijs"
   },
   "list": {
     "archive": "Product archiveren",

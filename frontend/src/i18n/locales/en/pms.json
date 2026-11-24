@@ -266,7 +266,8 @@
     "tenantDefault": "Tenant default",
     "title": "Cost & margin insight",
     "units_one": "{{count}} unit",
-    "units_other": "{{count}} units"
+    "units_other": "{{count}} units",
+    "unsaved": "Unsaved price"
   },
   "list": {
     "archive": "Archive product",

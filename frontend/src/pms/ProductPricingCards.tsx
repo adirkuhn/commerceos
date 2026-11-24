@@ -10,22 +10,25 @@ import { FormCard } from './FormCard'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
 import { profitExclIncl } from './profit'
+import { liveMarginInsight, type MarginInsightDraft } from './liveMarginInsight'
+
+export type { MarginInsightDraft }
 
 // ── Shared form layout primitives ────────────────────────────────────────────
 
 // MarginInsightCard shows the cost price (the last receipt's landed cost, or
 // a manual one -- see SupplierCostsCard for where it comes from), the
 // recommended price from the effective target margin, and profit/margin at
-// whatever price is currently set -- see application/pms's
-// GetSKUMarginInsightUseCase. Fetched fresh whenever skuId changes (e.g.
-// switching between products), not tied to the price/salePrice form state --
-// this reflects the *saved* SKU, not an in-progress unsaved edit.
-export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesIncludeTax }: {
-  skuId: string; currency: string; taxRateBasisPoints: number | null; pricesIncludeTax: boolean
+// the SKU's price -- see application/pms's GetSKUMarginInsightUseCase.
+// Fetched when skuId or the saved prices change; with a draft, profit and
+// margin follow the price being typed (liveMarginInsight) and say so, so a
+// price's margin shows before it is saved.
+export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesIncludeTax, draft }: {
+  skuId: string; currency: string; taxRateBasisPoints: number | null; pricesIncludeTax: boolean; draft?: MarginInsightDraft
 }) {
   const { token } = useAuth()
   const { t } = useTranslation(['pms', 'common'])
-  const [insight, setInsight] = useState<SKUMarginInsight | null>(null)
+  const [savedInsight, setInsight] = useState<SKUMarginInsight | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -41,7 +44,9 @@ export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesI
     return () => { cancelled = true }
   }
 
-  useEffect(reload, [token, skuId])
+  useEffect(reload, [token, skuId, draft?.savedPriceMinorUnits, draft?.savedSalePriceMinorUnits])
+  const live = savedInsight ? liveMarginInsight(savedInsight, draft) : null
+  const insight = live?.insight ?? null
 
   const formatMoney = useMoneyFormat()
   const money = (minorUnits: number) => <Money minor={minorUnits} currency={currency} />
@@ -81,6 +86,9 @@ export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesI
       )}
       {!loading && !error && insight && insight.cost_price_available && (
         <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+          {live?.unsaved && (
+            <p className="col-span-2 text-2xs font-medium text-warning">{t('insight.unsaved')}</p>
+          )}
           <div>
             <div className="text-ink-4">{t('insight.costPrice')}</div>
             <div className="font-medium text-ink">{money(insight.cost_price_minor_units)}</div>
@@ -118,8 +126,8 @@ export function MarginInsightCard({ skuId, currency, taxRateBasisPoints, pricesI
           )}
         </div>
       )}
-      {!loading && !error && insight && (
-        <ManualCostPriceEditor skuId={skuId} insight={insight} currency={currency} onChanged={reload} />
+      {!loading && !error && savedInsight && (
+        <ManualCostPriceEditor skuId={skuId} insight={savedInsight} currency={currency} onChanged={reload} />
       )}
     </FormCard>
   )

@@ -267,7 +267,8 @@
     "title": "Custo e margem",
     "units_one": "{{count}} unidade",
     "units_many": "{{count}} unidades",
-    "units_other": "{{count}} unidades"
+    "units_other": "{{count}} unidades",
+    "unsaved": "Preço não salvo"
   },
   "list": {
     "archive": "Arquivar produto",

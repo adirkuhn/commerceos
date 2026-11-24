@@ -172,6 +172,11 @@ export function ProductEditPage({ productId, categories, onCreateCategory, onUpd
                     skuId={currentSku.id} currency={sku.currency}
                     taxRateBasisPoints={taxRateForPreview?.rate_basis_points ?? null}
                     pricesIncludeTax={tenantSettings?.prices_include_tax ?? false}
+                    draft={{
+                      price: sku.price, salePrice: sku.salePrice,
+                      savedPriceMinorUnits: currentSku.price_minor_units,
+                      savedSalePriceMinorUnits: currentSku.sale_price_minor_units ?? null,
+                    }}
                   />
                 )}
 
