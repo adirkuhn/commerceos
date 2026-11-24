@@ -35,7 +35,7 @@ export default defineConfig({
     timeout: 60_000,
     env: {
       VITE_API_BASE_URL: API_BASE_URL,
-      VITE_LM2_LOGIN_URL: 'https://lm2.dev.localhost/app-login',
+      VITE_LM2_LOGIN_URL: 'https://lm2.dev.localhost/akantio-pos/app-login',
     },
   },
 })
