@@ -12,6 +12,7 @@ import { useToday } from './hooks/useToday'
 import type { TodayQueue } from './types'
 import { SalesPeriodCard } from './SalesPeriodCard'
 import { StockFlowPanel, TopProductsPanel } from './widgets'
+import { Coupon, CouponHead } from '../components/common/Coupon'
 
 // Home ("/"): what the shop has to do now. A dispatch board
 // with the three daily queues (pick, pack, ship today), then only the problems that exist right now
@@ -20,31 +21,31 @@ import { StockFlowPanel, TopProductsPanel } from './widgets'
 
 interface QueueCounterProps {
   count: number | undefined
+  stub: string
   label: string
   action: string
   icon: ElementType
   onStart: () => void
 }
 
-function QueueCounter({ count, label, action, icon: Icon, onStart }: QueueCounterProps) {
-  const idle = count === 0
+// One daily queue as a coupon: the count on the stub, what it is and the
+// action that works it. An empty queue waits in outline.
+function QueueCounter({ count, stub, label, action, icon: Icon, onStart }: QueueCounterProps) {
+  const idle = !count
   return (
-    <div className="flex items-end justify-between gap-4 px-6 py-5">
-      <div>
-        <p className="font-data text-6xl font-semibold leading-none tabular-nums text-rail-ink">{count ?? '–'}</p>
-        <p className="mt-2 text-sm text-rail-ink-2">{label}</p>
-      </div>
+    <Coupon tone={idle ? 'waiting' : 'plain'} stubLabel={stub} stubValue={count ?? '–'} stubWidth="wide" className="min-h-[6.5rem]">
+      <CouponHead rule={idle ? 'none' : 'mark'} muted={idle}>{label}</CouponHead>
       <button
         onClick={onStart}
         className={clsx(
-          'shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-rail-mark',
-          idle ? 'text-rail-ink-2 hover:bg-rail-hover/10' : 'bg-white text-rail hover:bg-rail-ink',
+          'self-start inline-flex items-center gap-2 h-8 px-3 rounded-md text-xs font-semibold transition-colors',
+          idle ? 'border border-line text-ink-3 hover:bg-hover' : 'bg-accent-solid text-white hover:bg-accent-solid-hover',
         )}
       >
-        <Icon size={16} aria-hidden />
+        <Icon size={15} aria-hidden />
         {action}
       </button>
-    </div>
+    </Coupon>
   )
 }
 
@@ -89,15 +90,16 @@ export default function TodayPage() {
 
   return (
     <div className="p-6 space-y-6 max-w-6xl">
-      <h2 className="font-data text-3xl font-semibold tracking-tight text-ink first-letter:uppercase">
+      <h2 className="text-3xl font-bold tracking-tight text-ink first-letter:uppercase">
         {formatLongDay(new Date(), i18n.language, settings)}
       </h2>
 
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
-      <section aria-label={t('today.workQueue')} className="rounded-xl bg-rail grid grid-cols-1 md:grid-cols-3 md:divide-x divide-rail-hover/10">
+      <section aria-label={t('today.workQueue')} className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <QueueCounter
           count={queue?.to_pick}
+          stub={t('today.stubPick')}
           label={t('today.toPick', { count: queue?.to_pick ?? 0 })}
           action={t('today.startPicking')}
           icon={ScanBarcode}
@@ -105,6 +107,7 @@ export default function TodayPage() {
         />
         <QueueCounter
           count={queue?.to_pack}
+          stub={t('today.stubPack')}
           label={t('today.toPack', { count: queue?.to_pack ?? 0 })}
           action={t('today.startPacking')}
           icon={PackageCheck}
@@ -112,6 +115,7 @@ export default function TodayPage() {
         />
         <QueueCounter
           count={queue?.ship_today}
+          stub={t('today.stubShip')}
           label={t('today.toShip', { count: queue?.ship_today ?? 0 })}
           action={t('today.viewToShip')}
           icon={Truck}
@@ -119,8 +123,8 @@ export default function TodayPage() {
         />
       </section>
 
-      <section aria-labelledby="today-attention" className="bg-raised rounded-xl border border-line">
-        <h3 id="today-attention" className="px-5 pt-4 pb-2 text-sm font-semibold text-ink">{t('today.needsAttention')}</h3>
+      <section aria-labelledby="today-attention" className="bg-raised rounded-lg border border-line shadow-panel">
+        <h3 id="today-attention" className="px-5 pt-4 pb-2 caps-label-widest text-2xs font-bold text-ink">{t('today.needsAttention')}</h3>
         {queue && items.length === 0 && (
           <p className="flex items-center gap-2 px-5 pb-4 text-sm text-ink-3">
             <CheckCircle2 size={16} className="text-success" aria-hidden />
@@ -137,7 +141,7 @@ export default function TodayPage() {
                   <span className="flex-1 text-sm text-ink">{item.text}</span>
                   <button
                     onClick={() => navigate(item.to)}
-                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-accent hover:bg-accent/10 transition-colors"
+                    className="shrink-0 h-8 px-3 rounded-md border border-line text-xs font-semibold text-ink-2 hover:bg-hover hover:text-ink transition-colors"
                   >
                     {item.action}
                   </button>
@@ -151,7 +155,7 @@ export default function TodayPage() {
       <SalesPeriodCard />
 
       <section aria-labelledby="today-month" className="space-y-4">
-        <h3 id="today-month" className="text-sm font-semibold text-ink">{t('today.thisMonth')}</h3>
+        <h3 id="today-month" className="caps-label-widest text-2xs font-bold text-ink">{t('today.thisMonth')}</h3>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
           <TopProductsPanel products={report?.top_products_this_month ?? []} currency={currency} className="lg:col-span-2" />
           <StockFlowPanel flow={report?.stock_flow_last_7_days ?? []} />

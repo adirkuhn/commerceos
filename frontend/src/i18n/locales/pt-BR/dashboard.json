@@ -65,7 +65,10 @@
     "writeOffExpired": "Baixar lotes vencidos",
     "resolveStock": "Resolver problemas de estoque",
     "matchSkus": "Vincular SKUs",
-    "thisMonth": "Este mês"
+    "thisMonth": "Este mês",
+    "stubPick": "Separar",
+    "stubPack": "Embalar",
+    "stubShip": "Enviar"
   },
   "sales": {
     "title": "Vendas",

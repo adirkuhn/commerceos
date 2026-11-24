@@ -64,7 +64,10 @@
     "writeOffExpired": "Verlopen partijen afboeken",
     "resolveStock": "Voorraadproblemen oplossen",
     "matchSkus": "SKUs koppelen",
-    "thisMonth": "Deze maand"
+    "thisMonth": "Deze maand",
+    "stubPick": "Picken",
+    "stubPack": "Inpakken",
+    "stubShip": "Verzenden"
   },
   "sales": {
     "title": "Verkopen",

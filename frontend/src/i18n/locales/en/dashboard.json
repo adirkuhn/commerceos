@@ -64,7 +64,10 @@
     "writeOffExpired": "Write off expired batches",
     "resolveStock": "Resolve stock issues",
     "matchSkus": "Match SKUs",
-    "thisMonth": "This month"
+    "thisMonth": "This month",
+    "stubPick": "Pick",
+    "stubPack": "Pack",
+    "stubShip": "Ship"
   },
   "sales": {
     "title": "Sales",
