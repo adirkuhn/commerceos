@@ -199,7 +199,10 @@
     "sourceInternal": "Handmatig",
     "sourceStorefront": "Webwinkel",
     "statusPlaceholder": "Status…",
-    "unfulfilled": "Niet afgehandeld"
+    "unfulfilled": "Niet afgehandeld",
+    "channel": "Kanaal",
+    "status": "Status",
+    "fulfilment": "Afhandeling"
   },
   "paymentStatus": {
     "awaiting_payment": "Wacht op betaling",
@@ -356,6 +359,8 @@
     "upNext": "Volgende",
     "notYet": "Nog niet",
     "void": "Vervallen",
-    "voidHint": "Deze order is geannuleerd, mislukt of terugbetaald."
+    "voidHint": "Deze order is geannuleerd, mislukt of terugbetaald.",
+    "legUpNext": "{{leg}} is volgende",
+    "summary": "Orderverloop: {{state}}"
   }
 }

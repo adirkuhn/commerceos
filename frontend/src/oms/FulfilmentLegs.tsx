@@ -60,3 +60,32 @@ function LegCoupon({ leg, number }: { leg: Leg; number: number }) {
     </Coupon>
   )
 }
+
+// The journey at list-row size: four short segments (done filled, current
+// outlined in the accent, upcoming a hairline), struck through when void.
+// One accessible name says where the order is.
+export function MiniLegs({ order }: { order: LegOrder }) {
+  const { t } = useTranslation('orders')
+  const { voided, legs } = fulfilmentLegs(order)
+  const current = legs.find(l => l.state === 'current')
+  const state = voided
+    ? t('legs.void')
+    : current ? t('legs.legUpNext', { leg: t(`legs.${current.id}`) }) : t('legs.shipped')
+
+  return (
+    <span role="img" aria-label={t('legs.summary', { state })} title={state} className="relative inline-flex items-center gap-0.5">
+      {legs.map(leg => (
+        <span
+          key={leg.id}
+          className={clsx(
+            'h-2 w-3 rounded-[1px]',
+            leg.state === 'done' && 'bg-figure',
+            leg.state === 'current' && 'border border-accent bg-accent/20',
+            leg.state === 'upcoming' && 'bg-line',
+          )}
+        />
+      ))}
+      {voided && <span aria-hidden className="absolute inset-x-[-2px] top-1/2 h-0.5 -translate-y-1/2 bg-danger" />}
+    </span>
+  )
+}

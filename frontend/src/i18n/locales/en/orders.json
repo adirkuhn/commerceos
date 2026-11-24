@@ -199,7 +199,10 @@
     "sourceInternal": "Manual",
     "sourceStorefront": "Storefront",
     "statusPlaceholder": "Status…",
-    "unfulfilled": "Unfulfilled"
+    "unfulfilled": "Unfulfilled",
+    "channel": "Channel",
+    "status": "Status",
+    "fulfilment": "Fulfilment"
   },
   "paymentStatus": {
     "awaiting_payment": "Awaiting payment",
@@ -356,6 +359,8 @@
     "upNext": "Up next",
     "notYet": "Not yet",
     "void": "Void",
-    "voidHint": "This order is cancelled, failed or refunded."
+    "voidHint": "This order is cancelled, failed or refunded.",
+    "legUpNext": "{{leg}} up next",
+    "summary": "Order journey: {{state}}"
   }
 }

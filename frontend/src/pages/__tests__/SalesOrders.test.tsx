@@ -170,7 +170,7 @@ describe('Sales orders list', () => {
 
     expect(await screen.findByText('#1001')).toBeInTheDocument()
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
-    expect(screen.getByText('Completed', { selector: 'span.rounded-full' })).toBeInTheDocument()
+    expect(screen.getByText('Completed', { selector: 'span.rounded-sm' })).toBeInTheDocument()
     expect(screen.getByText('$50.00')).toBeInTheDocument()
   })
 
@@ -252,7 +252,7 @@ describe('Sales orders list', () => {
     render(<MemoryRouter><SalesOrders /></MemoryRouter>)
     await screen.findByText('#1001')
 
-    await userEvent.click(screen.getByRole('columnheader', { name: /Order/ }))
+    await userEvent.click(screen.getByRole('columnheader', { name: 'Order' }))
 
     expect(omsApi.listSalesOrders).toHaveBeenLastCalledWith('test-token', { page: 1, perPage: 20, sortBy: 'occurred_at', sortDir: 'asc', status: [], source: [] })
   })

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { idFromPath, subPathSegments } from '../routes'
-import { ShoppingCart, Plus, ChevronUp, ChevronDown, X } from 'lucide-react'
+import { Plus, ChevronUp, ChevronDown, X } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
@@ -10,12 +10,14 @@ import { LIST_TOOLBAR, LIST_TOOLBAR_ACTION, LIST_TOOLBAR_INLINE, LIST_TOOLBAR_RO
 import { useSalesOrders } from '../oms/hooks/useSalesOrders'
 import type { SalesOrderStatus, SalesOrderSource, SalesOrderSortField, SortDirection } from '../oms/types'
 import { useConfirm } from '../components/common/useConfirm'
+import { FilterChips } from '../components/common/FilterChips'
 import { STATUS_OPTIONS, customerName, salesOrderSourceLabel } from '../oms/salesOrderDisplay'
 import { PaymentStatusBadge } from '../oms/PaymentStatusBadge'
 import { salesOrderStatusLabel } from '../oms/statusLabel'
 import { CreateSalesOrderPage } from '../oms/CreateSalesOrderPage'
 import { EditSalesOrderPage } from '../oms/EditSalesOrderPage'
 import { SalesOrderDetailPage } from '../oms/SalesOrderDetailPage'
+import { MiniLegs } from '../oms/FulfilmentLegs'
 import { Money } from '../format/amountVisibility'
 import { useDateFormat } from '../format/DateFormatProvider'
 import { apiErrorText } from '../api/apiErrorText'
@@ -31,15 +33,15 @@ const sourceFilterOptions = (): { value: SalesOrderSource; label: string }[] =>
   SOURCE_FILTER_VALUES.map(value => ({ value, label: salesOrderSourceLabel(value) }))
 
 const STATUS_COLORS: Record<SalesOrderStatus, string> = {
-  pending: 'bg-gray-500/15 text-ink-4',
-  processing: 'bg-accent/15 text-accent',
-  'on-hold': 'bg-amber-500/15 text-warning',
-  shipped: 'bg-indigo-500/15 text-indigo-400',
-  completed: 'bg-green-500/15 text-success',
-  cancelled: 'bg-gray-500/15 text-ink-4',
-  refunded: 'bg-purple-500/15 text-purple-400',
-  partially_refunded: 'bg-purple-500/10 text-purple-300',
-  failed: 'bg-red-500/15 text-danger',
+  pending: 'bg-fill text-ink-3',
+  processing: 'bg-accent/10 text-accent',
+  'on-hold': 'bg-warning/10 text-warning',
+  shipped: 'bg-accent/10 text-accent',
+  completed: 'bg-success/10 text-success',
+  cancelled: 'bg-fill text-ink-4',
+  refunded: 'bg-figure/10 text-figure',
+  partially_refunded: 'bg-figure/10 text-figure',
+  failed: 'bg-danger/10 text-danger',
 }
 
 function SortableTh({ field, label, sortBy, sortDir, onSort, align = 'left' }: {
@@ -55,7 +57,7 @@ function SortableTh({ field, label, sortBy, sortDir, onSort, align = 'left' }: {
   return (
     <th
       className={clsx(
-        'px-3 py-2.5 font-medium caps-label cursor-pointer select-none hover:text-ink-2 transition-colors',
+        'px-3 py-2.5 text-2xs font-semibold caps-label-widest cursor-pointer select-none hover:text-ink-2 transition-colors',
         align === 'right' ? 'text-right' : 'text-left',
         active ? 'text-ink-2' : 'text-ink-4',
       )}
@@ -263,7 +265,7 @@ export default function SalesOrders() {
         <div className={clsx('flex items-center justify-end gap-3 px-5 py-3 border-b border-line bg-sunken shrink-0', LIST_TOOLBAR_ROW)}>
           <button
             onClick={() => navigate('/sales-orders/new')}
-            className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-medium', LIST_TOOLBAR_ACTION)}
+            className={clsx('flex items-center gap-1.5 h-8 px-3 rounded-md bg-accent-solid text-white text-xs hover:bg-accent-solid-hover transition-colors font-semibold whitespace-nowrap', LIST_TOOLBAR_ACTION)}
           >
             <Plus size={13} /> {t('list.newOrder')}
           </button>
@@ -271,55 +273,31 @@ export default function SalesOrders() {
 
         {/* Stats strip */}
         <div className={clsx('flex items-center gap-6 px-5 py-2.5 border-b border-line bg-surface shrink-0', LIST_TOOLBAR_ROW)}>
-          <span className="text-xs text-ink-4 whitespace-nowrap">{t('list.count', { count: total })}</span>
-          <div className="flex items-center gap-1.5" role="group" aria-label={t('list.filterChannel')}>
-            {sourceFilterOptions().map(({ value, label }) => (
-              <button
-                key={value}
-                onClick={() => toggleSourceFilter(value)}
-                aria-pressed={sourceFilter.includes(value)}
-                className={clsx(
-                  'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-                  sourceFilter.includes(value)
-                    ? 'bg-accent-solid text-white'
-                    : 'bg-fill text-ink-3 hover:bg-hover',
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <span className="self-end pb-1.5 text-xs font-semibold text-ink-3 tabular-nums whitespace-nowrap">{t('list.count', { count: total })}</span>
+          <FilterChips label={t('list.channel')} options={sourceFilterOptions()} selected={sourceFilter} onToggle={toggleSourceFilter} />
           {error && <span className={clsx('text-xs text-danger ml-auto', LIST_TOOLBAR_INLINE)}>{error}</span>}
         </div>
 
         {/* Status + substatus filter strip */}
         <div className={clsx('flex items-center flex-wrap gap-3 px-5 py-2.5 border-b border-line bg-surface shrink-0', LIST_TOOLBAR_ROW)}>
-          <div className="flex items-center flex-wrap gap-1.5" role="group" aria-label={t('list.filterStatus')}>
-            {STATUS_OPTIONS.map(s => (
-              <button
-                key={s}
-                onClick={() => toggleStatusFilter(s)}
-                aria-pressed={statusFilter.includes(s)}
-                className={clsx(
-                  'px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors',
-                  statusFilter.includes(s)
-                    ? 'bg-accent-solid text-white'
-                    : 'bg-fill text-ink-3 hover:bg-hover',
-                )}
-              >
-                {salesOrderStatusLabel(s)}
-              </button>
-            ))}
-          </div>
-          <select
-            aria-label={t('list.filterFulfilled')} value={fulfilledFilter}
-            onChange={e => changeFulfilledFilter(e.target.value as '' | 'true' | 'false')}
-            className="px-2 py-1.5 text-xs rounded-lg dark:bg-night-800 bg-gray-50 border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
-          >
-            <option value="">{t('list.anyFulfillment')}</option>
-            <option value="true">{t('list.onlyFulfilled')}</option>
-            <option value="false">{t('list.onlyUnfulfilled')}</option>
-          </select>
+          <FilterChips
+            label={t('list.status')}
+            options={STATUS_OPTIONS.map(value => ({ value, label: salesOrderStatusLabel(value) }))}
+            selected={statusFilter}
+            onToggle={toggleStatusFilter}
+          />
+          <label className="flex flex-col gap-1">
+            <span aria-hidden className="caps-label-widest text-2xs font-semibold text-ink-4">{t('list.fulfilment')}</span>
+            <select
+              aria-label={t('list.filterFulfilled')} value={fulfilledFilter}
+              onChange={e => changeFulfilledFilter(e.target.value as '' | 'true' | 'false')}
+              className="h-7 px-2 text-xs font-semibold rounded-md bg-surface border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
+            >
+              <option value="">{t('list.anyFulfillment')}</option>
+              <option value="true">{t('list.onlyFulfilled')}</option>
+              <option value="false">{t('list.onlyUnfulfilled')}</option>
+            </select>
+          </label>
           {customerId && (
             <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-accent/15 text-accent">
               {t('list.oneCustomer')}
@@ -393,10 +371,10 @@ export default function SalesOrders() {
                 <input
                   type="checkbox" aria-label={t('list.selectAll')}
                   checked={allOnPageChecked} onChange={toggleAllOnPage}
-                  className="rounded border dark:border-night-700 border-gray-300"
+                  className="rounded-sm border-line accent-[rgb(var(--accent-solid))]"
                 />
               </th>
-              <th className="px-2 py-2.5 w-8" />
+              <th className="px-2 py-2.5 w-16"><span className="sr-only">{t('legs.label')}</span></th>
               <SortableTh field="occurred_at" label={t('list.colOrder')} sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
               <SortableTh field="customer" label={t('common:fields.customer')} sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
               <SortableTh field="source" label={t('list.colSource')} sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
@@ -421,40 +399,38 @@ export default function SalesOrders() {
                   <input
                     type="checkbox" aria-label={t('list.selectOrder', { number: o.number || o.external_order_id })}
                     checked={checkedIds.has(o.id)} onChange={() => toggleOne(o.id)}
-                    className="rounded border dark:border-night-700 border-gray-300"
+                    className="rounded-sm border-line accent-[rgb(var(--accent-solid))]"
                   />
                 </td>
                 <td className="px-2 py-2.5">
-                  <div className="w-6 h-6 rounded dark:bg-night-700 bg-gray-200 flex items-center justify-center">
-                    <ShoppingCart size={12} className="text-ink-4" />
-                  </div>
+                  <MiniLegs order={o} />
                 </td>
                 <td className="px-3 py-2.5 max-w-[200px]">
-                  <p className="font-medium text-ink truncate">#{o.number || o.external_order_id}</p>
+                  <p className="font-semibold text-ink truncate tabular-nums">#{o.number || o.external_order_id}</p>
                   <p className="text-2xs text-ink-4 truncate">{formatDateTime(o.occurred_at)}</p>
                 </td>
                 <td className="px-3 py-2.5 text-ink-3 max-w-[220px] truncate">{customerName(o)}</td>
                 <td className="px-3 py-2.5 text-ink-3">{salesOrderSourceLabel(o.source)}</td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className={clsx('px-2 py-0.5 rounded-full text-2xs font-medium', STATUS_COLORS[o.status])}>
+                    <span className={clsx('px-1.5 py-0.5 rounded-sm text-2xs font-semibold', STATUS_COLORS[o.status])}>
                       {salesOrderStatusLabel(o.status)}
                     </span>
                     <PaymentStatusBadge status={o.payment_status} />
                     <span className={clsx(
-                      'px-2 py-0.5 rounded-full text-2xs font-medium',
-                      o.fulfilled ? 'bg-green-500/15 text-success' : 'bg-gray-500/15 text-ink-4',
+                      'px-1.5 py-0.5 rounded-sm text-2xs font-semibold',
+                      o.fulfilled ? 'bg-success/10 text-success' : 'bg-fill text-ink-4',
                     )}>
                       {o.fulfilled ? t('list.fulfilled') : t('list.unfulfilled')}
                     </span>
                     {(o.needs_stock_review || o.needs_sku_review) && (
-                      <span className="px-2 py-0.5 rounded-full text-2xs font-medium bg-amber-500/15 text-warning">
+                      <span className="px-1.5 py-0.5 rounded-sm text-2xs font-semibold bg-warning/10 text-warning">
                         {t('list.needsReview')}
                       </span>
                     )}
                   </div>
                 </td>
-                <td className="px-3 py-2.5 text-right font-medium text-ink">
+                <td className="px-3 py-2.5 text-right font-semibold text-figure tabular-nums">
                   <Money minor={o.total_minor_units} currency={o.currency_code} />
                 </td>
               </tr>

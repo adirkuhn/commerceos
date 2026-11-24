@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, within } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
-import { FulfilmentLegs } from '../FulfilmentLegs'
+import { FulfilmentLegs, MiniLegs } from '../FulfilmentLegs'
 import type { LegOrder } from '../fulfilmentLegs'
 
 function order(over: Partial<LegOrder> = {}): LegOrder {
@@ -45,5 +45,19 @@ describe('FulfilmentLegs', () => {
     render(<FulfilmentLegs order={order({ status: 'cancelled' })} />)
     expect(screen.getByText('Void')).toBeInTheDocument()
     expect(screen.getAllByRole('listitem').some(l => l.hasAttribute('aria-current'))).toBe(false)
+  })
+})
+
+describe('MiniLegs', () => {
+  it('names where the order is in one accessible label', () => {
+    render(<MiniLegs order={order()} />)
+    expect(screen.getByRole('img', { name: 'Order journey: Picked up next' })).toBeInTheDocument()
+  })
+
+  it('says void for a cancelled order and done when every leg is', () => {
+    const { rerender } = render(<MiniLegs order={order({ status: 'cancelled' })} />)
+    expect(screen.getByRole('img', { name: 'Order journey: Void' })).toBeInTheDocument()
+    rerender(<MiniLegs order={order({ status: 'completed' })} />)
+    expect(screen.getByRole('img', { name: 'Order journey: Shipped' })).toBeInTheDocument()
   })
 })

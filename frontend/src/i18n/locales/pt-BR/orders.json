@@ -202,7 +202,10 @@
     "sourceInternal": "Manual",
     "sourceStorefront": "Loja virtual",
     "statusPlaceholder": "Status…",
-    "unfulfilled": "Não atendido"
+    "unfulfilled": "Não atendido",
+    "channel": "Canal",
+    "status": "Status",
+    "fulfilment": "Atendimento"
   },
   "paymentStatus": {
     "awaiting_payment": "Aguardando pagamento",
@@ -359,6 +362,8 @@
     "upNext": "Próximo",
     "notYet": "Ainda não",
     "void": "Anulado",
-    "voidHint": "Este pedido foi cancelado, falhou ou foi reembolsado."
+    "voidHint": "Este pedido foi cancelado, falhou ou foi reembolsado.",
+    "legUpNext": "{{leg}} é o próximo",
+    "summary": "Percurso do pedido: {{state}}"
   }
 }
