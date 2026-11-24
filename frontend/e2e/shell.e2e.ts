@@ -12,16 +12,17 @@ test.describe('app shell', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Customers' })).toBeVisible()
     await expect(nav.getByRole('button', { name: 'Customers' })).toHaveAttribute('aria-current', 'page')
 
-    const reports = nav.getByRole('button', { name: 'Reports' })
-    await expect(reports).toHaveAttribute('aria-expanded', 'false')
-    await reports.click()
-    await nav.getByRole('button', { name: 'Sales Trends' }).click()
+    // One Reports link; the reports list themselves beside the report.
+    await nav.getByRole('button', { name: 'Reports' }).click()
+    await expect(page).toHaveURL(/\/reports$/)
+    await page.getByRole('navigation', { name: 'Reports' }).getByRole('button', { name: 'Sales Trends' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Reports: Sales Trends' })).toBeVisible()
+    await expect(nav.getByRole('button', { name: 'Reports' })).toHaveAttribute('aria-current', 'page')
   })
 
   test('g then a letter jumps to a page', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Today' })).toBeVisible()
     await page.keyboard.press('g')
     await page.keyboard.press('p')
     await expect(page).toHaveURL(/\/products$/)
@@ -60,5 +61,20 @@ test.describe('app shell', () => {
 
     await page.reload()
     await expect(html).toHaveClass(/dark/)
+  })
+
+  test('a personal look survives a reload and can go back to the shop default', async ({ page }) => {
+    await page.goto('/')
+    const html = page.locator('html')
+    await page.getByRole('button', { name: 'Account: Owner' }).click()
+    await page.getByRole('menuitemradio', { name: 'Graphite' }).click()
+    await expect(html).toHaveClass(/look-graphite/)
+
+    await page.reload()
+    await expect(html).toHaveClass(/look-graphite/)
+
+    await page.getByRole('button', { name: 'Account: Owner' }).click()
+    await page.getByRole('menuitemradio', { name: 'Shop default' }).click()
+    await expect(html).not.toHaveClass(/look-graphite/)
   })
 })

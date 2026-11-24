@@ -1,5 +1,10 @@
 import { test, expect, api } from './fixtures'
 
+// These specs read real figures: show amounts (hidden by default, remembered).
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('commerceos.amounts', 'visible'))
+})
+
 interface Supplier { id: string }
 interface Warehouse { id: string }
 interface Product { id: string }
