@@ -64,13 +64,13 @@ func TestGetSKUMarginInsight_computesProfitAndMarginAtCurrentAndSalePrice(t *tes
 	assert.Equal(t, int64(910), result.RecommendedPriceMinorUnits) // 700*1.3
 	assert.Equal(t, int64(300), result.ProfitAtPriceMinorUnits)    // 1000-700
 	assert.Equal(t, 3000, result.MarginAtPriceBasisPoints)         // 300/1000 = 30% margin
-	assert.Equal(t, 4285, result.MarkupAtPriceBasisPoints)         // 300/700 = 42.85% markup
+	assert.Equal(t, 4286, result.MarkupAtPriceBasisPoints)         // 300/700 = 42.857% markup, rounded like the product page
 	require.NotNil(t, result.ProfitAtSalePriceMinorUnits)
 	assert.Equal(t, int64(100), *result.ProfitAtSalePriceMinorUnits) // 800-700
 	require.NotNil(t, result.MarginAtSalePriceBasisPoints)
 	assert.Equal(t, 1250, *result.MarginAtSalePriceBasisPoints) // 100/800 = 12.5% margin
 	require.NotNil(t, result.MarkupAtSalePriceBasisPoints)
-	assert.Equal(t, 1428, *result.MarkupAtSalePriceBasisPoints) // 100/700 = 14.28% markup
+	assert.Equal(t, 1429, *result.MarkupAtSalePriceBasisPoints) // 100/700 = 14.286% markup, rounded
 	assert.Equal(t, int64(5), result.TotalOnHandQuantity)
 	assert.Equal(t, int64(500), result.TotalProfitPotentialMinorUnits) // (800-700)*5, sale price is effective
 }
@@ -91,4 +91,22 @@ func TestGetSKUMarginInsight_computesShrinkageFromDiscardsUsingBatchOrFallbackCo
 
 	require.NoError(t, err)
 	assert.Equal(t, int64(700), result.ShrinkageMinorUnits) // 400 + 300
+}
+
+// A loss rounds the same way the product page's profitAt does (half up,
+// Math.round), so the live figure and the saved one never differ.
+func TestGetSKUMarginInsight_roundsLossesLikeTheProductPage(t *testing.T) {
+	skuRepo := &stubSKURepo{findByIDResult: &pmsDomain.SKU{
+		ID: "sku-1", VariantID: "variant-1", CostPriceMinorUnits: int64Ptr2(700), PriceMinorUnits: 600,
+	}}
+	uc := apppms.NewGetSKUMarginInsightUseCase(
+		newMockGormDB(t), skuRepo, &stubVariantRepo{}, &stubProductRepo{}, &stubCategoryRepo{}, &stubSettingsRepoForPMS{},
+		&stubBatchListerForCostPrice{}, &stubDiscardListerForMarginInsight{},
+	)
+
+	result, err := uc.Execute(context.Background(), "sku-1")
+
+	require.NoError(t, err)
+	assert.Equal(t, -1667, result.MarginAtPriceBasisPoints) // -100/600 = -16.667%
+	assert.Equal(t, -1429, result.MarkupAtPriceBasisPoints) // -100/700 = -14.286%
 }

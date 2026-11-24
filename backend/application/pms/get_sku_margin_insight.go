@@ -3,6 +3,7 @@ package pms
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	invapp "github.com/adirkuhn/commerceos/application/inventory"
@@ -137,10 +138,10 @@ func (uc *GetSKUMarginInsightUseCase) Execute(ctx context.Context, skuID string)
 
 		result.ProfitAtPriceMinorUnits = sku.PriceMinorUnits - result.CostPriceMinorUnits
 		if sku.PriceMinorUnits > 0 {
-			result.MarginAtPriceBasisPoints = int(result.ProfitAtPriceMinorUnits * 10000 / sku.PriceMinorUnits)
+			result.MarginAtPriceBasisPoints = basisPoints(result.ProfitAtPriceMinorUnits, sku.PriceMinorUnits)
 		}
 		if result.CostPriceMinorUnits > 0 {
-			result.MarkupAtPriceBasisPoints = int(result.ProfitAtPriceMinorUnits * 10000 / result.CostPriceMinorUnits)
+			result.MarkupAtPriceBasisPoints = basisPoints(result.ProfitAtPriceMinorUnits, result.CostPriceMinorUnits)
 		}
 
 		effectivePrice := sku.PriceMinorUnits
@@ -149,11 +150,11 @@ func (uc *GetSKUMarginInsightUseCase) Execute(ctx context.Context, skuID string)
 			profit := *sku.SalePriceMinorUnits - result.CostPriceMinorUnits
 			result.ProfitAtSalePriceMinorUnits = &profit
 			if *sku.SalePriceMinorUnits > 0 {
-				margin := int(profit * 10000 / *sku.SalePriceMinorUnits)
+				margin := basisPoints(profit, *sku.SalePriceMinorUnits)
 				result.MarginAtSalePriceBasisPoints = &margin
 			}
 			if result.CostPriceMinorUnits > 0 {
-				markup := int(profit * 10000 / result.CostPriceMinorUnits)
+				markup := basisPoints(profit, result.CostPriceMinorUnits)
 				result.MarkupAtSalePriceBasisPoints = &markup
 			}
 		}
@@ -187,4 +188,11 @@ func (uc *GetSKUMarginInsightUseCase) computeShrinkage(ctx context.Context, skuI
 		result.ShrinkageMinorUnits += unitCost * d.Quantity
 	}
 	return nil
+}
+
+// basisPoints is part/whole in basis points, rounded half up -- the same as
+// the product page's profitAt (Math.round), so the figure it shows while a
+// price is typed matches the one saved.
+func basisPoints(part, whole int64) int {
+	return int(math.Floor(float64(part)*10000/float64(whole) + 0.5))
 }
