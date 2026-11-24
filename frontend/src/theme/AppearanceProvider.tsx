@@ -4,6 +4,7 @@ import { apiErrorText } from '../api/apiErrorText'
 import { getAppearance, updateAppearance } from '../settings/appearance/api'
 import type { Appearance, AppearanceSettings } from './appearance'
 import { applyAppearance, renderAppearance, saveAppliedAppearance } from './applyAppearance'
+import { setShopDefaultLook } from './useLook'
 
 export interface AppearanceState {
   // The shop's saved appearance; null until loaded.
@@ -28,6 +29,7 @@ function storage(): Storage | null {
 function show(look: AppearanceSettings, remember: boolean) {
   const applied = renderAppearance(look)
   applyAppearance(document, applied)
+  setShopDefaultLook(applied.look)
   if (remember) saveAppliedAppearance(storage(), applied)
 }
 

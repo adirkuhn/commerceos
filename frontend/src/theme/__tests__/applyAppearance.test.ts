@@ -5,12 +5,20 @@ import { DEFAULT_APPEARANCE } from '../appearance'
 
 beforeEach(() => { document.head.innerHTML = '' })
 
+describe('renderAppearance', () => {
+  it('carries the CSS and the shop default look', () => {
+    expect(renderAppearance({ ...DEFAULT_APPEARANCE, default_look: 'graphite', density: 'compact' })).toEqual({
+      css: 'html[class][class] {\n  --density: 0.8;\n}\n',
+      look: 'graphite',
+    })
+  })
+})
+
 describe('applyAppearance', () => {
-  it('adds the override stylesheet and the font the page lacks', () => {
-    applyAppearance(document, renderAppearance({ ...DEFAULT_APPEARANCE, font: 'barlow', corners: 'round' }))
+  it('adds the override stylesheet', () => {
+    applyAppearance(document, renderAppearance({ ...DEFAULT_APPEARANCE, corners: 'round' }))
 
     expect(document.getElementById('appearance-css')?.textContent).toContain('--radius-lg: 10px;')
-    expect(document.getElementById('appearance-font')?.getAttribute('href')).toContain('family=Barlow')
   })
 
   it('updates in place instead of stacking stylesheets', () => {
@@ -30,24 +38,35 @@ describe('applyAppearance', () => {
     expect(document.head.lastElementChild?.id).toBe('appearance-css')
   })
 
-  it('removes everything again for the defaults', () => {
-    applyAppearance(document, renderAppearance({ ...DEFAULT_APPEARANCE, font: 'barlow', corners: 'round' }))
+  it('removes the stylesheet again for the defaults', () => {
+    applyAppearance(document, renderAppearance({ ...DEFAULT_APPEARANCE, corners: 'round' }))
     applyAppearance(document, renderAppearance(DEFAULT_APPEARANCE))
 
     expect(document.getElementById('appearance-css')).toBeNull()
+  })
+
+  it('drops a font stylesheet left over from the old font setting', () => {
+    const link = document.createElement('link')
+    link.id = 'appearance-font'
+    document.head.appendChild(link)
+
+    applyAppearance(document, renderAppearance(DEFAULT_APPEARANCE))
+
     expect(document.getElementById('appearance-font')).toBeNull()
   })
 })
 
 describe('saveAppliedAppearance', () => {
-  it('stores what index.html replays before first paint', () => {
+  it('stores the css and look that index.html replays before first paint', () => {
     const store = new Map<string, string>()
     const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v) } }
-    const applied = renderAppearance({ ...DEFAULT_APPEARANCE, font: 'inter' })
 
-    saveAppliedAppearance(storage, applied)
+    saveAppliedAppearance(storage, renderAppearance({ ...DEFAULT_APPEARANCE, default_look: 'graphite', corners: 'sharp' }))
 
-    expect(JSON.parse(store.get(APPEARANCE_STORAGE_KEY)!)).toEqual(applied)
+    const cached = JSON.parse(store.get(APPEARANCE_STORAGE_KEY)!)
+    expect(Object.keys(cached).sort()).toEqual(['css', 'look'])
+    expect(cached.look).toBe('graphite')
+    expect(cached.css).toContain('--radius-lg: 3px;')
   })
 
   it('carries on when storage is blocked', () => {

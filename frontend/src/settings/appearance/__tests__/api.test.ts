@@ -5,7 +5,7 @@ import { DEFAULT_APPEARANCE, type Appearance } from '../../../theme/appearance'
 
 const TOKEN = 'test-token'
 const BASE = 'https://api.commerceos.dev.localhost/api/v1/settings/appearance'
-const saved: Appearance = { ...DEFAULT_APPEARANCE, font: 'inter', updated_at: '2026-10-12T10:00:00Z' }
+const saved: Appearance = { ...DEFAULT_APPEARANCE, default_look: 'graphite', updated_at: '2026-10-12T10:00:00Z' }
 
 function respond(status: number, body: unknown) {
   const fetchMock = vi.fn().mockResolvedValue({ ok: status < 300, status, json: () => Promise.resolve(body) })
@@ -27,7 +27,7 @@ describe('appearance api', () => {
 
   it('PUTs the whole appearance', async () => {
     const fetchMock = respond(200, { data: saved, error: null })
-    const input = { ...DEFAULT_APPEARANCE, font: 'inter' as const }
+    const input = { ...DEFAULT_APPEARANCE, default_look: 'graphite' as const }
 
     await updateAppearance(TOKEN, input)
 
@@ -35,11 +35,11 @@ describe('appearance api', () => {
   })
 
   it('keeps the error code of a rejected appearance', async () => {
-    respond(422, { data: null, error: { code: 'APPEARANCE_ACCENT_LOW_CONTRAST', message: 'too light' } })
+    respond(422, { data: null, error: { code: 'APPEARANCE_INVALID_LOOK', message: 'unknown look' } })
 
-    const err = await updateAppearance(TOKEN, { ...DEFAULT_APPEARANCE, accent_color: '#FFFF00' }).catch(e => e)
+    const err = await updateAppearance(TOKEN, { ...DEFAULT_APPEARANCE, corners: 'round' }).catch(e => e)
 
     expect(err).toBeInstanceOf(CodedApiError)
-    expect((err as CodedApiError).code).toBe('APPEARANCE_ACCENT_LOW_CONTRAST')
+    expect((err as CodedApiError).code).toBe('APPEARANCE_INVALID_LOOK')
   })
 })

@@ -314,14 +314,18 @@
     "title": "Appearance",
     "intro": "How the admin looks for everyone in this shop. Changes show straight away so you can try them; nothing changes for others until you save.",
     "readOnly": "Only the shop owner or an admin can change the appearance.",
-    "font": "Font",
-    "fontSample": "Order 1042 · 3 items · Il1 0O",
-    "accent": "Accent colour",
-    "accentHint": "Buttons, links and the selected menu item.",
-    "sidebar": "Sidebar colour",
-    "sidebarHint": "The sidebar text switches between light and dark to stay readable.",
-    "lowContrast": "This accent colour is too light for white button text.",
-    "useSuggestion": "Use {{color}}",
+    "defaultLook": "Default look",
+    "lookNote": "Everyone sees this look unless they choose their own in the account menu.",
+    "lookOption": {
+      "wallet": {
+        "name": "Ticket Wallet",
+        "description": "Navy and coupon white, purple figures"
+      },
+      "graphite": {
+        "name": "Graphite",
+        "description": "Graphite panels with blue accents"
+      }
+    },
     "corners": "Corners",
     "cornersOption": {
       "sharp": "Sharp",

@@ -1,7 +1,10 @@
-import type { ReactNode } from 'react'
+import { useId } from 'react'
 import clsx from 'clsx'
+import type { Look } from '../../theme/lookPreference'
 
 // Small form controls for the appearance section.
+
+export const SECTION_LABEL = 'caps-label-widest text-2xs font-bold text-ink-3 mb-2'
 
 interface SegmentedProps<T extends string> {
   name: string
@@ -16,8 +19,8 @@ interface SegmentedProps<T extends string> {
 export function Segmented<T extends string>({ name, legend, value, options, disabled, onChange }: SegmentedProps<T>) {
   return (
     <fieldset disabled={disabled}>
-      <legend className="text-sm font-medium text-ink mb-2">{legend}</legend>
-      <div className="inline-flex p-0.5 rounded-lg bg-fill">
+      <legend className={SECTION_LABEL}>{legend}</legend>
+      <div className="inline-flex p-0.5 rounded-md bg-fill">
         {options.map(o => (
           <label
             key={o.value}
@@ -36,46 +39,61 @@ export function Segmented<T extends string>({ name, legend, value, options, disa
   )
 }
 
-interface ColorFieldProps {
+// Each look's own colours (index.css), shown as a strip on its card.
+export const LOOK_SWATCHES: Readonly<Record<Look, readonly string[]>> = {
+  wallet: ['#14284B', '#EEF0F3', '#FFFFFF', '#4B2E83', '#C42B2B'],
+  graphite: ['#1B1D21', '#25282D', '#E6E6E3', '#7FB4FF', '#F07A6A'],
+}
+
+interface LookCardsProps {
   label: string
-  value: string
+  value: Look
+  options: ReadonlyArray<{ value: Look; name: string; description: string }>
   disabled: boolean
-  onChange: (value: string) => void
-  children?: ReactNode
+  onChange: (value: Look) => void
 }
 
-const HEX = /^#[0-9a-fA-F]{6}$/
-
-export function isHexColor(value: string): boolean {
-  return HEX.test(value)
-}
-
-// ColorField pairs the browser's colour picker with an editable hex value.
-export function ColorField({ label, value, disabled, onChange, children }: ColorFieldProps) {
+// LookCards picks a look from cards showing its name, a line about it and
+// a strip of its colours.
+export function LookCards({ label, value, options, disabled, onChange }: LookCardsProps) {
+  const id = useId()
   return (
-    <div>
-      <p className="text-sm font-medium text-ink mb-2">{label}</p>
-      <div className="flex items-center gap-2">
-        <input
-          type="color"
-          aria-label={label}
-          value={isHexColor(value) ? value : '#000000'}
-          disabled={disabled}
-          onChange={e => onChange(e.target.value.toUpperCase())}
-          className="h-9 w-12 rounded-lg border border-line bg-surface p-1 cursor-pointer disabled:cursor-default"
-        />
-        <input
-          aria-label={`${label} hex`}
-          value={value}
-          readOnly={disabled}
-          maxLength={7}
-          spellCheck={false}
-          onChange={e => onChange(e.target.value.trim().toUpperCase())}
-          aria-invalid={!isHexColor(value)}
-          className="w-28 px-3 py-2 rounded-lg bg-surface border border-line font-mono text-sm text-ink uppercase focus:outline-none focus:ring-2 focus:ring-focus/60 aria-[invalid=true]:border-danger read-only:bg-sunken"
-        />
+    <div role="radiogroup" aria-labelledby={`${id}-label`}>
+      <p id={`${id}-label`} className={SECTION_LABEL}>{label}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {options.map(o => {
+          const checked = value === o.value
+          return (
+            <label
+              key={o.value}
+              className={clsx(
+                'flex items-start gap-3 rounded-md border px-4 py-3 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-focus/60',
+                checked ? 'border-accent bg-accent/5' : 'border-line bg-raised',
+                disabled ? 'cursor-default' : 'cursor-pointer hover:border-ink-4',
+              )}
+            >
+              <input
+                type="radio"
+                name={`${id}-look`}
+                value={o.value}
+                checked={checked}
+                disabled={disabled}
+                onChange={() => onChange(o.value)}
+                aria-labelledby={`${id}-${o.value}-name`}
+                aria-describedby={`${id}-${o.value}-description`}
+                className="mt-1 accent-[rgb(var(--accent))]"
+              />
+              <span className="min-w-0 flex-1">
+                <span id={`${id}-${o.value}-name`} className="block text-sm font-semibold text-ink">{o.name}</span>
+                <span id={`${id}-${o.value}-description`} className="block text-xs text-ink-3">{o.description}</span>
+                <span className="mt-2 flex h-3 overflow-hidden rounded-sm border border-line" aria-hidden>
+                  {LOOK_SWATCHES[o.value].map(color => <span key={color} className="flex-1" style={{ background: color }} />)}
+                </span>
+              </span>
+            </label>
+          )
+        })}
       </div>
-      {children}
     </div>
   )
 }

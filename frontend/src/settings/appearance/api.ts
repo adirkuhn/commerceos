@@ -6,14 +6,14 @@ function url(): string {
   return `${appEnv().VITE_API_BASE_URL}/settings/appearance`
 }
 
-// GET /settings/appearance: the shop's admin look (defaults, with
-// updated_at null, until saved). Rejects with CodedApiError.
+// GET /settings/appearance: the shop's default look, corners, text size
+// and spacing (defaults, with updated_at null, until saved). Rejects with CodedApiError.
 export function getAppearance(token: string): Promise<Appearance> {
   return codedRequest<Appearance>('GET', url(), token)
 }
 
 // PUT /settings/appearance (owner/admin): full replace. A 422 carries an
-// APPEARANCE_* code, e.g. APPEARANCE_ACCENT_LOW_CONTRAST.
+// APPEARANCE_* code, e.g. APPEARANCE_INVALID_LOOK.
 export function updateAppearance(token: string, input: AppearanceSettings): Promise<Appearance> {
   return codedRequest<Appearance>('PUT', url(), token, input)
 }

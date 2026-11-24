@@ -316,14 +316,18 @@
     "title": "Aparência",
     "intro": "Como o painel aparece para todos desta loja. As mudanças aparecem na hora para você testar; nada muda para os outros até você salvar.",
     "readOnly": "Só o dono da loja ou um administrador pode mudar a aparência.",
-    "font": "Fonte",
-    "fontSample": "Pedido 1042 · 3 itens · Il1 0O",
-    "accent": "Cor de destaque",
-    "accentHint": "Botões, links e o item de menu selecionado.",
-    "sidebar": "Cor da barra lateral",
-    "sidebarHint": "O texto da barra lateral alterna entre claro e escuro para continuar legível.",
-    "lowContrast": "Esta cor de destaque é clara demais para texto branco nos botões.",
-    "useSuggestion": "Usar {{color}}",
+    "defaultLook": "Estilo padrão",
+    "lookNote": "Todos veem este estilo, a menos que escolham o próprio no menu da conta.",
+    "lookOption": {
+      "wallet": {
+        "name": "Ticket Wallet",
+        "description": "Azul-marinho e branco de cupom, números roxos"
+      },
+      "graphite": {
+        "name": "Graphite",
+        "description": "Painéis grafite com detalhes azuis"
+      }
+    },
     "corners": "Cantos",
     "cornersOption": {
       "sharp": "Retos",

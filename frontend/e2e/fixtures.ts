@@ -26,13 +26,14 @@ export function mintToken(role = 'customer_owner'): string {
   return `${header}.${payload}.${signature}`
 }
 
-async function signIn(page: Page, token: string, appearance: 'light' | 'dark' | 'system', look: Look) {
+async function signIn(page: Page, token: string, appearance: 'light' | 'dark' | 'system', look: Look | null) {
   await page.addInitScript(([jwt, theme, look]) => {
     localStorage.setItem('commerceos_jwt', jwt)
     localStorage.setItem('commerceos_scanner_jwt', jwt)
     // Initial appearance only -- a choice made during the test must survive reloads.
     if (localStorage.getItem('commerceos.theme') === null) localStorage.setItem('commerceos.theme', theme)
-    if (localStorage.getItem('commerceos.look') === null) localStorage.setItem('commerceos.look', look)
+    // null: no look of one's own, so the shop default shows.
+    if (look !== null && localStorage.getItem('commerceos.look') === null) localStorage.setItem('commerceos.look', look)
   }, [token, appearance, look] as const)
 
   const apiOrigin = new URL(API_BASE_URL).origin
@@ -58,9 +59,8 @@ async function signIn(page: Page, token: string, appearance: 'light' | 'dark' | 
   })
 }
 
-const DEFAULT_APPEARANCE_RESPONSE = {
-  font: 'atkinson', accent_color: '#2F33B8', sidebar_color: '#14163F',
-  corners: 'normal', text_size: 'normal', density: 'comfortable', updated_at: null,
+export const DEFAULT_APPEARANCE_RESPONSE = {
+  default_look: 'wallet', corners: 'normal', text_size: 'normal', density: 'comfortable', updated_at: null,
 }
 
 export type Look = 'wallet' | 'graphite'
@@ -68,12 +68,13 @@ export type Look = 'wallet' | 'graphite'
 interface Fixtures {
   token: string
   appearance: 'light' | 'dark' | 'system'
-  look: Look
+  // The person's own look; null follows the shop default.
+  look: Look | null
 }
 
 export const test = base.extend<Fixtures>({
   appearance: ['light', { option: true }],
-  look: ['wallet', { option: true }],
+  look: ['wallet' as Look | null, { option: true }],
   token: async ({}, use) => { await use(CONFIGURED ? mintToken() : '') },
   page: async ({ page, token, appearance, look }, use) => {
     test.skip(!CONFIGURED, NOT_CONFIGURED_REASON)

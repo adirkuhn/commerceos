@@ -17,31 +17,29 @@
         var dark = pref === 'dark' || (pref !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
         if (dark) document.documentElement.classList.add('dark')
       } catch (e) {}
-      // Look (wallet | graphite) -- mirrors src/theme/lookPreference.ts.
+      // Look (wallet | graphite) -- mirrors src/theme/lookPreference.ts
+      // resolveLook: the person's own choice, else the shop default as last
+      // seen on this browser, else Ticket Wallet.
+      var isLook = function (v) { return v === 'wallet' || v === 'graphite' }
       var look = 'wallet'
+      var shop = null
+      try {
+        shop = JSON.parse(localStorage.getItem('commerceos.appearance') || 'null')
+      } catch (e) {}
       try {
         var storedLook = localStorage.getItem('commerceos.look')
-        if (storedLook === 'wallet' || storedLook === 'graphite') look = storedLook
+        if (isLook(storedLook)) look = storedLook
+        else if (shop && isLook(shop.look)) look = shop.look
       } catch (e) {}
       document.documentElement.classList.add('look-' + look)
       // The shop's appearance as last seen on this browser -- mirrors
-      // src/theme/appearanceCache.ts; refreshed from the API after login.
-      try {
-        var shop = JSON.parse(localStorage.getItem('commerceos.appearance') || 'null')
-        if (shop && shop.css) {
-          var style = document.createElement('style')
-          style.id = 'appearance-css'
-          style.textContent = shop.css
-          document.head.appendChild(style)
-        }
-        if (shop && shop.fontHref) {
-          var font = document.createElement('link')
-          font.id = 'appearance-font'
-          font.rel = 'stylesheet'
-          font.href = shop.fontHref
-          document.head.appendChild(font)
-        }
-      } catch (e) {}
+      // src/theme/applyAppearance.ts; refreshed from the API after login.
+      if (shop && shop.css) {
+        var style = document.createElement('style')
+        style.id = 'appearance-css'
+        style.textContent = shop.css
+        document.head.appendChild(style)
+      }
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

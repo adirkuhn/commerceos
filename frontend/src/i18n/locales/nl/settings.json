@@ -314,14 +314,18 @@
     "title": "Uiterlijk",
     "intro": "Hoe de beheeromgeving eruitziet voor iedereen in deze winkel. Wijzigingen zie je meteen, zodat je ze kunt uitproberen; voor anderen verandert niets tot je opslaat.",
     "readOnly": "Alleen de eigenaar of een beheerder kan het uiterlijk wijzigen.",
-    "font": "Lettertype",
-    "fontSample": "Bestelling 1042 · 3 artikelen · Il1 0O",
-    "accent": "Accentkleur",
-    "accentHint": "Knoppen, links en het geselecteerde menu-item.",
-    "sidebar": "Kleur zijbalk",
-    "sidebarHint": "De tekst in de zijbalk wisselt tussen licht en donker zodat hij leesbaar blijft.",
-    "lowContrast": "Deze accentkleur is te licht voor witte tekst op knoppen.",
-    "useSuggestion": "{{color}} gebruiken",
+    "defaultLook": "Standaardstijl",
+    "lookNote": "Iedereen ziet deze stijl, tenzij iemand in het accountmenu een eigen stijl kiest.",
+    "lookOption": {
+      "wallet": {
+        "name": "Ticket Wallet",
+        "description": "Marineblauw en couponwit, paarse cijfers"
+      },
+      "graphite": {
+        "name": "Graphite",
+        "description": "Grafietpanelen met blauwe accenten"
+      }
+    },
     "corners": "Hoeken",
     "cornersOption": {
       "sharp": "Scherp",
